@@ -1,0 +1,8 @@
+[[package]]
+name = "schemaconv"
+version = "0.1.0"
+
+[[package]]
+name = "schemaconvlib"
+version = "0.1.0"
+
