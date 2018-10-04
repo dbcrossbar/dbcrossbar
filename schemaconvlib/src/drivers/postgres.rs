@@ -5,6 +5,7 @@
 
 use diesel::{pg::PgConnection, prelude::*};
 use failure::ResultExt;
+use std::io::Write;
 use url::Url;
 
 use Result;
@@ -65,6 +66,20 @@ impl PostgresDriver {
         }
 
         Ok(Table { name: table.to_owned(), columns })
+    }
+
+    /// Write out a table's column names as `SELECT` arguments.
+    pub fn write_select_args(f: &mut Write, table: &Table) -> Result<()> {
+        let mut first: bool = true;
+        for col in &table.columns {
+            if first {
+                first = false;
+            } else {
+                write!(f, ",")?;
+            }
+            write!(f, "{:?}", col.name)?;
+        }
+        Ok(())
     }
 }
 
