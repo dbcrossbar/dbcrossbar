@@ -40,9 +40,12 @@ struct PgColumn {
 pub struct PostgresDriver;
 
 impl PostgresDriver {
+    /// Fetch information about a table from the database.
     pub fn fetch_from_url(database_url: &Url, table: &str) -> Result<Table> {
         let conn = PgConnection::establish(database_url.as_str())
             .context("error connecting to PostgreSQL")?;
+        // TODO: Break table into table_schema and table_name, and query for
+        // both.
         let pg_columns = columns::table
             .filter(columns::table_name.eq(table))
             .load::<PgColumn>(&conn)?;
@@ -51,6 +54,8 @@ impl PostgresDriver {
         for pg_col in pg_columns {
             columns.push(Column {
                 name: pg_col.column_name,
+                // TODO: This is wrong, especially for arrays and custom types
+                // like geometry.
                 data_type: pg_col.data_type.parse()?,
                 is_nullable: match pg_col.is_nullable.as_str() {
                     "YES" => true,

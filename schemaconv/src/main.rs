@@ -16,7 +16,10 @@ extern crate strum_macros;
 extern crate url;
 
 use common_failures::Result;
-use schemaconvlib::drivers::postgres::PostgresDriver;
+use schemaconvlib::drivers::{
+    bigquery::BigQueryDriver,
+    postgres::PostgresDriver,
+};
 use std::io::{stdout, Write};
 use structopt::StructOpt;
 use url::Url;
@@ -27,6 +30,8 @@ enum OutputFormat {
     Json,
     #[strum(serialize="pg:select")]
     PostgresSelect,
+    #[strum(serialize="bigquery")]
+    BigQuery,
 }
 
 /// Our command-line arguments.
@@ -61,6 +66,10 @@ fn run() -> Result<()> {
         }
         OutputFormat::PostgresSelect => {
             PostgresDriver::write_select_args(&mut out, &table)?;
+            write!(&mut out, "\n")?;
+        }
+        OutputFormat::BigQuery => {
+            BigQueryDriver::write_json(&mut out, &table)?;
             write!(&mut out, "\n")?;
         }
     }
