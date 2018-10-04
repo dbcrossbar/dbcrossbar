@@ -1,10 +1,18 @@
 //! Core data types that we manipulate.
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{
+    de::Error as DeError,
+    Deserialize,
+    Deserializer,
+    Serialize,
+    Serializer,
+};
 use std::{
     fmt,
     str::FromStr,
 };
+
+use Error;
 
 /// Information about a table.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -60,13 +68,8 @@ pub enum DataType {
     Uuid,
 }
 
-/// A type representing an error which can never happen. It's an `enum` with no
-/// possible values, and it cannot be instantiated.
-#[derive(Debug)]
-pub enum NoError {}
-
 impl FromStr for DataType {
-    type Err = NoError;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.ends_with("[]") {
@@ -129,8 +132,7 @@ impl<'de> Deserialize<'de> for DataType {
         D: Deserializer<'de>,
     {
         let name: &str = Deserialize::deserialize(deserializer)?;
-        // `unwrap` is safe because `parse` returns `NoError`.
-        Ok(name.parse().unwrap())
+        name.parse().map_err(|err| D::Error::custom(format!("{}", err)))
     }
 }
 
