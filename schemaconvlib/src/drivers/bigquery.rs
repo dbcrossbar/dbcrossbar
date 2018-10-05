@@ -4,7 +4,7 @@ use serde_json;
 use std::io::Write;
 
 use Result;
-use table::{Column, DataType, Table};
+use table::{DataType, Table};
 
 /// A BigQuery column declaration.
 #[derive(Debug, Eq, PartialEq, Serialize)]
@@ -46,7 +46,7 @@ impl BigQueryDriver {
             cols.push(ColumnSchema {
                 name: col.name.to_owned(),
                 description: None,
-                ty: bigquery_type(&col.name, &col.data_type)?,
+                ty: bigquery_type(&col.name, &col.data_type, false)?,
                 mode: if col.is_nullable {
                     Mode::Nullable
                 } else {
@@ -61,11 +61,19 @@ impl BigQueryDriver {
 
 /// Convert `DataType` to a BigQuery type. See
 /// https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types.
-fn bigquery_type(column_name: &str, data_type: &DataType) -> Result<String> {
+fn bigquery_type(
+    column_name: &str,
+    data_type: &DataType,
+    inside_array: bool,
+) -> Result<String> {
     match data_type {
-        // TODO: Handle nested arrays as `ARRAY<STRUCT<ARRAY<_>>>`.
         DataType::Array(nested) => {
-            Ok(format!("ARRAY<{}>", bigquery_type(column_name, nested)?))
+            let bq_nested = bigquery_type(column_name, nested, true)?;
+            if inside_array {
+                Ok(format!("ARRAY<{}>", bq_nested))
+            } else {
+                Ok(format!("STRUCT<ARRAY<{}>>", bq_nested))
+            }
         }
         DataType::Bigint => Ok("INT64".to_owned()),
         DataType::Boolean => Ok("BOOL".to_owned()),
@@ -87,8 +95,10 @@ fn bigquery_type(column_name: &str, data_type: &DataType) -> Result<String> {
         DataType::Real => Ok("FLOAT64".to_owned()),
         DataType::Smallint => Ok("INT64".to_owned()),
         DataType::Text => Ok("STRING".to_owned()),
+        // Timestamps without timezones will be interpreted as UTC.
         DataType::TimestampWithoutTimeZone => Ok("TIMESTAMP".to_owned()),
-        // TODO: Will BigQuery convert to UTC automatically?
+        // As far as I can tell, BigQuery will convert timestamps with timezones
+        // to UTC.
         DataType::TimestampWithTimeZone => Ok("TIMESTAMP".to_owned()),
         DataType::Uuid => Ok("STRING".to_owned()),
     }
