@@ -306,6 +306,7 @@ version = "0.1.0"
 dependencies = [
  "common_failures 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.5.13 (registry+https://github.com/rust-lang/crates.io-index)",
+ "failure 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "schemaconvlib 0.1.0",
  "serde 1.0.79 (registry+https://github.com/rust-lang/crates.io-index)",
