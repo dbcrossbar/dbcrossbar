@@ -28,6 +28,19 @@ pub struct Column {
 }
 
 /// The data type of a column.
+///
+/// This is a rather interesting type: It only exists to provide a reasonable
+/// set of "interchange" types, that we might want to preserve when moving from
+/// on database to another. So it's less precise than PostgreSQL's built-in
+/// types, but more precise than BigQuery's built-in types. It exists to be a
+/// "happy medium"--every output driver should be able to understand every one
+/// of these types meaningfully, and it should almost always be able to map it
+/// to something in the local database.
+///
+/// Essentially, this fulfills a similar role to the standard JSON types
+/// (number, string, array, map, boolean, etc.). It's an interchange format.
+/// It's not supposed to cover every imaginable type. But it should at least
+/// cover common, generic types that make sense to many database backends.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all="snake_case")]
 pub enum DataType {
@@ -45,6 +58,8 @@ pub enum DataType {
     Float32,
     /// 8-byte float.
     Float64,
+    /// Geodata in GeoJSON format, using SRID EPSG:4326 (aka WGS 84).
+    GeoJson,
     /// 2-byte int.
     Int16,
     /// 4-byte integer.

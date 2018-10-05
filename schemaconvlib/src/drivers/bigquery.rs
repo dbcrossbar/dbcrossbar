@@ -80,6 +80,7 @@ fn bigquery_type(
         DataType::Decimal => Ok("DECIMAL".to_owned()),
         DataType::Float32 => Ok("FLOAT64".to_owned()),
         DataType::Float64 => Ok("FLOAT64".to_owned()),
+        DataType::GeoJson => Ok("GEOGRAPHY".to_owned()),
         DataType::Int16 => Ok("INT64".to_owned()),
         DataType::Int32 => Ok("INT64".to_owned()),
         DataType::Int64 => Ok("INT64".to_owned()),

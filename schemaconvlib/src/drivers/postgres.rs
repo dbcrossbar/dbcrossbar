@@ -96,7 +96,22 @@ impl PostgresDriver {
             } else {
                 write!(f, ",")?;
             }
-            write!(f, "{:?}", col.name)?;
+            match &col.data_type {
+                DataType::Array(_) => {
+                    write!(f, "array_to_json({}) AS {}", col.name, col.name)?;
+                }
+                DataType::GeoJson => {
+                    // Always transform to SRID 4326, because
+                    // information_schema.columns won't tell us the SRID anyway.
+                    write!(
+                        f,
+                        "ST_AsGeoJSON(ST_Transform({}, 4326)) AS {}",
+                        col.name,
+                        col.name,
+                    )?;
+                }
+                _ => write!(f, "{:?}", col.name)?,
+            }
         }
         Ok(())
     }
@@ -138,7 +153,11 @@ fn pg_data_type(
         };
         Ok(DataType::Array(Box::new(element_type)))
     } else if data_type == "USER-DEFINED" {
-        Ok(DataType::Other(udt_name.to_owned()))
+        let other_type = match udt_name {
+            "geometry" => DataType::GeoJson,
+            other => DataType::Other(other.to_owned()),
+        };
+        Ok(other_type)
     } else {
         match data_type {
             "bigint" => Ok(DataType::Int64),
@@ -216,7 +235,7 @@ fn parsing_pg_data_type() {
         (("USER-DEFINED", "public", "citext"),
          DataType::Other("citext".to_owned())),
         (("USER-DEFINED", "public", "geometry"),
-         DataType::Other("geometry".to_owned())),
+         DataType::GeoJson),
     ];
     for ((data_type, udt_schema, udt_name), expected) in examples {
         assert_eq!(
