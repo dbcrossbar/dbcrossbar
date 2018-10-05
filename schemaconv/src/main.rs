@@ -33,7 +33,7 @@ enum OutputFormat {
     Json,
     #[strum(serialize="pg:select")]
     PostgresSelect,
-    #[strum(serialize="bigquery")]
+    #[strum(serialize="bq")]
     BigQuery,
 }
 
@@ -41,11 +41,11 @@ enum OutputFormat {
 #[derive(Debug, StructOpt)]
 #[structopt(name = "schemaconv", about = "Convert between schema formats.")]
 struct Opt {
-    /// The URL of the database, with the table name specified as a `#`
-    /// fragment. If this URL is omitted, read a JSON table schema from stdin.
+    /// The URL of the database, followed by '#table_name' (as a URL fragment).
+    /// If this URL is omitted, read a JSON table schema from stdin.
     url: Option<Url>,
 
-    /// The output format to use.
+    /// The output format to use (json, pg:select, bq).
     #[structopt(short = "O", default_value = "json")]
     output_format: OutputFormat,
 }
