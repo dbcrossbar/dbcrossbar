@@ -75,14 +75,15 @@ fn bigquery_type(
                 Ok(format!("STRUCT<ARRAY<{}>>", bq_nested))
             }
         }
-        DataType::Bigint => Ok("INT64".to_owned()),
-        DataType::Boolean => Ok("BOOL".to_owned()),
-        DataType::CharacterVarying => Ok("STRING".to_owned()),
+        DataType::Bool => Ok("BOOL".to_owned()),
         DataType::Date => Ok("DATE".to_owned()),
-        DataType::DoublePrecision => Ok("FLOAT64".to_owned()),
-        DataType::Integer => Ok("INT64".to_owned()),
+        DataType::Decimal => Ok("DECIMAL".to_owned()),
+        DataType::Float32 => Ok("FLOAT64".to_owned()),
+        DataType::Float64 => Ok("FLOAT64".to_owned()),
+        DataType::Int16 => Ok("INT64".to_owned()),
+        DataType::Int32 => Ok("INT64".to_owned()),
+        DataType::Int64 => Ok("INT64".to_owned()),
         DataType::Json => Ok("STRING".to_owned()),
-        DataType::Numeric => Ok("DECIMAL".to_owned()),
         DataType::Other(unknown_type) => {
             eprintln!(
                 "WARNING: Converting unknown type {:?} of {:?} to STRING",
@@ -91,8 +92,6 @@ fn bigquery_type(
             );
             Ok("STRING".to_owned())
         }
-        DataType::Real => Ok("FLOAT64".to_owned()),
-        DataType::Smallint => Ok("INT64".to_owned()),
         DataType::Text => Ok("STRING".to_owned()),
         // Timestamps without timezones will be interpreted as UTC.
         DataType::TimestampWithoutTimeZone => Ok("TIMESTAMP".to_owned()),
