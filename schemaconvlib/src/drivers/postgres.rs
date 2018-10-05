@@ -165,7 +165,7 @@ fn parsing_pg_data_type() {
         (("json", "pg_catalog", "json"),
          DataType::Json),
         (("jsonb", "pg_catalog", "jsonb"),
-         DataType::Jsonb),
+         DataType::Json),
         (("name", "pg_catalog", "name"),
          DataType::Other("name".to_owned())),
         (("numeric", "pg_catalog", "numeric"),

@@ -45,20 +45,29 @@ pub struct Column {
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[allow(missing_docs)]
 pub enum DataType {
-    /// An array of another data type.
+    /// An array of another data type. For many output formats, it may not be
+    /// possible to nest arrays.
     Array(Box<DataType>),
+    /// 8-byte integer.
     Bigint,
     Boolean,
     CharacterVarying,
     Date,
+    /// 8-byte float.
     DoublePrecision,
+    /// 4-byte integer.
     Integer,
+    /// JSON data. This includes both Postgres `json` and `jsonb` types, the
+    /// differences between which don't usually matter when converting schemas.
     Json,
-    Jsonb,
+    /// A decimal integer (can represent currency, etc., without rounding
+    /// errors).
     Numeric,
     /// A data type which isn't in this list.
     Other(String),
+    /// 4-byte float.
     Real,
+    /// 2-byte int.
     Smallint,
     Text,
     TimestampWithoutTimeZone,
@@ -82,7 +91,7 @@ impl FromStr for DataType {
                 "double precision" => Ok(DataType::DoublePrecision),
                 "integer" => Ok(DataType::Integer),
                 "json" => Ok(DataType::Json),
-                "jsonb" => Ok(DataType::Jsonb),
+                "jsonb" => Ok(DataType::Json),
                 "numeric" => Ok(DataType::Numeric),
                 "real" => Ok(DataType::Real),
                 "smallint" => Ok(DataType::Smallint),
@@ -106,8 +115,7 @@ impl fmt::Display for DataType {
             DataType::Date => write!(f, "date"),
             DataType::DoublePrecision => write!(f, "double precision"),
             DataType::Integer => write!(f, "integer"),
-            DataType::Json => write!(f, "json"),
-            DataType::Jsonb => write!(f, "jsonb"),
+            DataType::Json => write!(f, "jsonb"),
             DataType::Numeric => write!(f, "numeric"),
             DataType::Other(name) => write!(f, "{}", name),
             DataType::Real => write!(f, "real"),
@@ -150,7 +158,6 @@ fn data_type_roundtrip() {
         DataType::DoublePrecision,
         DataType::Integer,
         DataType::Json,
-        DataType::Jsonb,
         DataType::Numeric,
         DataType::Other("custom".to_owned()),
         DataType::Real,

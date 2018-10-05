@@ -82,7 +82,6 @@ fn bigquery_type(
         DataType::DoublePrecision => Ok("FLOAT64".to_owned()),
         DataType::Integer => Ok("INT64".to_owned()),
         DataType::Json => Ok("STRING".to_owned()),
-        DataType::Jsonb => Ok("STRING".to_owned()),
         DataType::Numeric => Ok("DECIMAL".to_owned()),
         DataType::Other(unknown_type) => {
             eprintln!(
