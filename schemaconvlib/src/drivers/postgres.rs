@@ -98,14 +98,14 @@ impl PostgresDriver {
             }
             match &col.data_type {
                 DataType::Array(_) => {
-                    write!(f, "array_to_json({}) AS {}", col.name, col.name)?;
+                    write!(f, "array_to_json({:?}) AS {:?}", col.name, col.name)?;
                 }
                 DataType::GeoJson => {
                     // Always transform to SRID 4326, because
                     // information_schema.columns won't tell us the SRID anyway.
                     write!(
                         f,
-                        "ST_AsGeoJSON(ST_Transform({}, 4326)) AS {}",
+                        "ST_AsGeoJSON(ST_Transform({:?}, 4326)) AS {:?}",
                         col.name,
                         col.name,
                     )?;
@@ -113,6 +113,15 @@ impl PostgresDriver {
                 _ => write!(f, "{:?}", col.name)?,
             }
         }
+        Ok(())
+    }
+
+    /// Generate a complete `SELECT` statement which outputs the table as CSV,
+    /// in a format that can likely be imported by other database.
+    pub fn write_select(f: &mut Write, table: &Table) -> Result<()> {
+        write!(f, "COPY (SELECT ")?;
+        Self::write_select_args(f, table)?;
+        write!(f, " FROM {:?}) TO STDOUT WITH CSV HEADER", table.name)?;
         Ok(())
     }
 }
