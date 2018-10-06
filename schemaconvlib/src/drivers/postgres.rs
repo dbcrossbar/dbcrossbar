@@ -118,10 +118,18 @@ impl PostgresDriver {
 
     /// Generate a complete `SELECT` statement which outputs the table as CSV,
     /// in a format that can likely be imported by other database.
-    pub fn write_select(f: &mut Write, table: &Table) -> Result<()> {
+    pub fn write_select(
+        f: &mut Write,
+        table: &Table,
+        limit: Option<u64>,
+    ) -> Result<()> {
         write!(f, "COPY (SELECT ")?;
         Self::write_select_args(f, table)?;
-        write!(f, " FROM {:?}) TO STDOUT WITH CSV HEADER", table.name)?;
+        write!(f, " FROM {:?}", table.name)?;
+        if let Some(limit) = limit {
+            write!(f, " LIMIT {}", limit)?;
+        }
+        write!(f, ") TO STDOUT WITH CSV HEADER")?;
         Ok(())
     }
 }

@@ -76,6 +76,11 @@ struct Opt {
     #[structopt(short = "t", long = "rename-table")]
     rename_table: Option<String>,
 
+    /// Add a `LIMIT` clause to export SQL. Does not affect other output
+    /// formats.
+    #[structopt(long = "export-limit")]
+    export_limit: Option<u64>,
+
     /// The output format to use.
     #[structopt(short = "O", long = "output-format", default_value = "json")]
     output_format: OutputFormat,
@@ -116,7 +121,7 @@ fn run() -> Result<()> {
             serde_json::to_writer_pretty(&mut out, &table)?;
         }
         OutputFormat::PostgresExport => {
-            PostgresDriver::write_select(&mut out, &table)?;
+            PostgresDriver::write_select(&mut out, &table, opt.export_limit)?;
         }
         OutputFormat::PostgresExportColumns => {
             PostgresDriver::write_select_args(&mut out, &table)?;
