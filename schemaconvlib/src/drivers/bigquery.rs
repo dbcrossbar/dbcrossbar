@@ -243,8 +243,8 @@ fn bigquery_non_array_type(
         }
         DataType::Array(nested) => {
             let bq_nested =
-                bigquery_type(column_name, nested, csv_compatible)?;
-            let field = StructField { name: None, ty: bq_nested };
+                bigquery_non_array_type(column_name, nested, csv_compatible)?;
+            let field = StructField { name: None, ty: Type::Array(bq_nested) };
             Ok(NonArrayType::Struct(vec![field]))
         }
         DataType::Bool => Ok(NonArrayType::Bool),
@@ -277,7 +277,13 @@ fn bigquery_non_array_type(
 
 #[test]
 fn nested_arrays() {
-    let input = DataType::Array(Box::new(DataType::Array(Box::new(DataType::Int32))));
+    let input = DataType::Array(
+        Box::new(DataType::Array(
+            Box::new(DataType::Array(
+                Box::new(DataType::Int32)
+            ))
+        ))
+    );
 
     // What we expect when loading from a CSV file.
     let bq = bigquery_type("col", &input, true).unwrap();
@@ -285,7 +291,7 @@ fn nested_arrays() {
 
     // What we expect in the final BigQuery table.
     let bq = bigquery_type("col", &input, false).unwrap();
-    assert_eq!(format!("{}", bq), "ARRAY<STRUCT<INT64>>");
+    assert_eq!(format!("{}", bq), "ARRAY<STRUCT<ARRAY<STRUCT<ARRAY<INT64>>>>>");
 }
 
 /// Output JavaScript UDF for importing a column (if necessary). This can
