@@ -19,7 +19,7 @@ Examples:
 schemaconv "$DATABASE_URL#mytable" > schema.json
 
 # Dump a table schema as BigQuery schema JSON.
-schemaconv "$DATABASE_URL#mytable" -O bg > bigquery-schema.json
+schemaconv "$DATABASE_URL#mytable" -O bq:schema > bigquery-schema.json
 
 # Dump a table schema as quoted PostgreSQL `SELECT ...` arguments.
 schemaconv "$DATABASE_URL#mytable" -O pg:select > select-args.txt
