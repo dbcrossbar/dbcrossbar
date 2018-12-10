@@ -7,13 +7,13 @@ edition = "2018"
 [dependencies]
 clap = { version = "2.32.0", features = ["wrap_help"] }
 common_failures = "0.1.1"
-env_logger = "0.5.13"
+env_logger = "0.6"
 failure = "0.1.2"
 log = "0.4.5"
 schemaconvlib = { path = "../schemaconvlib" }
 serde = "1.0.79"
 serde_json = "1.0.32"
 structopt = "0.2.10"
-strum = "0.11.0"
-strum_macros = "0.11.0"
+strum = "0.12.0"
+strum_macros = "0.12.0"
 url = "1.7.1"
