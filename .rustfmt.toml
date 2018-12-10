@@ -1,0 +1,6 @@
+# This is about how big emk's standard Emacs window is, and as the biggest
+# contributor, he gets to abuse his power.
+max_width = 87
+
+# Switch to short-form field init syntax when possible, for consistency.
+use_field_init_shorthand = true
