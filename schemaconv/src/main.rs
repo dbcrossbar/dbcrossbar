@@ -2,19 +2,19 @@
 
 #[macro_use]
 extern crate common_failures;
-extern crate env_logger;
+use env_logger;
 #[macro_use]
 extern crate failure;
 #[macro_use]
 extern crate log;
-extern crate schemaconvlib;
-extern crate serde;
-extern crate serde_json;
-extern crate structopt;
-extern crate strum;
+
+
+use serde_json;
+use structopt;
+use strum;
 #[macro_use]
 extern crate strum_macros;
-extern crate url;
+
 
 use common_failures::Result;
 use failure::ResultExt;

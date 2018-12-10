@@ -89,7 +89,7 @@ impl PostgresDriver {
     }
 
     /// Write out a table's column names as `SELECT` arguments.
-    pub fn write_select_args(f: &mut Write, table: &Table) -> Result<()> {
+    pub fn write_select_args(f: &mut dyn Write, table: &Table) -> Result<()> {
         let mut first: bool = true;
         for col in &table.columns {
             if first {
@@ -119,7 +119,7 @@ impl PostgresDriver {
     /// Generate a complete `SELECT` statement which outputs the table as CSV,
     /// in a format that can likely be imported by other database.
     pub fn write_select(
-        f: &mut Write,
+        f: &mut dyn Write,
         table: &Table,
         limit: Option<u64>,
     ) -> Result<()> {

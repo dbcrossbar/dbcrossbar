@@ -8,12 +8,9 @@ extern crate diesel;
 extern crate failure;
 #[macro_use]
 extern crate log;
-extern crate serde;
+
 #[macro_use]
 extern crate serde_derive;
-#[cfg_attr(test, macro_use)]
-extern crate serde_json;
-extern crate url;
 
 use std::result;
 
@@ -27,11 +24,3 @@ pub use failure::Error;
 
 /// Standard result type for this library.
 pub type Result<T> = result::Result<T, Error>;
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}

@@ -18,7 +18,7 @@ enum Type {
 }
 
 impl fmt::Display for Type {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Type::Array(element_type) => write!(f, "ARRAY<{}>", element_type),
             Type::NonArray(ty) => write!(f, "{}", ty),
@@ -55,7 +55,7 @@ enum NonArrayType {
 }
 
 impl fmt::Display for NonArrayType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NonArrayType::Bool => write!(f, "BOOL"),
             NonArrayType::Bytes => write!(f, "BYTES"),
@@ -93,7 +93,7 @@ struct StructField {
 }
 
 impl fmt::Display for StructField {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(name) = &self.name {
             // TODO: It's not clear whether we can/should escape this using
             // `Ident` to insert backticks.
@@ -136,7 +136,7 @@ enum Mode {
 struct Ident<'a>(&'a str);
 
 impl<'a> fmt::Display for Ident<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.0.contains('`') {
             error!("cannot output BigQuery identifier containing backtick (`)");
             Err(fmt::Error)
@@ -154,7 +154,7 @@ impl BigQueryDriver {
     /// `csv_compatible`, this will only use types that can be loaded from a CSV
     /// file.
     pub fn write_json(
-        f: &mut Write,
+        f: &mut dyn Write,
         table: &Table,
         csv_compatible: bool,
     ) -> Result<()> {
@@ -168,7 +168,7 @@ impl BigQueryDriver {
 
     /// Generate SQL which `SELECT`s from a temp table, and fixes the types
     /// of columns that couldn't be imported from CSVs.
-    pub fn write_import_sql(f: &mut Write, table: &Table) -> Result<()> {
+    pub fn write_import_sql(f: &mut dyn Write, table: &Table) -> Result<()> {
         for (i, col) in table.columns.iter().enumerate() {
             write_col_import_udf(f, i, col)?;
         }
@@ -294,7 +294,7 @@ fn nested_arrays() {
 
 /// Output JavaScript UDF for importing a column (if necessary). This can
 /// be used to patch up types that can't be loaded directly from a CSV.
-fn write_col_import_udf(f: &mut Write, idx: usize, col: &Column) -> Result<()> {
+fn write_col_import_udf(f: &mut dyn Write, idx: usize, col: &Column) -> Result<()> {
     if let DataType::Array(_) = &col.data_type {
         let bq_type = bigquery_type(&col.name, &col.data_type, false)?;
         write!(
@@ -314,7 +314,7 @@ return JSON.parse(input);
 }
 
 /// Output SQL for importing a column.
-fn write_col_import_sql(f: &mut Write, idx: usize, col: &Column) -> Result<()> {
+fn write_col_import_sql(f: &mut dyn Write, idx: usize, col: &Column) -> Result<()> {
     let ident = Ident(&col.name);
     if let DataType::Array(_) = &col.data_type {
         write!(

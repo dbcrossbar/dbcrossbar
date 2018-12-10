@@ -1,5 +1,8 @@
 //! Core data types that we manipulate.
 
+#[cfg(test)]
+use serde_json::json;
+
 /// Information about a table.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Table {
