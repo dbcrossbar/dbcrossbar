@@ -2,7 +2,11 @@
 name = "schemaconvlib"
 version = "0.1.0"
 authors = ["Eric Kidd <git@randomhacks.net>"]
+build = "build.rs"
 edition = "2018"
+
+[build-dependencies]
+peg = "0.5"
 
 [dependencies]
 diesel = { version = "1.3.3", features = ["postgres"] }

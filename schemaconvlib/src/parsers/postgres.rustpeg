@@ -1,0 +1,93 @@
+//! This file contains a [`rust-peg`][peg] grammar. A "PEG" is a "parser
+//! expression grammar". It's basically similar to a regular expression,
+//! except it can contain recursive rules. See the site for an overview
+//! of the basic syntax.
+//!
+//! `#quiet` and `#expected` are used in a few places to give better
+//! error messages. `#quiet` suppresses certain possible tokens (such as
+//! whitespace) from "expected ___" errors, and `#expected` allows us to
+//! insert descriptive names into those messages.
+//!
+//! [peg]: https://github.com/kevinmehall/rust-peg
+
+use crate::table::{Column, DataType, Table};
+
+/// A `CREATE TABLE` expression.
+pub create_table -> Table
+    = ws? "CREATE"i ws? "TABLE"i ws? name:identifier ws? "("
+        ws? columns:(column ** (ws? "," ws?)) ws?
+      ")" ws?
+    {
+        Table { name, columns }
+    }
+
+/// A column expression of the form "name type".
+column -> Column
+    = name:identifier ws data_type:data_type is_nullable:is_nullable {
+        Column {
+            name,
+            is_nullable,
+            data_type,
+            comment: None,
+        }
+    }
+
+/// An optional `NOT NULL` expression.
+is_nullable -> bool
+    = ws "NOT"i ws "NULL"i { true }
+    / { false }
+
+/// A Postgres data type.
+data_type -> DataType
+    = #quiet<
+        data_type:simple_data_type ws? "[" ws? "]" {
+            DataType::Array(Box::new(data_type))
+        }
+        / simple_data_type
+    >
+    / #expected("data type")
+
+/// A simple data type, never an array.
+simple_data_type -> DataType
+    = "bigint"i { DataType::Int64 }
+    / "boolean"i { DataType::Bool }
+    / "date"i { DataType::Date }
+    / "double"i ws "precision"i { DataType::Float64 }
+    / "public."? "geometry"i ws? "(" ws? identifier ws? "," ws? srid:srid ws? ")" {
+        if srid == 4326 {
+            DataType::GeoJson
+        } else {
+            DataType::Text
+        }
+    }
+    / "integer"i { DataType::Int32 }
+    / "json"i { DataType::Json }
+    / "jsonb"i { DataType::Json }
+    / "numeric"i { DataType::Decimal }
+    / "real"i { DataType::Float32 }
+    / "smallint"i { DataType::Int16 }
+    / "text"i { DataType::Text }
+    / "timestamp"i ws "without"i ws "time"i ws "zone"i { DataType::TimestampWithoutTimeZone }
+    / "uuid"i { DataType::Uuid }
+
+/// A GeoJSON SRID number, used to identify a coordinate system.
+srid -> u32
+    = srid:$([0-9]+) { srid.parse().expect("should always parse") }
+
+/// An SQL identifier.
+identifier -> String
+    = #quiet<
+        // Unquoted identifier.
+        id:$([A-Za-z_][A-Za-z_0-9$]*) { id.to_string() }
+
+        // Double-quoted identifier.
+        / "\"" quoted:$(([^"] / "\"\"")*) "\"" {
+            quoted.replace("\"\"", "\"").to_string()
+        }
+    >
+    / #expected("identifier")
+
+// One or more characters of whitespace, including comments.
+ws = #quiet<
+    ([ \t\r\n] / ("--" [^\n]* "\n"))+
+>

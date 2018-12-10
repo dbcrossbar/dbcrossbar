@@ -10,6 +10,7 @@ extern crate diesel;
 use std::result;
 
 pub mod drivers;
+pub mod parsers;
 mod table;
 
 pub use crate::table::*;
