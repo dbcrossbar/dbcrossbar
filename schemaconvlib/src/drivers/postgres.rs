@@ -8,8 +8,8 @@ use failure::ResultExt;
 use std::io::Write;
 use url::Url;
 
-use Result;
 use table::{Column, DataType, Table};
+use Result;
 
 table! {
     // https://www.postgresql.org/docs/10/static/infoschema-columns.html
@@ -52,10 +52,7 @@ pub struct PostgresDriver;
 
 impl PostgresDriver {
     /// Fetch information about a table from the database.
-    pub fn fetch_from_url(
-        database_url: &Url,
-        full_table_name: &str,
-    ) -> Result<Table> {
+    pub fn fetch_from_url(database_url: &Url, full_table_name: &str) -> Result<Table> {
         let conn = PgConnection::establish(database_url.as_str())
             .context("error connecting to PostgreSQL")?;
         let (table_schema, table_name) = parse_full_table_name(full_table_name);
@@ -76,7 +73,8 @@ impl PostgresDriver {
                     "NO" => false,
                     value => {
                         return Err(format_err!(
-                            "Unexpected is_nullable value: {:?}", value,
+                            "Unexpected is_nullable value: {:?}",
+                            value,
                         ))
                     }
                 },
@@ -84,7 +82,10 @@ impl PostgresDriver {
             })
         }
 
-        Ok(Table { name: table_name.to_owned(), columns })
+        Ok(Table {
+            name: table_name.to_owned(),
+            columns,
+        })
     }
 
     /// Write out a table's column names as `SELECT` arguments.
@@ -106,8 +107,7 @@ impl PostgresDriver {
                     write!(
                         f,
                         "ST_AsGeoJSON(ST_Transform({:?}, 4326)) AS {:?}",
-                        col.name,
-                        col.name,
+                        col.name, col.name,
                     )?;
                 }
                 _ => write!(f, "{:?}", col.name)?,
@@ -138,7 +138,7 @@ impl PostgresDriver {
 /// a `table_schema` and `table_name`.
 fn parse_full_table_name(full_table_name: &str) -> (&str, &str) {
     if let Some(pos) = full_table_name.find('.') {
-        (&full_table_name[..pos], &full_table_name[pos+1..])
+        (&full_table_name[..pos], &full_table_name[pos + 1..])
     } else {
         ("public", full_table_name)
     }
@@ -199,60 +199,75 @@ fn pg_data_type(
 fn parsing_pg_data_type() {
     let examples = &[
         // Basic types.
-        (("bigint", "pg_catalog", "int8"),
-         DataType::Int64),
-        (("boolean", "pg_catalog", "bool"),
-         DataType::Bool),
-        (("character varying", "pg_catalog", "varchar"),
-         DataType::Text),
-        (("date", "pg_catalog", "date"),
-         DataType::Date),
-        (("double precision", "pg_catalog", "float8"),
-         DataType::Float64),
-        (("integer", "pg_catalog", "int4"),
-         DataType::Int32),
-        (("interval", "pg_catalog", "interval"),
-         DataType::Other("interval".to_owned())),
-        (("json", "pg_catalog", "json"),
-         DataType::Json),
-        (("jsonb", "pg_catalog", "jsonb"),
-         DataType::Json),
-        (("name", "pg_catalog", "name"),
-         DataType::Other("name".to_owned())),
-        (("numeric", "pg_catalog", "numeric"),
-         DataType::Decimal),
-        (("oid", "pg_catalog", "oid"),
-         DataType::Other("oid".to_owned())),
-        (("real", "pg_catalog", "float4"),
-         DataType::Float32),
-        (("regclass", "pg_catalog", "regclass"),
-         DataType::Other("regclass".to_owned())),
-        (("regtype", "pg_catalog", "regtype"),
-         DataType::Other("regtype".to_owned())),
-        (("smallint", "pg_catalog", "int2"),
-         DataType::Int16),
-        (("text", "pg_catalog", "text"),
-         DataType::Text),
-        (("timestamp without time zone", "pg_catalog", "timestamp"),
-         DataType::TimestampWithoutTimeZone),
-
+        (("bigint", "pg_catalog", "int8"), DataType::Int64),
+        (("boolean", "pg_catalog", "bool"), DataType::Bool),
+        (
+            ("character varying", "pg_catalog", "varchar"),
+            DataType::Text,
+        ),
+        (("date", "pg_catalog", "date"), DataType::Date),
+        (
+            ("double precision", "pg_catalog", "float8"),
+            DataType::Float64,
+        ),
+        (("integer", "pg_catalog", "int4"), DataType::Int32),
+        (
+            ("interval", "pg_catalog", "interval"),
+            DataType::Other("interval".to_owned()),
+        ),
+        (("json", "pg_catalog", "json"), DataType::Json),
+        (("jsonb", "pg_catalog", "jsonb"), DataType::Json),
+        (
+            ("name", "pg_catalog", "name"),
+            DataType::Other("name".to_owned()),
+        ),
+        (("numeric", "pg_catalog", "numeric"), DataType::Decimal),
+        (
+            ("oid", "pg_catalog", "oid"),
+            DataType::Other("oid".to_owned()),
+        ),
+        (("real", "pg_catalog", "float4"), DataType::Float32),
+        (
+            ("regclass", "pg_catalog", "regclass"),
+            DataType::Other("regclass".to_owned()),
+        ),
+        (
+            ("regtype", "pg_catalog", "regtype"),
+            DataType::Other("regtype".to_owned()),
+        ),
+        (("smallint", "pg_catalog", "int2"), DataType::Int16),
+        (("text", "pg_catalog", "text"), DataType::Text),
+        (
+            ("timestamp without time zone", "pg_catalog", "timestamp"),
+            DataType::TimestampWithoutTimeZone,
+        ),
         // Array types.
-        (("ARRAY", "pg_catalog", "_bool"),
-         DataType::Array(Box::new(DataType::Bool))),
-        (("ARRAY", "pg_catalog", "_float8"),
-         DataType::Array(Box::new(DataType::Float64))),
-        (("ARRAY", "pg_catalog", "_int4"),
-         DataType::Array(Box::new(DataType::Int32))),
-        (("ARRAY", "pg_catalog", "_text"),
-         DataType::Array(Box::new(DataType::Text))),
-        (("ARRAY", "pg_catalog", "_uuid"),
-         DataType::Array(Box::new(DataType::Uuid))),
-
+        (
+            ("ARRAY", "pg_catalog", "_bool"),
+            DataType::Array(Box::new(DataType::Bool)),
+        ),
+        (
+            ("ARRAY", "pg_catalog", "_float8"),
+            DataType::Array(Box::new(DataType::Float64)),
+        ),
+        (
+            ("ARRAY", "pg_catalog", "_int4"),
+            DataType::Array(Box::new(DataType::Int32)),
+        ),
+        (
+            ("ARRAY", "pg_catalog", "_text"),
+            DataType::Array(Box::new(DataType::Text)),
+        ),
+        (
+            ("ARRAY", "pg_catalog", "_uuid"),
+            DataType::Array(Box::new(DataType::Uuid)),
+        ),
         // User-defined types.
-        (("USER-DEFINED", "public", "citext"),
-         DataType::Other("citext".to_owned())),
-        (("USER-DEFINED", "public", "geometry"),
-         DataType::GeoJson),
+        (
+            ("USER-DEFINED", "public", "citext"),
+            DataType::Other("citext".to_owned()),
+        ),
+        (("USER-DEFINED", "public", "geometry"), DataType::GeoJson),
     ];
     for ((data_type, udt_schema, udt_name), expected) in examples {
         assert_eq!(

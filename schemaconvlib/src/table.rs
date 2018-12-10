@@ -23,7 +23,7 @@ pub struct Column {
     pub data_type: DataType,
 
     /// An optional comment associated with this column.
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
 }
 
@@ -42,7 +42,7 @@ pub struct Column {
 /// It's not supposed to cover every imaginable type. But it should at least
 /// cover common, generic types that make sense to many database backends.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all="snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum DataType {
     /// An array of another data type. For many output formats, it may not be
     /// possible to nest arrays.
@@ -87,7 +87,10 @@ fn data_type_serialization_examples() {
     // Our serialization format is an external format, so let's write some tests
     // to make sure we don't change it accidentally.
     let examples = &[
-        (DataType::Array(Box::new(DataType::Text)), json!({"array":"text"})),
+        (
+            DataType::Array(Box::new(DataType::Text)),
+            json!({"array":"text"}),
+        ),
         (DataType::Bool, json!("bool")),
         (DataType::Date, json!("date")),
         (DataType::Decimal, json!("decimal")),
@@ -97,10 +100,19 @@ fn data_type_serialization_examples() {
         (DataType::Int32, json!("int32")),
         (DataType::Int64, json!("int64")),
         (DataType::Json, json!("json")),
-        (DataType::Other("custom".to_owned()), json!({"other":"custom"})),
+        (
+            DataType::Other("custom".to_owned()),
+            json!({"other":"custom"}),
+        ),
         (DataType::Text, json!("text")),
-        (DataType::TimestampWithoutTimeZone, json!("timestamp_without_time_zone")),
-        (DataType::TimestampWithTimeZone, json!("timestamp_with_time_zone")),
+        (
+            DataType::TimestampWithoutTimeZone,
+            json!("timestamp_without_time_zone"),
+        ),
+        (
+            DataType::TimestampWithTimeZone,
+            json!("timestamp_with_time_zone"),
+        ),
         (DataType::Uuid, json!("uuid")),
     ];
     for (data_type, serialized) in examples {

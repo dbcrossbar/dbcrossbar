@@ -19,27 +19,24 @@ extern crate url;
 
 use common_failures::Result;
 use failure::ResultExt;
-use schemaconvlib::drivers::{
-    bigquery::BigQueryDriver,
-    postgres::PostgresDriver,
-};
+use schemaconvlib::drivers::{bigquery::BigQueryDriver, postgres::PostgresDriver};
 use std::io::{stdin, stdout, Write};
 use structopt::StructOpt;
 use url::Url;
 
 #[derive(Clone, Copy, Debug, EnumString)]
 enum OutputFormat {
-    #[strum(serialize="json")]
+    #[strum(serialize = "json")]
     Json,
-    #[strum(serialize="pg:export")]
+    #[strum(serialize = "pg:export")]
     PostgresExport,
-    #[strum(serialize="pg:export:columns")]
+    #[strum(serialize = "pg:export:columns")]
     PostgresExportColumns,
-    #[strum(serialize="bq:schema:temp")]
+    #[strum(serialize = "bq:schema:temp")]
     BigQuerySchemaTemp,
-    #[strum(serialize="bq:schema")]
+    #[strum(serialize = "bq:schema")]
     BigQuerySchema,
-    #[strum(serialize="bq:import")]
+    #[strum(serialize = "bq:import")]
     BigQueryImport,
 }
 
@@ -104,8 +101,7 @@ fn run() -> Result<()> {
     } else {
         let stdin = stdin();
         let mut input = stdin.lock();
-        serde_json::from_reader(&mut input)
-            .context("error reading from stdin")?
+        serde_json::from_reader(&mut input).context("error reading from stdin")?
     };
 
     // Apply any requested transformations to our table schema.
@@ -140,4 +136,3 @@ fn run() -> Result<()> {
 
     Ok(())
 }
-
