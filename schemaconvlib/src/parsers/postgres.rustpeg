@@ -16,14 +16,14 @@ use crate::table::{Column, DataType, Table};
 pub create_table -> Table
     = ws? "CREATE"i ws? "TABLE"i ws? name:identifier ws? "("
         ws? columns:(column ** (ws? "," ws?)) ws?
-      ")" ws?
+      ")" ws? (";" ws?)?
     {
         Table { name, columns }
     }
 
 /// A column expression of the form "name type".
 column -> Column
-    = name:identifier ws data_type:data_type is_nullable:is_nullable {
+    = name:identifier ws data_type:data_type is_nullable:is_nullable primary_key? {
         Column {
             name,
             is_nullable,
@@ -34,15 +34,22 @@ column -> Column
 
 /// An optional `NOT NULL` expression.
 is_nullable -> bool
-    = ws "NOT"i ws "NULL"i { true }
-    / { false }
+    = ws "NOT"i ws "NULL"i { false }
+    / { true }
+
+/// A `PRIMARY KEY` specifier. We can ignore this.
+primary_key
+    = ws "PRIMARY"i ws "KEY"i
 
 /// A Postgres data type.
 data_type -> DataType
     = #quiet<
+        // Array type.
         data_type:simple_data_type ws? "[" ws? "]" {
             DataType::Array(Box::new(data_type))
         }
+
+        // All other types.
         / simple_data_type
     >
     / #expected("data type")
@@ -53,13 +60,14 @@ simple_data_type -> DataType
     / "boolean"i { DataType::Bool }
     / "date"i { DataType::Date }
     / "double"i ws "precision"i { DataType::Float64 }
-    / "public."? "geometry"i ws? "(" ws? identifier ws? "," ws? srid:srid ws? ")" {
+    / "public."i? "geometry"i ws? "(" ws? identifier ws? "," ws? srid:srid ws? ")" {
         if srid == 4326 {
             DataType::GeoJson
         } else {
             DataType::Text
         }
     }
+    / "int"i { DataType::Int32 }
     / "integer"i { DataType::Int32 }
     / "json"i { DataType::Json }
     / "jsonb"i { DataType::Json }

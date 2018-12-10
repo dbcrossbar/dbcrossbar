@@ -1,7 +1,9 @@
 //! Parser for PostgreSQL `CREATE TABLE` declarations.
 
-use crate::Result;
+use failure::ResultExt;
+
 use crate::table::Table;
+use crate::Result;
 
 /// Include our `rust-peg` grammar.
 mod grammar {
@@ -10,7 +12,8 @@ mod grammar {
 
 /// Parse a PostgreSQL `CREATE TABLE` statement and return a `Table`.
 pub fn parse_create_table(input: &str) -> Result<Table> {
-    Ok(grammar::create_table(input)?)
+    Ok(grammar::create_table(input)
+        .context("error parsing Postgres `CREATE TABLE`")?)
 }
 
 #[cfg(test)]

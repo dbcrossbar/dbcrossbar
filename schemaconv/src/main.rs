@@ -4,14 +4,30 @@ use common_failures::{quick_main, Result};
 use env_logger;
 use failure::{format_err, ResultExt};
 use log::debug;
-use schemaconvlib::drivers::{bigquery::BigQueryDriver, postgres::PostgresDriver};
+use schemaconvlib::{
+    drivers::{bigquery::BigQueryDriver, postgres::PostgresDriver},
+    parsers::postgres::parse_create_table,
+};
 use serde_json;
-use std::io::{stdin, stdout, Write};
+use std::io::{stdin, stdout, Read, Write};
 use structopt::{self, StructOpt};
 use strum;
 use strum_macros::EnumString;
 use url::Url;
 
+/// The input format to our program.
+#[derive(Clone, Copy, Debug, EnumString)]
+enum InputFormat {
+    /// schemaconv JSON schema.
+    #[strum(serialize = "json")]
+    Json,
+
+    /// PostgreSQL `CREATE TABLE` SQL.
+    #[strum(serialize = "pg")]
+    Postgres,
+}
+
+/// The output format of our program.
 #[derive(Clone, Copy, Debug, EnumString)]
 enum OutputFormat {
     #[strum(serialize = "json")]
@@ -32,6 +48,10 @@ enum OutputFormat {
 #[derive(Debug, StructOpt)]
 #[structopt(name = "schemaconv", about = "Convert between schema formats.")]
 #[structopt(after_help = r#"
+INPUT FORMATS:
+    json       A JSON schema previously output by schemaconv.
+    pg         A PostgreSQL 'CREATE TABLE' statement.
+
 OUTPUT FORMATS:
     json       Output the schema in schemaconv JSON format. This can be
                manipulated and reimported by schemaconv.
@@ -66,6 +86,10 @@ struct Opt {
     #[structopt(long = "export-limit")]
     export_limit: Option<u64>,
 
+    /// The input format to use if no URL is specified.
+    #[structopt(short = "I", long = "input-format", default_value = "json")]
+    input_format: InputFormat,
+
     /// The output format to use.
     #[structopt(short = "O", long = "output-format", default_value = "json")]
     output_format: OutputFormat,
@@ -89,7 +113,16 @@ fn run() -> Result<()> {
     } else {
         let stdin = stdin();
         let mut input = stdin.lock();
-        serde_json::from_reader(&mut input).context("error reading from stdin")?
+        let mut text = String::new();
+        input
+            .read_to_string(&mut text)
+            .context("error reading from stdin")?;
+        match opt.input_format {
+            InputFormat::Json => {
+                serde_json::from_str(&text).context("error parsing JSON")?
+            }
+            InputFormat::Postgres => parse_create_table(&text)?,
+        }
     };
 
     // Apply any requested transformations to our table schema.
