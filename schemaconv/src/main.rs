@@ -10,7 +10,6 @@ extern crate log;
 extern crate schemaconvlib;
 extern crate serde;
 extern crate serde_json;
-#[macro_use]
 extern crate structopt;
 extern crate strum;
 #[macro_use]

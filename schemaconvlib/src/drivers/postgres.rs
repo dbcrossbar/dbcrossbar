@@ -8,8 +8,8 @@ use failure::ResultExt;
 use std::io::Write;
 use url::Url;
 
-use table::{Column, DataType, Table};
-use Result;
+use crate::table::{Column, DataType, Table};
+use crate::Result;
 
 table! {
     // https://www.postgresql.org/docs/10/static/infoschema-columns.html

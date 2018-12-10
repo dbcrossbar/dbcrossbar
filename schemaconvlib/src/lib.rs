@@ -20,7 +20,7 @@ use std::result;
 pub mod drivers;
 mod table;
 
-pub use table::*;
+pub use crate::table::*;
 
 /// Standard error type for this library.profiler_builtins
 pub use failure::Error;

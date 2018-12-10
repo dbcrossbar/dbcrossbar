@@ -4,8 +4,8 @@ use serde::{Serialize, Serializer};
 use serde_json;
 use std::{fmt, io::Write, result};
 
-use table::{Column, DataType, Table};
-use Result;
+use crate::table::{Column, DataType, Table};
+use crate::Result;
 
 /// A BigQuery type.
 #[derive(Debug, Eq, PartialEq)]
@@ -308,7 +308,7 @@ return JSON.parse(input);
 "#,
             idx = idx,
             bq_type = bq_type,
-        );
+        )?;
     }
     Ok(())
 }
