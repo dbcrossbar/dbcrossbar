@@ -2,15 +2,10 @@
 
 #![warn(missing_docs)]
 
+// We keep one `macro_use` here, because `diesel`'s macros do not yet play
+// nicely with the new Rust 2018 macro importing features.
 #[macro_use]
 extern crate diesel;
-#[macro_use]
-extern crate failure;
-#[macro_use]
-extern crate log;
-
-#[macro_use]
-extern crate serde_derive;
 
 use std::result;
 

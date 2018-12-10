@@ -1,5 +1,6 @@
 //! Core data types that we manipulate.
 
+use serde_derive::{Deserialize, Serialize};
 #[cfg(test)]
 use serde_json::json;
 

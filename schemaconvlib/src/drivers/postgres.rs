@@ -4,7 +4,7 @@
 #![allow(missing_docs, proc_macro_derive_resolution_fallback)]
 
 use diesel::{pg::PgConnection, prelude::*};
-use failure::ResultExt;
+use failure::{format_err, ResultExt};
 use std::io::Write;
 use url::Url;
 

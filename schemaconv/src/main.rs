@@ -1,26 +1,15 @@
 //! A CLI tool for converting between table schema formats.
 
-#[macro_use]
-extern crate common_failures;
+use common_failures::{quick_main, Result};
 use env_logger;
-#[macro_use]
-extern crate failure;
-#[macro_use]
-extern crate log;
-
-
-use serde_json;
-use structopt;
-use strum;
-#[macro_use]
-extern crate strum_macros;
-
-
-use common_failures::Result;
-use failure::ResultExt;
+use failure::{format_err, ResultExt};
+use log::debug;
 use schemaconvlib::drivers::{bigquery::BigQueryDriver, postgres::PostgresDriver};
+use serde_json;
 use std::io::{stdin, stdout, Write};
-use structopt::StructOpt;
+use structopt::{self, StructOpt};
+use strum;
+use strum_macros::EnumString;
 use url::Url;
 
 #[derive(Clone, Copy, Debug, EnumString)]

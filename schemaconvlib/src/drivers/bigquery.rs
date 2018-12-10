@@ -1,6 +1,9 @@
 //! Driver for working with BigQuery schemas.
 
+use failure::format_err;
+use log::error;
 use serde::{Serialize, Serializer};
+use serde_derive::Serialize;
 use serde_json;
 use std::{fmt, io::Write, result};
 
