@@ -67,8 +67,8 @@ simple_data_type -> DataType
             DataType::Text
         }
     }
+    / "integer"i { DataType::Int32 } // Longer keyword first!
     / "int"i { DataType::Int32 }
-    / "integer"i { DataType::Int32 }
     / "json"i { DataType::Json }
     / "jsonb"i { DataType::Json }
     / "numeric"i { DataType::Decimal }
