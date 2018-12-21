@@ -1,6 +1,6 @@
 //! A library for reading and writing table schemas in various formats.
 
-#![warn(missing_docs)]
+#![warn(missing_docs, unused_extern_crates, clippy::pendantic)]
 
 // We keep one `macro_use` here, because `diesel`'s macros do not yet play
 // nicely with the new Rust 2018 macro importing features.

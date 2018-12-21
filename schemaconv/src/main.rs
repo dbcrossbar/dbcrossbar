@@ -1,5 +1,7 @@
 //! A CLI tool for converting between table schema formats.
 
+#![warn(unused_extern_crates, clippy::pendantic)]
+
 use common_failures::{quick_main, Result};
 use env_logger;
 use failure::{format_err, ResultExt};
@@ -153,7 +155,7 @@ fn run() -> Result<()> {
             BigQueryDriver::write_import_sql(&mut out, &table)?;
         }
     }
-    write!(&mut out, "\n")?;
+    writeln!(&mut out)?;
 
     Ok(())
 }
