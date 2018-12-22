@@ -13,7 +13,7 @@ We currently support many small pieces which are helpful when converting from Po
 - Generating a "temporary" BigQuery JSON schema allowing the CSV to be loaded into BigQuery.
 - Generating BigQuery SQL to tranform the temporary table into a final table, parsing any data types which can't be directly loaded from SQL.
 - Generating a BigQuery JSON schema for the final table. This isn't normally necessary, but it's nice to have for the sake of completeness.
-- Transforming the schema in several ways
+- Transforming the schema in several ways.
 
 However, we do not yet have any higher-level interface that just transfers data directly.
 
@@ -56,7 +56,7 @@ schemaconv -O bq < schema.json > bigquery-schema.json
 
 ## "Interchange" table schemas
 
-In order to make `schemaconv` work, we define a "interchange" table schema format. This uses a highly-simplied and carefully curated set of column types that make sense when passing data between databases. This represents a compromise between the richness of PostgreSQL data types, and the relative poverty of BigQuery data types, while still preserving as much information as possible. It includes timestamps, geodata, etc.
+In order to make `schemaconv` work, we define a "interchange" table schema format using JSON. This format uses a highly-simplied and carefully curated set of column data types that make sense when passing data between databases. This represents a compromise between the richness of PostgreSQL data types, and the relative poverty of BigQuery data types, while still preserving as much information as possible. It includes timestamps, geodata, etc.
 
 Seee [`table.rs`](./schemaconvlib/src/table.rs) for the details of this "interchange" schema.
 
