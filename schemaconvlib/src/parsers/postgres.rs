@@ -22,10 +22,83 @@ pub fn parse_create_table(input: &str) -> Result<Table> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::table::{Column, DataType};
 
     #[test]
     fn simple_table() {
         let input = include_str!("postgres_example.sql");
-        parse_create_table(input).unwrap();
+        let table = parse_create_table(input).unwrap();
+        let expected = Table {
+            name: "example".to_string(),
+            columns: vec![
+                Column {
+                    name: "a".to_string(),
+                    is_nullable: true,
+                    data_type: DataType::Text,
+                    comment: None,
+                },
+                Column {
+                    name: "b".to_string(),
+                    is_nullable: true,
+                    data_type: DataType::Int32,
+                    comment: None,
+                },
+                Column {
+                    name: "c".to_string(),
+                    is_nullable: false,
+                    data_type: DataType::Uuid,
+                    comment: None,
+                },
+                Column {
+                    name: "d".to_string(),
+                    is_nullable: true,
+                    data_type: DataType::Date,
+                    comment: None,
+                },
+                Column {
+                    name: "e".to_string(),
+                    is_nullable: true,
+                    data_type: DataType::Float64,
+                    comment: None,
+                },
+                Column {
+                    name: "f".to_string(),
+                    is_nullable: true,
+                    data_type: DataType::Array(Box::new(DataType::Text)),
+                    comment: None,
+                },
+                Column {
+                    name: "g".to_string(),
+                    is_nullable: true,
+                    data_type: DataType::Array(Box::new(DataType::Int32)),
+                    comment: None,
+                },
+                Column {
+                    name: "h".to_string(),
+                    is_nullable: true,
+                    data_type: DataType::GeoJson,
+                    comment: None,
+                },
+                Column {
+                    name: "i".to_string(),
+                    is_nullable: true,
+                    data_type: DataType::Text,
+                    comment: None,
+                },
+                Column {
+                    name: "j".to_string(),
+                    is_nullable: true,
+                    data_type: DataType::Int16,
+                    comment: None,
+                },
+                Column {
+                    name: "k".to_string(),
+                    is_nullable: true,
+                    data_type: DataType::TimestampWithoutTimeZone,
+                    comment: None,
+                },
+            ],
+        };
+        assert_eq!(table, expected);
     }
 }
