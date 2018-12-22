@@ -1,6 +1,6 @@
 # `schemaconv`: Tools for converting between database table schemas (WIP)
 
-This tool is intended to help convert between schema formats. It's still very incomplete.
+This tool is intended to help convert between schema formats. It's still very incomplete. Right now, `schemaconv` is most useful for moving data from PostgreSQL to Google's BigQuery.
 
 Installation:
 
@@ -21,6 +21,9 @@ schemaconv "$DATABASE_URL#mytable" > schema.json
 # Dump a table schema as BigQuery schema JSON.
 schemaconv "$DATABASE_URL#mytable" -O bq:schema > bigquery-schema.json
 
+# Ditto, but using PostgreSQL `CREATE TABLE` SQL as input.
+schemaconv -I pg -O bq:schema < table.sql > bigquery-schema.json
+
 # Dump a table schema as quoted PostgreSQL `SELECT ...` arguments.
 schemaconv "$DATABASE_URL#mytable" -O pg:select > select-args.txt
 ```
@@ -33,3 +36,7 @@ schemaconv "$DATABASE_URL#mytable" > schema.json
 
 schemaconv -O bq < schema.json > bigquery-schema.json
 ```
+
+## Contributing
+
+For more instructions about building `schemaconv`, running tests, and contributing code, see [CONTRIBUTING.md](./CONTRIBUTING.md).
