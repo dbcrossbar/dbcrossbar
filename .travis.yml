@@ -20,7 +20,9 @@ script:
   # Require clippy to pass without warnings. This also fails for regular Rust
   # warnings.
   - cargo clippy -- -D warnings
-before_deploy: "./build-release schemaconv ${TRAVIS_TAG}-${TRAVIS_OS_NAME}"
+before_deploy:
+  - cargo doc
+  - "./build-release schemaconv ${TRAVIS_TAG}-${TRAVIS_OS_NAME}"
 deploy:
   - provider: releases
     api_key: $GITHUB_TOKEN
@@ -32,7 +34,7 @@ deploy:
       tags: true
   - provider: pages
     skip-cleanup: true
-    local-dir: gh-pages
+    local-dir: target/doc
     keep-history: true
     github-token: $GITHUB_TOKEN
     on:
