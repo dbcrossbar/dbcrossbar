@@ -2,10 +2,15 @@
 
 #![warn(unused_extern_crates, clippy::pendantic)]
 
+// Needed to prevent linker errors about OpenSSL.
+#[allow(unused_extern_crates)]
+extern crate openssl;
+
 use common_failures::{quick_main, Result};
 use env_logger;
 use failure::{format_err, ResultExt};
 use log::debug;
+use openssl_probe;
 use schemaconvlib::{
     drivers::{bigquery::BigQueryDriver, postgres::PostgresDriver},
     parsers::postgres::parse_create_table,
@@ -101,6 +106,8 @@ quick_main!(run);
 
 fn run() -> Result<()> {
     env_logger::init();
+    openssl_probe::init_ssl_cert_env_vars();
+
     let opt = Opt::from_args();
     debug!("{:?}", opt);
 
