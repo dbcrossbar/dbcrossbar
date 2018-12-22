@@ -1,4 +1,6 @@
 //! A library for reading and writing table schemas in various formats.
+//!
+//! At the moment, the most interesting type here is `Table`.
 
 #![warn(missing_docs, unused_extern_crates, clippy::pendantic)]
 
