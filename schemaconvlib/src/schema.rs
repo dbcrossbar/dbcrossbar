@@ -20,7 +20,7 @@
 //! deserialized using [`serde`](https://serde.rs/).
 //!
 //! ```
-//! use schemaconvlib::Table;
+//! use schemaconvlib::schema::Table;
 //! use serde_json;
 //!
 //! let json = r#"

@@ -58,7 +58,7 @@ schemaconv -O bq < schema.json > bigquery-schema.json
 
 In order to make `schemaconv` work, we define a "interchange" table schema format using JSON. This format uses a highly-simplied and carefully curated set of column data types that make sense when passing data between databases. This represents a compromise between the richness of PostgreSQL data types, and the relative poverty of BigQuery data types, while still preserving as much information as possible. It includes timestamps, geodata, etc.
 
-Seee [`table.rs`](./schemaconvlib/src/table.rs) for the details of this "interchange" schema.
+Seee [`schema.rs`](./schemaconvlib/src/schema.rs) for the details of this "interchange" schema.
 
 ## Contributing
 

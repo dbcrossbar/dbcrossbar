@@ -1,6 +1,7 @@
 //! A library for reading and writing table schemas in various formats.
 //!
-//! At the moment, the most interesting type here is `Table`.
+//! At the moment, the most interesting type here is the [`schema`](./schema/)
+//! module, which defines a portable SQL schema.
 
 #![warn(missing_docs, unused_extern_crates, clippy::pendantic)]
 
@@ -13,9 +14,7 @@ use std::result;
 
 pub mod drivers;
 pub mod parsers;
-mod table;
-
-pub use crate::table::*;
+pub mod schema;
 
 /// Standard error type for this library.
 pub use failure::Error;

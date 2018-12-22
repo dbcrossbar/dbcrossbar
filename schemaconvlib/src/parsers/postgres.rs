@@ -2,7 +2,7 @@
 
 use failure::ResultExt;
 
-use crate::table::Table;
+use crate::schema::Table;
 use crate::Result;
 
 /// Include our `rust-peg` grammar.
@@ -22,7 +22,7 @@ pub fn parse_create_table(input: &str) -> Result<Table> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::table::{Column, DataType};
+    use crate::schema::{Column, DataType};
 
     #[test]
     fn simple_table() {

@@ -8,7 +8,7 @@ use failure::{format_err, ResultExt};
 use std::io::Write;
 use url::Url;
 
-use crate::table::{Column, DataType, Table};
+use crate::schema::{Column, DataType, Table};
 use crate::Result;
 
 table! {

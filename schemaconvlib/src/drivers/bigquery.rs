@@ -7,7 +7,7 @@ use serde_derive::Serialize;
 use serde_json;
 use std::{fmt, io::Write, result};
 
-use crate::table::{Column, DataType, Table};
+use crate::schema::{Column, DataType, Table};
 use crate::Result;
 
 /// A BigQuery type.

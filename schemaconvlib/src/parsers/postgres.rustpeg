@@ -10,7 +10,7 @@
 //!
 //! [peg]: https://github.com/kevinmehall/rust-peg
 
-use crate::table::{Column, DataType, Table};
+use crate::schema::{Column, DataType, Table};
 
 /// A `CREATE TABLE` expression.
 pub create_table -> Table
