@@ -15,7 +15,7 @@ mod table;
 
 pub use crate::table::*;
 
-/// Standard error type for this library.profiler_builtins
+/// Standard error type for this library.
 pub use failure::Error;
 
 /// Standard result type for this library.
