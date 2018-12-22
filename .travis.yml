@@ -1,0 +1,41 @@
+language: rust
+sudo: required
+os:
+- linux
+- osx
+rust:
+- stable
+services:
+- docker
+before_script:
+- rustup component add rustfmt
+- rustup component add clippy
+script:
+  # Require `cargo fmt` to have been run.
+  - cargo fmt -- --check
+  # Build the code.
+  - cargo build --verbose
+  # Run the tests.
+  - cargo test --verbose
+  # Require clippy to pass without warnings. This also fails for regular Rust
+  # warnings.
+  - cargo clippy -- -D warnings
+before_deploy: "./build-release schemaconv ${TRAVIS_TAG}-${TRAVIS_OS_NAME}"
+deploy:
+  - provider: releases
+    api_key: $GITHUB_TOKEN
+    file_glob: true
+    file: "schemaconv-${TRAVIS_TAG}-${TRAVIS_OS_NAME}.*"
+    skip_cleanup: true
+    on:
+      rust: stable
+      tags: true
+  - provider: pages
+    skip-cleanup: true
+    local-dir: gh-pages
+    keep-history: true
+    github-token: $GITHUB_TOKEN
+    on:
+      rust: stable
+      tags: true
+      condition: $TRAVIS_OS_NAME = linux
