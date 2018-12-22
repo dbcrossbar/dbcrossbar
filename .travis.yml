@@ -39,5 +39,5 @@ deploy:
     github-token: $GITHUB_TOKEN
     on:
       rust: stable
-      #tags: true
+      tags: true
       condition: $TRAVIS_OS_NAME = linux
