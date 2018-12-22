@@ -1,10 +1,53 @@
-//! Core data types that we manipulate.
+//! Our "interchange" format for database table schemas.
+//!
+//! To convert table schemas between different databases, we have a choice:
+//!
+//! 1. We can convert between each pair of schema formats directly, which would
+//!    require `2*n*(n-1)` conversions for `n` databases.
+//! 2. We can define an "interchange" format, and then build `n` input
+//!    conversions and `n` output conversions. This is much simpler.
+//!
+//! A good interchange format should be rich enough to include the most common
+//! database types, including not just obvious things like text and integers,
+//! but also things like timestamps and geodata. But a good interchange format
+//! should also be as simple as possible, omitting details that generally don't
+//! translate well.
+//!
+//! Inevitably, this means that we're going to wind up with a subjective and
+//! opinionated design.
+//!
+//! We define our format using Rust data structures, which are serialized and
+//! deserialized using [`serde`](https://serde.rs/).
+//!
+//! ```
+//! use schemaconvlib::Table;
+//! use serde_json;
+//!
+//! let json = r#"
+//! {
+//!   "name": "example",
+//!   "columns": [
+//!     { "name": "a", "is_nullable": true,  "data_type": "text" },
+//!     { "name": "b", "is_nullable": true,  "data_type": "int32" },
+//!     { "name": "c", "is_nullable": false, "data_type": "uuid" },
+//!     { "name": "d", "is_nullable": true,  "data_type": "date" },
+//!     { "name": "e", "is_nullable": true,  "data_type": "float64" },
+//!     { "name": "f", "is_nullable": true,  "data_type": { "array": "text" } },
+//!     { "name": "h", "is_nullable": true,  "data_type": "geo_json" }
+//!   ]
+//! }
+//! "#;
+//!
+//! let table: Table = serde_json::from_str(json).expect("could not parse JSON");
+//! ```
 
 use serde_derive::{Deserialize, Serialize};
 #[cfg(test)]
 use serde_json::json;
 
 /// Information about a table.
+///
+/// This is the "top level" of our JSON schema format.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Table {
     /// The name of the table.
@@ -45,6 +88,18 @@ pub struct Column {
 /// (number, string, array, map, boolean, etc.). It's an interchange format.
 /// It's not supposed to cover every imaginable type. But it should at least
 /// cover common, generic types that make sense to many database backends.
+///
+/// We represent this as a Rust `enum`, and not a class hierarchy, because:
+///
+/// 1. Class hierarchies provide an extensible set of _types_ (subclasses), but
+///    a closed set of _operations_ (instance methods on the root class).
+/// 2. Rust `enum`s provide a closed set of _types_ (`enum` variants), but an
+///    open set of operations (`match` statements matching each possible
+///    variant).
+///
+/// In this case, we will extend and change our set of _operations_ regularly,
+/// as we add new input and output filters. But we will only change the possible
+/// data types after careful deliberation. So `enum` is the better choice here.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DataType {
@@ -62,7 +117,10 @@ pub enum DataType {
     Float32,
     /// 8-byte float.
     Float64,
-    /// Geodata in GeoJSON format, using SRID EPSG:4326 (aka WGS 84).
+    /// Geodata in GeoJSON format, using SRID EPSG:4326 (aka WGS 84). This is
+    /// the best "default" coordinate system, and the only one supported by
+    /// BigQuery. All other coordinate systems should be mapped to
+    /// `DataType::String` instead.
     GeoJson,
     /// 2-byte int.
     Int16,
