@@ -1,5 +1,7 @@
 # `schemaconv`: Tools for converting between database table schemas (WIP)
 
+[![Build Status](https://travis-ci.org/faradayio/schemaconv.svg)](https://travis-ci.org/faradayio/schemaconv)
+
 This tool is intended to help convert between schema formats. It's still very incomplete. Right now, `schemaconv` is most useful for moving data from PostgreSQL to Google's BigQuery.
 
 ## What we currently support
