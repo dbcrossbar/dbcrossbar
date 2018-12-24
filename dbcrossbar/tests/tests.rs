@@ -23,7 +23,7 @@ fn version_flag() {
 
 #[test]
 fn schema_help_flag() {
-    let testdir = TestDir::new("dbcrossbar", "help_flag");
+    let testdir = TestDir::new("dbcrossbar", "schema_help_flag");
     let output = testdir.cmd().args(&["schema", "--help"]).expect_success();
     assert!(output.stdout_str().contains("INPUT FORMATS:"));
     assert!(output.stdout_str().contains("OUTPUT FORMATS:"));
@@ -31,7 +31,7 @@ fn schema_help_flag() {
 
 #[test]
 fn schema_pg_to_json() {
-    let testdir = TestDir::new("dbcrossbar", "pg_to_json");
+    let testdir = TestDir::new("dbcrossbar", "schema_pg_to_json");
     let output = testdir
         .cmd()
         .args(&["schema", "-I", "pg", "-O", "json"])
@@ -43,7 +43,7 @@ fn schema_pg_to_json() {
 
 #[test]
 fn schema_pg_to_pg_export() {
-    let testdir = TestDir::new("dbcrossbar", "pg_to_pg_export");
+    let testdir = TestDir::new("dbcrossbar", "schema_pg_to_pg_export");
     let output = testdir
         .cmd()
         .args(&["schema", "-I", "pg", "-O", "pg:export"])
@@ -55,7 +55,7 @@ fn schema_pg_to_pg_export() {
 
 #[test]
 fn schema_pg_to_pg_export_columns() {
-    let testdir = TestDir::new("dbcrossbar", "pg_to_pg_export_columns");
+    let testdir = TestDir::new("dbcrossbar", "schema_pg_to_pg_export_columns");
     testdir
         .cmd()
         .args(&["schema", "-I", "pg", "-O", "pg:export:columns"])
@@ -65,7 +65,7 @@ fn schema_pg_to_pg_export_columns() {
 
 #[test]
 fn schema_pg_to_bq_schema_temp() {
-    let testdir = TestDir::new("dbcrossbar", "pg_to_bq_schema_temp");
+    let testdir = TestDir::new("dbcrossbar", "schema_pg_to_bq_schema_temp");
     let output = testdir
         .cmd()
         .args(&["schema", "-I", "pg", "-O", "bq:schema:temp"])
@@ -81,7 +81,7 @@ fn schema_pg_to_bq_schema_temp() {
 
 #[test]
 fn schema_pg_to_bq_schema() {
-    let testdir = TestDir::new("dbcrossbar", "pg_to_bq_schema");
+    let testdir = TestDir::new("dbcrossbar", "schema_pg_to_bq_schema");
     let output = testdir
         .cmd()
         .args(&["schema", "-I", "pg", "-O", "bq:schema"])
@@ -96,7 +96,7 @@ fn schema_pg_to_bq_schema() {
 
 #[test]
 fn schema_pg_to_bq_import() {
-    let testdir = TestDir::new("dbcrossbar", "pg_to_bq_import");
+    let testdir = TestDir::new("dbcrossbar", "schema_pg_to_bq_import");
     let output = testdir
         .cmd()
         .args(&["schema", "-I", "pg", "-O", "bq:import"])
