@@ -40,7 +40,7 @@ OUTPUT FORMATS:
     Schema {
         #[structopt(flatten)]
         command: schema::Opt,
-    }
+    },
 }
 
 pub(crate) fn run(opt: &Opt) -> Result<()> {

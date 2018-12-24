@@ -1,13 +1,13 @@
 //! The `schema` subcommand.
 
 use common_failures::Result;
-use env_logger;
-use failure::{format_err, ResultExt};
-use openssl_probe;
 use dbcrossbarlib::{
     drivers::{bigquery::BigQueryDriver, postgres::PostgresDriver},
     parsers::postgres::parse_create_table,
 };
+use env_logger;
+use failure::{format_err, ResultExt};
+use openssl_probe;
 use serde_json;
 use std::io::{stdin, stdout, Read, Write};
 use structopt::{self, StructOpt};
@@ -125,4 +125,3 @@ pub(crate) fn run(opt: &Opt) -> Result<()> {
 
     Ok(())
 }
-

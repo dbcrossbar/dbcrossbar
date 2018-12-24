@@ -6,9 +6,9 @@
 //! env DATABASE_URL=... citus_shards $TABLE
 //! ```
 
+use dbcrossbarlib::{drivers::citus::citus_shards, Result};
 use diesel::{pg::PgConnection, prelude::*};
 use failure::{bail, format_err, ResultExt};
-use dbcrossbarlib::{drivers::citus::citus_shards, Result};
 use std::env;
 use url::Url;
 
