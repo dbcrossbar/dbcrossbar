@@ -1,5 +1,5 @@
 [package]
-name = "schemaconvlib"
+name = "dbcrossbarlib"
 version = "0.1.0"
 authors = ["Eric Kidd <git@randomhacks.net>"]
 build = "build.rs"

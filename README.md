@@ -1,8 +1,8 @@
-# `schemaconv`: Tools for converting between database table schemas (WIP)
+# `dbcrossbar`: Tools for converting between database table schemas (WIP)
 
-[![Build Status](https://travis-ci.org/faradayio/schemaconv.svg)](https://travis-ci.org/faradayio/schemaconv)
+[![Build Status](https://travis-ci.org/faradayio/dbcrossbar.svg)](https://travis-ci.org/faradayio/dbcrossbar)
 
-This tool is intended to help convert between schema formats. It's still very incomplete. Right now, `schemaconv` is most useful for moving data from PostgreSQL to Google's BigQuery.
+This tool is intended to help convert between schema formats. It's still very incomplete. Right now, `dbcrossbar` is most useful for moving data from PostgreSQL to Google's BigQuery.
 
 ## What we currently support
 
@@ -23,43 +23,43 @@ However, we do not yet have any higher-level interface that just transfers data 
 # Install Rust compiler.
 curl https://sh.rustup.rs -sSf | sh
 
-# Install schemaconv.
-cargo install -f --git https://github.com/faradayio/schemaconv schemaconv
+# Install dbcrossbar.
+cargo install -f --git https://github.com/faradayio/dbcrossbar dbcrossbar
 ```
 
 ## Examples
 
-Run `schemaconv --help` for more documentation.
+Run `dbcrossbar --help` for more documentation.
 
 ```sh
 # Given a `postgres:` URL, dump a table schema as JSON.
-schemaconv "$DATABASE_URL#mytable" > schema.json
+dbcrossbar "$DATABASE_URL#mytable" > schema.json
 
 # Dump a table schema as BigQuery schema JSON.
-schemaconv "$DATABASE_URL#mytable" -O bq:schema > bigquery-schema.json
+dbcrossbar "$DATABASE_URL#mytable" -O bq:schema > bigquery-schema.json
 
 # Ditto, but using PostgreSQL `CREATE TABLE` SQL as input.
-schemaconv -I pg -O bq:schema < table.sql > bigquery-schema.json
+dbcrossbar -I pg -O bq:schema < table.sql > bigquery-schema.json
 
 # Dump a table schema as quoted PostgreSQL `SELECT ...` arguments.
-schemaconv "$DATABASE_URL#mytable" -O pg:select > select-args.txt
+dbcrossbar "$DATABASE_URL#mytable" -O pg:select > select-args.txt
 ```
 
 You can also edit the default schema JSON (generated with no `-O` flag, or with `-O json`), and then run it back through to generate another format:
 
 ```sh
-schemaconv "$DATABASE_URL#mytable" > schema.json
+dbcrossbar "$DATABASE_URL#mytable" > schema.json
 # (Edit schema.json.)
 
-schemaconv -O bq < schema.json > bigquery-schema.json
+dbcrossbar -O bq < schema.json > bigquery-schema.json
 ```
 
 ## "Interchange" table schemas
 
-In order to make `schemaconv` work, we define a "interchange" table schema format using JSON. This format uses a highly-simplied and carefully curated set of column data types that make sense when passing data between databases. This represents a compromise between the richness of PostgreSQL data types, and the relative poverty of BigQuery data types, while still preserving as much information as possible. It includes timestamps, geodata, etc.
+In order to make `dbcrossbar` work, we define a "interchange" table schema format using JSON. This format uses a highly-simplied and carefully curated set of column data types that make sense when passing data between databases. This represents a compromise between the richness of PostgreSQL data types, and the relative poverty of BigQuery data types, while still preserving as much information as possible. It includes timestamps, geodata, etc.
 
-Seee [`schema.rs`](./schemaconvlib/src/schema.rs) for the details of this "interchange" schema.
+Seee [`schema.rs`](./dbcrossbarlib/src/schema.rs) for the details of this "interchange" schema.
 
 ## Contributing
 
-For more instructions about building `schemaconv`, running tests, and contributing code, see [CONTRIBUTING.md](./CONTRIBUTING.md).
+For more instructions about building `dbcrossbar`, running tests, and contributing code, see [CONTRIBUTING.md](./CONTRIBUTING.md).

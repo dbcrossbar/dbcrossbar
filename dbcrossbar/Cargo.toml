@@ -1,5 +1,5 @@
 [package]
-name = "schemaconv"
+name = "dbcrossbar"
 version = "0.1.0"
 authors = ["Eric Kidd <git@randomhacks.net>"]
 edition = "2018"
@@ -17,7 +17,7 @@ failure = "0.1.2"
 log = "0.4.5"
 openssl = "0.10.16" # Needed to prevent link errors.
 openssl-probe = "0.1.2"
-schemaconvlib = { path = "../schemaconvlib" }
+dbcrossbarlib = { path = "../dbcrossbarlib" }
 serde = "1.0.79"
 serde_json = "1.0.32"
 structopt = "0.2.10"

@@ -22,12 +22,12 @@ script:
   - cargo clippy -- -D warnings
 before_deploy:
   - cargo doc
-  - "./build-release schemaconv ${TRAVIS_TAG}-${TRAVIS_OS_NAME}"
+  - "./build-release dbcrossbar ${TRAVIS_TAG}-${TRAVIS_OS_NAME}"
 deploy:
   - provider: releases
     api_key: $GITHUB_TOKEN
     file_glob: true
-    file: "schemaconv-${TRAVIS_TAG}-${TRAVIS_OS_NAME}.*"
+    file: "dbcrossbar-${TRAVIS_TAG}-${TRAVIS_OS_NAME}.*"
     skip_cleanup: true
     on:
       rust: stable

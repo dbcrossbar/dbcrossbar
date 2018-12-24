@@ -1,2 +1,2 @@
 [workspace]
-members = ["schemaconvlib", "schemaconv"]
+members = ["dbcrossbarlib", "dbcrossbar"]

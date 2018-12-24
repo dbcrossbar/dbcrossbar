@@ -11,7 +11,7 @@ use env_logger;
 use failure::{format_err, ResultExt};
 use log::debug;
 use openssl_probe;
-use schemaconvlib::{
+use dbcrossbarlib::{
     drivers::{bigquery::BigQueryDriver, postgres::PostgresDriver},
     parsers::postgres::parse_create_table,
 };
@@ -25,7 +25,7 @@ use url::Url;
 /// The input format to our program.
 #[derive(Clone, Copy, Debug, EnumString)]
 enum InputFormat {
-    /// schemaconv JSON schema.
+    /// dbcrossbar JSON schema.
     #[strum(serialize = "json")]
     Json,
 
@@ -53,15 +53,15 @@ enum OutputFormat {
 
 /// Our command-line arguments.
 #[derive(Debug, StructOpt)]
-#[structopt(name = "schemaconv", about = "Convert between schema formats.")]
+#[structopt(name = "dbcrossbar", about = "Convert between schema formats.")]
 #[structopt(after_help = r#"
 INPUT FORMATS:
-    json       A JSON schema previously output by schemaconv.
+    json       A JSON schema previously output by dbcrossbar.
     pg         A PostgreSQL 'CREATE TABLE' statement.
 
 OUTPUT FORMATS:
-    json       Output the schema in schemaconv JSON format. This can be
-               manipulated and reimported by schemaconv.
+    json       Output the schema in dbcrossbar JSON format. This can be
+               manipulated and reimported by dbcrossbar.
     pg:export  Generate a 'COPY (...) TO STDOUT WITH CSV HEADER' command which
                dumps the the specified output in a format than can be read by
                other databases. Arrays will be converted to JSON strings,

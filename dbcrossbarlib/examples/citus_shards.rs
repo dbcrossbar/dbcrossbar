@@ -8,7 +8,7 @@
 
 use diesel::{pg::PgConnection, prelude::*};
 use failure::{bail, format_err, ResultExt};
-use schemaconvlib::{drivers::citus::citus_shards, Result};
+use dbcrossbarlib::{drivers::citus::citus_shards, Result};
 use std::env;
 use url::Url;
 
