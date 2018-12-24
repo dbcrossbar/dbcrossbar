@@ -26,7 +26,7 @@ fn pg_to_json() {
     let testdir = TestDir::new("dbcrossbar", "pg_to_json");
     let output = testdir
         .cmd()
-        .args(&["-I", "pg", "-O", "json"])
+        .args(&["schema", "-I", "pg", "-O", "json"])
         .output_with_stdin(INPUT_SQL)
         .expect_success();
     assert!(output.stdout_str().contains("example"));
@@ -38,7 +38,7 @@ fn pg_to_pg_export() {
     let testdir = TestDir::new("dbcrossbar", "pg_to_pg_export");
     let output = testdir
         .cmd()
-        .args(&["-I", "pg", "-O", "pg:export"])
+        .args(&["schema", "-I", "pg", "-O", "pg:export"])
         .output_with_stdin(INPUT_SQL)
         .expect_success();
     assert!(output.stdout_str().contains("COPY (SELECT"));
@@ -50,7 +50,7 @@ fn pg_to_pg_export_columns() {
     let testdir = TestDir::new("dbcrossbar", "pg_to_pg_export_columns");
     testdir
         .cmd()
-        .args(&["-I", "pg", "-O", "pg:export:columns"])
+        .args(&["schema", "-I", "pg", "-O", "pg:export:columns"])
         .output_with_stdin(INPUT_SQL)
         .expect_success();
 }
@@ -60,7 +60,7 @@ fn pg_to_bq_schema_temp() {
     let testdir = TestDir::new("dbcrossbar", "pg_to_bq_schema_temp");
     let output = testdir
         .cmd()
-        .args(&["-I", "pg", "-O", "bq:schema:temp"])
+        .args(&["schema", "-I", "pg", "-O", "bq:schema:temp"])
         .output_with_stdin(INPUT_SQL)
         .expect_success();
     assert!(output.stdout_str().contains("INT64"));
@@ -76,7 +76,7 @@ fn pg_to_bq_schema() {
     let testdir = TestDir::new("dbcrossbar", "pg_to_bq_schema");
     let output = testdir
         .cmd()
-        .args(&["-I", "pg", "-O", "bq:schema"])
+        .args(&["schema", "-I", "pg", "-O", "bq:schema"])
         .output_with_stdin(INPUT_SQL)
         .expect_success();
 
@@ -91,7 +91,7 @@ fn pg_to_bq_import() {
     let testdir = TestDir::new("dbcrossbar", "pg_to_bq_import");
     let output = testdir
         .cmd()
-        .args(&["-I", "pg", "-O", "bq:import"])
+        .args(&["schema", "-I", "pg", "-O", "bq:import"])
         .output_with_stdin(INPUT_SQL)
         .expect_success();
 
