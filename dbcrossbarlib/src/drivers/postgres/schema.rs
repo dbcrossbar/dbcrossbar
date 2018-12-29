@@ -1,7 +1,4 @@
-//! Driver for working with PostgreSQL schemas.
-
-// See https://github.com/diesel-rs/diesel/issues/1785
-#![allow(missing_docs, proc_macro_derive_resolution_fallback)]
+//! PostgreSQL schema support.
 
 use diesel::{pg::PgConnection, prelude::*};
 use failure::{format_err, ResultExt};
