@@ -1,7 +1,13 @@
 //! Support for working with either files or standard I/O.
 
 use failure::{format_err, ResultExt};
-use std::{fmt, fs::File, io::{self, prelude::*}, path::{Path, PathBuf}, str::FromStr};
+use std::{
+    fmt,
+    fs::File,
+    io::{self, prelude::*},
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use crate::{Error, Result};
 
@@ -17,7 +23,10 @@ impl PathOrStdio {
     /// a colon), and extract the trailing path. This differs substantially from
     /// the normal behavior of `file://` URIs, which among other things do not
     /// support relative paths.
-    pub(crate) fn from_str_locator_helper(scheme: &str, locator: &str) -> Result<PathOrStdio> {
+    pub(crate) fn from_str_locator_helper(
+        scheme: &str,
+        locator: &str,
+    ) -> Result<PathOrStdio> {
         assert!(scheme.ends_with(":"));
         if locator.starts_with(scheme) {
             PathOrStdio::from_str(&locator[scheme.len()..])
@@ -29,7 +38,11 @@ impl PathOrStdio {
     /// Given a locator scheme (with a trailing `:`) and a path, format them as
     /// locator pointing to a file. See `file_locator_from_str` for further
     /// notes.
-    pub(crate) fn fmt_locator_helper(&self, scheme: &str, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    pub(crate) fn fmt_locator_helper(
+        &self,
+        scheme: &str,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         assert!(scheme.ends_with(":"));
         write!(f, "{}{}", scheme, self)
     }
@@ -39,11 +52,12 @@ impl PathOrStdio {
     /// `lock` works on standard I/O.
     pub(crate) fn open<F, T>(&self, body: F) -> Result<T>
     where
-        F: FnOnce(&mut Read) -> Result<T>
+        F: FnOnce(&mut Read) -> Result<T>,
     {
         match self {
             PathOrStdio::Path(p) => {
-                let mut f = File::open(p).with_context(|_| format!("error opening {}", p.display()))?;
+                let mut f = File::open(p)
+                    .with_context(|_| format!("error opening {}", p.display()))?;
                 body(&mut f)
             }
             PathOrStdio::Stdio => {
@@ -59,11 +73,12 @@ impl PathOrStdio {
     /// `lock` works on standard I/O.
     pub(crate) fn create<F, T>(&self, body: F) -> Result<T>
     where
-        F: FnOnce(&mut Write) -> Result<T>
+        F: FnOnce(&mut Write) -> Result<T>,
     {
         match self {
             PathOrStdio::Path(p) => {
-                let mut f = File::create(p).with_context(|_| format!("error opening {}", p.display()))?;
+                let mut f = File::create(p)
+                    .with_context(|_| format!("error opening {}", p.display()))?;
                 body(&mut f)
             }
             PathOrStdio::Stdio => {
@@ -79,7 +94,7 @@ impl fmt::Display for PathOrStdio {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             PathOrStdio::Stdio => write!(f, "-"),
-            PathOrStdio::Path(p) => write!(f, "{}", p.display())
+            PathOrStdio::Path(p) => write!(f, "{}", p.display()),
         }
     }
 }

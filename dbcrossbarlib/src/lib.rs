@@ -67,13 +67,12 @@ impl FromStr for BoxLocator {
 
         // Parse our locator into a URL-style scheme and the rest.
         lazy_static! {
-            static ref SCHEME_RE: Regex =
-                Regex::new("^[A-Za-z][-A-Za-z0-0+.]*:")
-                    .expect("invalid regex in source");
+            static ref SCHEME_RE: Regex = Regex::new("^[A-Za-z][-A-Za-z0-0+.]*:")
+                .expect("invalid regex in source");
         }
-        let cap = SCHEME_RE.captures(s).ok_or_else(|| {
-            format_err!("cannot parse locator: {:?}", s)
-        })?;
+        let cap = SCHEME_RE
+            .captures(s)
+            .ok_or_else(|| format_err!("cannot parse locator: {:?}", s))?;
         let scheme = &cap[0];
 
         // Select an appropriate locator type.
@@ -82,7 +81,7 @@ impl FromStr for BoxLocator {
             BIGQUERY_JSON_SCHEME => Ok(Box::new(BigQueryJsonLocator::from_str(s)?)),
             POSTGRES_SCHEME => Ok(Box::new(PostgresLocator::from_str(s)?)),
             POSTGRES_SQL_SCHEME => Ok(Box::new(PostgresSqlLocator::from_str(s)?)),
-            _ => Err(format_err!("unknown locator scheme in {:?}", s))
+            _ => Err(format_err!("unknown locator scheme in {:?}", s)),
         }
     }
 }

@@ -6,9 +6,9 @@ use regex::Regex;
 use serde_json;
 use std::{fmt, io::Write, path::PathBuf, str::FromStr};
 
-use crate::{Error, Locator, Result};
 use crate::path_or_stdio::PathOrStdio;
 use crate::schema::Table;
+use crate::{Error, Locator, Result};
 
 mod schema;
 
@@ -82,8 +82,7 @@ impl FromStr for BigQueryJsonLocator {
 
 impl Locator for BigQueryJsonLocator {
     fn write_schema(&self, table: &Table) -> Result<()> {
-        self.path.create(|f| {
-            schema::BigQueryDriver::write_json(f, table, false)
-        })
+        self.path
+            .create(|f| schema::BigQueryDriver::write_json(f, table, false))
     }
 }

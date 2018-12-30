@@ -4,12 +4,12 @@
 #![allow(missing_docs, proc_macro_derive_resolution_fallback)]
 
 use failure::{format_err, ResultExt};
-use std::{fs::File, fmt, io::Read, path::PathBuf, str::FromStr};
+use std::{fmt, fs::File, io::Read, path::PathBuf, str::FromStr};
 use url::Url;
 
-use crate::{Error, Locator, Result};
 use crate::path_or_stdio::PathOrStdio;
 use crate::schema::Table;
+use crate::{Error, Locator, Result};
 
 pub mod citus;
 mod parser;
@@ -37,7 +37,7 @@ impl FromStr for PostgresLocator {
 
     fn from_str(s: &str) -> Result<Self> {
         let url: Url = s.parse::<Url>().context("cannot parse Postgres URL")?;
-        if url.scheme() != &POSTGRES_SCHEME[..POSTGRES_SCHEME.len()-1] {
+        if url.scheme() != &POSTGRES_SCHEME[..POSTGRES_SCHEME.len() - 1] {
             Err(format_err!("expected URL scheme postgres: {:?}", s))
         } else {
             Ok(PostgresLocator { url })
@@ -48,11 +48,17 @@ impl FromStr for PostgresLocator {
 impl Locator for PostgresLocator {
     fn schema(&self) -> Result<Option<Table>> {
         let mut url: Url = self.url.clone();
-        let table_name = url.fragment().ok_or_else(|| {
-            format_err!("{} needs to be followed by #table_name", self.url)
-        })?.to_owned();
+        let table_name = url
+            .fragment()
+            .ok_or_else(|| {
+                format_err!("{} needs to be followed by #table_name", self.url)
+            })?
+            .to_owned();
         url.set_fragment(None);
-        Ok(Some(schema::PostgresDriver::fetch_from_url(&url, &table_name)?))
+        Ok(Some(schema::PostgresDriver::fetch_from_url(
+            &url,
+            &table_name,
+        )?))
     }
 }
 
@@ -83,9 +89,9 @@ impl Locator for PostgresSqlLocator {
     fn schema(&self) -> Result<Option<Table>> {
         self.path.open(|input| {
             let mut sql = String::new();
-            input.read_to_string(&mut sql).with_context(|_| {
-                format!("error reading {}", self.path)
-            })?;
+            input
+                .read_to_string(&mut sql)
+                .with_context(|_| format!("error reading {}", self.path))?;
             Ok(Some(parser::parse_create_table(&sql)?))
         })
     }

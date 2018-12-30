@@ -26,5 +26,3 @@ pub trait LocalSink {
 
     fn join(&mut self) -> Result<()>;
 }
-
-
