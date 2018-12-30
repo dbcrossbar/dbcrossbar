@@ -1,58 +1,14 @@
-//! Driver for working with BigQuery schemas.
+//! Tools for converting a `Table` schema to a BigQuery JSON-format schema.
 
 use failure::format_err;
-use lazy_static::lazy_static;
 use log::error;
-use regex::Regex;
 use serde::{Serialize, Serializer};
 use serde_derive::Serialize;
 use serde_json;
-use std::{fmt, io::Write, result, str::FromStr};
+use std::{fmt, io::Write, result};
 
 use crate::schema::{Column, DataType, Table};
-use crate::{Error, Locator, Result};
-
-/// A locator for a BigQuery table.
-pub struct BigQueryLocator {
-    /// The name of the Google Cloud project.
-    pub project: String,
-    /// The BigQuery dataset.
-    pub dataset: String,
-    /// The table.
-    pub table: String,
-}
-
-impl fmt::Display for BigQueryLocator {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "bigquery:{}:{}.{}",
-            self.project, self.dataset, self.table
-        )
-    }
-}
-
-impl FromStr for BigQueryLocator {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new("^bigquery:([^:.]+):([^:.]+).([^:.]+)$")
-                .expect("could not parse built-in regex");
-        }
-        let cap = RE
-            .captures(s)
-            .ok_or_else(|| format_err!("could not parse locator: {:?}", s))?;
-        let (project, dataset, table) = (&cap[1], &cap[2], &cap[3]);
-        Ok(BigQueryLocator {
-            project: project.to_string(),
-            dataset: dataset.to_string(),
-            table: table.to_string(),
-        })
-    }
-}
-
-impl Locator for BigQueryLocator {}
+use crate::Result;
 
 /// A BigQuery type.
 #[derive(Debug, Eq, PartialEq)]

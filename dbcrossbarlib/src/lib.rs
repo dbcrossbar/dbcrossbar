@@ -17,9 +17,10 @@ use std::{fmt, result, str::FromStr};
 
 pub mod data;
 pub mod drivers;
+pub(crate) mod path_or_stdio;
 pub mod schema;
 
-use self::data::{LocalSink, LocalSource};
+use self::data::CsvStream;
 use self::schema::Table;
 
 /// Standard error type for this library.
@@ -35,16 +36,22 @@ pub trait Locator: fmt::Display {
         Ok(None)
     }
 
+    /// Write a table schema to this locator, if that's the sort of thing that
+    /// we can do.
+    fn write_schema(&self, _schema: &Table) -> Result<()> {
+        Err(format_err!("cannot write schema to {}", self))
+    }
+
     /// If this locator can be used as a local data source, return the local
     /// data source.
-    fn local_source(&self) -> Result<Option<Box<dyn LocalSource>>> {
+    fn local_data(&self) -> Result<Option<Vec<CsvStream>>> {
         Ok(None)
     }
 
     /// If this locator can be used as a local data sink, return the local data
     /// sink.
-    fn local_sink(&self) -> Result<Option<Box<dyn LocalSink>>> {
-        Ok(None)
+    fn write_local_data(&self, _schema: &Table, _data: &[CsvStream]) -> Result<()> {
+        Err(format_err!("cannot write data to {}", self))
     }
 }
 
@@ -55,22 +62,26 @@ impl FromStr for BoxLocator {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
+        use self::drivers::bigquery::*;
+        use self::drivers::postgres::*;
+
         // Parse our locator into a URL-style scheme and the rest.
         lazy_static! {
-            static ref LOCATOR_RE: Regex =
-                Regex::new("^([A-Za-z][-A-Za-z0-0+.]*):")
+            static ref SCHEME_RE: Regex =
+                Regex::new("^[A-Za-z][-A-Za-z0-0+.]*:")
                     .expect("invalid regex in source");
         }
-        let cap = LOCATOR_RE.captures(s).ok_or_else(|| {
+        let cap = SCHEME_RE.captures(s).ok_or_else(|| {
             format_err!("cannot parse locator: {:?}", s)
         })?;
-        let scheme = &cap[1];
+        let scheme = &cap[0];
 
         // Select an appropriate locator type.
         match scheme {
-            "postgres" => Ok(Box::new(drivers::postgres::PostgresLocator::from_str(s)?)),
-            "postgres.sql" => Ok(Box::new(drivers::postgres::PostgresSqlLocator::from_str(s)?)),
-            "bigquery" => Ok(Box::new(drivers::bigquery::BigQueryLocator::from_str(s)?)),
+            BIGQUERY_SCHEME => Ok(Box::new(BigQueryLocator::from_str(s)?)),
+            BIGQUERY_JSON_SCHEME => Ok(Box::new(BigQueryJsonLocator::from_str(s)?)),
+            POSTGRES_SCHEME => Ok(Box::new(PostgresLocator::from_str(s)?)),
+            POSTGRES_SQL_SCHEME => Ok(Box::new(PostgresSqlLocator::from_str(s)?)),
             _ => Err(format_err!("unknown locator scheme in {:?}", s))
         }
     }
@@ -80,8 +91,9 @@ impl FromStr for BoxLocator {
 fn locator_from_str_to_string_roundtrip() {
     let locators = vec![
         "postgres://localhost:5432/db#my_table",
-        "postgres.sql:/home/user/my_table.sql",
+        "postgres.sql:dir/my_table.sql",
         "bigquery:my_project:my_dataset.my_table",
+        "bigquery.json:dir/my_table.json",
     ];
     for locator in locators.into_iter() {
         let parsed: BoxLocator = locator.parse().unwrap();
