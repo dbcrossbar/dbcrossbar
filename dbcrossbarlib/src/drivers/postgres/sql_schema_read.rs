@@ -8,7 +8,7 @@ use crate::Result;
 /// Include our `rust-peg` grammar.
 ///
 /// We disable lots of clippy warnings because this is machine-generated code.
-#[allow(clippy::style, clippy::complexity, clippy::perf)]
+#[allow(clippy::all, rust_2018_idioms, elided_lifetimes_in_paths)]
 mod grammar {
     include!(concat!(env!("OUT_DIR"), "/postgres.rs"));
 }

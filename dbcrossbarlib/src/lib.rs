@@ -3,7 +3,7 @@
 //! At the moment, the most interesting type here is the [`schema`](./schema/)
 //! module, which defines a portable SQL schema.
 
-#![warn(missing_docs, unused_extern_crates, clippy::pendantic)]
+#![warn(missing_docs, rust_2018_idioms, unused_extern_crates, clippy::all)]
 
 // We keep one `macro_use` here, because `diesel`'s macros do not yet play
 // nicely with the new Rust 2018 macro importing features.

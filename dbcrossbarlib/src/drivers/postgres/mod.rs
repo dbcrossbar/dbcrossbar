@@ -4,16 +4,18 @@
 #![allow(missing_docs, proc_macro_derive_resolution_fallback)]
 
 use failure::{format_err, ResultExt};
-use std::{fmt, fs::File, io::Read, path::PathBuf, str::FromStr};
+use std::{fmt, str::FromStr};
 use url::Url;
 
+use crate::data::CsvStream;
 use crate::path_or_stdio::PathOrStdio;
 use crate::schema::Table;
 use crate::{Error, Locator, Result};
 
 pub mod citus;
-mod parser;
-mod schema;
+mod data_read;
+mod schema_read;
+mod sql_schema_read;
 
 /// URL scheme for `PostgresLocator`.
 pub(crate) const POSTGRES_SCHEME: &str = "postgres:";
@@ -25,11 +27,15 @@ pub(crate) const POSTGRES_SCHEME: &str = "postgres:";
 #[derive(Debug)]
 pub struct PostgresLocator {
     url: Url,
+    table_name: String,
 }
 
 impl fmt::Display for PostgresLocator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.url.fmt(f)
+        // Merge our table name back into our URL.
+        let mut full_url = self.url.clone();
+        full_url.set_fragment(Some(&self.table_name));
+        full_url.fmt(f)
     }
 }
 
@@ -37,29 +43,35 @@ impl FromStr for PostgresLocator {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        let url: Url = s.parse::<Url>().context("cannot parse Postgres URL")?;
+        let mut url: Url = s.parse::<Url>().context("cannot parse Postgres URL")?;
         if url.scheme() != &POSTGRES_SCHEME[..POSTGRES_SCHEME.len() - 1] {
             Err(format_err!("expected URL scheme postgres: {:?}", s))
         } else {
-            Ok(PostgresLocator { url })
+            // Extract table name from URL.
+            let table_name = url
+                .fragment()
+                .ok_or_else(|| {
+                    format_err!("{} needs to be followed by #table_name", url)
+                })?
+                .to_owned();
+            url.set_fragment(None);
+            Ok(PostgresLocator { url, table_name })
         }
     }
 }
 
 impl Locator for PostgresLocator {
     fn schema(&self) -> Result<Option<Table>> {
-        let mut url: Url = self.url.clone();
-        let table_name = url
-            .fragment()
-            .ok_or_else(|| {
-                format_err!("{} needs to be followed by #table_name", self.url)
-            })?
-            .to_owned();
-        url.set_fragment(None);
-        Ok(Some(schema::PostgresDriver::fetch_from_url(
-            &url,
-            &table_name,
+        Ok(Some(schema_read::fetch_from_url(
+            &self.url,
+            &self.table_name,
         )?))
+    }
+
+    fn local_data(&self) -> Result<Option<Vec<CsvStream>>> {
+        let schema = self.schema()?.expect("should always have schema");
+        let stream = data_read::copy_out_table(&self.url, &schema)?;
+        Ok(Some(vec![stream]))
     }
 }
 
@@ -94,7 +106,7 @@ impl Locator for PostgresSqlLocator {
             input
                 .read_to_string(&mut sql)
                 .with_context(|_| format!("error reading {}", self.path))?;
-            Ok(Some(parser::parse_create_table(&sql)?))
+            Ok(Some(sql_schema_read::parse_create_table(&sql)?))
         })
     }
 }

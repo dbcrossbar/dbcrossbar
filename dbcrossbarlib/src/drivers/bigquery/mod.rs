@@ -4,7 +4,7 @@ use failure::format_err;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde_json;
-use std::{fmt, io::Write, path::PathBuf, str::FromStr};
+use std::{fmt, str::FromStr};
 
 use crate::path_or_stdio::PathOrStdio;
 use crate::schema::Table;

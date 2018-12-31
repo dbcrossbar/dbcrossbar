@@ -28,7 +28,7 @@ impl PathOrStdio {
         scheme: &str,
         locator: &str,
     ) -> Result<PathOrStdio> {
-        assert!(scheme.ends_with(":"));
+        assert!(scheme.ends_with(':'));
         if locator.starts_with(scheme) {
             PathOrStdio::from_str(&locator[scheme.len()..])
         } else {
@@ -44,7 +44,7 @@ impl PathOrStdio {
         scheme: &str,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
-        assert!(scheme.ends_with(":"));
+        assert!(scheme.ends_with(':'));
         write!(f, "{}{}", scheme, self)
     }
 
@@ -53,7 +53,7 @@ impl PathOrStdio {
     /// `lock` works on standard I/O.
     pub(crate) fn open<F, T>(&self, body: F) -> Result<T>
     where
-        F: FnOnce(&mut Read) -> Result<T>,
+        F: FnOnce(&mut dyn Read) -> Result<T>,
     {
         match self {
             PathOrStdio::Path(p) => {
@@ -74,7 +74,7 @@ impl PathOrStdio {
     /// `lock` works on standard I/O.
     pub(crate) fn create<F, T>(&self, body: F) -> Result<T>
     where
-        F: FnOnce(&mut Write) -> Result<T>,
+        F: FnOnce(&mut dyn Write) -> Result<T>,
     {
         match self {
             PathOrStdio::Path(p) => {
@@ -92,7 +92,7 @@ impl PathOrStdio {
 }
 
 impl fmt::Display for PathOrStdio {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             PathOrStdio::Stdio => write!(f, "-"),
             PathOrStdio::Path(p) => write!(f, "{}", p.display()),
