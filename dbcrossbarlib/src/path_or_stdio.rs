@@ -13,6 +13,7 @@ use crate::{Error, Result};
 
 /// A local input or output location, specified using either a path, or `"-"`
 /// for standard I/O.
+#[derive(Debug, Eq, PartialEq)]
 pub(crate) enum PathOrStdio {
     Path(PathBuf),
     Stdio,

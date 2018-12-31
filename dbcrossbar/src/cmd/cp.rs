@@ -1,0 +1,28 @@
+//! The `schema` subcommand.
+
+use common_failures::Result;
+use dbcrossbarlib::BoxLocator;
+use failure::format_err;
+use structopt::{self, StructOpt};
+
+/// Schema conversion arguments.
+#[derive(Debug, StructOpt)]
+pub(crate) struct Opt {
+    /// The input table.
+    from_locator: BoxLocator,
+
+    /// The output table.
+    to_locator: BoxLocator,
+}
+
+/// Perform our schema conversion.
+pub(crate) fn run(opt: &Opt) -> Result<()> {
+    let schema = opt.from_locator.schema()?.ok_or_else(|| {
+        format_err!("don't know how to read schema from {}", opt.from_locator)
+    })?;
+    let data = opt.from_locator.local_data()?.ok_or_else(|| {
+        format_err!("don't know how to read data from {}", opt.to_locator)
+    })?;
+    opt.to_locator.write_local_data(&schema, &data)?;
+    Ok(())
+}

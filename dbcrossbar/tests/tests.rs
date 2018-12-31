@@ -5,7 +5,7 @@ use cli_test_dir::*;
 /// means we don't fully test certain modes of the CLI (though we have unit
 /// tests for much of the related code).
 const INPUT_SQL: &str =
-    include_str!("../../dbcrossbarlib/src/parsers/postgres_example.sql");
+    include_str!("../../dbcrossbarlib/src/drivers/postgres/postgres_example.sql");
 
 #[test]
 fn help_flag() {
@@ -22,89 +22,29 @@ fn version_flag() {
 }
 
 #[test]
-fn schema_help_flag() {
-    let testdir = TestDir::new("dbcrossbar", "schema_help_flag");
-    let output = testdir.cmd().args(&["schema", "--help"]).expect_success();
-    assert!(output.stdout_str().contains("INPUT FORMATS:"));
-    assert!(output.stdout_str().contains("OUTPUT FORMATS:"));
+fn conv_help_flag() {
+    let testdir = TestDir::new("dbcrossbar", "conv_help_flag");
+    let output = testdir.cmd().args(&["conv", "--help"]).expect_success();
+    assert!(output.stdout_str().contains("EXAMPLE LOCATORS:"));
 }
 
 #[test]
-fn schema_pg_to_json() {
-    let testdir = TestDir::new("dbcrossbar", "schema_pg_to_json");
+fn conv_pg_sql_to_bq_json() {
+    let testdir = TestDir::new("dbcrossbar", "conv_pg_sql_to_bq_json");
     let output = testdir
         .cmd()
-        .args(&["schema", "-I", "pg", "-O", "json"])
-        .output_with_stdin(INPUT_SQL)
-        .expect_success();
-    assert!(output.stdout_str().contains("example"));
-    assert!(output.stdout_str().contains("\"a\""));
-}
-
-#[test]
-fn schema_pg_to_pg_export() {
-    let testdir = TestDir::new("dbcrossbar", "schema_pg_to_pg_export");
-    let output = testdir
-        .cmd()
-        .args(&["schema", "-I", "pg", "-O", "pg:export"])
-        .output_with_stdin(INPUT_SQL)
-        .expect_success();
-    assert!(output.stdout_str().contains("COPY (SELECT"));
-    assert!(output.stdout_str().contains("TO STDOUT WITH CSV HEADER"));
-}
-
-#[test]
-fn schema_pg_to_pg_export_columns() {
-    let testdir = TestDir::new("dbcrossbar", "schema_pg_to_pg_export_columns");
-    testdir
-        .cmd()
-        .args(&["schema", "-I", "pg", "-O", "pg:export:columns"])
-        .output_with_stdin(INPUT_SQL)
-        .expect_success();
-}
-
-#[test]
-fn schema_pg_to_bq_schema_temp() {
-    let testdir = TestDir::new("dbcrossbar", "schema_pg_to_bq_schema_temp");
-    let output = testdir
-        .cmd()
-        .args(&["schema", "-I", "pg", "-O", "bq:schema:temp"])
+        .args(&["conv", "postgres.sql:-", "bigquery.json:-"])
         .output_with_stdin(INPUT_SQL)
         .expect_success();
     assert!(output.stdout_str().contains("INT64"));
     assert!(output.stdout_str().contains("GEOGRAPHY"));
-
-    // Arrays can't be directly read from a CSV file, and so they should never
-    // appear in the temp schema.
-    assert!(!output.stdout_str().contains("ARRAY"));
+    assert!(output.stdout_str().contains("INT64"));
+    assert!(output.stdout_str().contains("GEOGRAPHY"));
 }
 
 #[test]
-fn schema_pg_to_bq_schema() {
-    let testdir = TestDir::new("dbcrossbar", "schema_pg_to_bq_schema");
-    let output = testdir
-        .cmd()
-        .args(&["schema", "-I", "pg", "-O", "bq:schema"])
-        .output_with_stdin(INPUT_SQL)
-        .expect_success();
-
-    // These types should appear in the final schema, after we're run SQL on
-    // BigQuery SQL to transform the data we've loaded into its final form.
-    assert!(output.stdout_str().contains("ARRAY<STRING>"));
-    assert!(output.stdout_str().contains("ARRAY<INT64>"));
-}
-
-#[test]
-fn schema_pg_to_bq_import() {
-    let testdir = TestDir::new("dbcrossbar", "schema_pg_to_bq_import");
-    let output = testdir
-        .cmd()
-        .args(&["schema", "-I", "pg", "-O", "bq:import"])
-        .output_with_stdin(INPUT_SQL)
-        .expect_success();
-
-    // We should see generated conversion functions in the output.
-    assert!(output
-        .stdout_str()
-        .contains("CREATE TEMP FUNCTION ImportJson"));
+fn cp_help_flag() {
+    let testdir = TestDir::new("dbcrossbar", "cp_help_flag");
+    let output = testdir.cmd().args(&["cp", "--help"]).expect_success();
+    assert!(output.stdout_str().contains("EXAMPLE LOCATORS:"));
 }

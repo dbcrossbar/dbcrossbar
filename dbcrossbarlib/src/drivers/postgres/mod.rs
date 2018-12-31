@@ -22,6 +22,7 @@ pub(crate) const POSTGRES_SCHEME: &str = "postgres:";
 ///
 /// This is the central point of access for talking to a running PostgreSQL
 /// database.
+#[derive(Debug)]
 pub struct PostgresLocator {
     url: Url,
 }
@@ -66,6 +67,7 @@ impl Locator for PostgresLocator {
 pub(crate) const POSTGRES_SQL_SCHEME: &str = "postgres.sql:";
 
 /// An SQL file containing a `CREATE TABLE` statement using Postgres syntax.
+#[derive(Debug)]
 pub struct PostgresSqlLocator {
     path: PathOrStdio,
 }

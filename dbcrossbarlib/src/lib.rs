@@ -30,7 +30,7 @@ pub use failure::Error;
 pub type Result<T> = result::Result<T, Error>;
 
 /// Specify the the location of data or a schema.
-pub trait Locator: fmt::Display {
+pub trait Locator: fmt::Debug + fmt::Display {
     /// Return a table schema, if available.
     fn schema(&self) -> Result<Option<Table>> {
         Ok(None)

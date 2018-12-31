@@ -16,6 +16,7 @@ mod schema;
 pub(crate) const BIGQUERY_SCHEME: &str = "bigquery:";
 
 /// A locator for a BigQuery table.
+#[derive(Debug)]
 pub struct BigQueryLocator {
     /// The name of the Google Cloud project.
     pub project: String,
@@ -61,6 +62,7 @@ impl Locator for BigQueryLocator {}
 pub(crate) const BIGQUERY_JSON_SCHEME: &str = "bigquery.json:";
 
 /// A JSON file containing BigQuery table schema.
+#[derive(Debug)]
 pub struct BigQueryJsonLocator {
     path: PathOrStdio,
 }
