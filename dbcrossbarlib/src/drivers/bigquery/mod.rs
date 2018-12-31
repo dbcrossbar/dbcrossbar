@@ -59,30 +59,30 @@ impl FromStr for BigQueryLocator {
 impl Locator for BigQueryLocator {}
 
 /// URL scheme for `PostgresSqlLocator`.
-pub(crate) const BIGQUERY_JSON_SCHEME: &str = "bigquery.json:";
+pub(crate) const BIGQUERY_SCHEMA_SCHEME: &str = "bigquery-schema:";
 
 /// A JSON file containing BigQuery table schema.
 #[derive(Debug)]
-pub struct BigQueryJsonLocator {
+pub struct BigQuerySchemaLocator {
     path: PathOrStdio,
 }
 
-impl fmt::Display for BigQueryJsonLocator {
+impl fmt::Display for BigQuerySchemaLocator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.path.fmt_locator_helper(BIGQUERY_JSON_SCHEME, f)
+        self.path.fmt_locator_helper(BIGQUERY_SCHEMA_SCHEME, f)
     }
 }
 
-impl FromStr for BigQueryJsonLocator {
+impl FromStr for BigQuerySchemaLocator {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        let path = PathOrStdio::from_str_locator_helper(BIGQUERY_JSON_SCHEME, s)?;
-        Ok(BigQueryJsonLocator { path })
+        let path = PathOrStdio::from_str_locator_helper(BIGQUERY_SCHEMA_SCHEME, s)?;
+        Ok(BigQuerySchemaLocator { path })
     }
 }
 
-impl Locator for BigQueryJsonLocator {
+impl Locator for BigQuerySchemaLocator {
     fn write_schema(&self, table: &Table) -> Result<()> {
         self.path
             .create(|f| schema::BigQueryDriver::write_json(f, table, false))

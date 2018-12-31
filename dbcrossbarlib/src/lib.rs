@@ -78,7 +78,9 @@ impl FromStr for BoxLocator {
         // Select an appropriate locator type.
         match scheme {
             BIGQUERY_SCHEME => Ok(Box::new(BigQueryLocator::from_str(s)?)),
-            BIGQUERY_JSON_SCHEME => Ok(Box::new(BigQueryJsonLocator::from_str(s)?)),
+            BIGQUERY_SCHEMA_SCHEME => {
+                Ok(Box::new(BigQuerySchemaLocator::from_str(s)?))
+            }
             POSTGRES_SCHEME => Ok(Box::new(PostgresLocator::from_str(s)?)),
             POSTGRES_SQL_SCHEME => Ok(Box::new(PostgresSqlLocator::from_str(s)?)),
             _ => Err(format_err!("unknown locator scheme in {:?}", s)),
@@ -90,9 +92,9 @@ impl FromStr for BoxLocator {
 fn locator_from_str_to_string_roundtrip() {
     let locators = vec![
         "postgres://localhost:5432/db#my_table",
-        "postgres.sql:dir/my_table.sql",
+        "postgres-sql:dir/my_table.sql",
         "bigquery:my_project:my_dataset.my_table",
-        "bigquery.json:dir/my_table.json",
+        "bigquery-schema:dir/my_table.json",
     ];
     for locator in locators.into_iter() {
         let parsed: BoxLocator = locator.parse().unwrap();

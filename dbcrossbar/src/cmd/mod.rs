@@ -10,13 +10,16 @@ pub(crate) mod cp;
 
 /// Command-line options, parsed using `structopt`.
 #[derive(Debug, StructOpt)]
-#[structopt(name = "dbcrossbar", about = "Convert schemas and data between databases.")]
+#[structopt(
+    name = "dbcrossbar",
+    about = "Convert schemas and data between databases."
+)]
 pub(crate) enum Opt {
     #[structopt(name = "conv")]
     #[structopt(after_help = r#"EXAMPLE LOCATORS:
-    postgres.sql:table.sql
+    postgres-sql:table.sql
     postgres://localhost:5432/db#table
-    bigquery.json:table.json
+    bigquery-schema:table.json
 "#)]
     Conv {
         #[structopt(flatten)]
@@ -31,7 +34,7 @@ pub(crate) enum Opt {
     Cp {
         #[structopt(flatten)]
         command: cp::Opt,
-    }
+    },
 }
 
 pub(crate) fn run(opt: &Opt) -> Result<()> {

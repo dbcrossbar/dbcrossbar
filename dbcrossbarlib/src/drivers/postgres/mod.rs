@@ -64,7 +64,7 @@ impl Locator for PostgresLocator {
 }
 
 /// URL scheme for `PostgresSqlLocator`.
-pub(crate) const POSTGRES_SQL_SCHEME: &str = "postgres.sql:";
+pub(crate) const POSTGRES_SQL_SCHEME: &str = "postgres-sql:";
 
 /// An SQL file containing a `CREATE TABLE` statement using Postgres syntax.
 #[derive(Debug)]

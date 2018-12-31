@@ -29,17 +29,15 @@ fn conv_help_flag() {
 }
 
 #[test]
-fn conv_pg_sql_to_bq_json() {
-    let testdir = TestDir::new("dbcrossbar", "conv_pg_sql_to_bq_json");
+fn conv_pg_sql_to_bq_schema() {
+    let testdir = TestDir::new("dbcrossbar", "conv_pg_sql_to_bq_schema");
     let output = testdir
         .cmd()
-        .args(&["conv", "postgres.sql:-", "bigquery.json:-"])
+        .args(&["conv", "postgres-sql:-", "bigquery-schema:-"])
         .output_with_stdin(INPUT_SQL)
         .expect_success();
-    assert!(output.stdout_str().contains("INT64"));
     assert!(output.stdout_str().contains("GEOGRAPHY"));
-    assert!(output.stdout_str().contains("INT64"));
-    assert!(output.stdout_str().contains("GEOGRAPHY"));
+    assert!(output.stdout_str().contains("ARRAY<INT64>"));
 }
 
 #[test]
