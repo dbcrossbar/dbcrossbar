@@ -1,16 +1,18 @@
 //! Driver for working with CSV files.
 
+use csv;
 use failure::{format_err, ResultExt};
 use std::{
     fmt,
     fs::{self, File},
     io,
+    path::Path,
     str::FromStr,
     thread,
 };
 
 use crate::path_or_stdio::PathOrStdio;
-use crate::schema::Table;
+use crate::schema::{Column, DataType, Table};
 use crate::{CsvStream, Error, Locator, Result};
 
 /// Locator scheme for CSV files.
@@ -42,8 +44,36 @@ impl FromStr for CsvLocator {
 }
 
 impl Locator for CsvLocator {
-    // TODO: Implement a primitive schema reader for local files that just grabs
-    // the column names and sets each type to text.
+    fn schema(&self) -> Result<Option<Table>> {
+        match &self.path {
+            PathOrStdio::Stdio => {
+                // This is actually fairly tricky, because we may need to first
+                // read the columns from stdin, _then_ start re-reading from the
+                // beginning to read the data when `local_data` is called.
+                Err(format_err!("cannot yet read CSV schema from stdin"))
+            }
+            PathOrStdio::Path(path) => {
+                // Build our columns.
+                let mut rdr = csv::Reader::from_path(path)
+                    .with_context(|_| format!("error opening {}", path.display()))?;
+                let mut columns = vec![];
+                let headers = rdr.headers()
+                    .with_context(|_| format!("error reading {}", path.display()))?;
+                for col_name in headers {
+                    columns.push(Column {
+                        name: col_name.to_owned(),
+                        is_nullable: true,
+                        data_type: DataType::Text,
+                        comment: None,
+                    })
+                }
+
+                // Build our table.
+                let name = stream_name(path)?.to_owned();
+                Ok(Some(Table { name, columns }))
+            }
+        }
+    }
 
     fn local_data(&self) -> Result<Option<Vec<CsvStream>>> {
         match &self.path {
@@ -60,10 +90,7 @@ impl Locator for CsvLocator {
                 // TODO - Paths to directories of files.
                 let data = File::open(path)
                     .with_context(|_| format!("cannot open {}", path.display()))?;
-                let name =
-                    path.file_stem().and_then(|name| name.to_str()).ok_or_else(
-                        || format_err!("cannot get file name from {}", path.display()),
-                    )?;
+                let name = stream_name(path)?;
                 Ok(Some(vec![CsvStream {
                     name: name.to_owned(),
                     data: Box::new(data),
@@ -108,4 +135,11 @@ impl Locator for CsvLocator {
             }
         }
     }
+}
+
+/// Given a path, extract the base name of the file.
+fn stream_name(path: &Path) -> Result<&str> {
+    path.file_stem().and_then(|name| name.to_str()).ok_or_else(
+        || format_err!("cannot get file name from {}", path.display()),
+    )
 }

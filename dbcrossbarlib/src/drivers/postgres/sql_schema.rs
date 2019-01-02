@@ -1,7 +1,7 @@
 //! Parser for PostgreSQL `CREATE TABLE` declarations.
 
 use failure::{format_err, ResultExt};
-use std::io::{self, prelude::*};
+use std::io::prelude::*;
 
 use crate::schema::{Column, DataType, Table};
 use crate::Result;
@@ -22,7 +22,7 @@ pub(crate) fn parse_create_table(input: &str) -> Result<Table> {
 
 /// Write out a Postgres `CREATE TABLE` statement based on `table`.
 pub(crate) fn write_create_table(out: &mut Write, table: &Table) -> Result<()> {
-    write!(out, "CREATE TABLE {:?} (", table.name)?;
+    writeln!(out, "CREATE TABLE {:?} (", table.name)?;
     for (idx, col) in table.columns.iter().enumerate() {
         write!(out, "    {:?} ", col.name)?;
         write_data_type(out, col, &col.data_type, false)?;
@@ -35,7 +35,7 @@ pub(crate) fn write_create_table(out: &mut Write, table: &Table) -> Result<()> {
             writeln!(out, ",")?;
         }
     }
-    write!(out, ");")?;
+    writeln!(out, ");")?;
     Ok(())
 }
 

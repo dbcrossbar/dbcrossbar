@@ -4,8 +4,8 @@ use std::fs;
 /// An example Postgres SQL `CREATE TABLE` declaration.
 const EXAMPLE_SQL: &str = include_str!("../fixtures/example.sql");
 
-// /// An example CSV file with columns corresponding to `EXAMPLE_SQL`.
-// const EXAMPLE_CSV: &str = include_str!("../fixtures/example.csv");
+/// An example CSV file with columns corresponding to `EXAMPLE_SQL`.
+const EXAMPLE_CSV: &str = include_str!("../fixtures/example.csv");
 
 /// Sample input SQL. We test against this, and not against a running copy of
 /// PostgreSQL, because it keeps the test environment much simpler. But this
@@ -44,6 +44,25 @@ fn conv_pg_sql_to_pg_sql() {
         .output_with_stdin(EXAMPLE_SQL)
         .expect_success();
     assert!(output.stdout_str().contains("CREATE TABLE"));
+}
+
+#[test]
+fn conv_csv_to_pg_sql() {
+    let testdir = TestDir::new("dbcrossbar", "conv_csv_to_pg_sql");
+    let src = testdir.src_path("fixtures/example.csv");
+    let output = testdir
+        .cmd()
+        .args(&[
+            "conv",
+            &format!("csv:{}", src.display()),
+            "postgres-sql:-",
+        ])
+        .output()
+        .expect_success();
+    assert!(output.stdout_str().contains("CREATE TABLE"));
+    assert!(output.stdout_str().contains("id"));
+    assert!(output.stdout_str().contains("first_name"));
+    assert!(output.stdout_str().contains("last_name"));
 }
 
 #[test]
