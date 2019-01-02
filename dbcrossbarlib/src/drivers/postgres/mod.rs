@@ -7,15 +7,14 @@ use failure::{format_err, ResultExt};
 use std::{fmt, str::FromStr};
 use url::Url;
 
-use crate::data::CsvStream;
 use crate::path_or_stdio::PathOrStdio;
 use crate::schema::Table;
-use crate::{Error, Locator, Result};
+use crate::{CsvStream, Error, Locator, Result};
 
 pub mod citus;
-mod data_read;
-mod schema_read;
-mod sql_schema_read;
+mod local_data;
+mod schema;
+mod sql_schema;
 
 /// URL scheme for `PostgresLocator`.
 pub(crate) const POSTGRES_SCHEME: &str = "postgres:";
@@ -62,15 +61,12 @@ impl FromStr for PostgresLocator {
 
 impl Locator for PostgresLocator {
     fn schema(&self) -> Result<Option<Table>> {
-        Ok(Some(schema_read::fetch_from_url(
-            &self.url,
-            &self.table_name,
-        )?))
+        Ok(Some(schema::fetch_from_url(&self.url, &self.table_name)?))
     }
 
     fn local_data(&self) -> Result<Option<Vec<CsvStream>>> {
         let schema = self.schema()?.expect("should always have schema");
-        let stream = data_read::copy_out_table(&self.url, &schema)?;
+        let stream = local_data::copy_out_table(&self.url, &schema)?;
         Ok(Some(vec![stream]))
     }
 }
@@ -106,7 +102,7 @@ impl Locator for PostgresSqlLocator {
             input
                 .read_to_string(&mut sql)
                 .with_context(|_| format!("error reading {}", self.path))?;
-            Ok(Some(sql_schema_read::parse_create_table(&sql)?))
+            Ok(Some(sql_schema::parse_create_table(&sql)?))
         })
     }
 }

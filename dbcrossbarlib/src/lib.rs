@@ -3,7 +3,7 @@
 //! At the moment, the most interesting type here is the [`schema`](./schema/)
 //! module, which defines a portable SQL schema.
 
-#![warn(missing_docs, rust_2018_idioms, unused_extern_crates, clippy::all)]
+#![warn(missing_docs, unused_extern_crates, clippy::all)]
 
 // We keep one `macro_use` here, because `diesel`'s macros do not yet play
 // nicely with the new Rust 2018 macro importing features.
@@ -13,14 +13,12 @@ extern crate diesel;
 use failure::format_err;
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::{fmt, result, str::FromStr};
+use std::{fmt, io::prelude::*, result, str::FromStr};
 
-pub mod data;
 pub mod drivers;
 pub(crate) mod path_or_stdio;
 pub mod schema;
 
-use self::data::CsvStream;
 use self::schema::Table;
 
 /// Standard error type for this library.
@@ -50,7 +48,7 @@ pub trait Locator: fmt::Debug + fmt::Display {
 
     /// If this locator can be used as a local data sink, return the local data
     /// sink.
-    fn write_local_data(&self, _schema: &Table, _data: &[CsvStream]) -> Result<()> {
+    fn write_local_data(&self, _schema: &Table, _data: Vec<CsvStream>) -> Result<()> {
         Err(format_err!("cannot write data to {}", self))
     }
 }
@@ -100,4 +98,12 @@ fn locator_from_str_to_string_roundtrip() {
         let parsed: BoxLocator = locator.parse().unwrap();
         assert_eq!(parsed.to_string(), locator);
     }
+}
+
+/// A stream of CSV data, with a unique name.
+pub struct CsvStream {
+    /// The name of this stream.
+    pub name: String,
+    /// A reader associated with this stream.
+    pub data: Box<dyn Read + Send + 'static>,
 }

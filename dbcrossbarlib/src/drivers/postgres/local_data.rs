@@ -9,18 +9,20 @@ use std::{
 };
 use url::Url;
 
-use crate::data::CsvStream;
 use crate::schema::{DataType, Table};
-use crate::Result;
+use crate::{CsvStream, Result};
 
 /// A `Read` implementation for the stream produced by `copy_out_table`.
 pub struct CopyOutTable {
+    /// A reader, which is supplied with data by a background thread.
     rdr: PipeReader,
+    /// A handle which allows us to wait for our background thread to finish.
     handle: Option<thread::JoinHandle<Result<()>>>,
 }
 
 impl CopyOutTable {
-    /// Join our background thread, taking care to handle errors correctly.
+    /// Join our background thread (ie, wait for it to finish), taking care to
+    /// handle errors correctly.
     fn join_helper(&mut self) -> io::Result<()> {
         match self.handle.take() {
             // We've already joined our background thread once. Technically this
@@ -34,13 +36,14 @@ impl CopyOutTable {
             Some(handle) => {
                 let result = handle.join().expect("background I/O panic");
                 match result {
-                Ok(()) => Ok(()),
-                Err(err) => {
-                    error!("{}", err);
-                    let msg = format!("background I/O error: {}", err);
-                    Err(io::Error::new(io::ErrorKind::Other, msg))
+                    Ok(()) => Ok(()),
+                    Err(err) => {
+                        error!("{}", err);
+                        let msg = format!("background I/O error: {}", err);
+                        Err(io::Error::new(io::ErrorKind::Other, msg))
+                    }
                 }
-            }},
+            }
         }
     }
 }
@@ -83,8 +86,6 @@ pub(crate) fn copy_out_table(url: &Url, table: &Table) -> Result<CsvStream> {
         stmt.copy_out(&[], &mut wtr)?;
         Ok(())
     });
-
-    // TODO:
 
     Ok(CsvStream {
         name: table.name.clone(),

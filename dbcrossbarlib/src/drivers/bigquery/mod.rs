@@ -10,7 +10,7 @@ use crate::path_or_stdio::PathOrStdio;
 use crate::schema::Table;
 use crate::{Error, Locator, Result};
 
-mod schema;
+mod write_schema;
 
 /// URL scheme for `BigQueryLocator`.
 pub(crate) const BIGQUERY_SCHEME: &str = "bigquery:";
@@ -85,6 +85,6 @@ impl FromStr for BigQuerySchemaLocator {
 impl Locator for BigQuerySchemaLocator {
     fn write_schema(&self, table: &Table) -> Result<()> {
         self.path
-            .create(|f| schema::BigQueryDriver::write_json(f, table, false))
+            .create(|f| write_schema::write_json(f, table, false))
     }
 }

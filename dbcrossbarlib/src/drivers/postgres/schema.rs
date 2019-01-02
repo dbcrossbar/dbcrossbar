@@ -44,7 +44,10 @@ impl PgColumn {
 }
 
 /// Fetch information about a table from the database.
-pub(crate) fn fetch_from_url(database_url: &Url, full_table_name: &str) -> Result<Table> {
+pub(crate) fn fetch_from_url(
+    database_url: &Url,
+    full_table_name: &str,
+) -> Result<Table> {
     let conn = PgConnection::establish(database_url.as_str())
         .context("error connecting to PostgreSQL")?;
     let (table_schema, table_name) = parse_full_table_name(full_table_name);
