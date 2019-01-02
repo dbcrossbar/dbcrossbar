@@ -60,8 +60,7 @@ impl FromStr for BoxLocator {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        use self::drivers::bigquery::*;
-        use self::drivers::postgres::*;
+        use self::drivers::{bigquery::*, csv::*, gs::*, postgres::*};
 
         // Parse our locator into a URL-style scheme and the rest.
         lazy_static! {
@@ -79,6 +78,8 @@ impl FromStr for BoxLocator {
             BIGQUERY_SCHEMA_SCHEME => {
                 Ok(Box::new(BigQuerySchemaLocator::from_str(s)?))
             }
+            CSV_SCHEME => Ok(Box::new(CsvLocator::from_str(s)?)),
+            GS_SCHEME => Ok(Box::new(GsLocator::from_str(s)?)),
             POSTGRES_SCHEME => Ok(Box::new(PostgresLocator::from_str(s)?)),
             POSTGRES_SQL_SCHEME => Ok(Box::new(PostgresSqlLocator::from_str(s)?)),
             _ => Err(format_err!("unknown locator scheme in {:?}", s)),
@@ -89,10 +90,13 @@ impl FromStr for BoxLocator {
 #[test]
 fn locator_from_str_to_string_roundtrip() {
     let locators = vec![
-        "postgres://localhost:5432/db#my_table",
-        "postgres-sql:dir/my_table.sql",
         "bigquery:my_project:my_dataset.my_table",
         "bigquery-schema:dir/my_table.json",
+        "csv:file.csv",
+        "csv:dir/",
+        "gs://example-bucket/tmp/",
+        "postgres://localhost:5432/db#my_table",
+        "postgres-sql:dir/my_table.sql",
     ];
     for locator in locators.into_iter() {
         let parsed: BoxLocator = locator.parse().unwrap();

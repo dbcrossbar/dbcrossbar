@@ -1,4 +1,5 @@
 use cli_test_dir::*;
+use std::{env, fs};
 
 /// Sample input SQL. We test against this, and not against a running copy of
 /// PostgreSQL, because it keeps the test environment much simpler. But this
@@ -46,3 +47,29 @@ fn cp_help_flag() {
     let output = testdir.cmd().args(&["cp", "--help"]).expect_success();
     assert!(output.stdout_str().contains("EXAMPLE LOCATORS:"));
 }
+
+#[test]
+fn cp_csv_to_csv() {
+    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_csv");
+    let src = testdir.src_path("fixtures/example.csv");
+    let schema = testdir.src_path("fixtures/example.sql");
+    testdir
+        .cmd()
+        .arg("cp")
+        .arg(&format!("--schema=postgres-sql:{}", schema.display()))
+        .arg(&format!("csv:{}", src.display()))
+        .arg("csv:out/")
+        .expect_success();
+    let expected = fs::read_to_string(&src).unwrap();
+    testdir.expect_file_contents("out/example.csv", &expected);
+}
+
+//#[test]
+//#[ignore]
+//fn cp_postgres_to_gs() {
+//    let postgres_url = env::var("POSTGRES_TEST_URL").expect("can't get POSTGRES_TEST_URL");
+//    let gs_url = env::var("GS_TEST_URL").expect("can't get GS_TEST_URL");
+//
+//    let testdir = TestDir::new("dbcrossbar", "cp_postgres_to_gs");
+//
+//}
