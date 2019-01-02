@@ -4,6 +4,7 @@
 #![allow(missing_docs, proc_macro_derive_resolution_fallback)]
 
 use failure::{format_err, ResultExt};
+use postgres::{tls::native_tls::NativeTls, Connection, TlsMode};
 use std::{fmt, str::FromStr};
 use url::Url;
 
@@ -15,6 +16,20 @@ pub mod citus;
 mod local_data;
 mod schema;
 mod sql_schema;
+
+/// Connect to the database, using SSL if possible. If `?ssl=true` is set in the
+/// URL, require SSL.
+fn connect(url: &Url) -> Result<Connection> {
+    // Should we enable SSL?
+    let negotiator = NativeTls::new()?;
+    let mut tls_mode = TlsMode::Prefer(&negotiator);
+    for (key, value) in url.query_pairs() {
+        if key == "ssl" && value == "true" {
+            tls_mode = TlsMode::Require(&negotiator);
+        }
+    }
+    Ok(Connection::connect(url.as_str(), tls_mode)?)
+}
 
 /// URL scheme for `PostgresLocator`.
 pub(crate) const POSTGRES_SCHEME: &str = "postgres:";
@@ -103,6 +118,14 @@ impl Locator for PostgresSqlLocator {
                 .read_to_string(&mut sql)
                 .with_context(|_| format!("error reading {}", self.path))?;
             Ok(Some(sql_schema::parse_create_table(&sql)?))
+        })
+    }
+
+    fn write_schema(&self, table: &Table) -> Result<()> {
+        self.path.create(|mut out| {
+            sql_schema::write_create_table(&mut out, table)
+                .with_context(|_| format!("error writing {}", self.path))?;
+            Ok(())
         })
     }
 }

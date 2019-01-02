@@ -2,13 +2,13 @@
 
 use log::{error, warn};
 use pipe::{pipe, PipeReader};
-use postgres::{tls::native_tls::NativeTls, Connection, TlsMode};
 use std::{
     io::{self, Read, Write},
     thread,
 };
 use url::Url;
 
+use super::connect;
 use crate::schema::{DataType, Table};
 use crate::{CsvStream, Result};
 
@@ -94,20 +94,6 @@ pub(crate) fn copy_out_table(url: &Url, table: &Table) -> Result<CsvStream> {
             handle: Some(handle),
         }),
     })
-}
-
-/// Connect to the database, using SSL if possible. If `?ssl=true` is set in the
-/// URL, require SSL.
-fn connect(url: &Url) -> Result<Connection> {
-    // Should we enable SSL?
-    let negotiator = NativeTls::new()?;
-    let mut tls_mode = TlsMode::Prefer(&negotiator);
-    for (key, value) in url.query_pairs() {
-        if key == "ssl" && value == "true" {
-            tls_mode = TlsMode::Require(&negotiator);
-        }
-    }
-    Ok(Connection::connect(url.as_str(), tls_mode)?)
 }
 
 /// Generate a complete `SELECT` statement which outputs the table as CSV,

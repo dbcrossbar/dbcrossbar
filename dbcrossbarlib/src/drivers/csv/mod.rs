@@ -1,7 +1,13 @@
 //! Driver for working with CSV files.
 
 use failure::{format_err, ResultExt};
-use std::{fmt, fs::{self, File}, io::{prelude::*, self}, path::Path, str::FromStr, thread};
+use std::{
+    fmt,
+    fs::{self, File},
+    io,
+    str::FromStr,
+    thread,
+};
 
 use crate::path_or_stdio::PathOrStdio;
 use crate::schema::Table;
@@ -36,6 +42,9 @@ impl FromStr for CsvLocator {
 }
 
 impl Locator for CsvLocator {
+    // TODO: Implement a primitive schema reader for local files that just grabs
+    // the column names and sets each type to text.
+
     fn local_data(&self) -> Result<Option<Vec<CsvStream>>> {
         match &self.path {
             PathOrStdio::Stdio => {
@@ -72,8 +81,9 @@ impl Locator for CsvLocator {
                 // TODO - Handle to an individual file.
 
                 // Make sure our directory exists.
-                fs::create_dir_all(path)
-                    .with_context(|_| format!("unable to create directory {}", path.display()))?;
+                fs::create_dir_all(path).with_context(|_| {
+                    format!("unable to create directory {}", path.display())
+                })?;
 
                 // Write streams to our directory.
                 let mut handles = vec![];

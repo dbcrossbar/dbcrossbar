@@ -1,5 +1,11 @@
 use cli_test_dir::*;
-use std::{env, fs};
+use std::fs;
+
+/// An example Postgres SQL `CREATE TABLE` declaration.
+const EXAMPLE_SQL: &str = include_str!("../fixtures/example.sql");
+
+// /// An example CSV file with columns corresponding to `EXAMPLE_SQL`.
+// const EXAMPLE_CSV: &str = include_str!("../fixtures/example.csv");
 
 /// Sample input SQL. We test against this, and not against a running copy of
 /// PostgreSQL, because it keeps the test environment much simpler. But this
@@ -27,6 +33,17 @@ fn conv_help_flag() {
     let testdir = TestDir::new("dbcrossbar", "conv_help_flag");
     let output = testdir.cmd().args(&["conv", "--help"]).expect_success();
     assert!(output.stdout_str().contains("EXAMPLE LOCATORS:"));
+}
+
+#[test]
+fn conv_pg_sql_to_pg_sql() {
+    let testdir = TestDir::new("dbcrossbar", "conv_pg_sql_to_pg_sql");
+    let output = testdir
+        .cmd()
+        .args(&["conv", "postgres-sql:-", "postgres-sql:-"])
+        .output_with_stdin(EXAMPLE_SQL)
+        .expect_success();
+    assert!(output.stdout_str().contains("CREATE TABLE"));
 }
 
 #[test]

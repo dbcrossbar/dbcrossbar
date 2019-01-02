@@ -1,7 +1,7 @@
 //! The `schema` subcommand.
 
 use common_failures::Result;
-use dbcrossbarlib::{BoxLocator};
+use dbcrossbarlib::BoxLocator;
 use failure::format_err;
 use structopt::{self, StructOpt};
 
