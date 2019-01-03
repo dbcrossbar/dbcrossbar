@@ -9,7 +9,7 @@ use std::{
     str::FromStr,
 };
 
-use crate::{Error, Result};
+use crate::{Error, IfExists, Result};
 
 /// A local input or output location, specified using either a path, or `"-"`
 /// for standard I/O.
@@ -72,17 +72,20 @@ impl PathOrStdio {
     /// Open the file (or standard output) for reading, and pass the `Write`
     /// reference to `body`. We have to do this using a callback because of how
     /// `lock` works on standard I/O.
-    pub(crate) fn create<F, T>(&self, body: F) -> Result<T>
+    pub(crate) fn create<F, T>(&self, if_exists: IfExists, body: F) -> Result<T>
     where
         F: FnOnce(&mut dyn Write) -> Result<T>,
     {
         match self {
             PathOrStdio::Path(p) => {
-                let mut f = File::create(p)
+                let mut f = if_exists
+                    .to_open_options_no_append()?
+                    .open(p)
                     .with_context(|_| format!("error opening {}", p.display()))?;
                 body(&mut f)
             }
             PathOrStdio::Stdio => {
+                if_exists.warn_if_not_default_for_stdout();
                 let stdout = io::stdout();
                 let mut stdout_lock = stdout.lock();
                 body(&mut stdout_lock)

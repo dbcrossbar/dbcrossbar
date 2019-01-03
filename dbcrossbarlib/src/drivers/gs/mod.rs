@@ -11,7 +11,7 @@ use std::{
 use url::Url;
 
 use crate::schema::Table;
-use crate::{CsvStream, Error, Locator, Result};
+use crate::{CsvStream, Error, IfExists, Locator, Result};
 
 /// Locator scheme for Google Cloud Storage.
 pub(crate) const GS_SCHEME: &str = "gs:";
@@ -49,7 +49,32 @@ impl FromStr for GsLocator {
 }
 
 impl Locator for GsLocator {
-    fn write_local_data(&self, _schema: &Table, data: Vec<CsvStream>) -> Result<()> {
+    fn write_local_data(
+        &self,
+        _schema: &Table,
+        data: Vec<CsvStream>,
+        if_exists: IfExists,
+    ) -> Result<()> {
+        // Delete the existing output, if it exists.
+        if if_exists == IfExists::Overwrite {
+            // Delete all the files under `self.url`, but be careful not to
+            // delete the entire bucket. See `gsutil rm --help` for details.
+            debug!("deleting existing {}", self.url);
+            assert!(self.url.path().ends_with('/'));
+            let delete_url = self.url.join("**")?;
+            let status = Command::new("gsutil")
+                .args(&["rm", delete_url.as_str()])
+                .status()
+                .context("error running gsutil")?;
+            if !status.success() {
+                return Err(format_err!("gsutil failed: {}", status));
+            }
+        } else {
+            return Err(format_err!(
+                "must specify `overwrite` for gs:// destination"
+            ));
+        }
+
         // Spawn our uploader threads.
         let mut handles = vec![];
         for mut stream in data {

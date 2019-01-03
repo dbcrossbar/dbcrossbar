@@ -12,8 +12,11 @@ extern crate diesel;
 
 use failure::format_err;
 use lazy_static::lazy_static;
+use log::warn;
 use regex::Regex;
-use std::{fmt, io::prelude::*, result, str::FromStr};
+use std::{fmt, fs::OpenOptions, io::prelude::*, result, str::FromStr};
+use strum;
+use strum_macros::{Display, EnumString};
 
 pub mod drivers;
 pub(crate) mod path_or_stdio;
@@ -27,6 +30,51 @@ pub use failure::Error;
 /// Standard result type for this library.
 pub type Result<T> = result::Result<T, Error>;
 
+/// What to do if the destination already exists.
+#[derive(Clone, Copy, Debug, Display, EnumString, Eq, PartialEq)]
+#[strum(serialize_all = "snake_case")]
+pub enum IfExists {
+    /// If the destination exists, return an error.
+    Error,
+    /// If the destination exists, try to append the new data.
+    Append,
+    /// If the destination exists, overrwrite the existing data.
+    Overwrite,
+}
+
+impl IfExists {
+    /// Convert to an `OpenOptions` value, returning an error for
+    /// `IfExists::Append`.
+    pub(crate) fn to_open_options_no_append(self) -> Result<OpenOptions> {
+        let mut open_options = OpenOptions::new();
+        open_options.write(true);
+        match self {
+            IfExists::Error => {
+                open_options.create_new(true);
+            }
+            IfExists::Overwrite => {
+                open_options.create(true).append(true);
+            }
+            IfExists::Append => {
+                return Err(format_err!("appending not supported"));
+            }
+        }
+        Ok(open_options)
+    }
+
+    pub(crate) fn warn_if_not_default_for_stdout(self) {
+        if self != IfExists::default() {
+            warn!("{} ignored for stdout", self)
+        }
+    }
+}
+
+impl Default for IfExists {
+    fn default() -> Self {
+        IfExists::Error
+    }
+}
+
 /// Specify the the location of data or a schema.
 pub trait Locator: fmt::Debug + fmt::Display {
     /// Return a table schema, if available.
@@ -36,7 +84,7 @@ pub trait Locator: fmt::Debug + fmt::Display {
 
     /// Write a table schema to this locator, if that's the sort of thing that
     /// we can do.
-    fn write_schema(&self, _schema: &Table) -> Result<()> {
+    fn write_schema(&self, _schema: &Table, _if_exists: IfExists) -> Result<()> {
         Err(format_err!("cannot write schema to {}", self))
     }
 
@@ -48,7 +96,12 @@ pub trait Locator: fmt::Debug + fmt::Display {
 
     /// If this locator can be used as a local data sink, return the local data
     /// sink.
-    fn write_local_data(&self, _schema: &Table, _data: Vec<CsvStream>) -> Result<()> {
+    fn write_local_data(
+        &self,
+        _schema: &Table,
+        _data: Vec<CsvStream>,
+        _if_exists: IfExists,
+    ) -> Result<()> {
         Err(format_err!("cannot write data to {}", self))
     }
 }

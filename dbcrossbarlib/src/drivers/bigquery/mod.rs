@@ -8,7 +8,7 @@ use std::{fmt, str::FromStr};
 
 use crate::path_or_stdio::PathOrStdio;
 use crate::schema::Table;
-use crate::{Error, Locator, Result};
+use crate::{Error, IfExists, Locator, Result};
 
 mod write_schema;
 
@@ -83,8 +83,8 @@ impl FromStr for BigQuerySchemaLocator {
 }
 
 impl Locator for BigQuerySchemaLocator {
-    fn write_schema(&self, table: &Table) -> Result<()> {
+    fn write_schema(&self, table: &Table, if_exists: IfExists) -> Result<()> {
         self.path
-            .create(|f| write_schema::write_json(f, table, false))
+            .create(if_exists, |f| write_schema::write_json(f, table, false))
     }
 }

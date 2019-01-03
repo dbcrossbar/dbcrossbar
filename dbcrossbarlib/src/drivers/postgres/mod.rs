@@ -10,7 +10,7 @@ use url::Url;
 
 use crate::path_or_stdio::PathOrStdio;
 use crate::schema::Table;
-use crate::{CsvStream, Error, Locator, Result};
+use crate::{CsvStream, Error, IfExists, Locator, Result};
 
 pub mod citus;
 mod local_data;
@@ -121,8 +121,8 @@ impl Locator for PostgresSqlLocator {
         })
     }
 
-    fn write_schema(&self, table: &Table) -> Result<()> {
-        self.path.create(|mut out| {
+    fn write_schema(&self, table: &Table, if_exists: IfExists) -> Result<()> {
+        self.path.create(if_exists, |mut out| {
             sql_schema::write_create_table(&mut out, table)
                 .with_context(|_| format!("error writing {}", self.path))?;
             Ok(())

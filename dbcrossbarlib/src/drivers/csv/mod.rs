@@ -13,7 +13,7 @@ use std::{
 
 use crate::path_or_stdio::PathOrStdio;
 use crate::schema::{Column, DataType, Table};
-use crate::{CsvStream, Error, Locator, Result};
+use crate::{CsvStream, Error, IfExists, Locator, Result};
 
 /// Locator scheme for CSV files.
 pub(crate) const CSV_SCHEME: &str = "csv:";
@@ -57,7 +57,8 @@ impl Locator for CsvLocator {
                 let mut rdr = csv::Reader::from_path(path)
                     .with_context(|_| format!("error opening {}", path.display()))?;
                 let mut columns = vec![];
-                let headers = rdr.headers()
+                let headers = rdr
+                    .headers()
                     .with_context(|_| format!("error reading {}", path.display()))?;
                 for col_name in headers {
                     columns.push(Column {
@@ -99,10 +100,16 @@ impl Locator for CsvLocator {
         }
     }
 
-    fn write_local_data(&self, _schema: &Table, data: Vec<CsvStream>) -> Result<()> {
+    fn write_local_data(
+        &self,
+        _schema: &Table,
+        data: Vec<CsvStream>,
+        if_exists: IfExists,
+    ) -> Result<()> {
         match &self.path {
             PathOrStdio::Stdio => {
-                Err(format_err!("cannot yet read CSV data to stdout"))
+                if_exists.warn_if_not_default_for_stdout();
+                Err(format_err!("cannot yet write CSV data to stdout"))
             }
             PathOrStdio::Path(path) => {
                 // TODO - Handle to an individual file.
@@ -119,9 +126,12 @@ impl Locator for CsvLocator {
                     // particularly safe fashion.
                     let csv_path = path.join(&format!("{}.csv", stream.name));
                     handles.push(thread::spawn(move || -> Result<()> {
-                        let mut wtr = File::create(&csv_path).with_context(|_| {
-                            format!("cannot create {}", csv_path.display())
-                        })?;
+                        let mut wtr = if_exists
+                            .to_open_options_no_append()?
+                            .open(&csv_path)
+                            .with_context(|_| {
+                                format!("cannot create {}", csv_path.display())
+                            })?;
                         io::copy(&mut stream.data, &mut wtr).with_context(|_| {
                             format!("error writing {}", csv_path.display())
                         })?;
@@ -139,7 +149,7 @@ impl Locator for CsvLocator {
 
 /// Given a path, extract the base name of the file.
 fn stream_name(path: &Path) -> Result<&str> {
-    path.file_stem().and_then(|name| name.to_str()).ok_or_else(
-        || format_err!("cannot get file name from {}", path.display()),
-    )
+    path.file_stem()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| format_err!("cannot get file name from {}", path.display()))
 }
