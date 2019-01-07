@@ -5,7 +5,10 @@
 
 use failure::{format_err, ResultExt};
 use postgres::{tls::native_tls::NativeTls, Connection, TlsMode};
-use std::{fmt, str::FromStr};
+use std::{
+    fmt,
+    str::{self, FromStr},
+};
 use url::Url;
 
 use crate::path_or_stdio::PathOrStdio;
@@ -16,6 +19,7 @@ pub mod citus;
 mod local_data;
 mod schema;
 mod sql_schema;
+mod write_local_data;
 
 /// Connect to the database, using SSL if possible. If `?ssl=true` is set in the
 /// URL, require SSL.
@@ -84,6 +88,18 @@ impl Locator for PostgresLocator {
         let stream = local_data::copy_out_table(&self.url, &schema)?;
         Ok(Some(vec![stream]))
     }
+
+    fn write_local_data(
+        &self,
+        schema: &Table,
+        data: Vec<CsvStream>,
+        if_exists: IfExists,
+    ) -> Result<()> {
+        // Use the destination table name instead of the source name.
+        let mut new_schema = schema.to_owned();
+        new_schema.name = self.table_name.clone();
+        write_local_data::copy_in_table(&self.url, schema, data, if_exists)
+    }
 }
 
 /// URL scheme for `PostgresSqlLocator`.
@@ -123,7 +139,9 @@ impl Locator for PostgresSqlLocator {
 
     fn write_schema(&self, table: &Table, if_exists: IfExists) -> Result<()> {
         self.path.create(if_exists, |mut out| {
-            sql_schema::write_create_table(&mut out, table)
+            // The passed-in `if_exists` applies to our output file, not to our
+            // generated schema.
+            sql_schema::write_create_table(&mut out, table, IfExists::Error)
                 .with_context(|_| format!("error writing {}", self.path))?;
             Ok(())
         })

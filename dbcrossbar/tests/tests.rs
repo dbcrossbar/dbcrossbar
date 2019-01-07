@@ -1,11 +1,11 @@
 use cli_test_dir::*;
-use std::fs;
+use std::{env, fs};
 
 /// An example Postgres SQL `CREATE TABLE` declaration.
 const EXAMPLE_SQL: &str = include_str!("../fixtures/example.sql");
 
-/// An example CSV file with columns corresponding to `EXAMPLE_SQL`.
-const EXAMPLE_CSV: &str = include_str!("../fixtures/example.csv");
+// /// An example CSV file with columns corresponding to `EXAMPLE_SQL`.
+// const EXAMPLE_CSV: &str = include_str!("../fixtures/example.csv");
 
 /// Sample input SQL. We test against this, and not against a running copy of
 /// PostgreSQL, because it keeps the test environment much simpler. But this
@@ -13,6 +13,18 @@ const EXAMPLE_CSV: &str = include_str!("../fixtures/example.csv");
 /// tests for much of the related code).
 const INPUT_SQL: &str =
     include_str!("../../dbcrossbarlib/src/drivers/postgres/postgres_example.sql");
+
+/// The URL of our test database.
+fn postgres_test_url() -> String {
+    env::var("POSTGRES_TEST_URL").unwrap_or_else(
+        |_| "postgres://postgres:@localhost:5432/dbcrossbar_test".to_owned()
+    )
+}
+
+/// The URL of a table in our test database.
+fn post_test_table_url(table_name: &str) -> String {
+    format!("{}#{}", postgres_test_url(), table_name)
+}
 
 #[test]
 fn help_flag() {
@@ -88,16 +100,30 @@ fn cp_help_flag() {
 fn cp_csv_to_csv() {
     let testdir = TestDir::new("dbcrossbar", "cp_csv_to_csv");
     let src = testdir.src_path("fixtures/example.csv");
-    let schema = testdir.src_path("fixtures/example.sql");
     testdir
         .cmd()
         .arg("cp")
-        .arg(&format!("--schema=postgres-sql:{}", schema.display()))
         .arg(&format!("csv:{}", src.display()))
         .arg("csv:out/")
         .expect_success();
     let expected = fs::read_to_string(&src).unwrap();
     testdir.expect_file_contents("out/example.csv", &expected);
+}
+
+#[test]
+#[ignore]
+fn cp_csv_to_postgres() {
+    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_postgres");
+    let src = testdir.src_path("fixtures/example.csv");
+    let schema = testdir.src_path("fixtures/example.sql");
+    let dst = post_test_table_url("cp_csv_to_postgres");
+    testdir
+        .cmd()
+        .args(&["cp", "--if-exists=overwrite"])
+        .arg(&format!("--schema=postgres-sql:{}", schema.display()))
+        .arg(&format!("csv:{}", src.display()))
+        .arg(dst)
+        .expect_success();
 }
 
 //#[test]

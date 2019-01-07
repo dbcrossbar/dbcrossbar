@@ -4,7 +4,7 @@ use failure::{format_err, ResultExt};
 use std::io::prelude::*;
 
 use crate::schema::{Column, DataType, Table};
-use crate::Result;
+use crate::{IfExists, Result};
 
 /// Include our `rust-peg` grammar.
 ///
@@ -21,8 +21,19 @@ pub(crate) fn parse_create_table(input: &str) -> Result<Table> {
 }
 
 /// Write out a Postgres `CREATE TABLE` statement based on `table`.
-pub(crate) fn write_create_table(out: &mut Write, table: &Table) -> Result<()> {
-    writeln!(out, "CREATE TABLE {:?} (", table.name)?;
+pub(crate) fn write_create_table(
+    out: &mut Write,
+    table: &Table,
+    if_exists: IfExists,
+) -> Result<()> {
+    match if_exists {
+        IfExists::Error | IfExists::Overwrite => {
+            writeln!(out, "CREATE TABLE {:?} (", table.name)?;
+        }
+        IfExists::Append => {
+            writeln!(out, "CREATE TABLE IF NOT EXISTS {:?} (", table.name)?;
+        }
+    }
     for (idx, col) in table.columns.iter().enumerate() {
         write!(out, "    {:?} ", col.name)?;
         write_data_type(out, col, &col.data_type, false)?;
@@ -48,7 +59,10 @@ fn write_data_type(
 ) -> Result<()> {
     match data_type {
         DataType::Array(_) if in_array => {
-            return Err(format_err!("nested array in column {} unsupported", col.name))
+            return Err(format_err!(
+                "nested array in column {} unsupported",
+                col.name
+            ));
         }
         DataType::Array(nested) => {
             write_data_type(out, col, nested, true)?;
@@ -65,10 +79,15 @@ fn write_data_type(
         DataType::Int64 => write!(out, "bigint")?,
         DataType::Json => write!(out, "jsonb")?,
         DataType::Other(name) => {
-            return Err(format_err!("don't know how to output column type {:?}", name));
+            return Err(format_err!(
+                "don't know how to output column type {:?}",
+                name
+            ));
         }
         DataType::Text => write!(out, "text")?,
-        DataType::TimestampWithoutTimeZone => write!(out, "timestamp without time zone")?,
+        DataType::TimestampWithoutTimeZone => {
+            write!(out, "timestamp without time zone")?
+        }
         DataType::TimestampWithTimeZone => write!(out, "timestamp with time zone")?,
         DataType::Uuid => write!(out, "uuid")?,
     }
@@ -161,7 +180,8 @@ mod test {
 
         // Now try writing and re-reading.
         let mut out = vec![];
-        write_create_table(&mut out, &table).expect("error writing table");
+        write_create_table(&mut out, &table, IfExists::Error)
+            .expect("error writing table");
         let parsed_again = parse_create_table(&str::from_utf8(&out).unwrap())
             .expect("error parsing table");
         assert_eq!(parsed_again, expected);
