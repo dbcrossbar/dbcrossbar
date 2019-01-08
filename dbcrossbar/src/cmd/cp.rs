@@ -32,6 +32,7 @@ pub(crate) fn run(opt: &Opt) -> Result<()> {
     let data = opt.from_locator.local_data()?.ok_or_else(|| {
         format_err!("don't know how to read data from {}", opt.to_locator)
     })?;
-    opt.to_locator.write_local_data(&schema, data, opt.if_exists)?;
+    opt.to_locator
+        .write_local_data(&schema, data, opt.if_exists)?;
     Ok(())
 }

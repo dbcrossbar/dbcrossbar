@@ -16,9 +16,9 @@ const INPUT_SQL: &str =
 
 /// The URL of our test database.
 fn postgres_test_url() -> String {
-    env::var("POSTGRES_TEST_URL").unwrap_or_else(
-        |_| "postgres://postgres:@localhost:5432/dbcrossbar_test".to_owned()
-    )
+    env::var("POSTGRES_TEST_URL").unwrap_or_else(|_| {
+        "postgres://postgres:@localhost:5432/dbcrossbar_test".to_owned()
+    })
 }
 
 /// The URL of a table in our test database.
@@ -64,11 +64,7 @@ fn conv_csv_to_pg_sql() {
     let src = testdir.src_path("fixtures/example.csv");
     let output = testdir
         .cmd()
-        .args(&[
-            "conv",
-            &format!("csv:{}", src.display()),
-            "postgres-sql:-",
-        ])
+        .args(&["conv", &format!("csv:{}", src.display()), "postgres-sql:-"])
         .output()
         .expect_success();
     assert!(output.stdout_str().contains("CREATE TABLE"));
