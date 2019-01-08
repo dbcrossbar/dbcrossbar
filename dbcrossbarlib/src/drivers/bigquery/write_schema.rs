@@ -1,5 +1,8 @@
 //! Tools for converting a `Table` schema to a BigQuery JSON-format schema.
 
+// Temporary.
+#![allow(dead_code)]
+
 use failure::format_err;
 use log::error;
 use serde::{Serialize, Serializer};
