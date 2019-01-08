@@ -1,6 +1,6 @@
 //! A CLI tool for converting between table schema formats.
 
-#![warn(unused_extern_crates, clippy::pendantic)]
+#![warn(rust_2018_idioms, unused_extern_crates, clippy::all)]
 
 // Needed to prevent linker errors about OpenSSL.
 #[allow(unused_extern_crates)]

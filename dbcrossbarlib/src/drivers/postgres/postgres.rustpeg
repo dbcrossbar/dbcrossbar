@@ -14,7 +14,7 @@ use crate::schema::{Column, DataType, Table};
 
 /// A `CREATE TABLE` expression.
 pub create_table -> Table
-    = ws? "CREATE"i ws? "TABLE"i ws? name:identifier ws? "("
+    = ws? "CREATE"i ws "TABLE"i ws name:identifier ws? "("
         ws? columns:(column ** (ws? "," ws?)) ws?
       ")" ws? (";" ws?)?
     {

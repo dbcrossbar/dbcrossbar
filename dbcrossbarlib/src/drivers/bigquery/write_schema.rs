@@ -1,4 +1,7 @@
-//! Driver for working with BigQuery schemas.
+//! Tools for converting a `Table` schema to a BigQuery JSON-format schema.
+
+// Temporary.
+#![allow(dead_code)]
 
 use failure::format_err;
 use log::error;
@@ -149,42 +152,37 @@ impl<'a> fmt::Display for Ident<'a> {
     }
 }
 
-/// A driver for working with BigQuery.
-pub struct BigQueryDriver;
-
-impl BigQueryDriver {
-    /// Write out a table's columns as BigQuery schema JSON. If you set
-    /// `csv_compatible`, this will only use types that can be loaded from a CSV
-    /// file.
-    pub fn write_json(
-        f: &mut dyn Write,
-        table: &Table,
-        csv_compatible: bool,
-    ) -> Result<()> {
-        let mut cols = vec![];
-        for col in &table.columns {
-            cols.push(bigquery_column(col, csv_compatible)?);
-        }
-        serde_json::to_writer_pretty(f, &cols)?;
-        Ok(())
+/// Write out a table's columns as BigQuery schema JSON. If you set
+/// `csv_compatible`, this will only use types that can be loaded from a CSV
+/// file.
+pub fn write_json(
+    f: &mut dyn Write,
+    table: &Table,
+    csv_compatible: bool,
+) -> Result<()> {
+    let mut cols = vec![];
+    for col in &table.columns {
+        cols.push(bigquery_column(col, csv_compatible)?);
     }
+    serde_json::to_writer_pretty(f, &cols)?;
+    Ok(())
+}
 
-    /// Generate SQL which `SELECT`s from a temp table, and fixes the types
-    /// of columns that couldn't be imported from CSVs.
-    pub fn write_import_sql(f: &mut dyn Write, table: &Table) -> Result<()> {
-        for (i, col) in table.columns.iter().enumerate() {
-            write_col_import_udf(f, i, col)?;
-        }
-        write!(f, "SELECT ")?;
-        for (i, col) in table.columns.iter().enumerate() {
-            if i > 0 {
-                write!(f, ",")?;
-            }
-            write_col_import_sql(f, i, col)?;
-        }
-        write!(f, " FROM {}", Ident(&table.name))?;
-        Ok(())
+/// Generate SQL which `SELECT`s from a temp table, and fixes the types
+/// of columns that couldn't be imported from CSVs.
+pub fn write_import_sql(f: &mut dyn Write, table: &Table) -> Result<()> {
+    for (i, col) in table.columns.iter().enumerate() {
+        write_col_import_udf(f, i, col)?;
     }
+    write!(f, "SELECT ")?;
+    for (i, col) in table.columns.iter().enumerate() {
+        if i > 0 {
+            write!(f, ",")?;
+        }
+        write_col_import_sql(f, i, col)?;
+    }
+    write!(f, " FROM {}", Ident(&table.name))?;
+    Ok(())
 }
 
 /// Build a BigQuery column schema.

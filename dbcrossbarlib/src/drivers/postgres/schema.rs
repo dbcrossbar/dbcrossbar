@@ -1,11 +1,7 @@
-//! Driver for working with PostgreSQL schemas.
-
-// See https://github.com/diesel-rs/diesel/issues/1785
-#![allow(missing_docs, proc_macro_derive_resolution_fallback)]
+//! Reading schemas from a PostgreSQL server.
 
 use diesel::{pg::PgConnection, prelude::*};
 use failure::{format_err, ResultExt};
-use std::io::Write;
 use url::Url;
 
 use crate::schema::{Column, DataType, Table};
@@ -47,91 +43,44 @@ impl PgColumn {
     }
 }
 
-/// A driver for working with PostgreSQL.
-pub struct PostgresDriver;
+/// Fetch information about a table from the database.
+pub(crate) fn fetch_from_url(
+    database_url: &Url,
+    full_table_name: &str,
+) -> Result<Table> {
+    let conn = PgConnection::establish(database_url.as_str())
+        .context("error connecting to PostgreSQL")?;
+    let (table_schema, table_name) = parse_full_table_name(full_table_name);
+    let pg_columns = columns::table
+        .filter(columns::table_schema.eq(table_schema))
+        .filter(columns::table_name.eq(table_name))
+        .order(columns::ordinal_position)
+        .load::<PgColumn>(&conn)?;
 
-impl PostgresDriver {
-    /// Fetch information about a table from the database.
-    pub fn fetch_from_url(database_url: &Url, full_table_name: &str) -> Result<Table> {
-        let conn = PgConnection::establish(database_url.as_str())
-            .context("error connecting to PostgreSQL")?;
-        let (table_schema, table_name) = parse_full_table_name(full_table_name);
-        let pg_columns = columns::table
-            .filter(columns::table_schema.eq(table_schema))
-            .filter(columns::table_name.eq(table_name))
-            .order(columns::ordinal_position)
-            .load::<PgColumn>(&conn)?;
-
-        let mut columns = Vec::with_capacity(pg_columns.len());
-        for pg_col in pg_columns {
-            let data_type = pg_col.data_type()?;
-            columns.push(Column {
-                name: pg_col.column_name,
-                data_type,
-                is_nullable: match pg_col.is_nullable.as_str() {
-                    "YES" => true,
-                    "NO" => false,
-                    value => {
-                        return Err(format_err!(
-                            "Unexpected is_nullable value: {:?}",
-                            value,
-                        ))
-                    }
-                },
-                comment: None,
-            })
-        }
-
-        Ok(Table {
-            name: table_name.to_owned(),
-            columns,
+    let mut columns = Vec::with_capacity(pg_columns.len());
+    for pg_col in pg_columns {
+        let data_type = pg_col.data_type()?;
+        columns.push(Column {
+            name: pg_col.column_name,
+            data_type,
+            is_nullable: match pg_col.is_nullable.as_str() {
+                "YES" => true,
+                "NO" => false,
+                value => {
+                    return Err(format_err!(
+                        "Unexpected is_nullable value: {:?}",
+                        value,
+                    ))
+                }
+            },
+            comment: None,
         })
     }
 
-    /// Write out a table's column names as `SELECT` arguments.
-    pub fn write_select_args(f: &mut dyn Write, table: &Table) -> Result<()> {
-        let mut first: bool = true;
-        for col in &table.columns {
-            if first {
-                first = false;
-            } else {
-                write!(f, ",")?;
-            }
-            match &col.data_type {
-                DataType::Array(_) => {
-                    write!(f, "array_to_json({:?}) AS {:?}", col.name, col.name)?;
-                }
-                DataType::GeoJson => {
-                    // Always transform to SRID 4326, because
-                    // information_schema.columns won't tell us the SRID anyway.
-                    write!(
-                        f,
-                        "ST_AsGeoJSON(ST_Transform({:?}, 4326)) AS {:?}",
-                        col.name, col.name,
-                    )?;
-                }
-                _ => write!(f, "{:?}", col.name)?,
-            }
-        }
-        Ok(())
-    }
-
-    /// Generate a complete `SELECT` statement which outputs the table as CSV,
-    /// in a format that can likely be imported by other database.
-    pub fn write_select(
-        f: &mut dyn Write,
-        table: &Table,
-        limit: Option<u64>,
-    ) -> Result<()> {
-        write!(f, "COPY (SELECT ")?;
-        Self::write_select_args(f, table)?;
-        write!(f, " FROM {:?}", table.name)?;
-        if let Some(limit) = limit {
-            write!(f, " LIMIT {}", limit)?;
-        }
-        write!(f, ") TO STDOUT WITH CSV HEADER")?;
-        Ok(())
-    }
+    Ok(Table {
+        name: table_name.to_owned(),
+        columns,
+    })
 }
 
 /// Given a name of the form `mytable` or `myschema.mytable`, split it into

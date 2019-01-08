@@ -5,5 +5,5 @@ use peg;
 
 fn main() {
     // Run our parser generator over our grammar.
-    peg::cargo_build("src/parsers/postgres.rustpeg");
+    peg::cargo_build("src/drivers/postgres/postgres.rustpeg");
 }
