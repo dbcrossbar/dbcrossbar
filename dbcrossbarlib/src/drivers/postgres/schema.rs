@@ -70,7 +70,7 @@ pub(crate) fn fetch_from_url(
                     return Err(format_err!(
                         "Unexpected is_nullable value: {:?}",
                         value,
-                    ))
+                    ));
                 }
             },
             comment: None,

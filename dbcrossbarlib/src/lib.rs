@@ -3,12 +3,18 @@
 //! At the moment, the most interesting type here is the [`schema`](./schema/)
 //! module, which defines a portable SQL schema.
 
+#![feature(await_macro, async_await, futures_api)]
 #![warn(missing_docs, unused_extern_crates, clippy::all)]
 
 // We keep one `macro_use` here, because `diesel`'s macros do not yet play
 // nicely with the new Rust 2018 macro importing features.
 #[macro_use]
 extern crate diesel;
+
+// Pull in all of `tokio`'s experimental `async` and `await` support.
+#[allow(unused_imports)]
+#[macro_use]
+extern crate tokio;
 
 use failure::format_err;
 use lazy_static::lazy_static;

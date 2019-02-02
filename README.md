@@ -63,3 +63,5 @@ Seee [`schema.rs`](./dbcrossbarlib/src/schema.rs) for the details of this "inter
 ## Contributing
 
 For more instructions about building `dbcrossbar`, running tests, and contributing code, see [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+We require nightly Rust. We lock a specific version of nightly Rust using the [`rust-toolchain`](./rust-toolchain) file. If you want to update this, take a look at [Rustup components history](https://mexus.github.io/rustup-components-history/) and choose the newest version with support for `rls`, `clippy` and `rustfmt`.
