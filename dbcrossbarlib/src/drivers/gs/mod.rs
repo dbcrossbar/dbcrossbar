@@ -63,7 +63,7 @@ impl Locator for GsLocator {
             assert!(self.url.path().ends_with('/'));
             let delete_url = self.url.join("**")?;
             let status = Command::new("gsutil")
-                .args(&["rm", delete_url.as_str()])
+                .args(&["rm", "-f", delete_url.as_str()])
                 .status()
                 .context("error running gsutil")?;
             if !status.success() {
