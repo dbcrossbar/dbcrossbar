@@ -4,15 +4,16 @@ use csv;
 use failure::{format_err, ResultExt};
 use std::{
     fmt,
-    fs::{self, File},
-    io,
+    fs,
     path::Path,
     str::FromStr,
     thread,
 };
+use tokio::{codec::{BytesCodec, Decoder}, io, prelude::*, fs::File};
 
 use crate::path_or_stdio::PathOrStdio;
 use crate::schema::{Column, DataType, Table};
+use crate::tokio_glue::{BoxFuture, BoxStream, copy_stream_to_writer, ResultExt as GlueResultExt, StdFutureExt};
 use crate::{CsvStream, Error, IfExists, Locator, Result};
 
 /// Locator scheme for CSV files.
@@ -76,76 +77,88 @@ impl Locator for CsvLocator {
         }
     }
 
-    fn local_data(&self) -> Result<Option<Vec<CsvStream>>> {
-        match &self.path {
-            PathOrStdio::Stdio => {
-                // TODO - There's a stupid gotcha with `stdin.lock()` that makes this
-                // much harder to do than you'd expect without a bunch of extra
-                // messing around, so don't implement it for now. We need to fix
-                // the API of `PathOrStdio` to _return_ locked stdin like any
-                // other stream, which probably means using a background copy
-                // thread like we do for Postgres export.
-                Err(format_err!("cannot yet read CSV data from stdin"))
-            }
-            PathOrStdio::Path(path) => {
-                // TODO - Paths to directories of files.
-                let data = File::open(path)
-                    .with_context(|_| format!("cannot open {}", path.display()))?;
-                let name = stream_name(path)?;
-                Ok(Some(vec![CsvStream {
-                    name: name.to_owned(),
-                    data: Box::new(data),
-                }]))
-            }
-        }
+    fn local_data(&self) -> BoxFuture<Option<BoxStream<CsvStream>>> {
+        local_data_helper(self.path.clone()).into_boxed()
     }
 
     fn write_local_data(
         &self,
-        _schema: &Table,
-        data: Vec<CsvStream>,
+        schema: Table,
+        data: BoxStream<CsvStream>,
         if_exists: IfExists,
-    ) -> Result<()> {
-        match &self.path {
-            PathOrStdio::Stdio => {
-                if_exists.warn_if_not_default_for_stdout();
-                Err(format_err!("cannot yet write CSV data to stdout"))
-            }
-            PathOrStdio::Path(path) => {
-                // TODO - Handle to an individual file.
+    ) -> BoxFuture<()> {
+        write_local_data_helper(self.path.clone(), schema, data, if_exists).into_boxed()
+    }
+}
 
-                // Make sure our directory exists.
-                fs::create_dir_all(path).with_context(|_| {
-                    format!("unable to create directory {}", path.display())
-                })?;
-
-                // Write streams to our directory.
-                let mut handles = vec![];
-                for mut stream in data {
-                    // TODO: This join does not handle `..` or nested `/` in a
-                    // particularly safe fashion.
-                    let csv_path = path.join(&format!("{}.csv", stream.name));
-                    handles.push(thread::spawn(move || -> Result<()> {
-                        let mut wtr = if_exists
-                            .to_open_options_no_append()?
-                            .open(&csv_path)
-                            .with_context(|_| {
-                                format!("cannot create {}", csv_path.display())
-                            })?;
-                        io::copy(&mut stream.data, &mut wtr).with_context(|_| {
-                            format!("error writing {}", csv_path.display())
-                        })?;
-                        Ok(())
-                    }));
-                }
-                for handle in handles {
-                    handle.join().expect("panic in worker thread")?;
-                }
-                Ok(())
-            }
+async fn local_data_helper(path: PathOrStdio) -> Result<Option<BoxStream<CsvStream>>> {
+    match path {
+        PathOrStdio::Stdio => {
+            // TODO - There's a stupid gotcha with `stdin.lock()` that makes
+            // this much harder to do than you'd expect without a bunch of
+            // extra messing around, so don't implement it for now. We need
+            // to fix the API of `PathOrStdio` to _return_ locked stdin like
+            // any other stream, which probably means using a background
+            // copy thread like we do for Postgres export. Or maybe `tokio`
+            // will make this easy?
+            Err(format_err!("cannot yet read CSV data from stdin"))
+        }
+        PathOrStdio::Path(path) => {
+            let data = await!(File::open(path.clone()))
+                .with_context(|_| format!("cannot open {}", path.display()))?;
+            let codec = BytesCodec::new();
+            let (_, stream) = codec.framed(data).split();
+            let name = stream_name(&path)?;
+            let box_stream: BoxStream<CsvStream> = Box::new(stream::once(Ok(CsvStream {
+                name: name.to_owned(),
+                data: Box::new(stream.map_err(move |e| format_err!("cannot read {}: {}", path.display(), e))),
+            })));
+            Ok(Some(box_stream))
         }
     }
 }
+
+async fn write_local_data_helper(
+    path: PathOrStdio,
+    _schema: Table,
+    data: BoxStream<CsvStream>,
+    if_exists: IfExists,
+) -> Result<()> {
+    match path {
+        PathOrStdio::Stdio => {
+            if_exists.warn_if_not_default_for_stdout();
+            Err(format_err!("cannot yet write CSV data to stdout"))
+        }
+        PathOrStdio::Path(path) => {
+            // TODO - Handle to an individual file.
+
+            // Make sure our directory exists.
+            fs::create_dir_all(path.clone()).with_context(|_| {
+                format!("unable to create directory {}", path.display())
+            })?;
+
+            // Write streams to our directory.
+            let result_stream = data.map(|stream| -> BoxFuture<()> {
+                let path = path.clone();
+                async move {
+                    // TODO: This join does not handle `..` or nested `/` in a
+                    // particularly safe fashion.
+                    let csv_path = path.join(&format!("{}.csv", stream.name));
+                    let wtr = await!(if_exists
+                        .to_open_options_no_append()?
+                        .open(csv_path.clone()))?;
+                    await!(copy_stream_to_writer(stream.data, wtr))
+                        .with_context(|_| format!("error writing {}", csv_path.display()))?;
+                    Ok(())
+                }.into_boxed()
+            });
+            await!(result_stream.buffered(4).collect())?;
+
+            Ok(())
+        }
+    }
+}
+
 
 /// Given a path, extract the base name of the file.
 fn stream_name(path: &Path) -> Result<&str> {

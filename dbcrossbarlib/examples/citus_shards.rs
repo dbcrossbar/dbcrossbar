@@ -6,7 +6,7 @@
 //! env DATABASE_URL=... citus_shards $TABLE
 //! ```
 
-use dbcrossbarlib::{drivers::postgres::citus::citus_shards, Result};
+use dbcrossbarlib::{/*drivers::postgres::citus::citus_shards,*/ Result};
 use diesel::{pg::PgConnection, prelude::*};
 use failure::{bail, format_err, ResultExt};
 use std::env;
@@ -28,6 +28,7 @@ fn main() -> Result<()> {
     // Look up our database shards.
     let conn = PgConnection::establish(database_url.as_str())
         .context("could not connect to database")?;
+    /*
     let shards = citus_shards(table_name, &conn)?;
 
     // Print information about each shard.
@@ -36,6 +37,7 @@ fn main() -> Result<()> {
         let url = shard.url(&database_url)?;
         println!("{} {}", name, url);
     }
+    */
 
     Ok(())
 }

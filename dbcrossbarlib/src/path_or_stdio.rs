@@ -3,17 +3,20 @@
 use failure::{format_err, ResultExt};
 use std::{
     fmt,
-    fs::File,
-    io::{self, prelude::*},
     path::{Path, PathBuf},
     str::FromStr,
+};
+use tokio::{
+    fs::File,
+    io,
+    prelude::*,
 };
 
 use crate::{Error, IfExists, Result};
 
 /// A local input or output location, specified using either a path, or `"-"`
 /// for standard I/O.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum PathOrStdio {
     Path(PathBuf),
     Stdio,
@@ -51,20 +54,16 @@ impl PathOrStdio {
     /// Open the file (or standard input) for reading, and pass the `Read`
     /// reference to `body`. We have to do this using a callback because of how
     /// `lock` works on standard I/O.
-    pub(crate) fn open<F, T>(&self, body: F) -> Result<T>
-    where
-        F: FnOnce(&mut dyn Read) -> Result<T>,
-    {
+    pub(crate) async fn open(&self) -> Result<Box<dyn AsyncRead>> {
         match self {
             PathOrStdio::Path(p) => {
-                let mut f = File::open(p)
+                let p = p.to_owned();
+                let mut f = await!(File::open(p.clone()))
                     .with_context(|_| format!("error opening {}", p.display()))?;
-                body(&mut f)
+                Ok(Box::new(f) as Box<dyn AsyncRead>)
             }
             PathOrStdio::Stdio => {
-                let stdin = io::stdin();
-                let mut stdin_lock = stdin.lock();
-                body(&mut stdin_lock)
+                Ok(Box::new(io::stdin()) as Box<dyn AsyncRead>)
             }
         }
     }
@@ -72,23 +71,22 @@ impl PathOrStdio {
     /// Open the file (or standard output) for reading, and pass the `Write`
     /// reference to `body`. We have to do this using a callback because of how
     /// `lock` works on standard I/O.
-    pub(crate) fn create<F, T>(&self, if_exists: IfExists, body: F) -> Result<T>
-    where
-        F: FnOnce(&mut dyn Write) -> Result<T>,
-    {
+    pub(crate) async fn create(
+        &self,
+        if_exists: IfExists,
+    ) -> Result<Box<dyn AsyncWrite>> {
         match self {
             PathOrStdio::Path(p) => {
-                let mut f = if_exists
+                let p = p.to_owned();
+                let f = await!(if_exists
                     .to_open_options_no_append()?
-                    .open(p)
+                    .open(p.clone()))
                     .with_context(|_| format!("error opening {}", p.display()))?;
-                body(&mut f)
+                Ok(Box::new(f) as Box<dyn AsyncWrite>)
             }
             PathOrStdio::Stdio => {
                 if_exists.warn_if_not_default_for_stdout();
-                let stdout = io::stdout();
-                let mut stdout_lock = stdout.lock();
-                body(&mut stdout_lock)
+                Ok(Box::new(io::stdout()) as Box<dyn AsyncWrite>)
             }
         }
     }

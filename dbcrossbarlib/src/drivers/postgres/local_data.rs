@@ -71,10 +71,10 @@ impl Read for CopyOutTable {
 }
 
 /// Copy the specified table from the database, returning a `CsvStream`.
-pub(crate) fn copy_out_table(url: &Url, table: &Table) -> Result<CsvStream> {
+pub(crate) async fn copy_out_table(url: Url, table: Table) -> Result<CsvStream> {
     // Generate SQL for query.
     let mut sql_bytes: Vec<u8> = vec![];
-    write_select(&mut sql_bytes, table)?;
+    write_select(&mut sql_bytes, &table)?;
     let sql = String::from_utf8(sql_bytes).expect("should always be UTF-8");
 
     // Use `pipe` and a background thread to convert a `Write` to `Read`.

@@ -12,23 +12,26 @@
 extern crate diesel;
 
 // Pull in all of `tokio`'s experimental `async` and `await` support.
-#[allow(unused_imports)]
 #[macro_use]
 extern crate tokio;
 
+use bytes::BytesMut;
 use failure::format_err;
 use lazy_static::lazy_static;
 use log::warn;
 use regex::Regex;
-use std::{fmt, fs::OpenOptions, io::prelude::*, result, str::FromStr};
+use std::{fmt, io::prelude::*, result, str::FromStr};
 use strum;
 use strum_macros::{Display, EnumString};
+use tokio::{fs::OpenOptions, prelude::*};
 
 pub mod drivers;
 pub(crate) mod path_or_stdio;
 pub mod schema;
+pub mod tokio_glue;
 
 use self::schema::Table;
+use self::tokio_glue::{BoxFuture, BoxStream, FutureExt, ResultExt, StdFutureExt};
 
 /// Standard error type for this library.
 pub use failure::Error;
@@ -82,7 +85,7 @@ impl Default for IfExists {
 }
 
 /// Specify the the location of data or a schema.
-pub trait Locator: fmt::Debug + fmt::Display {
+pub trait Locator: fmt::Debug + fmt::Display + Sized {
     /// Return a table schema, if available.
     fn schema(&self) -> Result<Option<Table>> {
         Ok(None)
@@ -94,27 +97,43 @@ pub trait Locator: fmt::Debug + fmt::Display {
         Err(format_err!("cannot write schema to {}", self))
     }
 
-    /// If this locator can be used as a local data source, return the local
-    /// data source.
-    fn local_data(&self) -> Result<Option<Vec<CsvStream>>> {
-        Ok(None)
+    /// If this locator can be used as a local data source, return a stream of
+    /// CSV streams. This function type is bit hairy:
+    ///
+    /// 1. The outermost `BoxFuture` is essentially an async `Result`, returning
+    ///    either a value or an error. It's boxed because we don't know what
+    ///    concrete type it will actually be, just that it will implement
+    ///    `Future`.
+    /// 2. The `Option` will be `None` if we have no local data, or `Some` if we
+    ///    can provide one or more CSV streams.
+    /// 3. The `BoxStream` returns a "stream of streams". This _could_ be a
+    ///    `Vec<CsvStream>`, but that would force us to, say, open up hundreds
+    ///    of CSV files or S3 objects at once, causing us to run out of file
+    ///    descriptors. By returning a stream, we allow our caller to open up
+    ///    files or start downloads only when needed.
+    /// 4. The innermost `CsvStream` is a stream of raw CSV data plus some other
+    ///    information, like the original filename.
+    fn local_data(&self) -> BoxFuture<Option<BoxStream<CsvStream>>> {
+        // Turn our result into a future.
+        Ok(None).into_boxed_future()
     }
 
     /// If this locator can be used as a local data sink, return the local data
     /// sink.
     fn write_local_data(
         &self,
-        _schema: &Table,
-        _data: Vec<CsvStream>,
+        _schema: Table,
+        _data: BoxStream<CsvStream>,
         _if_exists: IfExists,
-    ) -> Result<()> {
-        Err(format_err!("cannot write data to {}", self))
+    ) -> BoxFuture<()> {
+        Err(format_err!("cannot write data to {}", self)).into_boxed_future()
     }
 }
 
 /// A value of an unknown type implementing `Locator`.
 pub type BoxLocator = Box<dyn Locator>;
 
+/*
 impl FromStr for BoxLocator {
     type Err = Error;
 
@@ -162,11 +181,13 @@ fn locator_from_str_to_string_roundtrip() {
         assert_eq!(parsed.to_string(), locator);
     }
 }
+*/
 
 /// A stream of CSV data, with a unique name.
 pub struct CsvStream {
     /// The name of this stream.
     pub name: String,
     /// A reader associated with this stream.
-    pub data: Box<dyn Read + Send + 'static>,
+    pub data: Box<dyn Stream<Item = BytesMut, Error = Error> + Send + 'static>,
 }
+
