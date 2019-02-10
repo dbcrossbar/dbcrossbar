@@ -28,5 +28,5 @@ fn run() -> Result<()> {
 
     let opt = cmd::Opt::from_args();
     debug!("{:?}", opt);
-    cmd::run(&opt)
+    cmd::run(opt)
 }

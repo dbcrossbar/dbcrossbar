@@ -1,9 +1,10 @@
-//! The `schema` subcommand.
+//! The `cp` subcommand.
 
 use common_failures::Result;
-use dbcrossbarlib::{BoxLocator, IfExists};
+use dbcrossbarlib::{BoxLocator, IfExists, tokio_glue::tokio_fut};
 use failure::format_err;
 use structopt::{self, StructOpt};
+use tokio;
 
 /// Schema conversion arguments.
 #[derive(Debug, StructOpt)]
@@ -24,15 +25,22 @@ pub(crate) struct Opt {
 }
 
 /// Perform our schema conversion.
-pub(crate) fn run(opt: &Opt) -> Result<()> {
+pub(crate) fn run(opt: Opt) -> Result<()> {
     let schema_locator = opt.schema.as_ref().unwrap_or(&opt.from_locator);
     let schema = schema_locator.schema()?.ok_or_else(|| {
         format_err!("don't know how to read schema from {}", opt.from_locator)
     })?;
-    let data = opt.from_locator.local_data()?.ok_or_else(|| {
-        format_err!("don't know how to read data from {}", opt.to_locator)
-    })?;
-    opt.to_locator
-        .write_local_data(&schema, data, opt.if_exists)?;
+
+    let mut runtime = tokio::runtime::Runtime::new().expect("Unable to create a runtime");
+    runtime.block_on(tokio_fut(
+        async move {
+            let data = await!(opt.from_locator.local_data())?.ok_or_else(|| {
+                format_err!("don't know how to read data from {}", opt.to_locator)
+            })?;
+            await!(opt.to_locator
+                .write_local_data(schema, data, opt.if_exists))?;
+            Ok(())
+        }
+    ))?;
     Ok(())
 }

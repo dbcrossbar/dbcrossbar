@@ -20,7 +20,7 @@ pub(crate) struct Opt {
 }
 
 /// Perform our schema conversion.
-pub(crate) fn run(opt: &Opt) -> Result<()> {
+pub(crate) fn run(opt: Opt) -> Result<()> {
     let schema = opt.from_locator.schema()?.ok_or_else(|| {
         format_err!("don't know how to read schema from {}", opt.from_locator)
     })?;

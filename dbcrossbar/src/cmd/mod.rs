@@ -37,7 +37,7 @@ pub(crate) enum Opt {
     },
 }
 
-pub(crate) fn run(opt: &Opt) -> Result<()> {
+pub(crate) fn run(opt: Opt) -> Result<()> {
     match opt {
         Opt::Conv { command } => conv::run(command),
         Opt::Cp { command } => cp::run(command),

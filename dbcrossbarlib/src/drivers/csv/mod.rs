@@ -2,18 +2,20 @@
 
 use csv;
 use failure::{format_err, ResultExt};
-use std::{
-    fmt,
-    fs,
-    path::Path,
-    str::FromStr,
-    thread,
+use std::{fmt, fs, path::Path, str::FromStr, thread};
+use tokio::{
+    codec::{BytesCodec, Decoder},
+    fs::File,
+    io,
+    prelude::*,
 };
-use tokio::{codec::{BytesCodec, Decoder}, io, prelude::*, fs::File};
+use tokio_async_await::compat;
 
 use crate::path_or_stdio::PathOrStdio;
 use crate::schema::{Column, DataType, Table};
-use crate::tokio_glue::{BoxFuture, BoxStream, copy_stream_to_writer, ResultExt as GlueResultExt, StdFutureExt};
+use crate::tokio_glue::{
+    copy_stream_to_writer, tokio_fut, BoxFuture, BoxStream, FutureExt, StdFutureExt,
+};
 use crate::{CsvStream, Error, IfExists, Locator, Result};
 
 /// Locator scheme for CSV files.
@@ -87,7 +89,8 @@ impl Locator for CsvLocator {
         data: BoxStream<CsvStream>,
         if_exists: IfExists,
     ) -> BoxFuture<()> {
-        write_local_data_helper(self.path.clone(), schema, data, if_exists).into_boxed()
+        write_local_data_helper(self.path.clone(), schema, data, if_exists)
+            .into_boxed()
     }
 }
 
@@ -109,10 +112,13 @@ async fn local_data_helper(path: PathOrStdio) -> Result<Option<BoxStream<CsvStre
             let codec = BytesCodec::new();
             let (_, stream) = codec.framed(data).split();
             let name = stream_name(&path)?;
-            let box_stream: BoxStream<CsvStream> = Box::new(stream::once(Ok(CsvStream {
-                name: name.to_owned(),
-                data: Box::new(stream.map_err(move |e| format_err!("cannot read {}: {}", path.display(), e))),
-            })));
+            let box_stream: BoxStream<CsvStream> =
+                Box::new(stream::once(Ok(CsvStream {
+                    name: name.to_owned(),
+                    data: Box::new(stream.map_err(move |e| {
+                        format_err!("cannot read {}: {}", path.display(), e)
+                    })),
+                })));
             Ok(Some(box_stream))
         }
     }
@@ -138,19 +144,22 @@ async fn write_local_data_helper(
             })?;
 
             // Write streams to our directory.
-            let result_stream = data.map(|stream| -> BoxFuture<()> {
+            let result_stream = data.map(|stream| {
                 let path = path.clone();
-                async move {
-                    // TODO: This join does not handle `..` or nested `/` in a
-                    // particularly safe fashion.
-                    let csv_path = path.join(&format!("{}.csv", stream.name));
-                    let wtr = await!(if_exists
-                        .to_open_options_no_append()?
-                        .open(csv_path.clone()))?;
-                    await!(copy_stream_to_writer(stream.data, wtr))
-                        .with_context(|_| format!("error writing {}", csv_path.display()))?;
-                    Ok(())
-                }.into_boxed()
+                tokio_fut(
+                    async move {
+                        // TODO: This join does not handle `..` or nested `/` in a
+                        // particularly safe fashion.
+                        let csv_path = path.join(&format!("{}.csv", stream.name));
+                        let wtr = await!(if_exists
+                            .to_open_options_no_append()?
+                            .open(csv_path.clone()))?;
+                        await!(copy_stream_to_writer(stream.data, wtr)).with_context(
+                            |_| format!("error writing {}", csv_path.display()),
+                        )?;
+                        Ok(())
+                    },
+                )
             });
             await!(result_stream.buffered(4).collect())?;
 
@@ -158,7 +167,6 @@ async fn write_local_data_helper(
         }
     }
 }
-
 
 /// Given a path, extract the base name of the file.
 fn stream_name(path: &Path) -> Result<&str> {

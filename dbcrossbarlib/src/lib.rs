@@ -85,7 +85,7 @@ impl Default for IfExists {
 }
 
 /// Specify the the location of data or a schema.
-pub trait Locator: fmt::Debug + fmt::Display + Sized {
+pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     /// Return a table schema, if available.
     fn schema(&self) -> Result<Option<Table>> {
         Ok(None)
@@ -133,12 +133,16 @@ pub trait Locator: fmt::Debug + fmt::Display + Sized {
 /// A value of an unknown type implementing `Locator`.
 pub type BoxLocator = Box<dyn Locator>;
 
-/*
 impl FromStr for BoxLocator {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        use self::drivers::{bigquery::*, csv::*, gs::*, postgres::*};
+        use self::drivers::{
+            //bigquery::*,
+            csv::*,
+            //gs::*,
+            //postgres::*,
+        };
 
         // Parse our locator into a URL-style scheme and the rest.
         lazy_static! {
@@ -152,14 +156,14 @@ impl FromStr for BoxLocator {
 
         // Select an appropriate locator type.
         match scheme {
-            BIGQUERY_SCHEME => Ok(Box::new(BigQueryLocator::from_str(s)?)),
-            BIGQUERY_SCHEMA_SCHEME => {
-                Ok(Box::new(BigQuerySchemaLocator::from_str(s)?))
-            }
+            //BIGQUERY_SCHEME => Ok(Box::new(BigQueryLocator::from_str(s)?)),
+            //BIGQUERY_SCHEMA_SCHEME => {
+            //    Ok(Box::new(BigQuerySchemaLocator::from_str(s)?))
+            //}
             CSV_SCHEME => Ok(Box::new(CsvLocator::from_str(s)?)),
-            GS_SCHEME => Ok(Box::new(GsLocator::from_str(s)?)),
-            POSTGRES_SCHEME => Ok(Box::new(PostgresLocator::from_str(s)?)),
-            POSTGRES_SQL_SCHEME => Ok(Box::new(PostgresSqlLocator::from_str(s)?)),
+            //GS_SCHEME => Ok(Box::new(GsLocator::from_str(s)?)),
+            //POSTGRES_SCHEME => Ok(Box::new(PostgresLocator::from_str(s)?)),
+            //POSTGRES_SQL_SCHEME => Ok(Box::new(PostgresSqlLocator::from_str(s)?)),
             _ => Err(format_err!("unknown locator scheme in {:?}", s)),
         }
     }
@@ -168,20 +172,19 @@ impl FromStr for BoxLocator {
 #[test]
 fn locator_from_str_to_string_roundtrip() {
     let locators = vec![
-        "bigquery:my_project:my_dataset.my_table",
-        "bigquery-schema:dir/my_table.json",
+        //"bigquery:my_project:my_dataset.my_table",
+        //"bigquery-schema:dir/my_table.json",
         "csv:file.csv",
         "csv:dir/",
-        "gs://example-bucket/tmp/",
-        "postgres://localhost:5432/db#my_table",
-        "postgres-sql:dir/my_table.sql",
+        //"gs://example-bucket/tmp/",
+        //"postgres://localhost:5432/db#my_table",
+        //"postgres-sql:dir/my_table.sql",
     ];
     for locator in locators.into_iter() {
         let parsed: BoxLocator = locator.parse().unwrap();
         assert_eq!(parsed.to_string(), locator);
     }
 }
-*/
 
 /// A stream of CSV data, with a unique name.
 pub struct CsvStream {
