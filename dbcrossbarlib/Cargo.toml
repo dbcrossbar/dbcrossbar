@@ -18,7 +18,6 @@ failure = "0.1.2"
 lazy_static = "1.2.0"
 log = "0.4.5"
 native-tls = "0.2.2"
-pipe = "0.1.0"
 postgres = { version = "0.15.2", features = ["with-native-tls"] }
 regex = "1.1.0"
 serde = "1.0.79"

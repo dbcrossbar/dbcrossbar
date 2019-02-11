@@ -152,7 +152,7 @@ async fn write_local_data_helper(
                         // particularly safe fashion.
                         let csv_path = path.join(&format!("{}.csv", stream.name));
                         let wtr = await!(if_exists
-                            .to_open_options_no_append()?
+                            .to_async_open_options_no_append()?
                             .open(csv_path.clone()))?;
                         await!(copy_stream_to_writer(stream.data, wtr)).with_context(
                             |_| format!("error writing {}", csv_path.display()),

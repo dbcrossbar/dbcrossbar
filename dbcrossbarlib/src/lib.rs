@@ -3,7 +3,7 @@
 //! At the moment, the most interesting type here is the [`schema`](./schema/)
 //! module, which defines a portable SQL schema.
 
-#![feature(await_macro, async_await, futures_api)]
+#![feature(await_macro, async_await, futures_api, try_blocks)]
 #![warn(missing_docs, unused_extern_crates, clippy::all)]
 
 // We keep one `macro_use` here, because `diesel`'s macros do not yet play
@@ -20,10 +20,10 @@ use failure::format_err;
 use lazy_static::lazy_static;
 use log::warn;
 use regex::Regex;
-use std::{fmt, io::prelude::*, result, str::FromStr};
+use std::{fmt, fs as std_fs, io::prelude::*, result, str::FromStr};
 use strum;
 use strum_macros::{Display, EnumString};
-use tokio::{fs::OpenOptions, prelude::*};
+use tokio::{fs as tokio_fs, prelude::*};
 
 pub mod drivers;
 pub(crate) mod path_or_stdio;
@@ -52,10 +52,31 @@ pub enum IfExists {
 }
 
 impl IfExists {
-    /// Convert to an `OpenOptions` value, returning an error for
+    /// Convert to an `tokio::OpenOptions` value, returning an error for
     /// `IfExists::Append`.
-    pub(crate) fn to_open_options_no_append(self) -> Result<OpenOptions> {
-        let mut open_options = OpenOptions::new();
+    pub(crate) fn to_async_open_options_no_append(
+        self,
+    ) -> Result<tokio_fs::OpenOptions> {
+        let mut open_options = tokio_fs::OpenOptions::new();
+        open_options.write(true);
+        match self {
+            IfExists::Error => {
+                open_options.create_new(true);
+            }
+            IfExists::Overwrite => {
+                open_options.create(true).append(true);
+            }
+            IfExists::Append => {
+                return Err(format_err!("appending not supported"));
+            }
+        }
+        Ok(open_options)
+    }
+
+    /// Convert to an `std::fs::OpenOptions` value, returning an error for
+    /// `IfExists::Append`.
+    pub(crate) fn to_sync_open_options_no_append(self) -> Result<std_fs::OpenOptions> {
+        let mut open_options = std_fs::OpenOptions::new();
         open_options.write(true);
         match self {
             IfExists::Error => {
@@ -138,10 +159,10 @@ impl FromStr for BoxLocator {
 
     fn from_str(s: &str) -> Result<Self> {
         use self::drivers::{
-            //bigquery::*,
+            bigquery::*,
             csv::*,
             //gs::*,
-            //postgres::*,
+            postgres::*,
         };
 
         // Parse our locator into a URL-style scheme and the rest.
@@ -156,14 +177,14 @@ impl FromStr for BoxLocator {
 
         // Select an appropriate locator type.
         match scheme {
-            //BIGQUERY_SCHEME => Ok(Box::new(BigQueryLocator::from_str(s)?)),
-            //BIGQUERY_SCHEMA_SCHEME => {
-            //    Ok(Box::new(BigQuerySchemaLocator::from_str(s)?))
-            //}
+            BIGQUERY_SCHEME => Ok(Box::new(BigQueryLocator::from_str(s)?)),
+            BIGQUERY_SCHEMA_SCHEME => {
+                Ok(Box::new(BigQuerySchemaLocator::from_str(s)?))
+            }
             CSV_SCHEME => Ok(Box::new(CsvLocator::from_str(s)?)),
             //GS_SCHEME => Ok(Box::new(GsLocator::from_str(s)?)),
-            //POSTGRES_SCHEME => Ok(Box::new(PostgresLocator::from_str(s)?)),
-            //POSTGRES_SQL_SCHEME => Ok(Box::new(PostgresSqlLocator::from_str(s)?)),
+            POSTGRES_SCHEME => Ok(Box::new(PostgresLocator::from_str(s)?)),
+            POSTGRES_SQL_SCHEME => Ok(Box::new(PostgresSqlLocator::from_str(s)?)),
             _ => Err(format_err!("unknown locator scheme in {:?}", s)),
         }
     }
@@ -172,13 +193,13 @@ impl FromStr for BoxLocator {
 #[test]
 fn locator_from_str_to_string_roundtrip() {
     let locators = vec![
-        //"bigquery:my_project:my_dataset.my_table",
-        //"bigquery-schema:dir/my_table.json",
+        "bigquery:my_project:my_dataset.my_table",
+        "bigquery-schema:dir/my_table.json",
         "csv:file.csv",
         "csv:dir/",
         //"gs://example-bucket/tmp/",
-        //"postgres://localhost:5432/db#my_table",
-        //"postgres-sql:dir/my_table.sql",
+        "postgres://localhost:5432/db#my_table",
+        "postgres-sql:dir/my_table.sql",
     ];
     for locator in locators.into_iter() {
         let parsed: BoxLocator = locator.parse().unwrap();
@@ -193,4 +214,3 @@ pub struct CsvStream {
     /// A reader associated with this stream.
     pub data: Box<dyn Stream<Item = BytesMut, Error = Error> + Send + 'static>,
 }
-

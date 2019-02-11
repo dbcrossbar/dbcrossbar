@@ -1,7 +1,7 @@
 //! The `cp` subcommand.
 
 use common_failures::Result;
-use dbcrossbarlib::{BoxLocator, IfExists, tokio_glue::tokio_fut};
+use dbcrossbarlib::{tokio_glue::tokio_fut, BoxLocator, IfExists};
 use failure::format_err;
 use structopt::{self, StructOpt};
 use tokio;
@@ -31,16 +31,16 @@ pub(crate) fn run(opt: Opt) -> Result<()> {
         format_err!("don't know how to read schema from {}", opt.from_locator)
     })?;
 
-    let mut runtime = tokio::runtime::Runtime::new().expect("Unable to create a runtime");
+    let mut runtime =
+        tokio::runtime::Runtime::new().expect("Unable to create a runtime");
     runtime.block_on(tokio_fut(
         async move {
             let data = await!(opt.from_locator.local_data())?.ok_or_else(|| {
                 format_err!("don't know how to read data from {}", opt.to_locator)
             })?;
-            await!(opt.to_locator
-                .write_local_data(schema, data, opt.if_exists))?;
+            await!(opt.to_locator.write_local_data(schema, data, opt.if_exists))?;
             Ok(())
-        }
+        },
     ))?;
     Ok(())
 }

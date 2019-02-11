@@ -2,15 +2,11 @@
 
 use failure::{format_err, ResultExt};
 use std::{
-    fmt,
+    fmt, fs as std_fs, io as std_io,
     path::{Path, PathBuf},
     str::FromStr,
 };
-use tokio::{
-    fs::File,
-    io,
-    prelude::*,
-};
+use tokio::{fs as tokio_fs, io as tokio_io, prelude::*};
 
 use crate::{Error, IfExists, Result};
 
@@ -51,27 +47,35 @@ impl PathOrStdio {
         write!(f, "{}{}", scheme, self)
     }
 
-    /// Open the file (or standard input) for reading, and pass the `Read`
-    /// reference to `body`. We have to do this using a callback because of how
-    /// `lock` works on standard I/O.
-    pub(crate) async fn open(&self) -> Result<Box<dyn AsyncRead>> {
+    /// Open the file (or standard input) for asynchronous reading.
+    pub(crate) async fn open_async(&self) -> Result<Box<dyn AsyncRead>> {
         match self {
             PathOrStdio::Path(p) => {
                 let p = p.to_owned();
-                let mut f = await!(File::open(p.clone()))
+                let mut f = await!(tokio_fs::File::open(p.clone()))
                     .with_context(|_| format!("error opening {}", p.display()))?;
                 Ok(Box::new(f) as Box<dyn AsyncRead>)
             }
             PathOrStdio::Stdio => {
-                Ok(Box::new(io::stdin()) as Box<dyn AsyncRead>)
+                Ok(Box::new(tokio_io::stdin()) as Box<dyn AsyncRead>)
             }
         }
     }
 
-    /// Open the file (or standard output) for reading, and pass the `Write`
-    /// reference to `body`. We have to do this using a callback because of how
-    /// `lock` works on standard I/O.
-    pub(crate) async fn create(
+    /// Open the file (or standard input) for synchronous reading.
+    pub(crate) fn open_sync(&self) -> Result<Box<dyn Read>> {
+        match self {
+            PathOrStdio::Path(p) => {
+                let mut f = std_fs::File::open(p)
+                    .with_context(|_| format!("error opening {}", p.display()))?;
+                Ok(Box::new(f) as Box<dyn Read>)
+            }
+            PathOrStdio::Stdio => Ok(Box::new(std_io::stdin()) as Box<dyn Read>),
+        }
+    }
+
+    /// Open the file (or standard output) for asynchronous writing.
+    pub(crate) async fn create_async(
         &self,
         if_exists: IfExists,
     ) -> Result<Box<dyn AsyncWrite>> {
@@ -79,14 +83,31 @@ impl PathOrStdio {
             PathOrStdio::Path(p) => {
                 let p = p.to_owned();
                 let f = await!(if_exists
-                    .to_open_options_no_append()?
+                    .to_async_open_options_no_append()?
                     .open(p.clone()))
-                    .with_context(|_| format!("error opening {}", p.display()))?;
+                .with_context(|_| format!("error opening {}", p.display()))?;
                 Ok(Box::new(f) as Box<dyn AsyncWrite>)
             }
             PathOrStdio::Stdio => {
                 if_exists.warn_if_not_default_for_stdout();
-                Ok(Box::new(io::stdout()) as Box<dyn AsyncWrite>)
+                Ok(Box::new(tokio_io::stdout()) as Box<dyn AsyncWrite>)
+            }
+        }
+    }
+
+    /// Open the file (or standard output) for synchronous writing.
+    pub(crate) fn create_sync(&self, if_exists: IfExists) -> Result<Box<dyn Write>> {
+        match self {
+            PathOrStdio::Path(p) => {
+                let f = if_exists
+                    .to_sync_open_options_no_append()?
+                    .open(p)
+                    .with_context(|_| format!("error opening {}", p.display()))?;
+                Ok(Box::new(f) as Box<dyn Write>)
+            }
+            PathOrStdio::Stdio => {
+                if_exists.warn_if_not_default_for_stdout();
+                Ok(Box::new(std_io::stdout()) as Box<dyn Write>)
             }
         }
     }

@@ -9,11 +9,13 @@ use std::{
     fmt,
     str::{self, FromStr},
 };
+use tokio::prelude::*;
 use url::Url;
 
 use crate::path_or_stdio::PathOrStdio;
 use crate::schema::Table;
-use crate::{CsvStream, Error, IfExists, Locator, Result};
+use crate::tokio_glue::{ResultExt as _, StdFutureExt};
+use crate::{BoxFuture, BoxStream, CsvStream, Error, IfExists, Locator, Result};
 
 pub mod citus;
 mod local_data;
@@ -83,23 +85,36 @@ impl Locator for PostgresLocator {
         Ok(Some(schema::fetch_from_url(&self.url, &self.table_name)?))
     }
 
-    fn local_data(&self) -> Result<Option<Vec<CsvStream>>> {
-        let schema = self.schema()?.expect("should always have schema");
-        let stream = local_data::copy_out_table(&self.url, &schema)?;
-        Ok(Some(vec![stream]))
+    fn local_data(&self) -> BoxFuture<Option<BoxStream<CsvStream>>> {
+        let url = self.url.clone();
+        let schema = match self.schema() {
+            Ok(schema) => schema.expect("should always have a schema"),
+            Err(err) => return Box::new(Err(err).into_future()),
+        };
+        local_data_helper(url, schema).into_boxed()
     }
 
     fn write_local_data(
         &self,
-        schema: &Table,
-        data: Vec<CsvStream>,
+        schema: Table,
+        data: BoxStream<CsvStream>,
         if_exists: IfExists,
-    ) -> Result<()> {
+    ) -> BoxFuture<()> {
         // Use the destination table name instead of the source name.
         let mut new_schema = schema.to_owned();
         new_schema.name = self.table_name.clone();
-        write_local_data::copy_in_table(&self.url, schema, data, if_exists)
+        write_local_data::copy_in_table(self.url.clone(), schema, data, if_exists)
+            .into_boxed()
     }
+}
+
+async fn local_data_helper(
+    url: Url,
+    schema: Table,
+) -> Result<Option<BoxStream<CsvStream>>> {
+    let stream = local_data::copy_out_table(&url, &schema)?;
+    let box_stream: BoxStream<CsvStream> = Box::new(stream::once(Ok(stream)));
+    Ok(Some(box_stream))
 }
 
 /// URL scheme for `PostgresSqlLocator`.
@@ -128,22 +143,20 @@ impl FromStr for PostgresSqlLocator {
 
 impl Locator for PostgresSqlLocator {
     fn schema(&self) -> Result<Option<Table>> {
-        self.path.open(|input| {
-            let mut sql = String::new();
-            input
-                .read_to_string(&mut sql)
-                .with_context(|_| format!("error reading {}", self.path))?;
-            Ok(Some(sql_schema::parse_create_table(&sql)?))
-        })
+        let mut input = self.path.open_sync()?;
+        let mut sql = String::new();
+        input
+            .read_to_string(&mut sql)
+            .with_context(|_| format!("error reading {}", self.path))?;
+        Ok(Some(sql_schema::parse_create_table(&sql)?))
     }
 
     fn write_schema(&self, table: &Table, if_exists: IfExists) -> Result<()> {
-        self.path.create(if_exists, |mut out| {
-            // The passed-in `if_exists` applies to our output file, not to our
-            // generated schema.
-            sql_schema::write_create_table(&mut out, table, IfExists::Error)
-                .with_context(|_| format!("error writing {}", self.path))?;
-            Ok(())
-        })
+        let mut out = self.path.create_sync(if_exists)?;
+        // The passed-in `if_exists` applies to our output SQL file, not to whether
+        // our generated schema contains `DROP TABLE ... IF EXISTS`.
+        sql_schema::write_create_table(&mut out, table, IfExists::Error)
+            .with_context(|_| format!("error writing {}", self.path))?;
+        Ok(())
     }
 }

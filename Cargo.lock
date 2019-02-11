@@ -318,7 +318,6 @@ dependencies = [
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "native-tls 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "peg 0.5.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "pipe 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "postgres 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.82 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -767,11 +766,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "siphasher 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
-
-[[package]]
-name = "pipe"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "pkg-config"
@@ -1716,7 +1710,6 @@ dependencies = [
 "checksum percent-encoding 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "31010dd2e1ac33d5b46a5b413495239882813e0369f8ed8a5e266f173602f831"
 "checksum phf 0.7.23 (registry+https://github.com/rust-lang/crates.io-index)" = "cec29da322b242f4c3098852c77a0ca261c9c01b806cae85a5572a1eb94db9a6"
 "checksum phf_shared 0.7.23 (registry+https://github.com/rust-lang/crates.io-index)" = "b539898d22d4273ded07f64a05737649dc69095d92cb87c7097ec68e3f150b93"
-"checksum pipe 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e345ff534611eac78f2c44a68da00d91d82a4dc443e19938251c84ec56763006"
 "checksum pkg-config 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)" = "676e8eb2b1b4c9043511a9b7bea0915320d7e502b0a079fb03f9635a5252b18c"
 "checksum postgres 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)" = "115dde90ef51af573580c035857badbece2aa5cde3de1dfb3c932969ca92a6c5"
 "checksum postgres-protocol 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "2487e66455bf88a1b247bf08a3ce7fe5197ac6d67228d920b0ee6a0e97fd7312"

@@ -83,7 +83,7 @@ impl FromStr for BigQuerySchemaLocator {
 
 impl Locator for BigQuerySchemaLocator {
     fn write_schema(&self, table: &Table, if_exists: IfExists) -> Result<()> {
-        self.path
-            .create(if_exists, |f| write_schema::write_json(f, table, false))
+        let mut f = self.path.create_sync(if_exists)?;
+        write_schema::write_json(&mut f, table, false)
     }
 }
