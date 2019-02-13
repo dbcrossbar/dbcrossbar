@@ -1,6 +1,7 @@
 //! Support for writing local data to Postgres.
 
 use failure::{format_err, ResultExt};
+use log::debug;
 use std::{io::prelude::*, str};
 use tokio::prelude::*;
 use url::Url;
@@ -66,6 +67,7 @@ pub(crate) async fn copy_in_table(
             Ok((None, _rest_of_stream)) => return Ok(()),
             Ok((Some(csv_stream), rest_of_stream)) => {
                 data = rest_of_stream;
+                debug!("copying data into {}", schema.name);
                 let conn = connect(&url)?;
                 let stmt = conn.prepare(&copy_sql)?;
                 stmt.copy_in(&[], &mut SyncStreamReader::new(csv_stream.data))

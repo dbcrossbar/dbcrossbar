@@ -4,6 +4,7 @@
 #![allow(missing_docs, proc_macro_derive_resolution_fallback)]
 
 use failure::{format_err, ResultExt};
+use log::{debug, trace};
 use postgres::{tls::native_tls::NativeTls, Connection, TlsMode};
 use std::{
     fmt,
@@ -86,6 +87,7 @@ impl Locator for PostgresLocator {
     }
 
     fn local_data(&self) -> BoxFuture<Option<BoxStream<CsvStream>>> {
+        debug!("reading data from {} table {}", self.url, self.table_name);
         let url = self.url.clone();
         let schema = match self.schema() {
             Ok(schema) => schema.expect("should always have a schema"),
@@ -100,10 +102,12 @@ impl Locator for PostgresLocator {
         data: BoxStream<CsvStream>,
         if_exists: IfExists,
     ) -> BoxFuture<()> {
+        debug!("writing data to {} table {}", self.url, self.table_name);
+
         // Use the destination table name instead of the source name.
         let mut new_schema = schema.to_owned();
         new_schema.name = self.table_name.clone();
-        write_local_data::copy_in_table(self.url.clone(), schema, data, if_exists)
+        write_local_data::copy_in_table(self.url.clone(), new_schema, data, if_exists)
             .into_boxed()
     }
 }

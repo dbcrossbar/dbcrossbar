@@ -1,4 +1,6 @@
 use cli_test_dir::*;
+use env_logger;
+use log::debug;
 use std::{env, fs};
 
 /// An example Postgres SQL `CREATE TABLE` declaration.
@@ -125,6 +127,7 @@ fn cp_csv_to_csv() {
 #[test]
 #[ignore]
 fn cp_csv_to_postgres_to_gs_to_csv() {
+    env_logger::init();
     let testdir = TestDir::new("dbcrossbar", "cp_csv_to_postgres_to_gs_to_csv");
     let src = testdir.src_path("fixtures/example.csv");
     let schema = testdir.src_path("fixtures/example.sql");
@@ -132,11 +135,16 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     let gs_dir = gs_test_dir_url("cp_csv_to_postgres_to_gs_to_csv");
     testdir
         .cmd()
-        .args(&["cp", "--if-exists=overwrite"])
-        .arg(&format!("--schema=postgres-sql:{}", schema.display()))
-        .arg(&format!("csv:{}", src.display()))
-        .arg(&pg_table)
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("csv:{}", src.display()),
+            &pg_table,
+        ])
         .expect_success();
+
+    /* TODO: Put `gs://` support back.
     testdir
         .cmd()
         .args(&["cp", "--if-exists=overwrite", &pg_table, &gs_dir])
@@ -145,6 +153,12 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
         .cmd()
         .args(&["cp", &gs_dir, "csv:out/"])
         .expect_success();
+    */
+    testdir
+        .cmd()
+        .args(&["cp", "--if-exists=overwrite", &pg_table, "csv:out/"])
+        .expect_success();
+
     let expected = fs::read_to_string(&src).unwrap();
-    testdir.expect_file_contents("out/example.csv", &expected);
+    testdir.expect_file_contents("out/cp_csv_to_postgres_to_gs_to_csv.csv", &expected);
 }

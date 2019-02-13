@@ -16,6 +16,7 @@ use common_failures::{quick_main, Result};
 use env_logger;
 use log::debug;
 use openssl_probe;
+use std::{env, io::{self, prelude::*}};
 use structopt::{self, StructOpt};
 
 mod cmd;

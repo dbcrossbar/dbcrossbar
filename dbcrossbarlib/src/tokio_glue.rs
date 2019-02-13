@@ -5,7 +5,8 @@
 
 use bytes::BytesMut;
 use failure::format_err;
-use std::{cmp::min, error, future::Future as StdFuture};
+use log::{error, warn, trace};
+use std::{cmp::min, future::Future as StdFuture};
 use tokio::{io, prelude::*, sync::mpsc};
 use tokio_async_await::compat;
 
@@ -186,7 +187,7 @@ impl Write for SyncStreamWriter {
 /// `Stream<BytesMut>`.
 pub(crate) struct SyncStreamReader {
     stream: Option<BoxStream<BytesMut>>,
-    buffer: Option<BytesMut>,
+    buffer: BytesMut,
 }
 
 impl SyncStreamReader {
@@ -194,7 +195,7 @@ impl SyncStreamReader {
     pub(crate) fn new(stream: BoxStream<BytesMut>) -> Self {
         Self {
             stream: Some(stream),
-            buffer: None,
+            buffer: BytesMut::default(),
         }
     }
 }
@@ -202,25 +203,29 @@ impl SyncStreamReader {
 impl Read for SyncStreamReader {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         // Assume no zero-sized reads for now.
-        assert!(buf.len() > 0);
+        assert!(!buf.is_empty());
 
         // We have no bytes to return, so try to read some from our stream.
-        if self.buffer.is_none() {
+        if self.buffer.is_empty() {
             // Try to take the stream stored in this object.
             if let Some(stream) = self.stream.take() {
                 match stream.into_future().wait() {
                     // End of the stream.
                     Ok((None, _rest_of_stream)) => {
+                        trace!("end of stream");
                         return Ok(0);
                     }
                     // A bytes buffer.
                     Ok((Some(bytes), rest_of_stream)) => {
                         // Put the stream back into the object.
                         self.stream = Some(rest_of_stream);
-                        self.buffer = Some(bytes);
+                        trace!("read {} bytes from stream", bytes.len());
+                        assert!(!bytes.is_empty());
+                        self.buffer = bytes;
                     }
                     // An error on the stream.
                     Err((err, _rest_of_stream)) => {
+                        error!("error reading from stream: {}", err);
                         return Err(io::Error::new(
                             io::ErrorKind::Other,
                             Box::new(err.compat()),
@@ -228,22 +233,20 @@ impl Read for SyncStreamReader {
                     }
                 }
             } else {
-                // To reach this point, we must have failed once already. We
-                // return EPIPE, which is a bit arbitrary (usually it applies to
-                // _writing_ to broken pipes), but in this case we're returning
-                // it for a read.
-                return Err(io::ErrorKind::BrokenPipe.into());
+                // This happens once we've already returned either 0 bytes
+                // (marking the end of the stream) or an error, but somebody is
+                // still trying to read, so we'll just return 0 bytes
+                // indefinitely.
+                trace!("stream is already closed");
+                return Ok(0);
             }
         }
 
         // We know we have bytes, so copy them into our output buffer.
-        let buffer = self
-            .buffer
-            .as_mut()
-            .expect("our local buffer should always exist");
-        assert!(buffer.len() > 0);
-        let count = min(buffer.len(), buf.len());
-        buf.copy_from_slice(&buffer.split_to(count));
+        assert!(!self.buffer.is_empty());
+        let count = min(self.buffer.len(), buf.len());
+        buf[..count].copy_from_slice(&self.buffer.split_to(count));
+        trace!("read returned {} bytes", count);
         Ok(count)
     }
 }
