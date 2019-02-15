@@ -60,6 +60,7 @@ simple_data_type -> DataType
     / "boolean"i { DataType::Bool }
     / "date"i { DataType::Date }
     / "double"i ws "precision"i { DataType::Float64 }
+    / "float"i { DataType::Float64 }
     / "public."i? "geometry"i ws? "(" ws? identifier ws? "," ws? srid:srid ws? ")" {
         if srid == 4326 {
             DataType::GeoJson
