@@ -1,17 +1,19 @@
 //! Support for Google Cloud Storage.
 
 use failure::{format_err, ResultExt};
-use log::debug;
+use log::{debug, warn};
 use std::{
-    fmt, io,
+    fmt,
     process::{Command, Stdio},
     str::FromStr,
-    thread,
 };
+use tokio::prelude::*;
+use tokio_process::CommandExt;
 use url::Url;
 
 use crate::schema::Table;
-use crate::{CsvStream, Error, IfExists, Locator, Result};
+use crate::tokio_glue::{copy_stream_to_writer, FutureExt, StdFutureExt, tokio_fut};
+use crate::{BoxFuture, BoxStream, CsvStream, Error, IfExists, Locator, Result};
 
 /// Locator scheme for Google Cloud Storage.
 pub(crate) const GS_SCHEME: &str = "gs:";
@@ -49,71 +51,92 @@ impl FromStr for GsLocator {
 }
 
 impl Locator for GsLocator {
+    fn local_data(&self) -> BoxFuture<Option<BoxStream<CsvStream>>> {
+        local_data_helper(self.url.clone()).into_boxed()
+    }
+
     fn write_local_data(
         &self,
-        _schema: &Table,
-        data: Vec<CsvStream>,
+        schema: Table,
+        data: BoxStream<CsvStream>,
         if_exists: IfExists,
-    ) -> Result<()> {
-        // Delete the existing output, if it exists.
-        if if_exists == IfExists::Overwrite {
-            // Delete all the files under `self.url`, but be careful not to
-            // delete the entire bucket. See `gsutil rm --help` for details.
-            debug!("deleting existing {}", self.url);
-            assert!(self.url.path().ends_with('/'));
-            let delete_url = self.url.join("**")?;
-            let status = Command::new("gsutil")
-                .args(&["rm", "-f", delete_url.as_str()])
-                .status()
-                .context("error running gsutil")?;
-            if !status.success() {
-                return Err(format_err!("gsutil failed: {}", status));
-            }
-        } else {
-            return Err(format_err!(
-                "must specify `overwrite` for gs:// destination"
-            ));
-        }
+    ) -> BoxFuture<()> {
+        write_local_data_helper(
+            self.url.clone(),
+            schema,
+            data,
+            if_exists,
+        ).into_boxed()
+    }
+}
 
-        // Spawn our uploader threads.
-        let mut handles = vec![];
-        for mut stream in data {
-            let url = self.url.join(&format!("{}.csv", stream.name))?;
-            handles.push(thread::spawn(move || -> Result<()> {
+async fn local_data_helper(
+    url: Url,
+) -> Result<Option<BoxStream<CsvStream>>> {
+    // TODO - Turn data in bucket into streams.
+    Ok(None)
+}
+
+async fn write_local_data_helper(
+    url: Url,
+    _schema: Table,
+    data: BoxStream<CsvStream>,
+    if_exists: IfExists,
+) -> Result<()> {
+    // Delete the existing output, if it exists.
+    if if_exists == IfExists::Overwrite {
+        // Delete all the files under `self.url`, but be careful not to
+        // delete the entire bucket. See `gsutil rm --help` for details.
+        debug!("deleting existing {}", url);
+        assert!(url.path().ends_with('/'));
+        let delete_url = url.join("**")?;
+        let status = Command::new("gsutil")
+            .args(&["rm", "-f", delete_url.as_str()])
+            .status()
+            .context("error running gsutil")?;
+        if !status.success() {
+            warn!("can't delete contents of {}, possibly because it doesn't exist", url);
+        }
+    } else {
+        return Err(format_err!(
+            "must specify `overwrite` for gs:// destination"
+        ));
+    }
+
+    // Spawn our uploader threads.
+    let written = data.map(move |stream| -> BoxFuture<()> {
+        let url = url.clone();
+        tokio_fut(
+            async move {
+                let url = url.join(&format!("{}.csv", stream.name))?;
+
                 // Run `gsutil cp - $URL` as a background process.
                 debug!("uploading stream to {}", url);
                 let mut child = Command::new("gsutil")
                     .args(&["cp", "-", url.as_str()])
                     .stdin(Stdio::piped())
-                    .spawn()
+                    .spawn_async()
                     .context("error running gsutil")?;
+                let child_stdin = child.stdin().take().expect("child should have stdin");
 
-                // Copy our stream to the stdin of `gsutil`.
-                {
-                    let mut sink =
-                        child.stdin.take().expect("should always have child stdin");
-                    io::copy(&mut stream.data, &mut sink)
-                        .with_context(|_| format!("error uploading to {}", url))?;
-                    // TODO: We should probably call `wait` if the copy fails, to prevent
-                    // zombie upload processes in the process table.
-                }
+                // Copy data to our child process.
+                await!(copy_stream_to_writer(stream.data, child_stdin))
+                    .context("error copying data to gsutil")?;
 
                 // Wait for `gsutil` to finish.
-                let status = child
-                    .wait()
+                let status = await!(child)
                     .with_context(|_| format!("error finishing upload to {}", url))?;
                 if status.success() {
                     Ok(())
                 } else {
                     Err(format_err!("gsutil returned error: {}", status))
                 }
-            }));
-        }
+            }
+        ).into_boxed()
+    });
 
-        // Wait for our threads to finish.
-        for handle in handles {
-            handle.join().expect("panic in background thread")?;
-        }
-        Ok(())
-    }
+    // Upload several streams in parallel using `buffered`.
+    await!(written.buffered(4).collect())?;
+    Ok(())
 }
+

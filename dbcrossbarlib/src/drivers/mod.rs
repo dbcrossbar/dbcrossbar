@@ -4,5 +4,5 @@
 
 pub mod bigquery;
 pub mod csv;
-//pub mod gs;
+pub mod gs;
 pub mod postgres;

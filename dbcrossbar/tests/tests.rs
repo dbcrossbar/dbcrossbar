@@ -133,6 +133,8 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     let schema = testdir.src_path("fixtures/example.sql");
     let pg_table = post_test_table_url("cp_csv_to_postgres_to_gs_to_csv");
     let gs_dir = gs_test_dir_url("cp_csv_to_postgres_to_gs_to_csv");
+
+    // CSV to Postgres.
     testdir
         .cmd()
         .args(&[
@@ -144,19 +146,16 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
         ])
         .expect_success();
 
-    /* TODO: Put `gs://` support back.
+    // Postgres to gs://.
     testdir
         .cmd()
         .args(&["cp", "--if-exists=overwrite", &pg_table, &gs_dir])
         .expect_success();
+
+    // gs:// to CSV.
     testdir
         .cmd()
         .args(&["cp", &gs_dir, "csv:out/"])
-        .expect_success();
-    */
-    testdir
-        .cmd()
-        .args(&["cp", "--if-exists=overwrite", &pg_table, "csv:out/"])
         .expect_success();
 
     let expected = fs::read_to_string(&src).unwrap();
