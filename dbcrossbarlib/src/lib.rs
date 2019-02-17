@@ -32,7 +32,9 @@ pub mod schema;
 pub mod tokio_glue;
 
 use self::schema::Table;
-use self::tokio_glue::{BoxFuture, BoxStream, FutureExt, ResultExt, StdFutureExt, tokio_fut};
+use self::tokio_glue::{
+    tokio_fut, BoxFuture, BoxStream, FutureExt, ResultExt, StdFutureExt,
+};
 
 /// Standard error type for this library.
 pub use failure::Error;
@@ -79,14 +81,16 @@ impl Context {
         W: Future<Item = (), Error = Error> + Send + 'static,
     {
         let error_sender = self.error_sender.clone();
-        tokio::spawn_async(async move {
-            if let Err(err) = await!(worker) {
-                debug!("reporting background worker error: {}", err);
-                if let Err(_err) = await!(error_sender.send(err)) {
-                    debug!("broken pipe reporting background worker error");
+        tokio::spawn_async(
+            async move {
+                if let Err(err) = await!(worker) {
+                    debug!("reporting background worker error: {}", err);
+                    if let Err(_err) = await!(error_sender.send(err)) {
+                        debug!("broken pipe reporting background worker error");
+                    }
                 }
-            }
-        });
+            },
+        );
     }
 
     /// Monitor an asynchrnous child process, and report any errors or non-zero

@@ -5,7 +5,7 @@
 
 use bytes::BytesMut;
 use failure::format_err;
-use log::{error, warn, trace};
+use log::{error, trace, warn};
 use std::{cmp::min, future::Future as StdFuture};
 use tokio::{io, prelude::*, sync::mpsc};
 use tokio_async_await::compat;
@@ -117,7 +117,7 @@ where
 {
     let (mut sender, receiver) = mpsc::channel(1);
     let worker = async move {
-        let mut buffer = vec![0; 64*1024];
+        let mut buffer = vec![0; 64 * 1024];
         loop {
             // Read the data. This consumes `rdr`, so we'll have to put it back
             // below.
@@ -128,7 +128,7 @@ where
                         error!("broken pipe prevented sending error: {}", err);
                     }
                     return;
-                },
+                }
                 Ok((new_rdr, data, count)) => {
                     if count == 0 {
                         trace!("done copying AsyncRead to stream");

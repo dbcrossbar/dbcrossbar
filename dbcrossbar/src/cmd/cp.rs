@@ -1,7 +1,7 @@
 //! The `cp` subcommand.
 
 use common_failures::Result;
-use dbcrossbarlib::{Context, tokio_glue::tokio_fut, BoxLocator, IfExists};
+use dbcrossbarlib::{tokio_glue::tokio_fut, BoxLocator, Context, IfExists};
 use failure::format_err;
 use structopt::{self, StructOpt};
 use tokio::{self, prelude::*};
@@ -40,10 +40,16 @@ pub(crate) fn run(opt: Opt) -> Result<()> {
 
     // Copy data from input to output.
     let copy_fut = async move {
-        let data = await!(opt.from_locator.local_data(ctx.clone()))?.ok_or_else(|| {
-            format_err!("don't know how to read data from {}", opt.to_locator)
-        })?;
-        await!(opt.to_locator.write_local_data(ctx.clone(), schema, data, opt.if_exists))?;
+        let data =
+            await!(opt.from_locator.local_data(ctx.clone()))?.ok_or_else(|| {
+                format_err!("don't know how to read data from {}", opt.to_locator)
+            })?;
+        await!(opt.to_locator.write_local_data(
+            ctx.clone(),
+            schema,
+            data,
+            opt.if_exists
+        ))?;
         Ok(())
     };
 

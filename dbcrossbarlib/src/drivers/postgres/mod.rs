@@ -16,7 +16,9 @@ use url::Url;
 use crate::path_or_stdio::PathOrStdio;
 use crate::schema::Table;
 use crate::tokio_glue::{ResultExt as _, StdFutureExt};
-use crate::{BoxFuture, BoxStream, Context, CsvStream, Error, IfExists, Locator, Result};
+use crate::{
+    BoxFuture, BoxStream, Context, CsvStream, Error, IfExists, Locator, Result,
+};
 
 pub mod citus;
 mod local_data;

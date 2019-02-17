@@ -8,13 +8,21 @@ use std::{
     process::{Command, Stdio},
     str::FromStr,
 };
-use tokio::{codec::{Decoder, LinesCodec}, io, prelude::*};
+use tokio::{
+    codec::{Decoder, LinesCodec},
+    io,
+    prelude::*,
+};
 use tokio_process::CommandExt;
 use url::Url;
 
 use crate::schema::Table;
-use crate::tokio_glue::{copy_reader_to_stream, copy_stream_to_writer, FutureExt, StdFutureExt, tokio_fut};
-use crate::{BoxFuture, BoxStream, Context, CsvStream, Error, IfExists, Locator, Result};
+use crate::tokio_glue::{
+    copy_reader_to_stream, copy_stream_to_writer, tokio_fut, FutureExt, StdFutureExt,
+};
+use crate::{
+    BoxFuture, BoxStream, Context, CsvStream, Error, IfExists, Locator, Result,
+};
 
 /// Locator scheme for Google Cloud Storage.
 pub(crate) const GS_SCHEME: &str = "gs:";
@@ -63,12 +71,7 @@ impl Locator for GsLocator {
         data: BoxStream<CsvStream>,
         if_exists: IfExists,
     ) -> BoxFuture<()> {
-        write_local_data_helper(
-            self.url.clone(),
-            schema,
-            data,
-            if_exists,
-        ).into_boxed()
+        write_local_data_helper(self.url.clone(), schema, data, if_exists).into_boxed()
     }
 }
 
@@ -112,19 +115,28 @@ async fn local_data_helper(
                 let basename_or_relative = if file_url == url.as_str() {
                     // We have just a regular file URL, so take everything after
                     // the last '/'.
-                    file_url.rsplitn(2, '/').last().expect("should have '/' in URL")
+                    file_url
+                        .rsplitn(2, '/')
+                        .last()
+                        .expect("should have '/' in URL")
                 } else if file_url.starts_with(url.as_str()) {
                     // We have a directory URL, so attempt to preserve directory structure
                     // including '/' characters below that point.
                     &file_url[url.as_str().len()..]
                 } else {
-                    return Err(format_err!("expected {} to start with {}", file_url, url));
+                    return Err(format_err!(
+                        "expected {} to start with {}",
+                        file_url,
+                        url
+                    ));
                 };
 
                 // Now strip any extension.
-                let name = basename_or_relative.splitn(2, '.').next().ok_or_else(|| {
-                    format_err!("can't get basename of {}", file_url)
-                })?.to_owned();
+                let name = basename_or_relative
+                    .splitn(2, '.')
+                    .next()
+                    .ok_or_else(|| format_err!("can't get basename of {}", file_url))?
+                    .to_owned();
 
                 // Stream the file from the cloud.
                 let mut child = Command::new("gsutil")
@@ -132,7 +144,8 @@ async fn local_data_helper(
                     .stdout(Stdio::piped())
                     .spawn_async()
                     .context("error running gsutil")?;
-                let child_stdout = child.stdout().take().expect("child should have stdout");
+                let child_stdout =
+                    child.stdout().take().expect("child should have stdout");
                 let data = copy_reader_to_stream(child_stdout)?;
                 ctx.spawn_process(format!("gsutil cp {} -", file_url), child);
 
@@ -141,8 +154,9 @@ async fn local_data_helper(
                     name,
                     data: Box::new(data),
                 })
-            }
-        ).into_boxed()
+            },
+        )
+        .into_boxed()
     });
 
     Ok(Some(Box::new(csv_streams) as BoxStream<CsvStream>))
@@ -166,7 +180,10 @@ async fn write_local_data_helper(
             .status_async()
             .context("error running gsutil")?;
         if !await!(status)?.success() {
-            warn!("can't delete contents of {}, possibly because it doesn't exist", url);
+            warn!(
+                "can't delete contents of {}, possibly because it doesn't exist",
+                url
+            );
         }
     } else {
         return Err(format_err!(
@@ -188,7 +205,8 @@ async fn write_local_data_helper(
                     .stdin(Stdio::piped())
                     .spawn_async()
                     .context("error running gsutil")?;
-                let child_stdin = child.stdin().take().expect("child should have stdin");
+                let child_stdin =
+                    child.stdin().take().expect("child should have stdin");
 
                 // Copy data to our child process.
                 await!(copy_stream_to_writer(stream.data, child_stdin))
@@ -202,12 +220,12 @@ async fn write_local_data_helper(
                 } else {
                     Err(format_err!("gsutil returned error: {}", status))
                 }
-            }
-        ).into_boxed()
+            },
+        )
+        .into_boxed()
     });
 
     // Upload several streams in parallel using `buffered`.
     await!(written.buffered(4).collect())?;
     Ok(())
 }
-
