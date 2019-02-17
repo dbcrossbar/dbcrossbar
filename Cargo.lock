@@ -153,7 +153,7 @@ dependencies = [
 
 [[package]]
 name = "cli_test_dir"
-version = "0.1.5"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -297,7 +297,7 @@ name = "dbcrossbar"
 version = "0.1.0"
 dependencies = [
  "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "cli_test_dir 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cli_test_dir 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "common_failures 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "dbcrossbarlib 0.1.0",
  "env_logger 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1711,7 +1711,7 @@ dependencies = [
 "checksum cc 1.0.28 (registry+https://github.com/rust-lang/crates.io-index)" = "bb4a8b715cb4597106ea87c7c84b2f1d452c7492033765df7f32651e66fcf749"
 "checksum cfg-if 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "082bb9b28e00d3c9d39cc03e64ce4cea0f1bb9b3fde493f0cbc008472d22bdf4"
 "checksum clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b957d88f4b6a63b9d70d5f454ac8011819c6efa7727858f458ab71c756ce2d3e"
-"checksum cli_test_dir 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "74a90b427f0a59f221122f8e0776fec5a19b1ac231fbc0a133496291c064af74"
+"checksum cli_test_dir 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)" = "2bc63338a59538d4f4b767dfb6082e4d26736aadb5100894b76039a04d6ad519"
 "checksum cloudabi 0.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "ddfc5b9aa5d4507acaf872de71051dfd0e309860e88966e1051e462a077aac4f"
 "checksum common_failures 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "c84afb517ac0988b7e049e06c51511716f80d0f0233972fca666d3f14f80d8fb"
 "checksum constant_time_eq 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "8ff012e225ce166d4422e0e78419d901719760f62ae2b7969ca6b564d1b54a9e"

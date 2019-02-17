@@ -144,12 +144,14 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
             &format!("csv:{}", src.display()),
             &pg_table,
         ])
+        .tee_output()
         .expect_success();
 
     // Postgres to gs://.
     testdir
         .cmd()
         .args(&["cp", "--if-exists=overwrite", &pg_table, &gs_dir])
+        .tee_output()
         .expect_success();
 
     // gs:// to CSV.
@@ -161,6 +163,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
             &gs_dir,
             "csv:out/",
         ])
+        .tee_output()
         .expect_success();
 
     let expected = fs::read_to_string(&src).unwrap();
