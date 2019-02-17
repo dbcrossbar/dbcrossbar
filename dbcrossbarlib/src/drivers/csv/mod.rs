@@ -16,7 +16,7 @@ use crate::schema::{Column, DataType, Table};
 use crate::tokio_glue::{
     copy_stream_to_writer, tokio_fut, BoxFuture, BoxStream, FutureExt, StdFutureExt,
 };
-use crate::{CsvStream, Error, IfExists, Locator, Result};
+use crate::{Context, CsvStream, Error, IfExists, Locator, Result};
 
 /// Locator scheme for CSV files.
 pub(crate) const CSV_SCHEME: &str = "csv:";
@@ -79,12 +79,13 @@ impl Locator for CsvLocator {
         }
     }
 
-    fn local_data(&self) -> BoxFuture<Option<BoxStream<CsvStream>>> {
+    fn local_data(&self, _ctx: Context) -> BoxFuture<Option<BoxStream<CsvStream>>> {
         local_data_helper(self.path.clone()).into_boxed()
     }
 
     fn write_local_data(
         &self,
+        _ctx: Context,
         schema: Table,
         data: BoxStream<CsvStream>,
         if_exists: IfExists,

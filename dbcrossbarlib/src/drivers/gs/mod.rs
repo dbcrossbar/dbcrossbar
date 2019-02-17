@@ -14,7 +14,7 @@ use url::Url;
 
 use crate::schema::Table;
 use crate::tokio_glue::{copy_reader_to_stream, copy_stream_to_writer, FutureExt, StdFutureExt, tokio_fut};
-use crate::{BoxFuture, BoxStream, CsvStream, Error, IfExists, Locator, Result};
+use crate::{BoxFuture, BoxStream, Context, CsvStream, Error, IfExists, Locator, Result};
 
 /// Locator scheme for Google Cloud Storage.
 pub(crate) const GS_SCHEME: &str = "gs:";
@@ -52,12 +52,13 @@ impl FromStr for GsLocator {
 }
 
 impl Locator for GsLocator {
-    fn local_data(&self) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(self.url.clone()).into_boxed()
+    fn local_data(&self, ctx: Context) -> BoxFuture<Option<BoxStream<CsvStream>>> {
+        local_data_helper(ctx, self.url.clone()).into_boxed()
     }
 
     fn write_local_data(
         &self,
+        _ctx: Context,
         schema: Table,
         data: BoxStream<CsvStream>,
         if_exists: IfExists,
@@ -72,6 +73,7 @@ impl Locator for GsLocator {
 }
 
 async fn local_data_helper(
+    ctx: Context,
     url: Url,
 ) -> Result<Option<BoxStream<CsvStream>>> {
     debug!("getting CSV files from {}", url);
@@ -91,17 +93,14 @@ async fn local_data_helper(
         .spawn_async()
         .context("error running gsutil")?;
     let child_stdout = child.stdout().take().expect("child should have stdout");
-    tokio::spawn(child.map(|status| {
-        warn!("UNIMPLEMENTED: status checks for {:?}", status);
-    }).map_err(|err| {
-        warn!("UNIMPLEMENTED: error reporting for gsutil ls: {:?}", err);
-    }));
+    ctx.spawn_process(format!("gsutil ls {}", url), child);
 
     // Parse `ls` output into lines, and convert into `CsvStream` values lazily
     // in case there are a lot of CSV files we need to read.
     let file_urls = io::lines(BufReader::new(child_stdout))
         .map_err(|e| format_err!("error reading gsutil output: {}", e));
     let csv_streams = file_urls.and_then(move |file_url| -> BoxFuture<CsvStream> {
+        let ctx = ctx.clone();
         let url = url.clone();
         tokio_fut(
             async move {
@@ -135,12 +134,7 @@ async fn local_data_helper(
                     .context("error running gsutil")?;
                 let child_stdout = child.stdout().take().expect("child should have stdout");
                 let data = copy_reader_to_stream(child_stdout)?;
-
-                tokio::spawn(child.map(|status| {
-                    warn!("UNIMPLEMENTED: status checks for {:?}", status);
-                }).map_err(|err| {
-                    warn!("UNIMPLEMENTED: error reporting for gsutil ls: {:?}", err);
-                }));
+                ctx.spawn_process(format!("gsutil cp {} -", file_url), child);
 
                 // Assemble everything into a CSV stream.
                 Ok(CsvStream {

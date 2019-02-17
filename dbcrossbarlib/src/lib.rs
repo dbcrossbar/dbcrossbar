@@ -18,12 +18,13 @@ extern crate tokio;
 use bytes::BytesMut;
 use failure::format_err;
 use lazy_static::lazy_static;
-use log::warn;
+use log::{debug, warn};
 use regex::Regex;
 use std::{fmt, fs as std_fs, io::prelude::*, result, str::FromStr};
 use strum;
 use strum_macros::{Display, EnumString};
-use tokio::{fs as tokio_fs, prelude::*};
+use tokio::{fs as tokio_fs, prelude::*, sync::mpsc};
+use tokio_process::Child;
 
 pub mod drivers;
 pub(crate) mod path_or_stdio;
@@ -31,13 +32,76 @@ pub mod schema;
 pub mod tokio_glue;
 
 use self::schema::Table;
-use self::tokio_glue::{BoxFuture, BoxStream, FutureExt, ResultExt, StdFutureExt};
+use self::tokio_glue::{BoxFuture, BoxStream, FutureExt, ResultExt, StdFutureExt, tokio_fut};
 
 /// Standard error type for this library.
 pub use failure::Error;
 
 /// Standard result type for this library.
 pub type Result<T> = result::Result<T, Error>;
+
+/// Context shared by our various asynchronous operations.
+#[derive(Debug, Clone)]
+pub struct Context {
+    /// To report asynchronous errors anywhere in the application, send them to
+    /// this channel.
+    error_sender: mpsc::Sender<Error>,
+}
+
+impl Context {
+    /// Create a new context, and a future represents our background workers,
+    /// returning `()` if they all succeed, or an `Error` as soon as one of them
+    /// fails.
+    pub fn create() -> (Self, impl Future<Item = (), Error = Error>) {
+        let (error_sender, receiver) = mpsc::channel(1);
+        let context = Context { error_sender };
+        let worker_future = async move {
+            match await!(receiver.into_future()) {
+                // An error occurred in the low-level mechanisms of our `mpsc`
+                // channel.
+                Err((_err, _rcvr)) => {
+                    Err(format_err!("background task reporting failed"))
+                }
+                // All senders have shut down correctly.
+                Ok((None, _rcvr)) => Ok(()),
+                // We received an error from a background worker, so report that
+                // as the result for all our background workers.
+                Ok((Some(err), _rcvr)) => Err(err),
+            }
+        };
+        (context, tokio_fut(worker_future))
+    }
+
+    /// Spawn an async worker in this context, and report any errors to the
+    /// future returned by `create`.
+    pub fn spawn_worker<W>(&self, worker: W)
+    where
+        W: Future<Item = (), Error = Error> + Send + 'static,
+    {
+        let error_sender = self.error_sender.clone();
+        tokio::spawn_async(async move {
+            if let Err(err) = await!(worker) {
+                debug!("reporting background worker error: {}", err);
+                if let Err(_err) = await!(error_sender.send(err)) {
+                    debug!("broken pipe reporting background worker error");
+                }
+            }
+        });
+    }
+
+    /// Monitor an asynchrnous child process, and report any errors or non-zero
+    /// exit codes that occur.
+    pub fn spawn_process(&self, name: String, child: Child) {
+        let worker = async move {
+            match await!(child) {
+                Ok(ref status) if status.success() => Ok(()),
+                Ok(status) => Err(format_err!("{} failed with {}", name, status)),
+                Err(err) => Err(format_err!("{} failed with error: {}", name, err)),
+            }
+        };
+        self.spawn_worker(tokio_fut(worker));
+    }
+}
 
 /// What to do if the destination already exists.
 #[derive(Clone, Copy, Debug, Display, EnumString, Eq, PartialEq)]
@@ -134,7 +198,7 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     ///    files or start downloads only when needed.
     /// 4. The innermost `CsvStream` is a stream of raw CSV data plus some other
     ///    information, like the original filename.
-    fn local_data(&self) -> BoxFuture<Option<BoxStream<CsvStream>>> {
+    fn local_data(&self, _ctx: Context) -> BoxFuture<Option<BoxStream<CsvStream>>> {
         // Turn our result into a future.
         Ok(None).into_boxed_future()
     }
@@ -143,6 +207,7 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     /// sink.
     fn write_local_data(
         &self,
+        _ctx: Context,
         _schema: Table,
         _data: BoxStream<CsvStream>,
         _if_exists: IfExists,

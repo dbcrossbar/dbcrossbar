@@ -16,7 +16,7 @@ use url::Url;
 use crate::path_or_stdio::PathOrStdio;
 use crate::schema::Table;
 use crate::tokio_glue::{ResultExt as _, StdFutureExt};
-use crate::{BoxFuture, BoxStream, CsvStream, Error, IfExists, Locator, Result};
+use crate::{BoxFuture, BoxStream, Context, CsvStream, Error, IfExists, Locator, Result};
 
 pub mod citus;
 mod local_data;
@@ -86,7 +86,7 @@ impl Locator for PostgresLocator {
         Ok(Some(schema::fetch_from_url(&self.url, &self.table_name)?))
     }
 
-    fn local_data(&self) -> BoxFuture<Option<BoxStream<CsvStream>>> {
+    fn local_data(&self, _ctx: Context) -> BoxFuture<Option<BoxStream<CsvStream>>> {
         debug!("reading data from {} table {}", self.url, self.table_name);
         let url = self.url.clone();
         let schema = match self.schema() {
@@ -98,6 +98,7 @@ impl Locator for PostgresLocator {
 
     fn write_local_data(
         &self,
+        _ctx: Context,
         schema: Table,
         data: BoxStream<CsvStream>,
         if_exists: IfExists,
