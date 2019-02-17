@@ -2,19 +2,17 @@
 
 use csv;
 use failure::{format_err, ResultExt};
-use std::{fmt, fs, path::Path, str::FromStr, thread};
+use std::{fmt, fs, path::Path, str::FromStr};
 use tokio::{
     codec::{BytesCodec, Decoder},
     fs::File,
-    io,
     prelude::*,
 };
-use tokio_async_await::compat;
 
 use crate::path_or_stdio::PathOrStdio;
 use crate::schema::{Column, DataType, Table};
 use crate::tokio_glue::{
-    copy_stream_to_writer, tokio_fut, BoxFuture, BoxStream, FutureExt, StdFutureExt,
+    copy_stream_to_writer, tokio_fut, BoxFuture, BoxStream, StdFutureExt,
 };
 use crate::{Context, CsvStream, Error, IfExists, Locator, Result};
 

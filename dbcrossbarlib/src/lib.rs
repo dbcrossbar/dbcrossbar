@@ -20,7 +20,7 @@ use failure::format_err;
 use lazy_static::lazy_static;
 use log::{debug, warn};
 use regex::Regex;
-use std::{fmt, fs as std_fs, io::prelude::*, result, str::FromStr};
+use std::{fmt, fs as std_fs, result, str::FromStr};
 use strum;
 use strum_macros::{Display, EnumString};
 use tokio::{fs as tokio_fs, prelude::*, sync::mpsc};
@@ -32,9 +32,7 @@ pub mod schema;
 pub mod tokio_glue;
 
 use self::schema::Table;
-use self::tokio_glue::{
-    tokio_fut, BoxFuture, BoxStream, FutureExt, ResultExt, StdFutureExt,
-};
+use self::tokio_glue::{tokio_fut, BoxFuture, BoxStream, ResultExt};
 
 /// Standard error type for this library.
 pub use failure::Error;

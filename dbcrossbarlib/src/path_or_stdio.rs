@@ -48,11 +48,12 @@ impl PathOrStdio {
     }
 
     /// Open the file (or standard input) for asynchronous reading.
+    #[allow(dead_code)]
     pub(crate) async fn open_async(&self) -> Result<Box<dyn AsyncRead>> {
         match self {
             PathOrStdio::Path(p) => {
                 let p = p.to_owned();
-                let mut f = await!(tokio_fs::File::open(p.clone()))
+                let f = await!(tokio_fs::File::open(p.clone()))
                     .with_context(|_| format!("error opening {}", p.display()))?;
                 Ok(Box::new(f) as Box<dyn AsyncRead>)
             }
@@ -66,7 +67,7 @@ impl PathOrStdio {
     pub(crate) fn open_sync(&self) -> Result<Box<dyn Read>> {
         match self {
             PathOrStdio::Path(p) => {
-                let mut f = std_fs::File::open(p)
+                let f = std_fs::File::open(p)
                     .with_context(|_| format!("error opening {}", p.display()))?;
                 Ok(Box::new(f) as Box<dyn Read>)
             }
@@ -75,6 +76,7 @@ impl PathOrStdio {
     }
 
     /// Open the file (or standard output) for asynchronous writing.
+    #[allow(dead_code)]
     pub(crate) async fn create_async(
         &self,
         if_exists: IfExists,

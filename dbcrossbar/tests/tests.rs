@@ -1,6 +1,5 @@
 use cli_test_dir::*;
 use env_logger;
-use log::debug;
 use std::{env, fs};
 
 /// An example Postgres SQL `CREATE TABLE` declaration.

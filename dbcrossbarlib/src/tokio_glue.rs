@@ -5,7 +5,7 @@
 
 use bytes::BytesMut;
 use failure::format_err;
-use log::{error, trace, warn};
+use log::{error, trace};
 use std::{cmp::min, future::Future as StdFuture};
 use tokio::{io, prelude::*, sync::mpsc};
 use tokio_async_await::compat;
@@ -204,7 +204,7 @@ impl SyncStreamWriter {
                     self.sender = Some(sender);
                     Ok(())
                 }
-                Err(err) => Err(io::ErrorKind::BrokenPipe.into()),
+                Err(_err) => Err(io::ErrorKind::BrokenPipe.into()),
             }
         } else {
             Err(io::ErrorKind::BrokenPipe.into())
@@ -220,7 +220,7 @@ impl Write for SyncStreamWriter {
                     self.sender = Some(sender);
                     Ok(buf.len())
                 }
-                Err(err) => Err(io::ErrorKind::BrokenPipe.into()),
+                Err(_err) => Err(io::ErrorKind::BrokenPipe.into()),
             }
         } else {
             Err(io::ErrorKind::BrokenPipe.into())
@@ -234,7 +234,7 @@ impl Write for SyncStreamWriter {
                     self.sender = Some(sender);
                     Ok(())
                 }
-                Err(err) => Err(io::ErrorKind::BrokenPipe.into()),
+                Err(_err) => Err(io::ErrorKind::BrokenPipe.into()),
             }
         } else {
             Err(io::ErrorKind::BrokenPipe.into())
@@ -312,6 +312,7 @@ impl Read for SyncStreamReader {
 
 // Convert an `async fn() -> Result<R>` to an equivalent `tokio` function
 // returning a `tokio::Future`.
+#[allow(dead_code)]
 pub(crate) fn tokio_fn_0<F, R, SF>(f: F) -> (impl Fn() -> compat::backward::Compat<SF>)
 where
     F: (Fn() -> SF) + Send,
@@ -322,6 +323,7 @@ where
 
 // Convert an `async fn(A1) -> Result<R>` to an equivalent `tokio` function
 // returning a `tokio::Future`.
+#[allow(dead_code)]
 pub(crate) fn tokio_fn_1<F, A1, R, SF>(
     f: F,
 ) -> (impl Fn(A1) -> compat::backward::Compat<SF>)
@@ -334,6 +336,7 @@ where
 
 // Convert an `async fn(A1, A2) -> Result<R>` to an equivalent `tokio` function
 // returning a `tokio::Future`.
+#[allow(dead_code)]
 pub(crate) fn tokio_fn_2<F, A1, A2, R, SF>(
     f: F,
 ) -> (impl Fn(A1, A2) -> compat::backward::Compat<SF>)

@@ -8,11 +8,7 @@ use std::{
     process::{Command, Stdio},
     str::FromStr,
 };
-use tokio::{
-    codec::{Decoder, LinesCodec},
-    io,
-    prelude::*,
-};
+use tokio::{io, prelude::*};
 use tokio_process::CommandExt;
 use url::Url;
 

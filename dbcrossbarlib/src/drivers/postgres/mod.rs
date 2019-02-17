@@ -4,7 +4,7 @@
 #![allow(missing_docs, proc_macro_derive_resolution_fallback)]
 
 use failure::{format_err, ResultExt};
-use log::{debug, trace};
+use log::debug;
 use postgres::{tls::native_tls::NativeTls, Connection, TlsMode};
 use std::{
     fmt,
@@ -15,7 +15,7 @@ use url::Url;
 
 use crate::path_or_stdio::PathOrStdio;
 use crate::schema::Table;
-use crate::tokio_glue::{ResultExt as _, StdFutureExt};
+use crate::tokio_glue::StdFutureExt;
 use crate::{
     BoxFuture, BoxStream, Context, CsvStream, Error, IfExists, Locator, Result,
 };

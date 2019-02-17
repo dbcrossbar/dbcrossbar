@@ -1,10 +1,7 @@
 //! Support for reading data from a PostgreSQL table.
 
-use log::{error, warn};
-use std::{
-    io::{self, Read, Write},
-    thread,
-};
+use log::error;
+use std::{io::Write, thread};
 use url::Url;
 
 use super::connect;
@@ -34,7 +31,7 @@ pub(crate) fn copy_out_table(url: &Url, table: &Table) -> Result<CsvStream> {
         // Report any errors to our stream.
         if let Err(err) = result {
             error!("error reading from PostgreSQL: {}", err);
-            if let Err(_) = wtr.send_error(err) {
+            if wtr.send_error(err).is_err() {
                 error!("cannot report error to foreground thread");
             }
         }
