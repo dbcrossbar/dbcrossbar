@@ -155,7 +155,12 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     // gs:// to CSV.
     testdir
         .cmd()
-        .args(&["cp", &gs_dir, "csv:out/"])
+        .args(&[
+            "cp",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &gs_dir,
+            "csv:out/",
+        ])
         .expect_success();
 
     let expected = fs::read_to_string(&src).unwrap();

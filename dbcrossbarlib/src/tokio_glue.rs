@@ -107,6 +107,65 @@ where
     }
 }
 
+/// Given an `AsyncRead` implement, copy it to a stream `Stream` of data chunks
+/// of type `BytesMut`. Returns the stream.
+pub(crate) fn copy_reader_to_stream<R>(
+    mut rdr: R,
+) -> Result<impl Stream<Item = BytesMut, Error = Error> + Send + 'static>
+where
+    R: AsyncRead + Send + 'static,
+{
+    let (mut sender, receiver) = mpsc::channel(1);
+    let worker = async move {
+        let mut buffer = vec![0; 64*1024];
+        loop {
+            // Read the data. This consumes `rdr`, so we'll have to put it back
+            // below.
+            match await!(io::read(rdr, &mut buffer)) {
+                Err(err) => {
+                    let nice_err = format_err!("stream read error: {}", err);
+                    if await!(sender.send(Err(nice_err))).is_err() {
+                        error!("broken pipe prevented sending error: {}", err);
+                    }
+                    return;
+                },
+                Ok((new_rdr, data, count)) => {
+                    if count == 0 {
+                        trace!("done copying AsyncRead to stream");
+                        return;
+                    }
+
+                    // Put back our reader.
+                    rdr = new_rdr;
+
+                    // Copy our bytes into a `BytesMut`, and send it. This consumes
+                    // `sender`, so we'll have to put it back below.
+                    let bytes = BytesMut::from(&data[..count]);
+                    match sender.send(Ok(bytes)).wait() {
+                        Ok(new_sender) => {
+                            sender = new_sender;
+                        }
+                        Err(_err) => {
+                            error!("broken pipe forwarding async data to stream");
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    };
+    tokio::spawn_async(worker);
+
+    let receiver = receiver
+        // Change `Error` from `mpsc::Error` to our standard `Error`.
+        .map_err(|_| format_err!("stream read error"))
+        // Change `Item` from `Result<BytesMut>` to `BytesMut`, pushing
+        // the error into the stream's `Error` channel instead.
+        .and_then(|result| result);
+
+    Ok(receiver)
+}
+
 /// Provides a synchronous `Write` interface that copies data to an async
 /// `Stream<BytesMut>`.
 pub(crate) struct SyncStreamWriter {
