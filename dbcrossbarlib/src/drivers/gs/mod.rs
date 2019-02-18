@@ -58,7 +58,7 @@ impl Locator for GsLocator {
         schema: Table,
         data: BoxStream<CsvStream>,
         if_exists: IfExists,
-    ) -> BoxFuture<()> {
+    ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         write_local_data_helper(ctx, self.url.clone(), schema, data, if_exists)
             .into_boxed()
     }
@@ -160,7 +160,7 @@ async fn write_local_data_helper(
     _schema: Table,
     data: BoxStream<CsvStream>,
     if_exists: IfExists,
-) -> Result<()> {
+) -> Result<BoxStream<BoxFuture<()>>> {
     // Delete the existing output, if it exists.
     if if_exists == IfExists::Overwrite {
         // Delete all the files under `self.url`, but be careful not to
@@ -185,7 +185,7 @@ async fn write_local_data_helper(
     }
 
     // Spawn our uploader threads.
-    let written = data.map(move |stream| -> BoxFuture<()> {
+    let written = data.map(move |stream| {
         let url = url.clone();
         let ctx = ctx.clone();
         tokio_fut(
@@ -222,7 +222,5 @@ async fn write_local_data_helper(
         .into_boxed()
     });
 
-    // Upload several streams in parallel using `buffered`.
-    await!(written.buffered(4).collect())?;
-    Ok(())
+    Ok(Box::new(written) as BoxStream<BoxFuture<()>>)
 }

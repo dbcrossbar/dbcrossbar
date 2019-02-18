@@ -338,6 +338,14 @@ impl Read for SyncStreamReader {
     }
 }
 
+// Given a `value`, create a boxed stream which returns just that single value.
+pub(crate) fn box_stream_once<T>(value: Result<T>) -> BoxStream<T>
+where
+    T: Send + 'static,
+{
+    Box::new(stream::once(value))
+}
+
 // Convert an `async fn() -> Result<R>` to an equivalent `tokio` function
 // returning a `tokio::Future`.
 #[allow(dead_code)]

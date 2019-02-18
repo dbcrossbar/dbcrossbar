@@ -98,7 +98,7 @@ impl Locator for PostgresLocator {
         schema: Table,
         data: BoxStream<CsvStream>,
         if_exists: IfExists,
-    ) -> BoxFuture<()> {
+    ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         debug!(
             ctx.log(),
             "writing data to {} table {}", self.url, self.table_name

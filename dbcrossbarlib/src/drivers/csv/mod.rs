@@ -79,7 +79,7 @@ impl Locator for CsvLocator {
         schema: Table,
         data: BoxStream<CsvStream>,
         if_exists: IfExists,
-    ) -> BoxFuture<()> {
+    ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         write_local_data_helper(ctx, self.path.clone(), schema, data, if_exists)
             .into_boxed()
     }
@@ -112,14 +112,13 @@ async fn local_data_helper(
                 .with_context(|_| format!("cannot open {}", path.display()))?;
             let stream = copy_reader_to_stream(ctx, data)?;
 
-            let box_stream: BoxStream<CsvStream> =
-                Box::new(stream::once(Ok(CsvStream {
-                    name,
-                    data: Box::new(stream.map_err(move |e| {
-                        format_err!("cannot read {}: {}", path.display(), e)
-                    })),
-                })));
-            Ok(Some(box_stream))
+            let csv_stream = CsvStream {
+                name,
+                data: Box::new(stream.map_err(move |e| {
+                    format_err!("cannot read {}: {}", path.display(), e)
+                })),
+            };
+            Ok(Some(box_stream_once(Ok(csv_stream))))
         }
     }
 }
@@ -130,7 +129,7 @@ async fn write_local_data_helper(
     _schema: Table,
     data: BoxStream<CsvStream>,
     if_exists: IfExists,
-) -> Result<()> {
+) -> Result<BoxStream<BoxFuture<()>>> {
     match path {
         PathOrStdio::Stdio => {
             if_exists.warn_if_not_default_for_stdout(&ctx);
@@ -145,7 +144,7 @@ async fn write_local_data_helper(
             })?;
 
             // Write streams to our directory.
-            let result_stream = data.map(|stream| {
+            let result_stream = data.map(move |stream| {
                 let path = path.clone();
                 let ctx = ctx.clone();
                 tokio_fut(
@@ -163,10 +162,9 @@ async fn write_local_data_helper(
                         Ok(())
                     },
                 )
+                .into_boxed()
             });
-            await!(result_stream.buffered(4).collect())?;
-
-            Ok(())
+            Ok(Box::new(result_stream) as BoxStream<BoxFuture<()>>)
         }
     }
 }

@@ -14,7 +14,7 @@ pub(crate) async fn copy_in_table(
     schema: Table,
     mut data: BoxStream<CsvStream>,
     if_exists: IfExists,
-) -> Result<()> {
+) -> Result<BoxStream<BoxFuture<()>>> {
     let ctx = ctx.child(o!("table" => schema.name.clone()));
 
     // Generate `CREATE TABLE` SQL.
@@ -37,8 +37,9 @@ pub(crate) async fn copy_in_table(
         }
     }
     writeln!(&mut copy_sql_buff, ") FROM STDIN WITH CSV HEADER")?;
-    let copy_sql =
-        str::from_utf8(&copy_sql_buff).expect("generated SQL should always be UTF-8");
+    let copy_sql = str::from_utf8(&copy_sql_buff)
+        .expect("generated SQL should always be UTF-8")
+        .to_owned();
 
     // Connect to PostgreSQL.
     let conn = connect(&url)?;
@@ -62,27 +63,32 @@ pub(crate) async fn copy_in_table(
     //
     // TODO: This blocks for an extended period of time on the main thread
     // pool.  We should reconsider that.
-    loop {
-        match await!(data.into_future()) {
-            Err((err, _rest_of_stream)) => {
-                debug!(ctx.log(), "error reading stream of streams: {}", err);
-                return Err(err);
-            }
-            Ok((None, _rest_of_stream)) => return Ok(()),
-            Ok((Some(csv_stream), rest_of_stream)) => {
-                data = rest_of_stream;
-                let ctx = ctx.child(o!("stream" => csv_stream.name.clone()));
-                debug!(ctx.log(), "copying data into table");
-                let conn = connect(&url)?;
-                let stmt = conn.prepare(&copy_sql)?;
-                stmt.copy_in(
-                    &[],
-                    &mut SyncStreamReader::new(ctx.clone(), csv_stream.data),
-                )
-                .with_context(|_| {
-                    format!("error copying data into {}", schema.name)
-                })?;
+    let fut = async move {
+        loop {
+            match await!(data.into_future()) {
+                Err((err, _rest_of_stream)) => {
+                    debug!(ctx.log(), "error reading stream of streams: {}", err);
+                    return Err(err);
+                }
+                Ok((None, _rest_of_stream)) => {
+                    return Ok(());
+                }
+                Ok((Some(csv_stream), rest_of_stream)) => {
+                    data = rest_of_stream;
+                    let ctx = ctx.child(o!("stream" => csv_stream.name.clone()));
+                    debug!(ctx.log(), "copying data into table");
+                    let conn = connect(&url)?;
+                    let stmt = conn.prepare(&copy_sql)?;
+                    stmt.copy_in(
+                        &[],
+                        &mut SyncStreamReader::new(ctx.clone(), csv_stream.data),
+                    )
+                    .with_context(|_| {
+                        format!("error copying data into {}", schema.name)
+                    })?;
+                }
             }
         }
-    }
+    };
+    Ok(box_stream_once(Ok(fut.into_boxed())))
 }

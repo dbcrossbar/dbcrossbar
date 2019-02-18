@@ -45,15 +45,33 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
         Ok(None).into_boxed_future()
     }
 
-    /// If this locator can be used as a local data sink, return the local data
-    /// sink.
+    /// If this locator can be used as a local data sink, write data to it.
+    ///
+    /// This function takes a stream `data` as input, the elements of which are
+    /// individual `CsvStream` values. An implementation should normally use
+    /// `map` or `and_then` to write those CSV streams to storage associated
+    /// with the locator, and return a stream of `BoxFuture<()>` values:
+    ///
+    /// ```no_compile
+    /// # Pseudo code for parallel output.
+    /// data.map(async |csv_stream| {
+    ///     await!(write(csv_stream))?;
+    ///     Ok(())
+    /// })
+    /// ```
+    ///
+    /// For cases where output must be serialized, it's OK to consume the entire
+    /// `data` stream, and return a single-item stream containing `()`.
+    ///
+    /// The caller of `write_local_data` will pull several items at a time from
+    /// the returned `BoxStream<BoxFuture<()>>` and evaluate them in parallel.
     fn write_local_data(
         &self,
         _ctx: Context,
         _schema: Table,
         _data: BoxStream<CsvStream>,
         _if_exists: IfExists,
-    ) -> BoxFuture<()> {
+    ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         Err(format_err!("cannot write data to {}", self)).into_boxed_future()
     }
 }

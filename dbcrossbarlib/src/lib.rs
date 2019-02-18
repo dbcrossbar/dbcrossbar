@@ -58,7 +58,8 @@ pub(crate) mod common {
         path_or_stdio::PathOrStdio,
         schema::Table,
         tokio_glue::{
-            tokio_fut, BoxFuture, BoxStream, FutureExt, ResultExt as _, StdFutureExt,
+            box_stream_once, tokio_fut, BoxFuture, BoxStream, FutureExt,
+            ResultExt as _, StdFutureExt,
         },
         Error, Result,
     };

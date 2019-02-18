@@ -5,6 +5,7 @@ use dbcrossbarlib::{BoxLocator, Context, IfExists};
 use failure::format_err;
 use slog::o;
 use structopt::{self, StructOpt};
+use tokio::prelude::*;
 
 /// Schema conversion arguments.
 #[derive(Debug, StructOpt)]
@@ -42,8 +43,18 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
 
     // Write data to output.
     let output_ctx = ctx.child(o!("to_locator" => opt.to_locator.to_string()));
-    await!(opt
-        .to_locator
-        .write_local_data(output_ctx, schema, data, opt.if_exists))?;
+    let result_stream = await!(opt.to_locator.write_local_data(
+        output_ctx,
+        schema,
+        data,
+        opt.if_exists
+    ))?;
+
+    // Consume the stream of futures produced by `write_local_data`, allowing a
+    // certain degree of parallelism. This is where all the actual work happens,
+    // and this what controls how many "input driver" -> "output driver"
+    // connections are running at any given time.
+    await!(result_stream.buffered(4).collect())?;
+
     Ok(())
 }
