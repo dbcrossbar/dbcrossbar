@@ -3,17 +3,13 @@
 // See https://github.com/diesel-rs/diesel/issues/1785
 #![allow(missing_docs, proc_macro_derive_resolution_fallback)]
 
-use failure::{format_err, ResultExt};
 use postgres::{tls::native_tls::NativeTls, Connection, TlsMode};
 use std::{
     fmt,
     str::{self, FromStr},
 };
-use url::Url;
 
-use crate::path_or_stdio::PathOrStdio;
-use crate::schema::Table;
-use crate::{CsvStream, Error, IfExists, Locator, Result};
+use crate::common::*;
 
 pub mod citus;
 mod local_data;
@@ -79,27 +75,57 @@ impl FromStr for PostgresLocator {
 }
 
 impl Locator for PostgresLocator {
-    fn schema(&self) -> Result<Option<Table>> {
+    fn schema(&self, _ctx: &Context) -> Result<Option<Table>> {
         Ok(Some(schema::fetch_from_url(&self.url, &self.table_name)?))
     }
 
-    fn local_data(&self) -> Result<Option<Vec<CsvStream>>> {
-        let schema = self.schema()?.expect("should always have schema");
-        let stream = local_data::copy_out_table(&self.url, &schema)?;
-        Ok(Some(vec![stream]))
+    fn local_data(&self, ctx: Context) -> BoxFuture<Option<BoxStream<CsvStream>>> {
+        debug!(
+            ctx.log(),
+            "reading data from {} table {}", self.url, self.table_name
+        );
+        let url = self.url.clone();
+        let schema = match self.schema(&ctx) {
+            Ok(schema) => schema.expect("should always have a schema"),
+            Err(err) => return Box::new(Err(err).into_future()),
+        };
+        local_data_helper(ctx, url, schema).into_boxed()
     }
 
     fn write_local_data(
         &self,
-        schema: &Table,
-        data: Vec<CsvStream>,
+        ctx: Context,
+        schema: Table,
+        data: BoxStream<CsvStream>,
         if_exists: IfExists,
-    ) -> Result<()> {
+    ) -> BoxFuture<()> {
+        debug!(
+            ctx.log(),
+            "writing data to {} table {}", self.url, self.table_name
+        );
+
         // Use the destination table name instead of the source name.
         let mut new_schema = schema.to_owned();
         new_schema.name = self.table_name.clone();
-        write_local_data::copy_in_table(&self.url, schema, data, if_exists)
+        write_local_data::copy_in_table(
+            ctx,
+            self.url.clone(),
+            new_schema,
+            data,
+            if_exists,
+        )
+        .into_boxed()
     }
+}
+
+async fn local_data_helper(
+    ctx: Context,
+    url: Url,
+    schema: Table,
+) -> Result<Option<BoxStream<CsvStream>>> {
+    let stream = local_data::copy_out_table(ctx, &url, &schema)?;
+    let box_stream: BoxStream<CsvStream> = Box::new(stream::once(Ok(stream)));
+    Ok(Some(box_stream))
 }
 
 /// URL scheme for `PostgresSqlLocator`.
@@ -127,23 +153,26 @@ impl FromStr for PostgresSqlLocator {
 }
 
 impl Locator for PostgresSqlLocator {
-    fn schema(&self) -> Result<Option<Table>> {
-        self.path.open(|input| {
-            let mut sql = String::new();
-            input
-                .read_to_string(&mut sql)
-                .with_context(|_| format!("error reading {}", self.path))?;
-            Ok(Some(sql_schema::parse_create_table(&sql)?))
-        })
+    fn schema(&self, _ctx: &Context) -> Result<Option<Table>> {
+        let mut input = self.path.open_sync()?;
+        let mut sql = String::new();
+        input
+            .read_to_string(&mut sql)
+            .with_context(|_| format!("error reading {}", self.path))?;
+        Ok(Some(sql_schema::parse_create_table(&sql)?))
     }
 
-    fn write_schema(&self, table: &Table, if_exists: IfExists) -> Result<()> {
-        self.path.create(if_exists, |mut out| {
-            // The passed-in `if_exists` applies to our output file, not to our
-            // generated schema.
-            sql_schema::write_create_table(&mut out, table, IfExists::Error)
-                .with_context(|_| format!("error writing {}", self.path))?;
-            Ok(())
-        })
+    fn write_schema(
+        &self,
+        ctx: &Context,
+        table: &Table,
+        if_exists: IfExists,
+    ) -> Result<()> {
+        let mut out = self.path.create_sync(ctx, if_exists)?;
+        // The passed-in `if_exists` applies to our output SQL file, not to whether
+        // our generated schema contains `DROP TABLE ... IF EXISTS`.
+        sql_schema::write_create_table(&mut out, table, IfExists::Error)
+            .with_context(|_| format!("error writing {}", self.path))?;
+        Ok(())
     }
 }

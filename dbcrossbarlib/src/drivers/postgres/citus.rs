@@ -8,12 +8,10 @@
 #![allow(missing_docs, proc_macro_derive_resolution_fallback)]
 
 use diesel::{pg::PgConnection, prelude::*, sql_query, sql_types::*, QueryableByName};
-use failure::{format_err, ResultExt};
 use std::result;
 use try_from::TryInto;
-use url::Url;
 
-use crate::Result;
+use crate::common::*;
 
 /// Information about a single shard of a table.
 ///

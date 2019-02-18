@@ -1,8 +1,9 @@
-//! The `schema` subcommand.
+//! The `cp` subcommand.
 
 use common_failures::Result;
-use dbcrossbarlib::{BoxLocator, IfExists};
+use dbcrossbarlib::{BoxLocator, Context, IfExists};
 use failure::format_err;
+use slog::o;
 use structopt::{self, StructOpt};
 
 /// Schema conversion arguments.
@@ -24,15 +25,25 @@ pub(crate) struct Opt {
 }
 
 /// Perform our schema conversion.
-pub(crate) fn run(opt: &Opt) -> Result<()> {
-    let schema_locator = opt.schema.as_ref().unwrap_or(&opt.from_locator);
-    let schema = schema_locator.schema()?.ok_or_else(|| {
-        format_err!("don't know how to read schema from {}", opt.from_locator)
-    })?;
-    let data = opt.from_locator.local_data()?.ok_or_else(|| {
+pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
+    // Figure out what table schema to use.
+    let schema = {
+        let schema_locator = opt.schema.as_ref().unwrap_or(&opt.from_locator);
+        schema_locator.schema(&ctx)?.ok_or_else(|| {
+            format_err!("don't know how to read schema from {}", opt.from_locator)
+        })
+    }?;
+
+    // Read data from input.
+    let input_ctx = ctx.child(o!("from_locator" => opt.from_locator.to_string()));
+    let data = await!(opt.from_locator.local_data(input_ctx))?.ok_or_else(|| {
         format_err!("don't know how to read data from {}", opt.to_locator)
     })?;
-    opt.to_locator
-        .write_local_data(&schema, data, opt.if_exists)?;
+
+    // Write data to output.
+    let output_ctx = ctx.child(o!("to_locator" => opt.to_locator.to_string()));
+    await!(opt
+        .to_locator
+        .write_local_data(output_ctx, schema, data, opt.if_exists))?;
     Ok(())
 }

@@ -1,4 +1,5 @@
 use cli_test_dir::*;
+use env_logger;
 use std::{env, fs};
 
 /// An example Postgres SQL `CREATE TABLE` declaration.
@@ -24,6 +25,22 @@ fn postgres_test_url() -> String {
 /// The URL of a table in our test database.
 fn post_test_table_url(table_name: &str) -> String {
     format!("{}#{}", postgres_test_url(), table_name)
+}
+
+/// The URL to our test `gs://` bucket and directory.
+fn gs_url() -> String {
+    env::var("GS_TEST_URL").expect("GS_TEST_URL must be set")
+}
+
+/// The URL to a subdirectory of `gs_url`.
+fn gs_test_dir_url(dir_name: &str) -> String {
+    let mut url = gs_url();
+    if !url.ends_with('/') {
+        url.push_str("/");
+    }
+    url.push_str(dir_name);
+    url.push_str("/");
+    url
 }
 
 #[test]
@@ -108,26 +125,46 @@ fn cp_csv_to_csv() {
 
 #[test]
 #[ignore]
-fn cp_csv_to_postgres() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_postgres");
+fn cp_csv_to_postgres_to_gs_to_csv() {
+    env_logger::init();
+    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_postgres_to_gs_to_csv");
     let src = testdir.src_path("fixtures/example.csv");
     let schema = testdir.src_path("fixtures/example.sql");
-    let dst = post_test_table_url("cp_csv_to_postgres");
+    let pg_table = post_test_table_url("cp_csv_to_postgres_to_gs_to_csv");
+    let gs_dir = gs_test_dir_url("cp_csv_to_postgres_to_gs_to_csv");
+
+    // CSV to Postgres.
     testdir
         .cmd()
-        .args(&["cp", "--if-exists=overwrite"])
-        .arg(&format!("--schema=postgres-sql:{}", schema.display()))
-        .arg(&format!("csv:{}", src.display()))
-        .arg(dst)
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("csv:{}", src.display()),
+            &pg_table,
+        ])
+        .tee_output()
         .expect_success();
-}
 
-//#[test]
-//#[ignore]
-//fn cp_postgres_to_gs() {
-//    let postgres_url = env::var("POSTGRES_TEST_URL").expect("can't get POSTGRES_TEST_URL");
-//    let gs_url = env::var("GS_TEST_URL").expect("can't get GS_TEST_URL");
-//
-//    let testdir = TestDir::new("dbcrossbar", "cp_postgres_to_gs");
-//
-//}
+    // Postgres to gs://.
+    testdir
+        .cmd()
+        .args(&["cp", "--if-exists=overwrite", &pg_table, &gs_dir])
+        .tee_output()
+        .expect_success();
+
+    // gs:// to CSV.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &gs_dir,
+            "csv:out/",
+        ])
+        .tee_output()
+        .expect_success();
+
+    let expected = fs::read_to_string(&src).unwrap();
+    testdir.expect_file_contents("out/cp_csv_to_postgres_to_gs_to_csv.csv", &expected);
+}

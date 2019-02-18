@@ -65,3 +65,21 @@ Seee [`schema.rs`](./dbcrossbarlib/src/schema.rs) for the details of this "inter
 For more instructions about building `dbcrossbar`, running tests, and contributing code, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 We require nightly Rust. We lock a specific version of nightly Rust using the [`rust-toolchain`](./rust-toolchain) file. If you want to update this, take a look at [Rustup components history](https://mexus.github.io/rustup-components-history/) and choose the newest version with support for `rls`, `clippy` and `rustfmt`.
+
+## Running integration tests
+
+You can run the regular test suite with `cargo test`, but to run the full integration tests, you'll need to do the following:
+
+```sh
+# Run a local PostgreSQL on port 5432.
+docker run --name postgres -e POSTGRES_PASSWORD= -p 5432:5432 -d postgres
+createdb -h localhost -U postgres -w dbcrossbar_test
+export POSTGRES_TEST_URL=postgres://postgres:@localhost:5432/dbcrossbar_test
+
+# Point to a Goolge Cloud Storage bucket for which you have write permissions.
+export GS_TEST_URL=gs://$MY_TEST_BUCKET/dbcrossbar/
+
+# Run the integration tests.
+env RUST_BACKTRACE=1 RUST_LOG=warn,dbcrossbarlib=trace,dbcrossbar=trace \
+    cargo test --all -- --ignored
+```

@@ -1,19 +1,22 @@
 //! Support for writing local data to Postgres.
 
-use failure::{format_err, ResultExt};
 use std::{io::prelude::*, str};
-use url::Url;
 
 use super::{connect, sql_schema};
-use crate::schema::{DataType, Table};
-use crate::{CsvStream, IfExists, Result};
+use crate::common::*;
+use crate::schema::DataType;
+use crate::tokio_glue::SyncStreamReader;
 
-pub(crate) fn copy_in_table(
-    url: &Url,
-    schema: &Table,
-    data: Vec<CsvStream>,
+// Copy a table into Postgres from a CSV stream.
+pub(crate) async fn copy_in_table(
+    ctx: Context,
+    url: Url,
+    schema: Table,
+    mut data: BoxStream<CsvStream>,
     if_exists: IfExists,
 ) -> Result<()> {
+    let ctx = ctx.child(o!("table" => schema.name.clone()));
+
     // Generate `CREATE TABLE` SQL.
     let mut table_sql_buff = vec![];
     sql_schema::write_create_table(&mut table_sql_buff, &schema, if_exists)?;
@@ -38,26 +41,48 @@ pub(crate) fn copy_in_table(
         str::from_utf8(&copy_sql_buff).expect("generated SQL should always be UTF-8");
 
     // Connect to PostgreSQL.
-    let conn = connect(url)?;
+    let conn = connect(&url)?;
 
     // Drop the existing table (if any) if we're overwriting it.
     if if_exists == IfExists::Overwrite {
+        debug!(ctx.log(), "deleting destination table if exists");
         let drop_sql = format!("DROP TABLE IF EXISTS {:?}", schema.name);
         conn.execute(&drop_sql, &[])
             .with_context(|_| format!("error deleting existing {}", schema.name))?;
     }
 
     // Create our table.
+    debug!(ctx.log(), "creating destination table");
     conn.execute(table_sql, &[])
         .with_context(|_| format!("error creating table {}", schema.name))?;
+    drop(conn);
 
     // Insert data streams one at a time, because parallel insertion
     // _probably_ won't gain much with Postgres (but we haven't measured).
-    let stmt = conn.prepare(&copy_sql)?;
-    for mut stream in data {
-        stmt.copy_in(&[], &mut stream.data)
-            .with_context(|_| format!("error copying data into {}", schema.name))?;
+    //
+    // TODO: This blocks for an extended period of time on the main thread
+    // pool.  We should reconsider that.
+    loop {
+        match await!(data.into_future()) {
+            Err((err, _rest_of_stream)) => {
+                debug!(ctx.log(), "error reading stream of streams: {}", err);
+                return Err(err);
+            }
+            Ok((None, _rest_of_stream)) => return Ok(()),
+            Ok((Some(csv_stream), rest_of_stream)) => {
+                data = rest_of_stream;
+                let ctx = ctx.child(o!("stream" => csv_stream.name.clone()));
+                debug!(ctx.log(), "copying data into table");
+                let conn = connect(&url)?;
+                let stmt = conn.prepare(&copy_sql)?;
+                stmt.copy_in(
+                    &[],
+                    &mut SyncStreamReader::new(ctx.clone(), csv_stream.data),
+                )
+                .with_context(|_| {
+                    format!("error copying data into {}", schema.name)
+                })?;
+            }
+        }
     }
-
-    Ok(())
 }
