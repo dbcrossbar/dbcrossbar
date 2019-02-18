@@ -3,15 +3,13 @@
 // Temporary.
 #![allow(dead_code)]
 
-use failure::format_err;
-use log::error;
 use serde::{Serialize, Serializer};
 use serde_derive::Serialize;
 use serde_json;
 use std::{fmt, io::Write, result};
 
+use crate::common::*;
 use crate::schema::{Column, DataType, Table};
-use crate::Result;
 
 /// A BigQuery type.
 #[derive(Debug, Eq, PartialEq)]
@@ -144,7 +142,7 @@ struct Ident<'a>(&'a str);
 impl<'a> fmt::Display for Ident<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.0.contains('`') {
-            error!("cannot output BigQuery identifier containing backtick (`)");
+            // We can't output identifiers containing backticks.
             Err(fmt::Error)
         } else {
             write!(f, "`{}`", self.0)

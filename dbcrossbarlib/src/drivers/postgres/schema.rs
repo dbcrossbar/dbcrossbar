@@ -1,11 +1,9 @@
 //! Reading schemas from a PostgreSQL server.
 
 use diesel::{pg::PgConnection, prelude::*};
-use failure::{format_err, ResultExt};
-use url::Url;
 
+use crate::common::*;
 use crate::schema::{Column, DataType, Table};
-use crate::Result;
 
 table! {
     // https://www.postgresql.org/docs/10/static/infoschema-columns.html

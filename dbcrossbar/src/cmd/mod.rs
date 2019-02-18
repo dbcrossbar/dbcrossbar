@@ -1,9 +1,11 @@
 //! Command parsing.
 
+use dbcrossbarlib::{
+    tokio_glue::{BoxFuture, StdFutureExt},
+    Context,
+};
 //use structopt::StructOpt;
 use structopt_derive::StructOpt;
-
-use crate::Result;
 
 pub(crate) mod conv;
 pub(crate) mod cp;
@@ -37,9 +39,9 @@ pub(crate) enum Opt {
     },
 }
 
-pub(crate) fn run(opt: Opt) -> Result<()> {
+pub(crate) fn run(ctx: Context, opt: Opt) -> BoxFuture<()> {
     match opt {
-        Opt::Conv { command } => conv::run(command),
-        Opt::Cp { command } => cp::run(command),
+        Opt::Conv { command } => conv::run(ctx, command).into_boxed(),
+        Opt::Cp { command } => cp::run(ctx, command).into_boxed(),
     }
 }

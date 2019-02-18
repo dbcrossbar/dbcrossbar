@@ -3,14 +3,11 @@
 //! This is mostly smaller things that happen to recur in our particular
 //! application.
 
-use bytes::BytesMut;
-use failure::format_err;
-use log::{error, trace};
 use std::{cmp::min, future::Future as StdFuture};
-use tokio::{io, prelude::*, sync::mpsc};
+use tokio::io;
 use tokio_async_await::compat;
 
-use crate::{Error, Result};
+use crate::common::*;
 
 /// Standard future type for this library. Like `Result`, but used by async.
 pub type BoxFuture<T> = Box<dyn Future<Item = T, Error = Error> + Send>;
@@ -49,7 +46,7 @@ where
 /// `std::future::Future` will eventually replace `tokio::Future`, but it is
 /// already used by the `async` keyword. So we're mixing two different kinds of
 /// futures together during the transition period.
-pub(crate) trait StdFutureExt<T> {
+pub trait StdFutureExt<T> {
     /// Convert a `std::future::Future` into a `BoxFuture`. This moves the
     /// future to the heap, and it prevents us from needing to care about
     /// exactly what _type_ of future we have.
@@ -87,6 +84,7 @@ pub type BoxStream<T> = Box<dyn Stream<Item = T, Error = Error> + Send + 'static
 /// Given a `Stream` of data chunks of type `BytesMut`, write the entire stream
 /// to an `AsyncWrite` implementation.
 pub(crate) async fn copy_stream_to_writer<S, W>(
+    ctx: Context,
     mut stream: S,
     mut wtr: W,
 ) -> Result<()>
@@ -96,12 +94,21 @@ where
 {
     loop {
         match await!(stream.into_future()) {
-            Err((err, _rest_of_stream)) => return Err(err),
-            Ok((None, _rest_of_stream)) => return Ok(()),
+            Err((err, _rest_of_stream)) => {
+                error!(ctx.log(), "error reading stream: {}", err);
+                return Err(err);
+            }
+            Ok((None, _rest_of_stream)) => {
+                trace!(ctx.log(), "end of stream");
+                return Ok(());
+            }
             Ok((Some(bytes), rest_of_stream)) => {
                 stream = rest_of_stream;
-                await!(io::write_all(&mut wtr, bytes))
-                    .map_err(|e| format_err!("error writing data: {}", e))?;
+                trace!(ctx.log(), "writing {} bytes", bytes.len());
+                await!(io::write_all(&mut wtr, bytes)).map_err(|e| {
+                    error!(ctx.log(), "write error: {}", e);
+                    format_err!("error writing data: {}", e)
+                })?;
             }
         }
     }
@@ -110,6 +117,7 @@ where
 /// Given an `AsyncRead` implement, copy it to a stream `Stream` of data chunks
 /// of type `BytesMut`. Returns the stream.
 pub(crate) fn copy_reader_to_stream<R>(
+    ctx: Context,
     mut rdr: R,
 ) -> Result<impl Stream<Item = BytesMut, Error = Error> + Send + 'static>
 where
@@ -124,14 +132,18 @@ where
             match await!(io::read(rdr, &mut buffer)) {
                 Err(err) => {
                     let nice_err = format_err!("stream read error: {}", err);
+                    error!(ctx.log(), "{}", nice_err);
                     if await!(sender.send(Err(nice_err))).is_err() {
-                        error!("broken pipe prevented sending error: {}", err);
+                        error!(
+                            ctx.log(),
+                            "broken pipe prevented sending error: {}", err
+                        );
                     }
                     return;
                 }
                 Ok((new_rdr, data, count)) => {
                     if count == 0 {
-                        trace!("done copying AsyncRead to stream");
+                        trace!(ctx.log(), "done copying AsyncRead to stream");
                         return;
                     }
 
@@ -141,12 +153,16 @@ where
                     // Copy our bytes into a `BytesMut`, and send it. This consumes
                     // `sender`, so we'll have to put it back below.
                     let bytes = BytesMut::from(&data[..count]);
+                    trace!(ctx.log(), "sending {} bytes to stream", bytes.len());
                     match sender.send(Ok(bytes)).wait() {
                         Ok(new_sender) => {
                             sender = new_sender;
                         }
                         Err(_err) => {
-                            error!("broken pipe forwarding async data to stream");
+                            error!(
+                                ctx.log(),
+                                "broken pipe forwarding async data to stream"
+                            );
                             return;
                         }
                     }
@@ -169,6 +185,8 @@ where
 /// Provides a synchronous `Write` interface that copies data to an async
 /// `Stream<BytesMut>`.
 pub(crate) struct SyncStreamWriter {
+    /// Context used for logging.
+    ctx: Context,
     /// The sender end of our pipe. If this is `None`, our receiver disappeared
     /// unexpectedly and we have nobody to pipe to, so return
     /// `io::ErrorKind::BrokenPipe` (analogous to `EPIPE` or `SIGPIPE` for Unix
@@ -179,10 +197,11 @@ pub(crate) struct SyncStreamWriter {
 impl SyncStreamWriter {
     /// Create a new `SyncStreamWriter` and a receiver that implements
     /// `Stream<Item = BytesMut, Error = Error>`.
-    pub fn pipe() -> (Self, impl Stream<Item = BytesMut, Error = Error>) {
+    pub fn pipe(ctx: Context) -> (Self, impl Stream<Item = BytesMut, Error = Error>) {
         let (sender, receiver) = mpsc::channel(1);
         (
             SyncStreamWriter {
+                ctx,
                 sender: Some(sender),
             },
             receiver
@@ -198,6 +217,7 @@ impl SyncStreamWriter {
 impl SyncStreamWriter {
     /// Send an error to our stream.
     pub(crate) fn send_error(&mut self, err: Error) -> io::Result<()> {
+        debug!(self.ctx.log(), "sending error: {}", err);
         if let Some(sender) = self.sender.take() {
             match sender.send(Err(err)).wait() {
                 Ok(sender) => {
@@ -214,6 +234,7 @@ impl SyncStreamWriter {
 
 impl Write for SyncStreamWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        trace!(self.ctx.log(), "sending {} bytes", buf.len());
         if let Some(sender) = self.sender.take() {
             match sender.send(Ok(BytesMut::from(buf))).wait() {
                 Ok(sender) => {
@@ -228,6 +249,7 @@ impl Write for SyncStreamWriter {
     }
 
     fn flush(&mut self) -> io::Result<()> {
+        trace!(self.ctx.log(), "flushing");
         if let Some(sender) = self.sender.take() {
             match sender.flush().wait() {
                 Ok(sender) => {
@@ -245,14 +267,16 @@ impl Write for SyncStreamWriter {
 /// Provides a synchronous `Read` interface that receives data from an async
 /// `Stream<BytesMut>`.
 pub(crate) struct SyncStreamReader {
+    ctx: Context,
     stream: Option<BoxStream<BytesMut>>,
     buffer: BytesMut,
 }
 
 impl SyncStreamReader {
     /// Create a new `SyncStreamReader` from a stream of bytes.
-    pub(crate) fn new(stream: BoxStream<BytesMut>) -> Self {
+    pub(crate) fn new(ctx: Context, stream: BoxStream<BytesMut>) -> Self {
         Self {
+            ctx,
             stream: Some(stream),
             buffer: BytesMut::default(),
         }
@@ -271,20 +295,24 @@ impl Read for SyncStreamReader {
                 match stream.into_future().wait() {
                     // End of the stream.
                     Ok((None, _rest_of_stream)) => {
-                        trace!("end of stream");
+                        trace!(self.ctx.log(), "end of stream");
                         return Ok(0);
                     }
                     // A bytes buffer.
                     Ok((Some(bytes), rest_of_stream)) => {
                         // Put the stream back into the object.
                         self.stream = Some(rest_of_stream);
-                        trace!("read {} bytes from stream", bytes.len());
+                        trace!(
+                            self.ctx.log(),
+                            "read {} bytes from stream",
+                            bytes.len()
+                        );
                         assert!(!bytes.is_empty());
                         self.buffer = bytes;
                     }
                     // An error on the stream.
                     Err((err, _rest_of_stream)) => {
-                        error!("error reading from stream: {}", err);
+                        error!(self.ctx.log(), "error reading from stream: {}", err);
                         return Err(io::Error::new(
                             io::ErrorKind::Other,
                             Box::new(err.compat()),
@@ -296,7 +324,7 @@ impl Read for SyncStreamReader {
                 // (marking the end of the stream) or an error, but somebody is
                 // still trying to read, so we'll just return 0 bytes
                 // indefinitely.
-                trace!("stream is already closed");
+                trace!(self.ctx.log(), "stream is already closed");
                 return Ok(0);
             }
         }
@@ -305,7 +333,7 @@ impl Read for SyncStreamReader {
         assert!(!self.buffer.is_empty());
         let count = min(self.buffer.len(), buf.len());
         buf[..count].copy_from_slice(&self.buffer.split_to(count));
-        trace!("read returned {} bytes", count);
+        trace!(self.ctx.log(), "read returned {} bytes", count);
         Ok(count)
     }
 }

@@ -1,14 +1,13 @@
 //! Support for working with either files or standard I/O.
 
-use failure::{format_err, ResultExt};
 use std::{
     fmt, fs as std_fs, io as std_io,
     path::{Path, PathBuf},
     str::FromStr,
 };
-use tokio::{fs as tokio_fs, io as tokio_io, prelude::*};
+use tokio::{fs as tokio_fs, io as tokio_io};
 
-use crate::{Error, IfExists, Result};
+use crate::common::*;
 
 /// A local input or output location, specified using either a path, or `"-"`
 /// for standard I/O.
@@ -79,6 +78,7 @@ impl PathOrStdio {
     #[allow(dead_code)]
     pub(crate) async fn create_async(
         &self,
+        ctx: Context,
         if_exists: IfExists,
     ) -> Result<Box<dyn AsyncWrite>> {
         match self {
@@ -91,14 +91,18 @@ impl PathOrStdio {
                 Ok(Box::new(f) as Box<dyn AsyncWrite>)
             }
             PathOrStdio::Stdio => {
-                if_exists.warn_if_not_default_for_stdout();
+                if_exists.warn_if_not_default_for_stdout(&ctx);
                 Ok(Box::new(tokio_io::stdout()) as Box<dyn AsyncWrite>)
             }
         }
     }
 
     /// Open the file (or standard output) for synchronous writing.
-    pub(crate) fn create_sync(&self, if_exists: IfExists) -> Result<Box<dyn Write>> {
+    pub(crate) fn create_sync(
+        &self,
+        ctx: &Context,
+        if_exists: IfExists,
+    ) -> Result<Box<dyn Write>> {
         match self {
             PathOrStdio::Path(p) => {
                 let f = if_exists
@@ -108,7 +112,7 @@ impl PathOrStdio {
                 Ok(Box::new(f) as Box<dyn Write>)
             }
             PathOrStdio::Stdio => {
-                if_exists.warn_if_not_default_for_stdout();
+                if_exists.warn_if_not_default_for_stdout(ctx);
                 Ok(Box::new(std_io::stdout()) as Box<dyn Write>)
             }
         }

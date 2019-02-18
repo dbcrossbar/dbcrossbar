@@ -1,10 +1,9 @@
 //! Parser for PostgreSQL `CREATE TABLE` declarations.
 
-use failure::{format_err, ResultExt};
 use std::io::prelude::*;
 
-use crate::schema::{Column, DataType, Table};
-use crate::{IfExists, Result};
+use crate::common::*;
+use crate::schema::{Column, DataType};
 
 /// Include our `rust-peg` grammar.
 ///

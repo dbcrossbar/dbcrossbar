@@ -1,16 +1,21 @@
 //! Support for reading data from a PostgreSQL table.
 
-use log::error;
 use std::{io::Write, thread};
-use url::Url;
 
 use super::connect;
-use crate::schema::{DataType, Table};
+use crate::common::*;
+use crate::schema::DataType;
 use crate::tokio_glue::SyncStreamWriter;
-use crate::{CsvStream, Result};
 
 /// Copy the specified table from the database, returning a `CsvStream`.
-pub(crate) fn copy_out_table(url: &Url, table: &Table) -> Result<CsvStream> {
+pub(crate) fn copy_out_table(
+    ctx: Context,
+    url: &Url,
+    table: &Table,
+) -> Result<CsvStream> {
+    let ctx =
+        ctx.child(o!("stream" => table.name.clone(), "table" => table.name.clone()));
+
     // Generate SQL for query.
     let mut sql_bytes: Vec<u8> = vec![];
     write_select(&mut sql_bytes, &table)?;
@@ -18,7 +23,7 @@ pub(crate) fn copy_out_table(url: &Url, table: &Table) -> Result<CsvStream> {
 
     // Use `pipe` and a background thread to convert a `Write` to `Read`.
     let url = url.clone();
-    let (mut wtr, stream) = SyncStreamWriter::pipe();
+    let (mut wtr, stream) = SyncStreamWriter::pipe(ctx.clone());
     thread::spawn(move || {
         // Run our code in a `try` block so we can capture errors returned by
         // `?` without needing to give up ownership of `wtr` to a local closure.
@@ -30,9 +35,9 @@ pub(crate) fn copy_out_table(url: &Url, table: &Table) -> Result<CsvStream> {
 
         // Report any errors to our stream.
         if let Err(err) = result {
-            error!("error reading from PostgreSQL: {}", err);
+            error!(ctx.log(), "error reading from PostgreSQL: {}", err);
             if wtr.send_error(err).is_err() {
-                error!("cannot report error to foreground thread");
+                error!(ctx.log(), "cannot report error to foreground thread");
             }
         }
     });
