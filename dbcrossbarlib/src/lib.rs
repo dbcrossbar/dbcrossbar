@@ -47,6 +47,7 @@ pub(crate) mod common {
     pub(crate) use bytes::BytesMut;
     pub(crate) use failure::{format_err, ResultExt};
     pub(crate) use slog::{debug, error, info, o, trace, warn, Logger};
+    pub(crate) use std::any::Any;
     pub(crate) use tokio::{prelude::*, sync::mpsc};
     pub(crate) use url::Url;
 
@@ -54,7 +55,7 @@ pub(crate) mod common {
         context::Context,
         csv_stream::CsvStream,
         if_exists::IfExists,
-        locator::Locator,
+        locator::{BoxLocator, Locator},
         path_or_stdio::PathOrStdio,
         schema::Table,
         tokio_glue::{

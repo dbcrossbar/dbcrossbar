@@ -8,6 +8,32 @@ use crate::common::*;
 
 /// Specify the the location of data or a schema.
 pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
+    /// Provide a mechanism for casting a `dyn Locator` back to the underlying,
+    /// concrete locator type using Rust's `Any` type.
+    ///
+    /// See [this StackOverflow question][so] for a discussion of the technical
+    /// details, and why we need a `Locator::as_any` method to use `Any`.
+    ///
+    /// This is a bit of a sketchy feature to provide, but we provide it for use
+    /// with `supports_write_remote_data` and `write_remote_data`, which are
+    /// used for certain locator pairs (i.e., Google Cloud Storage and BigQuery)
+    /// to bypass our normal `local_data` and `write_local_data` transfers and
+    /// use an external, optimized transfer method (such as direct loads from
+    /// Google Cloud Storage into BigQuery).
+    ///
+    /// This should always be implemented as follows:
+    ///
+    /// ```no_compile
+    /// impl Locator for MyLocator {
+    ///     fn as_any(&self) -> &dyn Any {
+    ///         self
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// [so]: https://stackoverflow.com/a/33687996
+    fn as_any(&self) -> &dyn Any;
+
     /// Return a table schema, if available.
     fn schema(&self, _ctx: &Context) -> Result<Option<Table>> {
         Ok(None)
@@ -73,6 +99,30 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
         _if_exists: IfExists,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         Err(format_err!("cannot write data to {}", self)).into_boxed_future()
+    }
+
+    /// Can we access the data at `source` directly using `write_remote_data`?
+    fn supports_write_remote_data(&self, _source: &dyn Locator) -> bool {
+        false
+    }
+
+    /// Take the data at `source`, and write to this locator directly, without
+    /// passing it through the local system.
+    ///
+    /// This is used to bypass `source.local_data` and `dest.write_local_data`
+    /// when we don't need them.
+    fn write_remote_data(
+        &self,
+        _ctx: Context,
+        _schema: Table,
+        source: BoxLocator,
+        _if_exists: IfExists,
+    ) -> BoxFuture<()> {
+        Err(format_err!(
+            "cannot write_remote_data from source {}",
+            source
+        ))
+        .into_boxed_future()
     }
 }
 

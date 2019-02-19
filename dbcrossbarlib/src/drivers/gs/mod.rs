@@ -20,6 +20,13 @@ pub(crate) struct GsLocator {
     url: Url,
 }
 
+impl GsLocator {
+    /// Access the `gs://` URL in this locator.
+    pub(crate) fn as_url(&self) -> &Url {
+        &self.url
+    }
+}
+
 impl fmt::Display for GsLocator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.url.fmt(f)
@@ -48,6 +55,10 @@ impl FromStr for GsLocator {
 }
 
 impl Locator for GsLocator {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn local_data(&self, ctx: Context) -> BoxFuture<Option<BoxStream<CsvStream>>> {
         local_data_helper(ctx, self.url.clone()).into_boxed()
     }

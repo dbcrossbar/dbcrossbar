@@ -37,6 +37,10 @@ impl FromStr for CsvLocator {
 }
 
 impl Locator for CsvLocator {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema(&self, _ctx: &Context) -> Result<Option<Table>> {
         match &self.path {
             PathOrStdio::Stdio => {
