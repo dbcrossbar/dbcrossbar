@@ -4,7 +4,13 @@ use lazy_static::lazy_static;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use regex::Regex;
-use std::{fmt, fs::File, iter, process::{Command, Stdio}, str::FromStr};
+use std::{
+    fmt,
+    fs::File,
+    iter,
+    process::{Command, Stdio},
+    str::FromStr,
+};
 use tempdir::TempDir;
 use tokio::io;
 use tokio_process::CommandExt;
@@ -140,7 +146,10 @@ async fn write_remote_data_helper(
         (true, initial_table)
     } else {
         let initial_table = dest.to_full_table_name();
-        debug!(ctx.log(), "loading directly into final table {}", initial_table);
+        debug!(
+            ctx.log(),
+            "loading directly into final table {}", initial_table
+        );
         (false, initial_table)
     };
 
@@ -180,8 +189,7 @@ async fn write_remote_data_helper(
         .arg(&schema_path)
         .spawn_async()
         .context("error starting `bq load`")?;
-    let status = await!(load_child)
-        .context("error running `bq load`")?;
+    let status = await!(load_child).context("error running `bq load`")?;
     if !status.success() {
         return Err(format_err!("`bq load` failed with {}", status));
     }
@@ -191,7 +199,10 @@ async fn write_remote_data_helper(
     if use_temp {
         // Get our target table name.
         let dest_table = dest.to_full_table_name();
-        debug!(ctx.log(), "transforming data into final table {}", dest_table);
+        debug!(
+            ctx.log(),
+            "transforming data into final table {}", dest_table
+        );
 
         // Generate our import query.
         let mut query = Vec::new();
@@ -213,12 +224,13 @@ async fn write_remote_data_helper(
             ])
             .spawn_async()
             .context("error starting `bq query`")?;
-        let child_stdin = query_child.stdin().take()
+        let child_stdin = query_child
+            .stdin()
+            .take()
             .expect("don't have stdio that we requested");
         await!(io::write_all(child_stdin, query))
             .context("error piping query to `bq load`")?;
-        let status = await!(query_child)
-            .context("error running `bq query`")?;
+        let status = await!(query_child).context("error running `bq query`")?;
         if !status.success() {
             return Err(format_err!("`bq load` failed with {}", status));
         }
