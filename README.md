@@ -78,8 +78,9 @@ export POSTGRES_TEST_URL=postgres://postgres:@localhost:5432/dbcrossbar_test
 
 # Point to a Goolge Cloud Storage bucket for which you have write permissions.
 export GS_TEST_URL=gs://$MY_TEST_BUCKET/dbcrossbar/
+export BQ_TEST_DATASET=$MY_ROOT:test
 
 # Run the integration tests.
 env RUST_BACKTRACE=1 RUST_LOG=warn,dbcrossbarlib=trace,dbcrossbar=trace \
-    cargo test --all -- --ignored
+    cargo test --all -- --ignored --nocapture
 ```

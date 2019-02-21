@@ -75,6 +75,10 @@ impl FromStr for PostgresLocator {
 }
 
 impl Locator for PostgresLocator {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema(&self, _ctx: &Context) -> Result<Option<Table>> {
         Ok(Some(schema::fetch_from_url(&self.url, &self.table_name)?))
     }
@@ -153,6 +157,10 @@ impl FromStr for PostgresSqlLocator {
 }
 
 impl Locator for PostgresSqlLocator {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema(&self, _ctx: &Context) -> Result<Option<Table>> {
         let mut input = self.path.open_sync()?;
         let mut sql = String::new();

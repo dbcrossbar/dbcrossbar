@@ -43,6 +43,12 @@ fn gs_test_dir_url(dir_name: &str) -> String {
     url
 }
 
+/// A BigQuery table to use for a test.
+fn bq_test_table(table_name: &str) -> String {
+    let dataset = env::var("BQ_TEST_DATASET").expect("BQ_TEST_DATASET must be set");
+    format!("bigquery:{}.{}", dataset, table_name)
+}
+
 #[test]
 fn help_flag() {
     let testdir = TestDir::new("dbcrossbar", "help_flag");
@@ -132,6 +138,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     let schema = testdir.src_path("fixtures/example.sql");
     let pg_table = post_test_table_url("cp_csv_to_postgres_to_gs_to_csv");
     let gs_dir = gs_test_dir_url("cp_csv_to_postgres_to_gs_to_csv");
+    let bq_table = bq_test_table("cp_csv_to_postgres_to_gs_to_csv");
 
     // CSV to Postgres.
     testdir
@@ -150,6 +157,19 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     testdir
         .cmd()
         .args(&["cp", "--if-exists=overwrite", &pg_table, &gs_dir])
+        .tee_output()
+        .expect_success();
+
+    // TEMP: gs:// to CSV, but ignore output until we can grab it back.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &gs_dir,
+            &bq_table,
+        ])
         .tee_output()
         .expect_success();
 

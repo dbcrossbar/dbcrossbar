@@ -1,8 +1,5 @@
 //! Tools for converting a `Table` schema to a BigQuery JSON-format schema.
 
-// Temporary.
-#![allow(dead_code)]
-
 use serde::{Serialize, Serializer};
 use serde_derive::Serialize;
 use serde_json;
@@ -153,7 +150,7 @@ impl<'a> fmt::Display for Ident<'a> {
 /// Write out a table's columns as BigQuery schema JSON. If you set
 /// `csv_compatible`, this will only use types that can be loaded from a CSV
 /// file.
-pub fn write_json(
+pub(crate) fn write_json(
     f: &mut dyn Write,
     table: &Table,
     csv_compatible: bool,
@@ -166,9 +163,20 @@ pub fn write_json(
     Ok(())
 }
 
+/// Will we need to generate special SQL to transform `table` after importing
+/// it?
+pub(crate) fn need_import_sql(table: &Table) -> bool {
+    for col in &table.columns {
+        if need_special_col_import(col) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /// Generate SQL which `SELECT`s from a temp table, and fixes the types
 /// of columns that couldn't be imported from CSVs.
-pub fn write_import_sql(f: &mut dyn Write, table: &Table) -> Result<()> {
+pub(crate) fn write_import_sql(f: &mut dyn Write, table: &Table) -> Result<()> {
     for (i, col) in table.columns.iter().enumerate() {
         write_col_import_udf(f, i, col)?;
     }
@@ -289,6 +297,15 @@ fn nested_arrays() {
         format!("{}", bq),
         "ARRAY<STRUCT<ARRAY<STRUCT<ARRAY<INT64>>>>>"
     );
+}
+
+/// Will `col` require special import support?
+fn need_special_col_import(col: &Column) -> bool {
+    if let DataType::Array(_) = &col.data_type {
+        true
+    } else {
+        false
+    }
 }
 
 /// Output JavaScript UDF for importing a column (if necessary). This can
