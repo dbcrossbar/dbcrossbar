@@ -1,6 +1,6 @@
 [package]
 name = "dbcrossbar"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["Eric Kidd <git@randomhacks.net>"]
 edition = "2018"
 
