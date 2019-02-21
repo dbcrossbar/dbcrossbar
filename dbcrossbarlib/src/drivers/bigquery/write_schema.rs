@@ -171,7 +171,7 @@ pub(crate) fn need_import_sql(table: &Table) -> bool {
             return true;
         }
     }
-    return false;
+    false
 }
 
 /// Generate SQL which `SELECT`s from a temp table, and fixes the types
