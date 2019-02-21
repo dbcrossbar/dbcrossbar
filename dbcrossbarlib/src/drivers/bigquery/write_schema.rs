@@ -187,7 +187,9 @@ pub(crate) fn write_import_sql(f: &mut dyn Write, table: &Table) -> Result<()> {
         }
         write_col_import_sql(f, i, col)?;
     }
-    write!(f, " FROM {}", Ident(&table.name))?;
+    // TODO: Pass in BigQuery table name components.
+    let sql_table_name = table.name.replacen(':', ".", 1);
+    write!(f, " FROM {}", Ident(&sql_table_name))?;
     Ok(())
 }
 

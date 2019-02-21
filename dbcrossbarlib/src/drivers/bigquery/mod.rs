@@ -206,7 +206,9 @@ async fn write_remote_data_helper(
 
         // Generate our import query.
         let mut query = Vec::new();
-        write_schema::write_import_sql(&mut query, &schema)?;
+        let mut new_schema = schema.clone();
+        new_schema.name = initial_table.clone();
+        write_schema::write_import_sql(&mut query, &new_schema)?;
         trace!(ctx.log(), "import sql: {}", String::from_utf8_lossy(&query));
 
         // Pipe our query text to `bq load`.
