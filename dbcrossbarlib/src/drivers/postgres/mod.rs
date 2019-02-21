@@ -92,9 +92,14 @@ impl Locator for PostgresLocator {
             ctx.log(),
             "reading data from {} table {}", self.url, self.table_name
         );
-        trace!(ctx.log(), "using schema {:?}", schema);
+
+        // Use the source table name instead of the schema table name, in case
+        // they differ.
+        let mut new_schema = schema.to_owned();
+        new_schema.name = self.table_name.clone();
+        trace!(ctx.log(), "using schema {:?}", new_schema);
         let url = self.url.clone();
-        local_data_helper(ctx, url, schema).into_boxed()
+        local_data_helper(ctx, url, new_schema).into_boxed()
     }
 
     fn write_local_data(
