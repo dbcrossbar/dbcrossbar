@@ -218,7 +218,7 @@ async fn write_remote_data_helper(
             .args(&[
                 "query",
                 "--format=none",
-                &format!("--destination-table={}", dest_table),
+                &format!("--destination_table={}", dest_table),
                 if_exists_to_bq_load_arg(if_exists)?,
                 "--nouse_legacy_sql",
             ])
