@@ -66,7 +66,11 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     ///    files or start downloads only when needed.
     /// 4. The innermost `CsvStream` is a stream of raw CSV data plus some other
     ///    information, like the original filename.
-    fn local_data(&self, _ctx: Context) -> BoxFuture<Option<BoxStream<CsvStream>>> {
+    fn local_data(
+        &self,
+        _ctx: Context,
+        _schema: Table,
+    ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
         // Turn our result into a future.
         Ok(None).into_boxed_future()
     }

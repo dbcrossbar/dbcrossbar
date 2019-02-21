@@ -83,16 +83,17 @@ impl Locator for PostgresLocator {
         Ok(Some(schema::fetch_from_url(&self.url, &self.table_name)?))
     }
 
-    fn local_data(&self, ctx: Context) -> BoxFuture<Option<BoxStream<CsvStream>>> {
+    fn local_data(
+        &self,
+        ctx: Context,
+        schema: Table,
+    ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
         debug!(
             ctx.log(),
             "reading data from {} table {}", self.url, self.table_name
         );
+        trace!(ctx.log(), "using schema {:?}", schema);
         let url = self.url.clone();
-        let schema = match self.schema(&ctx) {
-            Ok(schema) => schema.expect("should always have a schema"),
-            Err(err) => return Box::new(Err(err).into_future()),
-        };
         local_data_helper(ctx, url, schema).into_boxed()
     }
 

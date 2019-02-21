@@ -59,7 +59,11 @@ impl Locator for GsLocator {
         self
     }
 
-    fn local_data(&self, ctx: Context) -> BoxFuture<Option<BoxStream<CsvStream>>> {
+    fn local_data(
+        &self,
+        ctx: Context,
+        _schema: Table,
+    ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
         local_data_helper(ctx, self.url.clone()).into_boxed()
     }
 
