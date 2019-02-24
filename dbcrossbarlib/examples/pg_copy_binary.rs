@@ -14,8 +14,8 @@
 //! psql postgres://postgres@localhost/dbcrossbar_test -f dbcrossbarlib/examples/pg_copy_binary.sql
 //! ```
 
-use byteorder::{NetworkEndian, LittleEndian, WriteBytesExt};
-use chrono::{Utc, TimeZone};
+use byteorder::{LittleEndian, NetworkEndian, WriteBytesExt};
+use chrono::{TimeZone, Utc};
 use geo_types::Geometry;
 use geojson::{conversion::TryInto, GeoJson};
 use std::{
@@ -76,6 +76,8 @@ fn main() -> Result<(), Box<Error>> {
 
     // Field: Decimal. (**Punt** for now. Probably the best solution is a straight
     // port of PostgreSQL's own C parsing code to Rust.)
+    //
+    // See https://github.com/postgres/postgres/blob/master/src/backend/utils/adt/numeric.c#L5620
 
     // Field: Float32.
     out.write_i32::<NE>(size_of::<f32>() as i32)?;
