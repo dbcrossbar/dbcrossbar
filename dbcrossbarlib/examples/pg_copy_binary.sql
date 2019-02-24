@@ -12,7 +12,12 @@ CREATE TABLE copy_binary_test (
     test_geo geometry(point, 4326),
     test_i16 smallint,
     test_i32 integer,
-    test_i64 bigint
+    test_i64 bigint,
+    test_json jsonb,
+    test_text text,
+    test_timestamp timestamp without time zone,
+    test_timestamp_tz timestamp with time zone,
+    test_uuid uuid
 );
 
 \copy copy_binary_test FROM 'pg_copy_binary.bin' WITH BINARY

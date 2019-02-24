@@ -15,6 +15,7 @@
 //! ```
 
 use byteorder::{NetworkEndian, LittleEndian, WriteBytesExt};
+use chrono::{Utc, TimeZone};
 use geo_types::Geometry;
 use geojson::{conversion::TryInto, GeoJson};
 use std::{
@@ -22,6 +23,7 @@ use std::{
     io::{self, prelude::*},
     mem::size_of,
 };
+use uuid::Uuid;
 use wkb::geom_to_wkb;
 
 type NE = NetworkEndian;
@@ -43,7 +45,7 @@ fn main() -> Result<(), Box<Error>> {
     out.write_u32::<NE>(0)?;
 
     // Tuple field count.
-    out.write_i16::<NE>(10)?;
+    out.write_i16::<NE>(15)?;
 
     // Field: NULL.
     out.write_i32::<NE>(-1)?;
@@ -72,7 +74,8 @@ fn main() -> Result<(), Box<Error>> {
     out.write_i32::<NE>(size_of::<i32>() as i32)?;
     out.write_i32::<NE>(-11122)?;
 
-    // Field: Decimal. (PUNT)
+    // Field: Decimal. (**Punt** for now. Probably the best solution is a straight
+    // port of PostgreSQL's own C parsing code to Rust.)
 
     // Field: Float32.
     out.write_i32::<NE>(size_of::<f32>() as i32)?;
@@ -120,10 +123,33 @@ fn main() -> Result<(), Box<Error>> {
     out.write_i64::<NE>(64)?;
 
     // Field: JSON.
+    let json = r#"{ "x": 2 }"#;
+    out.write_i32::<NE>((json.len() + 1) as i32)?;
+    out.write_u8(1)?; // jsonb format.
+    out.write_all(json.as_bytes())?;
+
     // Field: Text.
+    let text = "Hello";
+    out.write_i32::<NE>(text.len() as i32)?;
+    out.write_all(text.as_bytes())?;
+
     // Field: Timestamp without time zone.
+    let j_epoch = Utc.ymd(2000, 01, 01).and_hms(0, 0, 0);
+    let date_time = Utc.ymd(1969, 07, 20).and_hms(20, 17, 39);
+    let duration = date_time - j_epoch;
+    let microseconds = duration.num_microseconds()
+        .expect("date math overflow");
+    out.write_i32::<NE>(size_of::<i64>() as i32)?;
+    out.write_i64::<NE>(microseconds)?;
+
     // Field: Timestamp with time zone.
+    out.write_i32::<NE>(size_of::<i64>() as i32)?;
+    out.write_i64::<NE>(microseconds)?;
+
     // Field: UUID.
+    let uuid = "fc438a75-3bf8-4941-8751-9208526e9516".parse::<Uuid>()?;
+    out.write_i32::<NE>(uuid.as_bytes().len() as i32)?;
+    out.write_all(uuid.as_bytes())?;
 
     // File trailer.
     out.write_i16::<NE>(-1)?;
