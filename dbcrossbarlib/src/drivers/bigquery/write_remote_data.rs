@@ -47,11 +47,11 @@ pub(crate) async fn write_remote_data_helper(
 
     // Decide if we need to use a temp table.
     let (use_temp, initial_table) = if write_schema::need_import_sql(&schema) {
-        let initial_table = dest.temp_table_name();
+        let initial_table = dest.table_name.clone();
         debug!(ctx.log(), "loading into temporary table {}", initial_table);
         (true, initial_table)
     } else {
-        let initial_table = dest.to_full_table_name();
+        let initial_table = dest.table_name.temporary_table_name();
         debug!(
             ctx.log(),
             "loading directly into final table {}", initial_table
@@ -86,7 +86,7 @@ pub(crate) async fn write_remote_data_helper(
             "load",
             "--skip_leading_rows=1",
             initial_table_replace,
-            &initial_table,
+            &initial_table.to_string(),
             source_url.as_str(),
         ])
         // This argument is a path, and so it might contain non-UTF-8
@@ -104,7 +104,7 @@ pub(crate) async fn write_remote_data_helper(
     // build the final table (if needed).
     if use_temp {
         // Get our target table name.
-        let dest_table = dest.to_full_table_name();
+        let dest_table = &dest.table_name;
         debug!(
             ctx.log(),
             "transforming data into final table {}", dest_table
@@ -113,7 +113,7 @@ pub(crate) async fn write_remote_data_helper(
         // Generate our import query.
         let mut query = Vec::new();
         let mut new_schema = schema.clone();
-        new_schema.name = initial_table.clone();
+        new_schema.name = initial_table.dotted().to_string();
         write_schema::write_import_sql(&mut query, &new_schema)?;
         trace!(ctx.log(), "import sql: {}", String::from_utf8_lossy(&query));
 
@@ -143,7 +143,21 @@ pub(crate) async fn write_remote_data_helper(
             return Err(format_err!("`bq load` failed with {}", status));
         }
 
-        // TODO: Delete temp table!
+        // Delete temp table.
+        debug!(ctx.log(), "deleting temp table: {}", initial_table);
+        let mut rm_child = Command::new("bq")
+            .args(&[
+                "rm",
+                "-f",
+                "-t",
+                &initial_table.to_string(),
+            ])
+            .spawn_async()
+            .context("error starting `bq rm`")?;
+        let status = await!(rm_child).context("error running `bq rm`")?;
+        if !status.success() {
+            return Err(format_err!("`bq rm` failed with {}", status));
+        }
     }
 
     Ok(())
