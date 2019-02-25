@@ -34,7 +34,8 @@ strum_macros = "0.13.0"
 tempdir = "0.3.7"
 tokio = { version = "0.1", features = ["async-await-preview"] }
 tokio-process = { version = "0.2" }
-tokio-async-await = "0.1"
+# This is locked to a very specific versions of nightly Rust.
+tokio-async-await = "=0.1.5"
 try_from = "0.3.2"
 url = "1.7.1"
 uuid = "0.6.5"
