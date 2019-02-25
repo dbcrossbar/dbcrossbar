@@ -236,6 +236,8 @@ async fn write_remote_data_helper(
         if !status.success() {
             return Err(format_err!("`bq load` failed with {}", status));
         }
+
+        // TODO: Delete temp table!
     }
 
     Ok(())
