@@ -3,8 +3,7 @@
 use std::{fmt, str::FromStr};
 
 use crate::common::*;
-
-pub(crate) mod write_schema;
+use crate::drivers::bigquery_shared::{BqTable, TableName, Usage};
 
 /// URL scheme for `PostgresSqlLocator`.
 pub(crate) const BIGQUERY_SCHEMA_SCHEME: &str = "bigquery-schema:";
@@ -41,7 +40,17 @@ impl Locator for BigQuerySchemaLocator {
         table: &Table,
         if_exists: IfExists,
     ) -> Result<()> {
+        // The BigQuery table name doesn't matter here, because BigQuery won't
+        // use it.
+        let arbitrary_name = TableName::from_str(&"unused:unused.unused")?;
+
+        // Generate our JSON.
         let mut f = self.path.create_sync(ctx, if_exists)?;
-        write_schema::write_json(&mut f, table, false)
+        let bq_table = BqTable::for_table_name_and_columns(
+            arbitrary_name,
+            &table.columns,
+            Usage::FinalTable,
+        )?;
+        bq_table.write_json_schema(&mut f)
     }
 }

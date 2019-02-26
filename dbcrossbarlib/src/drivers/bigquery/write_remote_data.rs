@@ -10,7 +10,10 @@ use tokio_process::CommandExt;
 
 use super::BigQueryLocator;
 use crate::common::*;
-use crate::drivers::{bigquery_schema::write_schema, gs::GsLocator};
+use crate::drivers::{
+    bigquery_shared::{BqTable, TableBigQueryExt, Usage},
+    gs::GsLocator,
+};
 
 /// Copy `source` to `dest` using `schema`.
 ///
@@ -46,18 +49,32 @@ pub(crate) async fn write_remote_data_helper(
     let ctx = ctx.child(o!("source_url" => source_url.as_str().to_owned()));
 
     // Decide if we need to use a temp table.
-    let (use_temp, initial_table) = if write_schema::need_import_sql(&schema) {
-        let initial_table = dest.table_name.clone();
-        debug!(ctx.log(), "loading into temporary table {}", initial_table);
-        (true, initial_table)
-    } else {
-        let initial_table = dest.table_name.temporary_table_name();
+    let (use_temp, initial_table_name) = if !schema.bigquery_can_import_from_csv()? {
+        let initial_table_name = dest.table_name.clone();
         debug!(
             ctx.log(),
-            "loading directly into final table {}", initial_table
+            "loading into temporary table {}", initial_table_name
         );
-        (false, initial_table)
+        (true, initial_table_name)
+    } else {
+        let initial_table_name = dest.table_name.temporary_table_name();
+        debug!(
+            ctx.log(),
+            "loading directly into final table {}", initial_table_name,
+        );
+        (false, initial_table_name)
     };
+
+    // Build the information we'll need about our initial table.
+    let initial_table = BqTable::for_table_name_and_columns(
+        initial_table_name,
+        &schema.columns,
+        if use_temp {
+            Usage::CsvLoad
+        } else {
+            Usage::FinalTable
+        },
+    )?;
 
     // Write our schema to a temp file. This actually needs to be somewhere on
     // disk, and `bq` uses various hueristics to detect that it's a file
@@ -69,7 +86,7 @@ pub(crate) async fn write_remote_data_helper(
     let tmp_dir = TempDir::new("bq_load")?;
     let schema_path = tmp_dir.path().join("schema.json");
     let mut schema_file = File::create(&schema_path)?;
-    write_schema::write_json(&mut schema_file, &schema, use_temp)?;
+    initial_table.write_json_schema(&mut schema_file)?;
 
     // Decide how to handle overwrites of the initial table.
     let initial_table_replace = if use_temp {
@@ -86,7 +103,7 @@ pub(crate) async fn write_remote_data_helper(
             "load",
             "--skip_leading_rows=1",
             initial_table_replace,
-            &initial_table.to_string(),
+            &initial_table.name().to_string(),
             source_url.as_str(),
         ])
         // This argument is a path, and so it might contain non-UTF-8
@@ -103,18 +120,21 @@ pub(crate) async fn write_remote_data_helper(
     // If `use_temp` is false, then we're done. Otherwise, run the update SQL to
     // build the final table (if needed).
     if use_temp {
-        // Get our target table name.
-        let dest_table = &dest.table_name;
+        // Build a `BqTable` for our final table.
+        let dest_table = BqTable::for_table_name_and_columns(
+            dest.table_name.clone(),
+            &schema.columns,
+            Usage::FinalTable,
+        )?;
         debug!(
             ctx.log(),
-            "transforming data into final table {}", dest_table
+            "transforming data into final table {}",
+            dest_table.name(),
         );
 
         // Generate our import query.
         let mut query = Vec::new();
-        let mut new_schema = schema.clone();
-        new_schema.name = initial_table.dotted().to_string();
-        write_schema::write_import_sql(&mut query, &new_schema)?;
+        dest_table.write_import_sql(&mut query)?;
         trace!(ctx.log(), "import sql: {}", String::from_utf8_lossy(&query));
 
         // Pipe our query text to `bq load`.
@@ -126,7 +146,7 @@ pub(crate) async fn write_remote_data_helper(
             .args(&[
                 "query",
                 "--format=none",
-                &format!("--destination_table={}", dest_table),
+                &format!("--destination_table={}", dest_table.name()),
                 if_exists_to_bq_load_arg(if_exists)?,
                 "--nouse_legacy_sql",
             ])
@@ -144,14 +164,9 @@ pub(crate) async fn write_remote_data_helper(
         }
 
         // Delete temp table.
-        debug!(ctx.log(), "deleting temp table: {}", initial_table);
-        let mut rm_child = Command::new("bq")
-            .args(&[
-                "rm",
-                "-f",
-                "-t",
-                &initial_table.to_string(),
-            ])
+        debug!(ctx.log(), "deleting temp table: {}", initial_table.name());
+        let rm_child = Command::new("bq")
+            .args(&["rm", "-f", "-t", &initial_table.name().to_string()])
             .spawn_async()
             .context("error starting `bq rm`")?;
         let status = await!(rm_child).context("error running `bq rm`")?;

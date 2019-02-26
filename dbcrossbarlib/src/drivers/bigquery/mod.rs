@@ -3,12 +3,10 @@
 use std::{fmt, str::FromStr};
 
 use crate::common::*;
-use crate::drivers::gs::GsLocator;
+use crate::drivers::{bigquery_shared::TableName, gs::GsLocator};
 
-mod table_name;
 mod write_remote_data;
 
-use self::table_name::TableName;
 use self::write_remote_data::write_remote_data_helper;
 
 /// URL scheme for `BigQueryLocator`.
@@ -23,11 +21,7 @@ pub struct BigQueryLocator {
 
 impl fmt::Display for BigQueryLocator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "bigquery:{}",
-            self.table_name
-        )
+        write!(f, "bigquery:{}", self.table_name)
     }
 }
 

@@ -10,7 +10,7 @@ use crate::common::*;
 
 /// A BigQuery table name of the form `"project:dataset.table"`.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::drivers::bigquery) struct TableName {
+pub(crate) struct TableName {
     /// The name of the Google Cloud project.
     project: String,
     /// The BigQuery dataset.
@@ -23,12 +23,12 @@ impl TableName {
     /// Return a value which will be formatted as `"project.dataset.table"`.
     ///
     /// This form of the name is used in BigQuery "standard SQL".
-    pub(in crate::drivers::bigquery) fn dotted(&self) -> DottedTableName {
+    pub(crate) fn dotted(&self) -> DottedTableName {
         DottedTableName(self)
     }
 
     /// Create a temporary table name based on this table name.
-    pub(in crate::drivers::bigquery) fn temporary_table_name(&self) -> TableName {
+    pub(crate) fn temporary_table_name(&self) -> TableName {
         let mut rng = thread_rng();
         let tag = iter::repeat(())
             .map(|()| rng.sample(Alphanumeric))
@@ -47,11 +47,7 @@ impl TableName {
 
 impl fmt::Display for TableName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}:{}.{}",
-            self.project, self.dataset, self.table
-        )
+        write!(f, "{}:{}.{}", self.project, self.dataset, self.table)
     }
 }
 
@@ -63,9 +59,9 @@ impl FromStr for TableName {
             static ref RE: Regex = Regex::new("^([^:.]+):([^:.]+).([^:.]+)$")
                 .expect("could not parse built-in regex");
         }
-        let cap = RE
-            .captures(s)
-            .ok_or_else(|| format_err!("could not parse BigQuery table name: {:?}", s))?;
+        let cap = RE.captures(s).ok_or_else(|| {
+            format_err!("could not parse BigQuery table name: {:?}", s)
+        })?;
         let (project, dataset, table) = (&cap[1], &cap[2], &cap[3]);
         Ok(TableName {
             project: project.to_string(),
@@ -79,14 +75,10 @@ impl FromStr for TableName {
 /// `"project.dataset.table"`.
 ///
 /// This form of the name is used in BigQuery "standard SQL".
-pub(in crate::drivers::bigquery) struct DottedTableName<'a>(&'a TableName);
+pub(crate) struct DottedTableName<'a>(&'a TableName);
 
 impl<'a> fmt::Display for DottedTableName<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}.{}.{}",
-            self.0.project, self.0.dataset, self.0.table
-        )
+        write!(f, "{}.{}.{}", self.0.project, self.0.dataset, self.0.table)
     }
 }
