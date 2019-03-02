@@ -8,3 +8,5 @@ pub mod bigquery_shared;
 pub mod csv;
 pub mod gs;
 pub mod postgres;
+pub mod postgres_shared;
+pub mod postgres_sql;

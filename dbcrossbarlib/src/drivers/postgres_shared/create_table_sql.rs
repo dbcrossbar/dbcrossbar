@@ -10,7 +10,7 @@ use crate::schema::{Column, DataType};
 /// We disable lots of clippy warnings because this is machine-generated code.
 #[allow(clippy::all, rust_2018_idioms, elided_lifetimes_in_paths)]
 mod grammar {
-    include!(concat!(env!("OUT_DIR"), "/postgres.rs"));
+    include!(concat!(env!("OUT_DIR"), "/create_table_sql.rs"));
 }
 
 /// Parse a PostgreSQL `CREATE TABLE` statement and return a `Table`.
@@ -102,7 +102,7 @@ mod test {
 
     #[test]
     fn simple_table() {
-        let input = include_str!("postgres_example.sql");
+        let input = include_str!("create_table_sql_example.sql");
         let table = parse_create_table(input).unwrap();
         let expected = Table {
             name: "example".to_string(),

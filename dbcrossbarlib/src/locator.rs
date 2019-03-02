@@ -139,6 +139,7 @@ impl FromStr for BoxLocator {
     fn from_str(s: &str) -> Result<Self> {
         use crate::drivers::{
             bigquery::*, bigquery_schema::*, csv::*, gs::*, postgres::*,
+            postgres_sql::*,
         };
 
         // Parse our locator into a URL-style scheme and the rest.

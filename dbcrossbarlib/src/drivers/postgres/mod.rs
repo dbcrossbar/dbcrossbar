@@ -14,7 +14,6 @@ use crate::common::*;
 pub mod citus;
 mod local_data;
 mod schema;
-mod sql_schema;
 mod write_local_data;
 
 /// Connect to the database, using SSL if possible. If `?ssl=true` is set in the
@@ -136,57 +135,4 @@ async fn local_data_helper(
     let stream = local_data::copy_out_table(ctx, &url, &schema)?;
     let box_stream: BoxStream<CsvStream> = Box::new(stream::once(Ok(stream)));
     Ok(Some(box_stream))
-}
-
-/// URL scheme for `PostgresSqlLocator`.
-pub(crate) const POSTGRES_SQL_SCHEME: &str = "postgres-sql:";
-
-/// An SQL file containing a `CREATE TABLE` statement using Postgres syntax.
-#[derive(Debug)]
-pub struct PostgresSqlLocator {
-    path: PathOrStdio,
-}
-
-impl fmt::Display for PostgresSqlLocator {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.path.fmt_locator_helper(POSTGRES_SQL_SCHEME, f)
-    }
-}
-
-impl FromStr for PostgresSqlLocator {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self> {
-        let path = PathOrStdio::from_str_locator_helper(POSTGRES_SQL_SCHEME, s)?;
-        Ok(PostgresSqlLocator { path })
-    }
-}
-
-impl Locator for PostgresSqlLocator {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn schema(&self, _ctx: &Context) -> Result<Option<Table>> {
-        let mut input = self.path.open_sync()?;
-        let mut sql = String::new();
-        input
-            .read_to_string(&mut sql)
-            .with_context(|_| format!("error reading {}", self.path))?;
-        Ok(Some(sql_schema::parse_create_table(&sql)?))
-    }
-
-    fn write_schema(
-        &self,
-        ctx: &Context,
-        table: &Table,
-        if_exists: IfExists,
-    ) -> Result<()> {
-        let mut out = self.path.create_sync(ctx, if_exists)?;
-        // The passed-in `if_exists` applies to our output SQL file, not to whether
-        // our generated schema contains `DROP TABLE ... IF EXISTS`.
-        sql_schema::write_create_table(&mut out, table, IfExists::Error)
-            .with_context(|_| format!("error writing {}", self.path))?;
-        Ok(())
-    }
 }

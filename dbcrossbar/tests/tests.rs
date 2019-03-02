@@ -12,8 +12,9 @@ const EXAMPLE_SQL: &str = include_str!("../fixtures/example.sql");
 /// PostgreSQL, because it keeps the test environment much simpler. But this
 /// means we don't fully test certain modes of the CLI (though we have unit
 /// tests for much of the related code).
-const INPUT_SQL: &str =
-    include_str!("../../dbcrossbarlib/src/drivers/postgres/postgres_example.sql");
+const INPUT_SQL: &str = include_str!(
+    "../../dbcrossbarlib/src/drivers/postgres_shared/create_table_sql_example.sql"
+);
 
 /// The URL of our test database.
 fn postgres_test_url() -> String {

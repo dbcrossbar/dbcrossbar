@@ -2,8 +2,9 @@
 
 use std::{io::prelude::*, str};
 
-use super::{connect, sql_schema};
+use super::connect;
 use crate::common::*;
+use crate::drivers::postgres_shared::write_create_table;
 use crate::schema::DataType;
 use crate::tokio_glue::SyncStreamReader;
 
@@ -19,7 +20,7 @@ pub(crate) async fn copy_in_table(
 
     // Generate `CREATE TABLE` SQL.
     let mut table_sql_buff = vec![];
-    sql_schema::write_create_table(&mut table_sql_buff, &schema, if_exists)?;
+    write_create_table(&mut table_sql_buff, &schema, if_exists)?;
     let table_sql =
         str::from_utf8(&table_sql_buff).expect("generated SQL should always be UTF-8");
 
