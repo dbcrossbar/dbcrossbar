@@ -1,4 +1,9 @@
 //! Reading schemas from a PostgreSQL server.
+//!
+//! TODO: This code needs a fairly thorough overhaul, and careful attention to
+//! SRID handling. It should also be converted to use `PgCreateTable`, etc.
+//! Basically, this is old `schemaconv` code that we imported with minimal
+//! changes.
 
 use diesel::{pg::PgConnection, prelude::*};
 
