@@ -130,7 +130,7 @@ async fn copy_from_async(
 
 // The actual implementation of `write_local_data`, in a separate function so we
 // can use `async`.
-pub(crate) async fn write_local_data(
+pub(crate) async fn write_local_data_helper(
     ctx: Context,
     url: Url,
     table_name: String,

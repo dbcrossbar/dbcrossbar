@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use super::PgDataType;
+use super::{PgDataType, PgScalarDataType};
 use crate::common::*;
 use crate::schema::Column;
 
@@ -48,6 +48,25 @@ impl PgColumn {
             is_nullable: self.is_nullable,
             comment: None,
         })
+    }
+
+    /// Write a `SELECT` expression for this column.
+    pub(crate) fn write_export_select_expr(&self, f: &mut dyn Write) -> Result<()> {
+        let name = Ident(&self.name);
+        match &self.data_type {
+            PgDataType::Array { .. } => {
+                write!(f, "array_to_json({name}) AS {name}", name = name)?;
+            }
+            PgDataType::Scalar(PgScalarDataType::Geometry(_srid)) => {
+                // TODO: This will preserve the current SRID of the column, so
+                // let's hope `_srid` matches the database's if we make it this far.
+                write!(f, "ST_AsGeoJSON({name}) AS {name}", name = name)?;
+            }
+            _ => {
+                write!(f, "{}", name)?;
+            }
+        }
+        Ok(())
     }
 }
 
