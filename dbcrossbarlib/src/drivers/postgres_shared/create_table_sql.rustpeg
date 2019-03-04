@@ -10,25 +10,24 @@
 //!
 //! [peg]: https://github.com/kevinmehall/rust-peg
 
-use crate::schema::{Column, DataType, Table};
+use super::super::{PgColumn, PgCreateTable, PgDataType, PgScalarDataType, Srid};
 
 /// A `CREATE TABLE` expression.
-pub create_table -> Table
+pub create_table -> PgCreateTable
     = ws? "CREATE"i ws "TABLE"i ws name:identifier ws? "("
         ws? columns:(column ** (ws? "," ws?)) ws?
       ")" ws? (";" ws?)?
     {
-        Table { name, columns }
+        PgCreateTable { name, columns, if_not_exists: false }
     }
 
 /// A column expression of the form "name type".
-column -> Column
+column -> PgColumn
     = name:identifier ws data_type:data_type is_nullable:is_nullable primary_key? {
-        Column {
+        PgColumn {
             name,
             is_nullable,
             data_type,
-            comment: None,
         }
     }
 
@@ -42,42 +41,40 @@ primary_key
     = ws "PRIMARY"i ws "KEY"i
 
 /// A Postgres data type.
-data_type -> DataType
+data_type -> PgDataType
     = #quiet<
         // Array type.
-        data_type:simple_data_type ws? "[" ws? "]" {
-            DataType::Array(Box::new(data_type))
+        data_type:scalar_data_type ws? "[" ws? "]" {
+            PgDataType::Array { dimension_count: 1, ty: data_type }
         }
 
         // All other types.
-        / simple_data_type
+        / data_type:scalar_data_type { PgDataType::Scalar(data_type) }
     >
     / #expected("data type")
 
-/// A simple data type, never an array.
-simple_data_type -> DataType
-    = "bigint"i { DataType::Int64 }
-    / "boolean"i { DataType::Bool }
-    / "date"i { DataType::Date }
-    / "double"i ws "precision"i { DataType::Float64 }
-    / "float"i { DataType::Float64 }
+/// A scalar data type, never an array.
+scalar_data_type -> PgScalarDataType
+    = "bigint"i { PgScalarDataType::Bigint }
+    / "boolean"i { PgScalarDataType::Boolean }
+    / "date"i { PgScalarDataType::Date }
+    / "double"i ws "precision"i { PgScalarDataType::DoublePrecision }
+    / "float"i { PgScalarDataType::Real }
     / "public."i? "geometry"i ws? "(" ws? identifier ws? "," ws? srid:srid ws? ")" {
-        if srid == 4326 {
-            DataType::GeoJson
-        } else {
-            DataType::Text
-        }
+        PgScalarDataType::Geometry(Srid::new(srid))
     }
-    / "integer"i { DataType::Int32 } // Longer keyword first!
-    / "int"i { DataType::Int32 }
-    / "json"i { DataType::Json }
-    / "jsonb"i { DataType::Json }
-    / "numeric"i { DataType::Decimal }
-    / "real"i { DataType::Float32 }
-    / "smallint"i { DataType::Int16 }
-    / "text"i { DataType::Text }
-    / "timestamp"i ws "without"i ws "time"i ws "zone"i { DataType::TimestampWithoutTimeZone }
-    / "uuid"i { DataType::Uuid }
+    / "integer"i { PgScalarDataType::Int } // Longer keyword first!
+    / "int"i { PgScalarDataType::Int }
+    / "json"i { PgScalarDataType::Json }
+    / "jsonb"i { PgScalarDataType::Jsonb }
+    / "numeric"i { PgScalarDataType::Numeric }
+    / "real"i { PgScalarDataType::Real }
+    / "smallint"i { PgScalarDataType::Smallint }
+    / "text"i { PgScalarDataType::Text }
+    / "timestamp"i ws "without"i ws "time"i ws "zone"i {
+        PgScalarDataType::TimestampWithoutTimeZone
+    }
+    / "uuid"i { PgScalarDataType::Uuid }
 
 /// A GeoJSON SRID number, used to identify a coordinate system.
 srid -> u32

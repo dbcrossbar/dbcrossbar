@@ -16,6 +16,8 @@ mod local_data;
 mod schema;
 mod write_local_data;
 
+use self::write_local_data::write_local_data;
+
 /// Connect to the database, using SSL if possible. If `?ssl=true` is set in the
 /// URL, require SSL.
 fn connect(url: &Url) -> Result<Connection> {
@@ -108,18 +110,11 @@ impl Locator for PostgresLocator {
         data: BoxStream<CsvStream>,
         if_exists: IfExists,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
-        debug!(
-            ctx.log(),
-            "writing data to {} table {}", self.url, self.table_name
-        );
-
-        // Use the destination table name instead of the source name.
-        let mut new_schema = schema.to_owned();
-        new_schema.name = self.table_name.clone();
-        write_local_data::copy_in_table(
+        write_local_data(
             ctx,
             self.url.clone(),
-            new_schema,
+            self.table_name.clone(),
+            schema,
             data,
             if_exists,
         )

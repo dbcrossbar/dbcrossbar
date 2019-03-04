@@ -9,6 +9,13 @@ use crate::schema::DataType;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct Srid(u32);
 
+impl Srid {
+    /// Create a new `Srid` from a numeric code.
+    pub(crate) fn new(srid: u32) -> Srid {
+        Srid(srid)
+    }
+}
+
 impl Default for Srid {
     fn default() -> Self {
         // The one true SRID.
@@ -139,6 +146,7 @@ pub(crate) enum PgScalarDataType {
     Smallint,
     Int,
     Bigint,
+    Json,
     Jsonb,
     Text,
     TimestampWithoutTimeZone,
@@ -191,7 +199,7 @@ impl PgScalarDataType {
             PgScalarDataType::Smallint => Ok(DataType::Int16),
             PgScalarDataType::Int => Ok(DataType::Int32),
             PgScalarDataType::Bigint => Ok(DataType::Int64),
-            PgScalarDataType::Jsonb => Ok(DataType::Json),
+            PgScalarDataType::Jsonb | PgScalarDataType::Json => Ok(DataType::Json),
             PgScalarDataType::Text => Ok(DataType::Text),
             PgScalarDataType::TimestampWithoutTimeZone => {
                 Ok(DataType::TimestampWithoutTimeZone)
@@ -199,7 +207,7 @@ impl PgScalarDataType {
             PgScalarDataType::TimestampWithTimeZone => {
                 Ok(DataType::TimestampWithTimeZone)
             }
-            PgScalarDataType::Uuid => unimplemented!(),
+            PgScalarDataType::Uuid => Ok(DataType::Uuid),
         }
     }
 }
@@ -218,6 +226,7 @@ impl fmt::Display for PgScalarDataType {
             PgScalarDataType::Smallint => write!(f, "smallint")?,
             PgScalarDataType::Int => write!(f, "int")?,
             PgScalarDataType::Bigint => write!(f, "bigint")?,
+            PgScalarDataType::Json => write!(f, "json")?,
             PgScalarDataType::Jsonb => write!(f, "jsonb")?,
             PgScalarDataType::Text => write!(f, "text")?,
             PgScalarDataType::TimestampWithoutTimeZone => {
