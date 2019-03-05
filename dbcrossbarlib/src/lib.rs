@@ -22,6 +22,7 @@ pub(crate) mod context;
 pub(crate) mod csv_stream;
 pub mod drivers;
 pub(crate) mod from_csv_cell;
+pub(crate) mod from_json_value;
 pub(crate) mod if_exists;
 pub(crate) mod locator;
 pub(crate) mod path_or_stdio;
