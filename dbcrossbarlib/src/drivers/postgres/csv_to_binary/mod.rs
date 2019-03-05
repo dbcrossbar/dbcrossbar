@@ -7,21 +7,16 @@
 //! - https://www.postgresql.org/docs/9.4/xfunc-c.html More C type into.
 //! - https://github.com/sfackler/rust-postgres/blob/master/postgres-protocol/src/types.rs Rust implementations.
 
-use byteorder::{LittleEndian, NetworkEndian as NE, WriteBytesExt};
+use byteorder::{NetworkEndian as NE, WriteBytesExt};
 use cast;
-use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 use csv;
 use geo_types::Geometry;
-use geojson::{conversion::TryInto, GeoJson};
-use lazy_static::lazy_static;
-use regex::Regex;
 use std::{
     io::{self, prelude::*},
-    mem::size_of,
     str,
 };
 use uuid::Uuid;
-use wkb::geom_to_wkb;
 
 use crate::common::*;
 use crate::drivers::postgres_shared::{
@@ -136,111 +131,56 @@ fn scalar_to_binary(
     cell: &str,
 ) -> Result<()> {
     match data_type {
-        PgScalarDataType::Boolean => boolean_to_binary(wtr, cell),
-        PgScalarDataType::Date => date_to_binary(wtr, cell),
-        PgScalarDataType::Numeric => Err(format_err!(
-            "cannot use numeric columns with PostgreSQL yet",
-        )),
-        PgScalarDataType::Real => real_to_binary(wtr, cell),
-        PgScalarDataType::DoublePrecision => double_precision_to_binary(wtr, cell),
-        PgScalarDataType::Geometry(srid) => geometry_to_binary(wtr, *srid, cell),
-        PgScalarDataType::Smallint => smallint_to_binary(wtr, cell),
-        PgScalarDataType::Int => int_to_binary(wtr, cell),
-        PgScalarDataType::Bigint => bigint_to_binary(wtr, cell),
+        PgScalarDataType::Boolean => write_cell_as_binary::<bool>(wtr, cell),
+        PgScalarDataType::Date => write_cell_as_binary::<NaiveDate>(wtr, cell),
+        PgScalarDataType::Numeric => {
+            // The only sensible way to make this work is to port PostgresSQL's
+            // own `decimal` parser from C, because it's an unusual internal
+            // format built using very complicated parsing rules (and `numeric`
+            // needs to be a perfectly-accurate type).
+            Err(format_err!(
+                "cannot use numeric columns with PostgreSQL yet",
+            ))
+        }
+        PgScalarDataType::Real => write_cell_as_binary::<f32>(wtr, cell),
+        PgScalarDataType::DoublePrecision => write_cell_as_binary::<f64>(wtr, cell),
+        PgScalarDataType::Geometry(srid) => {
+            let geometry = Geometry::<f64>::from_csv_cell(cell)?;
+            let value = GeometryWithSrid {
+                geometry: &geometry,
+                srid: *srid,
+            };
+            value.write_binary(wtr)
+        }
+        PgScalarDataType::Smallint => write_cell_as_binary::<i16>(wtr, cell),
+        PgScalarDataType::Int => write_cell_as_binary::<i32>(wtr, cell),
+        PgScalarDataType::Bigint => write_cell_as_binary::<i64>(wtr, cell),
         PgScalarDataType::Json => Err(format_err!(
             "PostgreSQL json columns not supported (try jsonb)",
         )),
-        PgScalarDataType::Jsonb => jsonb_to_binary(wtr, cell),
-        PgScalarDataType::Text => text_to_binary(wtr, cell),
-        PgScalarDataType::TimestampWithoutTimeZone => timestamp_to_binary(wtr, cell),
-        PgScalarDataType::TimestampWithTimeZone => {
-            timestamp_with_time_zone_to_binary(wtr, cell)
+        PgScalarDataType::Jsonb => {
+            let value = RawJsonb(cell);
+            value.write_binary(wtr)
         }
-        PgScalarDataType::Uuid => uuid_to_binary(wtr, cell),
+        PgScalarDataType::Text => cell.write_binary(wtr),
+        PgScalarDataType::TimestampWithoutTimeZone => {
+            write_cell_as_binary::<NaiveDateTime>(wtr, cell)
+        }
+        PgScalarDataType::TimestampWithTimeZone => {
+            write_cell_as_binary::<DateTime<Utc>>(wtr, cell)
+        }
+        PgScalarDataType::Uuid => write_cell_as_binary::<Uuid>(wtr, cell),
     }
 }
 
-/// Convert a `boolean` column to binary.
-fn boolean_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    let value = bool::from_csv_cell(cell)?;
-    value.write_binary(wtr)
-}
-
-/// Convert a `date` column to binary.
-fn date_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    let value = NaiveDate::from_csv_cell(cell)?;
-    value.write_binary(wtr)
-}
-
-/// Convert an `real` column to binary.
-fn real_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    let value = f32::from_csv_cell(cell)?;
-    value.write_binary(wtr)
-}
-
-/// Convert a `double precision` column to binary.
-fn double_precision_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    let value = f64::from_csv_cell(cell)?;
-    value.write_binary(wtr)
-}
-
-/// Convert a `geometry` column to binary.
-fn geometry_to_binary(wtr: &mut BufferedWriter, srid: Srid, cell: &str) -> Result<()> {
-    let geometry = Geometry::<f64>::from_csv_cell(cell)?;
-    let value = GeometryWithSrid {
-        geometry: &geometry,
-        srid,
-    };
-    value.write_binary(wtr)
-}
-
-/// Convert an `smallint` column to binary.
-fn smallint_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    let value = i16::from_csv_cell(cell)?;
-    value.write_binary(wtr)
-}
-
-/// Convert an `int` column to binary.
-fn int_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    let value = i32::from_csv_cell(cell)?;
-    value.write_binary(wtr)
-}
-
-/// Convert an `bigint` column to binary.
-fn bigint_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    let value = i64::from_csv_cell(cell)?;
-    value.write_binary(wtr)
-}
-
-/// Convert a `jsonb` column to binary.
-fn jsonb_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    let value = RawJsonb(cell);
-    value.write_binary(wtr)
-}
-
-/// Convert a `text` column to binary.
-fn text_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    cell.write_binary(wtr)
-}
-
-/// Convert a `timestamp` column to binary.
-fn timestamp_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    let value = NaiveDateTime::from_csv_cell(cell)?;
-    value.write_binary(wtr)
-}
-
-/// Convert a `timestamp with time zone` column to binary.
-fn timestamp_with_time_zone_to_binary(
+/// Parse a CSV cell and write it out as a PostgreSQL binary value. This works
+/// for any type implementing `FromCsvCell` and `WriteBinary`. More complicated
+/// cases will need to do this manually.
+fn write_cell_as_binary<T: FromCsvCell + WriteBinary>(
     wtr: &mut BufferedWriter,
     cell: &str,
 ) -> Result<()> {
-    let value = DateTime::<Utc>::from_csv_cell(cell)?;
-    value.write_binary(wtr)
-}
-
-/// Convert a `uuid` column to binary.
-fn uuid_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    let value = Uuid::from_csv_cell(cell)?;
+    let value = T::from_csv_cell(cell)?;
     value.write_binary(wtr)
 }
 
