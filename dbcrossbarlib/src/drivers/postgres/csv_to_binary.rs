@@ -1,8 +1,15 @@
-//! Convert CSV data to PostgreSQL binary format.
+//! Convert CSV data to PostgreSQL `BINARY` format.
+//!
+//! For more details, see the following:
+//!
+//! - https://www.postgresql.org/docs/9.4/sql-copy.html "Binary Format"
+//! - https://github.com/postgres/postgres/tree/master/src/backend/utils/adt `*send` and `*recv`
+//! - https://www.postgresql.org/docs/9.4/xfunc-c.html More C type into.
+//! - https://github.com/sfackler/rust-postgres/blob/master/postgres-protocol/src/types.rs Rust implementations.
 
 use byteorder::{LittleEndian, NetworkEndian as NE, WriteBytesExt};
 use cast;
-use chrono::NaiveDate;
+use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use csv;
 use geo_types::Geometry;
 use geojson::{conversion::TryInto, GeoJson};
@@ -11,7 +18,7 @@ use regex::Regex;
 use std::{
     io::{self, prelude::*},
     mem::size_of,
-    str,
+    str::{self, FromStr},
 };
 use uuid::Uuid;
 use wkb::geom_to_wkb;
@@ -140,8 +147,10 @@ fn scalar_to_binary(
         )),
         PgScalarDataType::Jsonb => jsonb_to_binary(wtr, cell),
         PgScalarDataType::Text => text_to_binary(wtr, cell),
-        PgScalarDataType::TimestampWithoutTimeZone => unimplemented!(),
-        PgScalarDataType::TimestampWithTimeZone => unimplemented!(),
+        PgScalarDataType::TimestampWithoutTimeZone => timestamp_to_binary(wtr, cell),
+        PgScalarDataType::TimestampWithTimeZone => {
+            timestamp_with_time_zone_to_binary(wtr, cell)
+        }
         PgScalarDataType::Uuid => uuid_to_binary(wtr, cell),
     }
 }
@@ -263,12 +272,90 @@ fn text_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
     Ok(())
 }
 
+/// Convert a `timestamp` column to binary.
+fn timestamp_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
+    let timestamp = parse_timestamp(cell)?;
+    let epoch = NaiveDate::from_ymd(2000, 1, 1).and_hms(0, 0, 0);
+    let duration = timestamp - epoch;
+    let microseconds = duration.num_microseconds().expect("date math overflow");
+    wtr.write_len(size_of::<i64>());
+    wtr.write_i64::<NE>(microseconds)?;
+    Ok(())
+}
+
+/// Convert a `timestamp with time zone` column to binary.
+fn timestamp_with_time_zone_to_binary(
+    wtr: &mut BufferedWriter,
+    cell: &str,
+) -> Result<()> {
+    let timestamp = parse_timestamp_with_time_zone(cell)?;
+    let epoch = Utc.ymd(2000, 1, 1).and_hms(0, 0, 0);
+    let duration = timestamp - epoch;
+    let microseconds = duration.num_microseconds().expect("date math overflow");
+    wtr.write_len(size_of::<i64>());
+    wtr.write_i64::<NE>(microseconds)?;
+    Ok(())
+}
+
 /// Convert a `uuid` column to binary.
 fn uuid_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
     let uuid = cell.parse::<Uuid>()?;
     wtr.write_len(uuid.as_bytes().len())?;
     wtr.write_all(uuid.as_bytes())?;
     Ok(())
+}
+
+/// Parse a timestamp without a time zone.
+fn parse_timestamp(s: &str) -> Result<NaiveDateTime> {
+    Ok(NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f")
+        .context("error parsing timestamp")?)
+}
+
+#[test]
+fn parses_timestamp() {
+    let examples = &[
+        (
+            "1969-07-20 20:17:39",
+            NaiveDate::from_ymd(1969, 7, 20).and_hms(20, 17, 39),
+        ),
+        (
+            "1969-07-20 20:17:39.0",
+            NaiveDate::from_ymd(1969, 7, 20).and_hms(20, 17, 39),
+        ),
+    ];
+    for (s, expected) in examples {
+        let parsed = parse_timestamp(s).unwrap();
+        assert_eq!(&parsed, expected);
+    }
+}
+
+/// Parse a timestamp with a time zone.
+fn parse_timestamp_with_time_zone(s: &str) -> Result<DateTime<Utc>> {
+    let timestamp = DateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f%#z")
+        .context("error parsing timestamp")?;
+    Ok(timestamp.with_timezone(&Utc))
+}
+
+#[test]
+fn parses_timestamp_with_time_zone() {
+    let examples = &[
+        (
+            "1969-07-20 20:17:39+00",
+            Utc.ymd(1969, 7, 20).and_hms(20, 17, 39),
+        ),
+        (
+            "1969-07-20 19:17:39.0-0100",
+            Utc.ymd(1969, 7, 20).and_hms(20, 17, 39),
+        ),
+        (
+            "1969-07-20 21:17:39.0+01:00",
+            Utc.ymd(1969, 7, 20).and_hms(20, 17, 39),
+        ),
+    ];
+    for (s, expected) in examples {
+        let parsed = parse_timestamp_with_time_zone(s).unwrap();
+        assert_eq!(&parsed, expected);
+    }
 }
 
 /// Useful extensions to `Write`.
