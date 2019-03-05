@@ -7,8 +7,6 @@
 //! - https://www.postgresql.org/docs/9.4/xfunc-c.html More C type into.
 //! - https://github.com/sfackler/rust-postgres/blob/master/postgres-protocol/src/types.rs Rust implementations.
 
-#![allow(dead_code)] // Temporary while we build this.
-
 use byteorder::{NetworkEndian as NE, WriteBytesExt};
 use cast;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};

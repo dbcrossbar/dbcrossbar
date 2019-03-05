@@ -2,10 +2,11 @@
 
 use std::{io::prelude::*, str};
 
-use super::{connect, Connection};
+use super::{connect, csv_to_binary::copy_csv_to_pg_binary, Connection};
 use crate::common::*;
 use crate::drivers::postgres_shared::{Ident, PgCreateTable, PgDataType};
 use crate::tokio_glue::{run_sync_fn_in_background, SyncStreamReader};
+use crate::transform::spawn_sync_transform;
 
 /// If `table_name` exists, `DROP` it.
 fn drop_table_if_exists(
@@ -120,7 +121,6 @@ async fn copy_from_async(
     stream: Box<dyn Stream<Item = BytesMut, Error = Error> + Send + 'static>,
 ) -> Result<()> {
     await!(run_sync_fn_in_background(move || -> Result<()> {
-        debug!(ctx.log(), "copying data into table");
         let conn = connect(&url)?;
         let rdr = SyncStreamReader::new(ctx.clone(), stream);
         copy_from(&ctx, &conn, &table_name, &copy_from_sql, Box::new(rdr))?;
@@ -158,7 +158,7 @@ pub(crate) async fn write_local_data_helper(
     drop(conn);
 
     // Generate our `COPY ... FROM` SQL.
-    let copy_sql = copy_from_sql(&pg_create_table, "CSV HEADER")?;
+    let copy_sql = copy_from_sql(&pg_create_table, "BINARY")?;
 
     // Insert data streams one at a time, because parallel insertion _probably_
     // won't gain much with Postgres (but we haven't measured).
@@ -175,14 +175,26 @@ pub(crate) async fn write_local_data_helper(
                 Ok((Some(csv_stream), rest_of_stream)) => {
                     data = rest_of_stream;
 
-                    // Run our copy code in a background thread.
                     let ctx = ctx.child(o!("stream" => csv_stream.name.clone()));
+
+                    // Convert our CSV stream into a PostgreSQL `BINARY` stream.
+                    let transform_ctx = ctx.child(o!("transform" => "csv_to_binary"));
+                    let transform_table = pg_create_table.clone();
+                    let binary_stream = spawn_sync_transform(
+                        transform_ctx,
+                        csv_stream.data,
+                        move |_ctx, rdr, wtr| {
+                            copy_csv_to_pg_binary(&transform_table, rdr, wtr)
+                        },
+                    )?;
+
+                    // Run our copy code in a background thread.
                     await!(copy_from_async(
                         ctx,
                         url.clone(),
                         table_name.clone(),
                         copy_sql.clone(),
-                        csv_stream.data,
+                        binary_stream,
                     ))?;
                 }
             }

@@ -28,6 +28,7 @@ pub(crate) mod locator;
 pub(crate) mod path_or_stdio;
 pub mod schema;
 pub mod tokio_glue;
+pub(crate) mod transform;
 
 /// Standard error type for this library.
 pub use failure::Error;
