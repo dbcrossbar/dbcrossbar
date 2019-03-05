@@ -12,6 +12,7 @@ use std::{
 use crate::common::*;
 
 pub mod citus;
+mod csv_to_binary;
 mod local_data;
 mod schema;
 mod write_local_data;

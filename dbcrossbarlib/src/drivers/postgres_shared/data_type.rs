@@ -14,6 +14,11 @@ impl Srid {
     pub(crate) fn new(srid: u32) -> Srid {
         Srid(srid)
     }
+
+    /// Return our `Srid` as a `u32`.
+    pub(crate) fn to_u32(&self) -> u32 {
+        self.0
+    }
 }
 
 impl Default for Srid {
