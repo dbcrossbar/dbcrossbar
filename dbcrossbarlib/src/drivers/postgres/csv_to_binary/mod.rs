@@ -9,7 +9,7 @@
 
 use byteorder::{LittleEndian, NetworkEndian as NE, WriteBytesExt};
 use cast;
-use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use csv;
 use geo_types::Geometry;
 use geojson::{conversion::TryInto, GeoJson};
@@ -18,7 +18,7 @@ use regex::Regex;
 use std::{
     io::{self, prelude::*},
     mem::size_of,
-    str::{self, FromStr},
+    str,
 };
 use uuid::Uuid;
 use wkb::geom_to_wkb;
@@ -27,12 +27,17 @@ use crate::common::*;
 use crate::drivers::postgres_shared::{
     PgCreateTable, PgDataType, PgScalarDataType, Srid,
 };
+use crate::from_csv_cell::FromCsvCell;
+
+mod write_binary;
+
+use self::write_binary::{GeometryWithSrid, RawJsonb, WriteBinary};
 
 /// A buffered writer. Here, we know the concrete type of the outer `BufWriter`,
 /// so we can make lots of small writes efficiently. But we don't know the type of
 /// the underlying `dyn Write` implementation. This means that when we flush our
 /// writes, we'll need to pay for dynamic dispatch.
-type BufferedWriter = io::BufWriter<Box<dyn Write>>;
+pub(crate) type BufferedWriter = io::BufWriter<Box<dyn Write>>;
 
 /// Read CSV data, and write PostgreSQL `FORMAT BINARY` data, using `table` to
 /// figure out how to interpret the CSV data.
@@ -157,132 +162,71 @@ fn scalar_to_binary(
 
 /// Convert a `boolean` column to binary.
 fn boolean_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    // We use the same list of boolean expressions as
-    // https://github.com/kevincox/humanbool.rs, but we use regular expressions
-    // and do a case-insensitive match. Is this reasonably fast? We'll probably
-    // match a ton of these and we don't want to allocate memory using
-    // `to_lowercase`.
-    lazy_static! {
-        static ref TRUE_RE: Regex = Regex::new(r"^(?i)(?:1|y|yes|on|t|true)$")
-            .expect("invalid `TRUE_RE` in source");
-        static ref FALSE_RE: Regex = Regex::new(r"^(?i)(?:0|n|no|off|f|false)$")
-            .expect("invalid `TRUE_RE` in source");
-    }
-
-    let binary_bool = if TRUE_RE.is_match(cell) {
-        1
-    } else if FALSE_RE.is_match(cell) {
-        0
-    } else {
-        return Err(format_err!("cannot parse boolean {:?}", cell));
-    };
-    wtr.write_len(size_of::<u8>())?;
-    wtr.write_u8(binary_bool)?;
-    Ok(())
+    let value = bool::from_csv_cell(cell)?;
+    value.write_binary(wtr)
 }
 
 /// Convert a `date` column to binary.
 fn date_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    let d = cell.parse::<NaiveDate>()?;
-    let epoch = NaiveDate::from_ymd(2000, 1, 1);
-    let day_number = cast::i32((d - epoch).num_days())?;
-    wtr.write_len(size_of::<i32>())?;
-    wtr.write_i32::<NE>(day_number)?;
-    Ok(())
+    let value = NaiveDate::from_csv_cell(cell)?;
+    value.write_binary(wtr)
 }
 
 /// Convert an `real` column to binary.
 fn real_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    let f = cell.parse::<f32>()?;
-    wtr.write_len(size_of::<f32>())?;
-    wtr.write_f32::<NE>(f)?;
-    Ok(())
+    let value = f32::from_csv_cell(cell)?;
+    value.write_binary(wtr)
 }
 
 /// Convert a `double precision` column to binary.
 fn double_precision_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    let f = cell.parse::<f64>()?;
-    wtr.write_len(size_of::<f64>())?;
-    wtr.write_f64::<NE>(f)?;
-    Ok(())
+    let value = f64::from_csv_cell(cell)?;
+    value.write_binary(wtr)
 }
 
 /// Convert a `geometry` column to binary.
 fn geometry_to_binary(wtr: &mut BufferedWriter, srid: Srid, cell: &str) -> Result<()> {
-    // Convert our GeoJSON into standard WKB format. Unfortunately, this
-    // allocates memory, which tends to be expensive in our inner loop.
-    let geojson = cell.parse::<GeoJson>()?;
-    let wkb = if let GeoJson::Geometry(geojson_geometry) = geojson {
-        let geometry: Geometry<f64> = geojson_geometry
-            .value
-            .try_into()
-            .map_err(|e| format_err!("couldn't convert point: {}", e))?;
-        geom_to_wkb(&geometry)
-    } else {
-        panic!("expected geometry");
+    let geometry = Geometry::<f64>::from_csv_cell(cell)?;
+    let value = GeometryWithSrid {
+        geometry: &geometry,
+        srid,
     };
-
-    // Patch up our `wkb` value to use EWKB format with a SRID, which PostGIS
-    // requires. See
-    // http://trac.osgeo.org/postgis/browser/trunk/doc/ZMSgeoms.txt for details.
-    wtr.write_len(wkb.len() + 4)?;
-    wtr.write_all(&wkb[0..4])?; // These header bytes are OK.
-    wtr.write_u8(wkb[4] | 0x20)?; // Set SRID present flag.
-    wtr.write_u32::<LittleEndian>(srid.to_u32())?; // Splice in our SRID.
-    wtr.write_all(&wkb[5..])?; // And write the rest.
-    Ok(())
+    value.write_binary(wtr)
 }
 
 /// Convert an `smallint` column to binary.
 fn smallint_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    let i = cell.parse::<i16>()?;
-    wtr.write_len(size_of::<i16>())?;
-    wtr.write_i16::<NE>(i)?;
-    Ok(())
+    let value = i16::from_csv_cell(cell)?;
+    value.write_binary(wtr)
 }
 
 /// Convert an `int` column to binary.
 fn int_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    let i = cell.parse::<i32>()?;
-    wtr.write_len(size_of::<i32>())?;
-    wtr.write_i32::<NE>(i)?;
-    Ok(())
+    let value = i32::from_csv_cell(cell)?;
+    value.write_binary(wtr)
 }
 
 /// Convert an `bigint` column to binary.
 fn bigint_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    let i = cell.parse::<i64>()?;
-    wtr.write_len(size_of::<i64>())?;
-    wtr.write_i64::<NE>(i)?;
-    Ok(())
+    let value = i64::from_csv_cell(cell)?;
+    value.write_binary(wtr)
 }
 
 /// Convert a `jsonb` column to binary.
 fn jsonb_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    wtr.write_len(1 + cell.len())?;
-    wtr.write_u8(1)?; // jsonb format tag.
-    wtr.write_all(cell.as_bytes())?;
-    Ok(())
+    let value = RawJsonb(cell);
+    value.write_binary(wtr)
 }
 
 /// Convert a `text` column to binary.
 fn text_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    wtr.write_len(cell.len())?;
-    wtr.write_all(cell.as_bytes())?;
-    Ok(())
+    cell.write_binary(wtr)
 }
 
 /// Convert a `timestamp` column to binary.
 fn timestamp_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    let timestamp = parse_timestamp(cell)?;
-    let epoch = NaiveDate::from_ymd(2000, 1, 1).and_hms(0, 0, 0);
-    let duration = timestamp - epoch;
-    let microseconds = duration
-        .num_microseconds()
-        .ok_or_else(|| format_err!("date math overflow"))?;
-    wtr.write_len(size_of::<i64>());
-    wtr.write_i64::<NE>(microseconds)?;
-    Ok(())
+    let value = NaiveDateTime::from_csv_cell(cell)?;
+    value.write_binary(wtr)
 }
 
 /// Convert a `timestamp with time zone` column to binary.
@@ -290,80 +234,18 @@ fn timestamp_with_time_zone_to_binary(
     wtr: &mut BufferedWriter,
     cell: &str,
 ) -> Result<()> {
-    let timestamp = parse_timestamp_with_time_zone(cell)?;
-    let epoch = Utc.ymd(2000, 1, 1).and_hms(0, 0, 0);
-    let duration = timestamp - epoch;
-    let microseconds = duration
-        .num_microseconds()
-        .ok_or_else(|| format_err!("date math overflow"))?;
-    wtr.write_len(size_of::<i64>());
-    wtr.write_i64::<NE>(microseconds)?;
-    Ok(())
+    let value = DateTime::<Utc>::from_csv_cell(cell)?;
+    value.write_binary(wtr)
 }
 
 /// Convert a `uuid` column to binary.
 fn uuid_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
-    let uuid = cell.parse::<Uuid>()?;
-    wtr.write_len(uuid.as_bytes().len())?;
-    wtr.write_all(uuid.as_bytes())?;
-    Ok(())
-}
-
-/// Parse a timestamp without a time zone.
-fn parse_timestamp(s: &str) -> Result<NaiveDateTime> {
-    Ok(NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f")
-        .context("error parsing timestamp")?)
-}
-
-#[test]
-fn parses_timestamp() {
-    let examples = &[
-        (
-            "1969-07-20 20:17:39",
-            NaiveDate::from_ymd(1969, 7, 20).and_hms(20, 17, 39),
-        ),
-        (
-            "1969-07-20 20:17:39.0",
-            NaiveDate::from_ymd(1969, 7, 20).and_hms(20, 17, 39),
-        ),
-    ];
-    for (s, expected) in examples {
-        let parsed = parse_timestamp(s).unwrap();
-        assert_eq!(&parsed, expected);
-    }
-}
-
-/// Parse a timestamp with a time zone.
-fn parse_timestamp_with_time_zone(s: &str) -> Result<DateTime<Utc>> {
-    let timestamp = DateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f%#z")
-        .context("error parsing timestamp")?;
-    Ok(timestamp.with_timezone(&Utc))
-}
-
-#[test]
-fn parses_timestamp_with_time_zone() {
-    let examples = &[
-        (
-            "1969-07-20 20:17:39+00",
-            Utc.ymd(1969, 7, 20).and_hms(20, 17, 39),
-        ),
-        (
-            "1969-07-20 19:17:39.0-0100",
-            Utc.ymd(1969, 7, 20).and_hms(20, 17, 39),
-        ),
-        (
-            "1969-07-20 21:17:39.0+01:00",
-            Utc.ymd(1969, 7, 20).and_hms(20, 17, 39),
-        ),
-    ];
-    for (s, expected) in examples {
-        let parsed = parse_timestamp_with_time_zone(s).unwrap();
-        assert_eq!(&parsed, expected);
-    }
+    let value = Uuid::from_csv_cell(cell)?;
+    value.write_binary(wtr)
 }
 
 /// Useful extensions to `Write`.
-trait WriteExt {
+pub(crate) trait WriteExt {
     /// Write the length of a PostgreSQL value.
     fn write_len(&mut self, len: usize) -> Result<()>;
 
