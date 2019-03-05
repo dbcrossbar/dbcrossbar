@@ -7,7 +7,7 @@ use std::mem::{size_of, size_of_val};
 use uuid::Uuid;
 use wkb::geom_to_wkb;
 
-use super::{BufferedWriter, WriteExt};
+use super::WriteExt;
 use crate::common::*;
 use crate::drivers::postgres_shared::Srid;
 
@@ -25,11 +25,11 @@ pub(crate) struct GeometryWithSrid<'a> {
 /// Write a value in PostgreSQL `BINARY` format.
 pub(crate) trait WriteBinary {
     /// Write this value to `f` in PostgreSQL `BINARY` format.
-    fn write_binary(&self, wtr: &mut BufferedWriter) -> Result<()>;
+    fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()>;
 }
 
 impl WriteBinary for bool {
-    fn write_binary(&self, wtr: &mut BufferedWriter) -> Result<()> {
+    fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         wtr.write_len(size_of::<u8>())?;
         wtr.write_u8(match self {
             true => 1,
@@ -40,7 +40,7 @@ impl WriteBinary for bool {
 }
 
 impl WriteBinary for NaiveDate {
-    fn write_binary(&self, wtr: &mut BufferedWriter) -> Result<()> {
+    fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         let epoch = NaiveDate::from_ymd(2000, 1, 1);
         let day_number = cast::i32((*self - epoch).num_days())?;
         wtr.write_len(size_of_val(&day_number))?;
@@ -50,7 +50,7 @@ impl WriteBinary for NaiveDate {
 }
 
 impl WriteBinary for f32 {
-    fn write_binary(&self, wtr: &mut BufferedWriter) -> Result<()> {
+    fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         wtr.write_len(size_of_val(self))?;
         wtr.write_f32::<NE>(*self)?;
         Ok(())
@@ -58,7 +58,7 @@ impl WriteBinary for f32 {
 }
 
 impl WriteBinary for f64 {
-    fn write_binary(&self, wtr: &mut BufferedWriter) -> Result<()> {
+    fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         wtr.write_len(size_of_val(self))?;
         wtr.write_f64::<NE>(*self)?;
         Ok(())
@@ -66,7 +66,7 @@ impl WriteBinary for f64 {
 }
 
 impl<'a> WriteBinary for GeometryWithSrid<'a> {
-    fn write_binary(&self, wtr: &mut BufferedWriter) -> Result<()> {
+    fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         // Serialize our geometry in `wkb` format. Unfortunately,
         // this allocates.
         let wkb = geom_to_wkb(&self.geometry);
@@ -84,7 +84,7 @@ impl<'a> WriteBinary for GeometryWithSrid<'a> {
 }
 
 impl WriteBinary for i16 {
-    fn write_binary(&self, wtr: &mut BufferedWriter) -> Result<()> {
+    fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         wtr.write_len(size_of_val(self))?;
         wtr.write_i16::<NE>(*self)?;
         Ok(())
@@ -92,7 +92,7 @@ impl WriteBinary for i16 {
 }
 
 impl WriteBinary for i32 {
-    fn write_binary(&self, wtr: &mut BufferedWriter) -> Result<()> {
+    fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         wtr.write_len(size_of_val(self))?;
         wtr.write_i32::<NE>(*self)?;
         Ok(())
@@ -100,7 +100,7 @@ impl WriteBinary for i32 {
 }
 
 impl WriteBinary for i64 {
-    fn write_binary(&self, wtr: &mut BufferedWriter) -> Result<()> {
+    fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         wtr.write_len(size_of_val(self))?;
         wtr.write_i64::<NE>(*self)?;
         Ok(())
@@ -108,7 +108,7 @@ impl WriteBinary for i64 {
 }
 
 impl<'a> WriteBinary for RawJsonb<'a> {
-    fn write_binary(&self, wtr: &mut BufferedWriter) -> Result<()> {
+    fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         wtr.write_len(1 + self.0.len())?;
         wtr.write_u8(1)?; // jsonb format tag.
         wtr.write_all(self.0.as_bytes())?;
@@ -117,7 +117,7 @@ impl<'a> WriteBinary for RawJsonb<'a> {
 }
 
 impl<'a> WriteBinary for &'a str {
-    fn write_binary(&self, wtr: &mut BufferedWriter) -> Result<()> {
+    fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         wtr.write_len(self.len())?;
         wtr.write_all(self.as_bytes())?;
         Ok(())
@@ -125,7 +125,7 @@ impl<'a> WriteBinary for &'a str {
 }
 
 impl<'a> WriteBinary for NaiveDateTime {
-    fn write_binary(&self, wtr: &mut BufferedWriter) -> Result<()> {
+    fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         let epoch = NaiveDate::from_ymd(2000, 1, 1).and_hms(0, 0, 0);
         let duration = *self - epoch;
         let microseconds = duration
@@ -138,7 +138,7 @@ impl<'a> WriteBinary for NaiveDateTime {
 }
 
 impl<'a> WriteBinary for DateTime<Utc> {
-    fn write_binary(&self, wtr: &mut BufferedWriter) -> Result<()> {
+    fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         let epoch = Utc.ymd(2000, 1, 1).and_hms(0, 0, 0);
         let duration = *self - epoch;
         let microseconds = duration
@@ -151,7 +151,7 @@ impl<'a> WriteBinary for DateTime<Utc> {
 }
 
 impl WriteBinary for Uuid {
-    fn write_binary(&self, wtr: &mut BufferedWriter) -> Result<()> {
+    fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         wtr.write_len(self.as_bytes().len())?;
         wtr.write_all(self.as_bytes())?;
         Ok(())

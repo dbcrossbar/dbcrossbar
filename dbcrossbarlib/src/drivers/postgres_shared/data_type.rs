@@ -16,7 +16,7 @@ impl Srid {
     }
 
     /// Return our `Srid` as a `u32`.
-    pub(crate) fn to_u32(&self) -> u32 {
+    pub(crate) fn to_u32(self) -> u32 {
         self.0
     }
 }
@@ -213,6 +213,31 @@ impl PgScalarDataType {
                 Ok(DataType::TimestampWithTimeZone)
             }
             PgScalarDataType::Uuid => Ok(DataType::Uuid),
+        }
+    }
+
+    /// See [this list of types and OIDs][types].
+    ///
+    /// [types]: https://github.com/postgres/postgres/blob/master/src/include/catalog/pg_type.dat
+    pub(crate) fn oid(&self) -> Result<i32> {
+        match self {
+            PgScalarDataType::Boolean => Ok(16),
+            PgScalarDataType::Date => Ok(1082),
+            PgScalarDataType::Numeric => Ok(1700),
+            PgScalarDataType::Real => Ok(700),
+            PgScalarDataType::DoublePrecision => Ok(701),
+            PgScalarDataType::Geometry(_) => Err(format_err!(
+                "don't know the PostgreSQL OID for type `geometry`"
+            )),
+            PgScalarDataType::Smallint => Ok(21),
+            PgScalarDataType::Int => Ok(23),
+            PgScalarDataType::Bigint => Ok(20),
+            PgScalarDataType::Json => Ok(114),
+            PgScalarDataType::Jsonb => Ok(3802),
+            PgScalarDataType::Text => Ok(25),
+            PgScalarDataType::TimestampWithoutTimeZone => Ok(1114),
+            PgScalarDataType::TimestampWithTimeZone => Ok(1184),
+            PgScalarDataType::Uuid => Ok(2950),
         }
     }
 }

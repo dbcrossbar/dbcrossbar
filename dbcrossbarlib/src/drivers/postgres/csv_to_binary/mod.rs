@@ -7,11 +7,14 @@
 //! - https://www.postgresql.org/docs/9.4/xfunc-c.html More C type into.
 //! - https://github.com/sfackler/rust-postgres/blob/master/postgres-protocol/src/types.rs Rust implementations.
 
+#![allow(dead_code)] // Temporary while we build this.
+
 use byteorder::{NetworkEndian as NE, WriteBytesExt};
 use cast;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 use csv;
 use geo_types::Geometry;
+use serde_json::Value;
 use std::{
     io::{self, prelude::*},
     str,
@@ -19,10 +22,9 @@ use std::{
 use uuid::Uuid;
 
 use crate::common::*;
-use crate::drivers::postgres_shared::{
-    PgCreateTable, PgDataType, PgScalarDataType, Srid,
-};
+use crate::drivers::postgres_shared::{PgCreateTable, PgDataType, PgScalarDataType};
 use crate::from_csv_cell::FromCsvCell;
+use crate::from_json_value::FromJsonValue;
 
 mod write_binary;
 
@@ -121,7 +123,116 @@ fn array_to_binary(
     data_type: &PgScalarDataType,
     cell: &str,
 ) -> Result<()> {
-    unimplemented!()
+    // TODO: For now, we can only handle single-dimensional arrays.
+    // Multidimensional arrays would require us to figure out things like
+    // `[[1,2], [3]]` and what order to serialize nested elements in.
+    if dimension_count != 1 {
+        return Err(format_err!(
+            "arrays with {} dimensions cannot yet be written to PostgreSQL",
+            dimension_count,
+        ));
+    }
+
+    // Parse our cell into a JSON value.
+    let json = serde_json::from_str(cell).context("cannot parse JSON")?;
+    let json_array = match json {
+        Value::Array(json_array) => json_array,
+        other => return Err(format_err!("expected JSON array, found {}", other)),
+    };
+
+    // Write our array, using `write_value` to calculate the total length.
+    let mut buffer = vec![];
+    wtr.write_value(&mut buffer, |wtr| {
+        // The number of dimensions in our array.
+        wtr.write_i32::<NE>(dimension_count)?;
+
+        // Has NULL? (I'm not sure what this does, but I figure it's safer
+        // to assume we might have NULLs than otherwise.)
+        wtr.write_i32::<NE>(1)?;
+
+        // The OID for our `data_type`, so PostgreSQL knows how to parse this.
+        wtr.write_i32::<NE>(data_type.oid()?)?;
+
+        // Dimension 1: Size.
+        wtr.write_i32::<NE>(cast::i32(json_array.len())?)?;
+
+        // Dimension 1: Lower bound. We want 1-based, because that's the default
+        // in PostgreSQL.
+        wtr.write_i32::<NE>(1)?;
+
+        // Elements.
+        for elem in &json_array {
+            match elem {
+                Value::Null => {
+                    wtr.write_i32::<NE>(-1)?;
+                }
+                other => {
+                    json_to_binary(wtr, data_type, other)?;
+                }
+            }
+        }
+
+        Ok(())
+    })?;
+    Ok(())
+}
+
+/// Interpret a JSON value as `data_type` and write it out as a `BINARY` value.
+fn json_to_binary<W: Write>(
+    wtr: &mut W,
+    data_type: &PgScalarDataType,
+    json: &Value,
+) -> Result<()> {
+    match data_type {
+        PgScalarDataType::Boolean => write_json_as_binary::<bool, W>(wtr, json),
+        PgScalarDataType::Date => write_json_as_binary::<NaiveDate, W>(wtr, json),
+        PgScalarDataType::Numeric => Err(format_err!(
+            "cannot use `numeric` arrays with PostgreSQL yet",
+        )),
+        PgScalarDataType::Real => write_json_as_binary::<f32, W>(wtr, json),
+        PgScalarDataType::DoublePrecision => write_json_as_binary::<f64, W>(wtr, json),
+        PgScalarDataType::Geometry(srid) => {
+            let geometry = Geometry::<f64>::from_json_value(json)?;
+            let value = GeometryWithSrid {
+                geometry: &geometry,
+                srid: *srid,
+            };
+            value.write_binary(wtr)
+        }
+        PgScalarDataType::Smallint => write_json_as_binary::<i16, W>(wtr, json),
+        PgScalarDataType::Int => write_json_as_binary::<i32, W>(wtr, json),
+        PgScalarDataType::Bigint => write_json_as_binary::<i64, W>(wtr, json),
+        PgScalarDataType::Json => Err(format_err!(
+            "PostgreSQL arrays with json elements not supported (try jsonb)",
+        )),
+        PgScalarDataType::Jsonb => {
+            let serialized = serde_json::to_string(json)?;
+            RawJsonb(&serialized).write_binary(wtr)
+        }
+        PgScalarDataType::Text => match json {
+            Value::String(s) => s.as_str().write_binary(wtr),
+            _ => Err(format_err!("expected JSON string, found {}", json)),
+        },
+        PgScalarDataType::TimestampWithoutTimeZone => {
+            write_json_as_binary::<NaiveDateTime, W>(wtr, json)
+        }
+        PgScalarDataType::TimestampWithTimeZone => {
+            write_json_as_binary::<DateTime<Utc>, W>(wtr, json)
+        }
+        PgScalarDataType::Uuid => write_json_as_binary::<Uuid, W>(wtr, json),
+    }
+}
+
+/// Parse a JSON value and write it out as a PostgreSQL binary value. This works
+/// for any type implementing `FromJsonValue` and `WriteBinary`. More
+/// complicated cases will need to do this manually.
+fn write_json_as_binary<T, W>(wtr: &mut W, json: &Value) -> Result<()>
+where
+    T: FromJsonValue + WriteBinary,
+    W: Write,
+{
+    let value = T::from_json_value(json)?;
+    value.write_binary(wtr)
 }
 
 /// Convert a scalar value from a CSV file into a `BINARY` value.
@@ -197,7 +308,7 @@ pub(crate) trait WriteExt {
     /// over terabytes of data.
     fn write_value<F>(&mut self, buffer: &mut Vec<u8>, f: F) -> Result<()>
     where
-        F: FnOnce(&dyn Write) -> Result<()>;
+        F: FnOnce(&mut Vec<u8>) -> Result<()>;
 }
 
 impl<'a, W: Write + 'a> WriteExt for W {
@@ -208,7 +319,7 @@ impl<'a, W: Write + 'a> WriteExt for W {
 
     fn write_value<F>(&mut self, buffer: &mut Vec<u8>, f: F) -> Result<()>
     where
-        F: FnOnce(&dyn Write) -> Result<()>,
+        F: FnOnce(&mut Vec<u8>) -> Result<()>,
     {
         assert!(buffer.is_empty());
         let result = f(buffer);
