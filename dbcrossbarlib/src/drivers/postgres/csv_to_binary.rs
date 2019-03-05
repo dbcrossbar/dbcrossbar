@@ -216,7 +216,7 @@ fn geometry_to_binary(wtr: &mut BufferedWriter, srid: Srid, cell: &str) -> Resul
         let geometry: Geometry<f64> = geojson_geometry
             .value
             .try_into()
-            .expect("couldn't convert point");
+            .map_err(|e| format_err!("couldn't convert point: {}", e))?;
         geom_to_wkb(&geometry)
     } else {
         panic!("expected geometry");
@@ -277,7 +277,9 @@ fn timestamp_to_binary(wtr: &mut BufferedWriter, cell: &str) -> Result<()> {
     let timestamp = parse_timestamp(cell)?;
     let epoch = NaiveDate::from_ymd(2000, 1, 1).and_hms(0, 0, 0);
     let duration = timestamp - epoch;
-    let microseconds = duration.num_microseconds().expect("date math overflow");
+    let microseconds = duration
+        .num_microseconds()
+        .ok_or_else(|| format_err!("date math overflow"))?;
     wtr.write_len(size_of::<i64>());
     wtr.write_i64::<NE>(microseconds)?;
     Ok(())
@@ -291,7 +293,9 @@ fn timestamp_with_time_zone_to_binary(
     let timestamp = parse_timestamp_with_time_zone(cell)?;
     let epoch = Utc.ymd(2000, 1, 1).and_hms(0, 0, 0);
     let duration = timestamp - epoch;
-    let microseconds = duration.num_microseconds().expect("date math overflow");
+    let microseconds = duration
+        .num_microseconds()
+        .ok_or_else(|| format_err!("date math overflow"))?;
     wtr.write_len(size_of::<i64>());
     wtr.write_i64::<NE>(microseconds)?;
     Ok(())
