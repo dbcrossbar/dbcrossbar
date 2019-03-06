@@ -2,20 +2,60 @@
 
 [![Build Status](https://travis-ci.org/faradayio/dbcrossbar.svg)](https://travis-ci.org/faradayio/dbcrossbar)
 
-This tool is intended to help convert between schema formats. It's still very incomplete. Right now, `dbcrossbar` is most useful for moving data from PostgreSQL to Google's BigQuery.
+This tool is intended to help move large data sets between differnt databases and storage formats. It's still very incomplete, but it already has partial support for:
 
-## What we currently support
+- CSV files.
+- `gs://` URLs.
+- BigQuery tables
+- PostgreSQL tables.
 
-We currently support many small pieces which are helpful when converting from PostgreSQL to BigQuery:
+Some examples:
 
-- Parsing (some) Postgre `CREATE TABLE` statements, or extracting schemas from `information_schema.columns` in a running database.
-- Generating SQL to dump a Postgres table as CSV.
-- Generating a "temporary" BigQuery JSON schema allowing the CSV to be loaded into BigQuery.
-- Generating BigQuery SQL to tranform the temporary table into a final table, parsing any data types which can't be directly loaded from SQL.
-- Generating a BigQuery JSON schema for the final table. This isn't normally necessary, but it's nice to have for the sake of completeness.
-- Transforming the schema in several ways.
+```sh
+# Copy from a CSV file to a PostgreSQL table.
+dbcrossbar cp \
+    --if-exists=overwrite \
+    --schema=postgres-sql:my-table.sql \
+    csv:input.csv \
+    'postgres://localhost:5432/my_db#my_table'
 
-However, we do not yet have any higher-level interface that just transfers data directly.
+# Copy from a PostgreSQL table to a `gs://` bucket.
+dbcrossbar cp \
+    --if-exists=overwrite \
+    'postgres://localhost:5432/my_db#my_table' \
+    gs://$MY_BUCKET/data/
+
+# Copy from `gs://` to BigQuery
+dbcrossbar cp \
+    --if-exists=overwrite \
+    --schema=postgres-sql:my-table.sql \
+    gs://$MY_BUCKET/data/ \
+    bigquery:$MY_PROJECT:example.my_table
+
+# Copy from `gs://` to CSV.
+dbcrossbar cp \
+    --schema=postgres-sql:my-table.sql \
+    gs://$MY_BUCKET/data/ \
+    csv:out/
+```
+
+It can also convert between table schema formats, include PostgreSQL `CREATE TABLE` statements and BigQuery JSON schemas:
+
+```sh
+# Convert a PostgreSQL `CREATE TABLE` statement to a BigQuery JSON schema.
+dbcrossbar conv postgres-sql:my_table.sql bigquery-schema:my_table.json
+
+# Extract a schema from a CSV file and convert to Postgres `CREATE TABLE`.
+dbcrossbar conv csv:data.csv postgres-sql:schema.sql
+```
+
+Right now, certain drivers still have restrictions on what column types are supported, and whether they operate on one or many files.
+
+## Architecture
+
+`dbcrossbar` is written using nightly Rust, including `tokio`, `async` and `await!`. It uses multiple CSV streams to transfer data between databases.
+
+It uses a very specific "interchange CSV" format, supporting the types listed in [`schema.rs`](./dbcrossbarlib/src/schema.rs). In a few cases, it supports purely cloud-based transfers, such as when importing `gs://**/*.csv` URLs into BigQuery.
 
 ## Installation
 

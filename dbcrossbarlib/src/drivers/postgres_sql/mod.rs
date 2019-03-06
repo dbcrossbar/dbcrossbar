@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::common::*;
-use crate::drivers::postgres_shared::{parse_create_table, write_create_table};
+use crate::drivers::postgres_shared::PgCreateTable;
 
 /// URL scheme for `PostgresSqlLocator`.
 pub(crate) const POSTGRES_SQL_SCHEME: &str = "postgres-sql:";
@@ -43,7 +43,9 @@ impl Locator for PostgresSqlLocator {
         input
             .read_to_string(&mut sql)
             .with_context(|_| format!("error reading {}", self.path))?;
-        Ok(Some(parse_create_table(&sql)?))
+        let pg_create_table: PgCreateTable = sql.parse()?;
+        let table = pg_create_table.to_table()?;
+        Ok(Some(table))
     }
 
     fn write_schema(
@@ -52,10 +54,13 @@ impl Locator for PostgresSqlLocator {
         table: &Table,
         if_exists: IfExists,
     ) -> Result<()> {
+        // TODO: We use the existing `table.name` here, but this might produce
+        // odd results if the input table comes from BigQuery or another
+        // database with a very different naming scheme.
+        let pg_create_table =
+            PgCreateTable::from_name_and_columns(table.name.clone(), &table.columns)?;
         let mut out = self.path.create_sync(ctx, if_exists)?;
-        // The passed-in `if_exists` applies to our output SQL file, not to whether
-        // our generated schema contains `DROP TABLE ... IF EXISTS`.
-        write_create_table(&mut out, table, IfExists::Error)
+        write!(out, "{}", pg_create_table)
             .with_context(|_| format!("error writing {}", self.path))?;
         Ok(())
     }

@@ -12,9 +12,13 @@ use std::{
 use crate::common::*;
 
 pub mod citus;
+mod csv_to_binary;
 mod local_data;
 mod schema;
 mod write_local_data;
+
+use self::local_data::local_data_helper;
+use self::write_local_data::write_local_data_helper;
 
 /// Connect to the database, using SSL if possible. If `?ssl=true` is set in the
 /// URL, require SSL.
@@ -87,18 +91,8 @@ impl Locator for PostgresLocator {
         ctx: Context,
         schema: Table,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        debug!(
-            ctx.log(),
-            "reading data from {} table {}", self.url, self.table_name
-        );
-
-        // Use the source table name instead of the schema table name, in case
-        // they differ.
-        let mut new_schema = schema.to_owned();
-        new_schema.name = self.table_name.clone();
-        trace!(ctx.log(), "using schema {:?}", new_schema);
-        let url = self.url.clone();
-        local_data_helper(ctx, url, new_schema).into_boxed()
+        local_data_helper(ctx, self.url.clone(), self.table_name.clone(), schema)
+            .into_boxed()
     }
 
     fn write_local_data(
@@ -108,31 +102,14 @@ impl Locator for PostgresLocator {
         data: BoxStream<CsvStream>,
         if_exists: IfExists,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
-        debug!(
-            ctx.log(),
-            "writing data to {} table {}", self.url, self.table_name
-        );
-
-        // Use the destination table name instead of the source name.
-        let mut new_schema = schema.to_owned();
-        new_schema.name = self.table_name.clone();
-        write_local_data::copy_in_table(
+        write_local_data_helper(
             ctx,
             self.url.clone(),
-            new_schema,
+            self.table_name.clone(),
+            schema,
             data,
             if_exists,
         )
         .into_boxed()
     }
-}
-
-async fn local_data_helper(
-    ctx: Context,
-    url: Url,
-    schema: Table,
-) -> Result<Option<BoxStream<CsvStream>>> {
-    let stream = local_data::copy_out_table(ctx, &url, &schema)?;
-    let box_stream: BoxStream<CsvStream> = Box::new(stream::once(Ok(stream)));
-    Ok(Some(box_stream))
 }

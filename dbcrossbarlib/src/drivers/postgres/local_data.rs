@@ -1,24 +1,31 @@
 //! Support for reading data from a PostgreSQL table.
 
-use std::{io::Write, thread};
+use std::thread;
 
 use super::connect;
 use crate::common::*;
-use crate::schema::DataType;
+use crate::drivers::postgres_shared::PgCreateTable;
 use crate::tokio_glue::SyncStreamWriter;
 
 /// Copy the specified table from the database, returning a `CsvStream`.
-pub(crate) fn copy_out_table(
+pub(crate) async fn local_data_helper(
     ctx: Context,
-    url: &Url,
-    table: &Table,
-) -> Result<CsvStream> {
+    url: Url,
+    table_name: String,
+    schema: Table,
+) -> Result<Option<BoxStream<CsvStream>>> {
+    // Set up our logger.
     let ctx =
-        ctx.child(o!("stream" => table.name.clone(), "table" => table.name.clone()));
+        ctx.child(o!("stream" => table_name.clone(), "table" => table_name.clone()));
+    debug!(ctx.log(), "reading data from {} table {}", url, table_name);
+
+    // Convert our schema to a native PostgreSQL schema.
+    let pg_create_table =
+        PgCreateTable::from_name_and_columns(table_name.clone(), &schema.columns)?;
 
     // Generate SQL for query.
     let mut sql_bytes: Vec<u8> = vec![];
-    write_select(&mut sql_bytes, &table)?;
+    pg_create_table.write_export_sql(&mut sql_bytes)?;
     let sql = String::from_utf8(sql_bytes).expect("should always be UTF-8");
 
     // Use `pipe` and a background thread to convert a `Write` to `Read`.
@@ -42,45 +49,10 @@ pub(crate) fn copy_out_table(
         }
     });
 
-    Ok(CsvStream {
-        name: table.name.clone(),
+    let csv_stream = CsvStream {
+        name: table_name.clone(),
         data: Box::new(stream),
-    })
-}
-
-/// Generate a complete `SELECT` statement which outputs the table as CSV,
-/// in a format that can likely be imported by other database.
-fn write_select(f: &mut dyn Write, table: &Table) -> Result<()> {
-    write!(f, "COPY (SELECT ")?;
-    write_select_args(f, table)?;
-    write!(f, " FROM {:?}", table.name)?;
-    write!(f, ") TO STDOUT WITH CSV HEADER")?;
-    Ok(())
-}
-
-/// Write out a table's column names as `SELECT` arguments.
-fn write_select_args(f: &mut dyn Write, table: &Table) -> Result<()> {
-    let mut first: bool = true;
-    for col in &table.columns {
-        if first {
-            first = false;
-        } else {
-            write!(f, ",")?;
-        }
-        match &col.data_type {
-            DataType::Array(_) => {
-                write!(f, "array_to_json({:?}) AS {:?}", col.name, col.name)?;
-            }
-            DataType::GeoJson => {
-                // Always transform to SRID 4326.
-                write!(
-                    f,
-                    "ST_AsGeoJSON(ST_Transform({:?}, 4326)) AS {:?}",
-                    col.name, col.name,
-                )?;
-            }
-            _ => write!(f, "{:?}", col.name)?,
-        }
-    }
-    Ok(())
+    };
+    let box_stream: BoxStream<CsvStream> = Box::new(stream::once(Ok(csv_stream)));
+    Ok(Some(box_stream))
 }

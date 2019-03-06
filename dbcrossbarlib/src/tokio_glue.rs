@@ -3,7 +3,7 @@
 //! This is mostly smaller things that happen to recur in our particular
 //! application.
 
-use std::{cmp::min, future::Future as StdFuture};
+use std::{cmp::min, future::Future as StdFuture, thread};
 use tokio::io;
 use tokio_async_await::compat;
 
@@ -338,12 +338,52 @@ impl Read for SyncStreamReader {
     }
 }
 
-// Given a `value`, create a boxed stream which returns just that single value.
+/// Given a `value`, create a boxed stream which returns just that single value.
 pub(crate) fn box_stream_once<T>(value: Result<T>) -> BoxStream<T>
 where
     T: Send + 'static,
 {
     Box::new(stream::once(value))
+}
+
+/// Run a synchronous function `f` in a background worker thread and return its
+/// value.
+pub(crate) async fn run_sync_fn_in_background<F, T>(f: F) -> Result<T>
+where
+    F: (FnOnce() -> Result<T>) + Send + 'static,
+    T: Send + 'static,
+{
+    // Spawn a worker thread outside our thread pool to do the actual work.
+    let (sender, receiver) = mpsc::channel(1);
+    let handle = thread::spawn(move || {
+        sender
+            .send(f())
+            .wait()
+            .expect("should always be able to send results from background thread");
+    });
+
+    // Wait for our worker to report its results.
+    let background_result = await!(receiver.into_future());
+    let result = match background_result {
+        // The background thread sent an `Ok`.
+        Ok((Some(Ok(value)), _receiver)) => Ok(value),
+        // The background thread sent an `Err`.
+        Ok((Some(Err(err)), _receiver)) => Err(err),
+        // The background thread exitted without sending anything. This
+        // shouldn't happen.
+        Ok((None, _receiver)) => {
+            unreachable!("background thread did not send any results");
+        }
+        // We couldn't read a result from the background thread, probably
+        // because it panicked.
+        Err(_) => Err(format_err!("background thread panicked")),
+    };
+
+    // Block until our worker exits. This is a synchronous block in an
+    // asynchronous task, but the background worker already reported its result,
+    // so the wait should be short.
+    handle.join().expect("background worker thread panicked");
+    result
 }
 
 // Convert an `async fn() -> Result<R>` to an equivalent `tokio` function
