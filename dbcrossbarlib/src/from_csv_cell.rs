@@ -31,7 +31,7 @@ impl FromCsvCell for bool {
             static ref TRUE_RE: Regex = Regex::new(r"^(?i)(?:1|y|yes|on|t|true)$")
                 .expect("invalid `TRUE_RE` in source");
             static ref FALSE_RE: Regex = Regex::new(r"^(?i)(?:0|n|no|off|f|false)$")
-                .expect("invalid `TRUE_RE` in source");
+                .expect("invalid `FALSE_RE` in source");
         }
 
         if TRUE_RE.is_match(cell) {
@@ -147,7 +147,7 @@ impl FromCsvCell for i32 {
     fn from_csv_cell(cell: &str) -> Result<Self> {
         Ok(cell
             .parse::<i32>()
-            .with_context(|_| format!("cannot parse {:?} as i64", cell))?)
+            .with_context(|_| format!("cannot parse {:?} as i32", cell))?)
     }
 }
 

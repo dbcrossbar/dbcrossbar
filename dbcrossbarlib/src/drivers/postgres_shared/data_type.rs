@@ -23,7 +23,9 @@ impl Srid {
 
 impl Default for Srid {
     fn default() -> Self {
-        // The one true SRID.
+        // The one true SRID (WGS84), according to our GIS folks. This "measures
+        // things in degrees," and it's the coordinate system supported by
+        // BigQuery.
         Srid(4326)
     }
 }

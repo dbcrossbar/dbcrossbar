@@ -121,9 +121,9 @@ fn array_to_binary(
     data_type: &PgScalarDataType,
     cell: &str,
 ) -> Result<()> {
-    // TODO: For now, we can only handle single-dimensional arrays.
-    // Multidimensional arrays would require us to figure out things like
-    // `[[1,2], [3]]` and what order to serialize nested elements in.
+    // TODO: For now, we can only handle single-dimensional arrays like
+    // `[1,2,3]`. Multidimensional arrays would require us to figure out things
+    // like `[[1,2], [3]]` and what order to serialize nested elements in.
     if dimension_count != 1 {
         return Err(format_err!(
             "arrays with {} dimensions cannot yet be written to PostgreSQL",
@@ -151,10 +151,10 @@ fn array_to_binary(
         // The OID for our `data_type`, so PostgreSQL knows how to parse this.
         wtr.write_i32::<NE>(data_type.oid()?)?;
 
-        // Dimension 1: Size.
+        // Array dimension 1 of 1: Size.
         wtr.write_i32::<NE>(cast::i32(json_array.len())?)?;
 
-        // Dimension 1: Lower bound. We want 1-based, because that's the default
+        // Array dimension 1 of 1: Lower bound. We want 1-based, because that's the default
         // in PostgreSQL.
         wtr.write_i32::<NE>(1)?;
 
