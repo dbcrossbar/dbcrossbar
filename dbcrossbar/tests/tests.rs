@@ -141,6 +141,8 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     let pg_table = post_test_table_url("cp_csv_to_postgres_to_gs_to_csv");
     let gs_dir = gs_test_dir_url("cp_csv_to_postgres_to_gs_to_csv");
     let bq_table = bq_test_table("cp_csv_to_postgres_to_gs_to_csv");
+    let gs_dir_2 = gs_test_dir_url("cp_csv_to_postgres_to_gs_to_csv_2");
+    let pg_table_2 = post_test_table_url("cp_csv_to_postgres_to_gs_to_csv_2");
 
     // CSV to Postgres.
     testdir
@@ -168,7 +170,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
         .tee_output()
         .expect_success();
 
-    // TEMP: gs:// to CSV, but ignore output until we can grab it back.
+    // gs:// to BigQuery.
     testdir
         .cmd()
         .args(&[
@@ -181,13 +183,40 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
         .tee_output()
         .expect_success();
 
-    // gs:// to CSV.
+    // BigQuery to gs://.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &bq_table,
+            &gs_dir_2,
+        ])
+        .tee_output()
+        .expect_success();
+
+    // gs:// back to PostgreSQL. (Mostly because we'll need a PostgreSQL-generated
+    // CSV file for the final comparison below.)
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &gs_dir_2,
+            &pg_table_2,
+        ])
+        .tee_output()
+        .expect_success();
+
+    // PostgreSQL back to CSV for the final comparison below.
     testdir
         .cmd()
         .args(&[
             "cp",
             &format!("--schema=postgres-sql:{}", schema.display()),
-            &gs_dir,
+            &pg_table_2,
             "csv:out/",
         ])
         .tee_output()
@@ -195,7 +224,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
 
     let expected = fs::read_to_string(&src).unwrap();
     let actual =
-        fs::read_to_string(testdir.path("out/cp_csv_to_postgres_to_gs_to_csv.csv"))
+        fs::read_to_string(testdir.path("out/cp_csv_to_postgres_to_gs_to_csv_2.csv"))
             .unwrap();
     assert_diff(&expected, &actual, ",", 0);
 }

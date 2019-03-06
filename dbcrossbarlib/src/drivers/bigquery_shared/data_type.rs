@@ -58,6 +58,14 @@ impl BqDataType {
                 Ok(BqDataType::NonArray(BqNonArrayDataType::String))
             }
             (DataType::Array(nested), _) => {
+                match nested.as_ref() {
+                    DataType::Json => {
+                        return Err(format_err!(
+                            "cannot represent arrays of JSON in BigQuery yet"
+                        ));
+                    }
+                    _ => {}
+                }
                 let bq_nested = BqNonArrayDataType::for_data_type(nested, usage)?;
                 Ok(BqDataType::Array(bq_nested))
             }
@@ -161,8 +169,8 @@ impl BqNonArrayDataType {
             // Unknown types will become strings.
             DataType::Other(_unknown_type) => Ok(BqNonArrayDataType::String),
             DataType::Text => Ok(BqNonArrayDataType::String),
-            // Timestamps without timezones will be interpreted as UTC.
-            DataType::TimestampWithoutTimeZone => Ok(BqNonArrayDataType::Timestamp),
+            // Timestamps without timezones will be mapped to `DATETIME`.
+            DataType::TimestampWithoutTimeZone => Ok(BqNonArrayDataType::Datetime),
             // As far as I can tell, BigQuery will convert timestamps with timezones
             // to UTC.
             DataType::TimestampWithTimeZone => Ok(BqNonArrayDataType::Timestamp),

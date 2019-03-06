@@ -3,6 +3,7 @@
 use std::process::{Command, Stdio};
 use tokio_process::CommandExt;
 
+use super::prepare_as_destination_helper;
 use crate::common::*;
 use crate::tokio_glue::copy_stream_to_writer;
 
@@ -15,27 +16,11 @@ pub(crate) async fn write_local_data_helper(
     if_exists: IfExists,
 ) -> Result<BoxStream<BoxFuture<()>>> {
     // Delete the existing output, if it exists.
-    if if_exists == IfExists::Overwrite {
-        // Delete all the files under `self.url`, but be careful not to
-        // delete the entire bucket. See `gsutil rm --help` for details.
-        debug!(ctx.log(), "deleting existing {}", url);
-        assert!(url.path().ends_with('/'));
-        let delete_url = url.join("**")?;
-        let status = Command::new("gsutil")
-            .args(&["rm", "-f", delete_url.as_str()])
-            .status_async()
-            .context("error running gsutil")?;
-        if !await!(status)?.success() {
-            warn!(
-                ctx.log(),
-                "can't delete contents of {}, possibly because it doesn't exist", url
-            );
-        }
-    } else {
-        return Err(format_err!(
-            "must specify `overwrite` for gs:// destination"
-        ));
-    }
+    await!(prepare_as_destination_helper(
+        ctx.clone(),
+        url.clone(),
+        if_exists
+    ))?;
 
     // Spawn our uploader threads.
     let written = data.map(move |stream| {

@@ -29,10 +29,7 @@ CREATE TABLE many_types (
     test_int64 bigint,
     test_int64_array bigint[],
     test_json jsonb,
-    -- Our BigQuery import code needs some work.
-    --
-    -- test_json_array jsonb[],
-
+    test_json_array jsonb[],
     test_text text,
     test_text_array text[],
     test_timestamp_without_time_zone timestamp,

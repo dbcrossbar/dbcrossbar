@@ -94,7 +94,9 @@ pub(crate) fn copy_csv_to_pg_binary(
             cell_to_binary(&mut wtr, col, cell).with_context(|_| {
                 format!(
                     "could not convert row {}, column {} ({:?})",
-                    row_idx, col.name, cell,
+                    row_idx + 1, // Add 1 for header row.
+                    col.name,
+                    cell,
                 )
             })?;
         }

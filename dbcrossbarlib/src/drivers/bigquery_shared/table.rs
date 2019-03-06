@@ -68,7 +68,11 @@ impl BqTable {
     /// of columns that couldn't be imported from CSVs.
     ///
     /// This `BqTable` should have been created with `Usage::FinalTable`.
-    pub(crate) fn write_import_sql(&self, f: &mut dyn Write) -> Result<()> {
+    pub(crate) fn write_import_sql(
+        &self,
+        source_table_name: &TableName,
+        f: &mut dyn Write,
+    ) -> Result<()> {
         for (i, col) in self.columns.iter().enumerate() {
             col.write_import_udf(f, i)?;
         }
@@ -78,6 +82,24 @@ impl BqTable {
                 write!(f, ",")?;
             }
             col.write_import_select_expr(f, i)?;
+        }
+        write!(
+            f,
+            " FROM {}",
+            Ident(&source_table_name.dotted().to_string())
+        )?;
+        Ok(())
+    }
+
+    /// Generate SQL which `SELECT`s from a table, producing something we can
+    /// export to CSV.
+    pub(crate) fn write_export_sql(&self, f: &mut dyn Write) -> Result<()> {
+        write!(f, "SELECT ")?;
+        for (i, col) in self.columns.iter().enumerate() {
+            if i > 0 {
+                write!(f, ",")?;
+            }
+            col.write_export_select_expr(f)?;
         }
         write!(f, " FROM {}", Ident(&self.name.dotted().to_string()))?;
         Ok(())

@@ -11,7 +11,7 @@ use tokio_process::CommandExt;
 use super::BigQueryLocator;
 use crate::common::*;
 use crate::drivers::{
-    bigquery_shared::{BqTable, TableBigQueryExt, Usage},
+    bigquery_shared::{if_exists_to_bq_load_arg, BqTable, TableBigQueryExt, Usage},
     gs::GsLocator,
 };
 
@@ -50,14 +50,14 @@ pub(crate) async fn write_remote_data_helper(
 
     // Decide if we need to use a temp table.
     let (use_temp, initial_table_name) = if !schema.bigquery_can_import_from_csv()? {
-        let initial_table_name = dest.table_name.clone();
+        let initial_table_name = dest.table_name.temporary_table_name();
         debug!(
             ctx.log(),
             "loading into temporary table {}", initial_table_name
         );
         (true, initial_table_name)
     } else {
-        let initial_table_name = dest.table_name.temporary_table_name();
+        let initial_table_name = dest.table_name.clone();
         debug!(
             ctx.log(),
             "loading directly into final table {}", initial_table_name,
@@ -134,7 +134,7 @@ pub(crate) async fn write_remote_data_helper(
 
         // Generate our import query.
         let mut query = Vec::new();
-        dest_table.write_import_sql(&mut query)?;
+        dest_table.write_import_sql(initial_table.name(), &mut query)?;
         trace!(ctx.log(), "import sql: {}", String::from_utf8_lossy(&query));
 
         // Pipe our query text to `bq load`.
@@ -164,7 +164,11 @@ pub(crate) async fn write_remote_data_helper(
         }
 
         // Delete temp table.
-        debug!(ctx.log(), "deleting temp table: {}", initial_table.name());
+        debug!(
+            ctx.log(),
+            "deleting import temp table: {}",
+            initial_table.name()
+        );
         let rm_child = Command::new("bq")
             .args(&["rm", "-f", "-t", &initial_table.name().to_string()])
             .spawn_async()
@@ -176,19 +180,4 @@ pub(crate) async fn write_remote_data_helper(
     }
 
     Ok(())
-}
-
-/// Convert an `IfExists` value to the corresponding `bq load` argument, or
-/// return an error if we can't.
-fn if_exists_to_bq_load_arg(if_exists: IfExists) -> Result<&'static str> {
-    match if_exists {
-        IfExists::Overwrite => Ok("--replace"),
-        // TODO: Verify that this is the actual behavior of `--noreplace`.
-        IfExists::Append => Ok("--noreplace"),
-        // We need to be careful about race conditions--we don't want to try to
-        // emulate this if we can't do it natively.
-        IfExists::Error => Err(format_err!(
-            "BigQuery only supports --if-exists=overwrite or --if-exists=append"
-        )),
-    }
 }
