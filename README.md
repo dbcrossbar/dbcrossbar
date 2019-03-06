@@ -112,9 +112,10 @@ You can run the regular test suite with `cargo test`, but to run the full integr
 
 ```sh
 # Run a local PostgreSQL on port 5432.
-docker run --name postgres -e POSTGRES_PASSWORD= -p 5432:5432 -d postgres
+docker run --name postgres -e POSTGRES_PASSWORD= -p 5432:5432 -d mdillon/postgis
 createdb -h localhost -U postgres -w dbcrossbar_test
 export POSTGRES_TEST_URL=postgres://postgres:@localhost:5432/dbcrossbar_test
+echo "create extension if not exists postgis;" | psql $POSTGRES_TEST_URL
 
 # Point to a Goolge Cloud Storage bucket for which you have write permissions.
 export GS_TEST_URL=gs://$MY_TEST_BUCKET/dbcrossbar/

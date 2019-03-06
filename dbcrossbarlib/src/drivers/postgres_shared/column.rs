@@ -54,6 +54,25 @@ impl PgColumn {
     pub(crate) fn write_export_select_expr(&self, f: &mut dyn Write) -> Result<()> {
         let name = Ident(&self.name);
         match &self.data_type {
+            // `bigint[]` needs to be converted to a `text[]`, or
+            // PostgreSQL will lose precision by writing `bigint` values as
+            // `f64`.
+            PgDataType::Array {
+                dimension_count,
+                ty: PgScalarDataType::Bigint,
+            } => {
+                if *dimension_count != 1 {
+                    return Err(format_err!(
+                        "cannot output bigint[] columns with dimension > 1"
+                    ));
+                }
+                write!(
+                    f,
+                    r#"(SELECT array_to_json(array_agg((elem))) FROM (SELECT elem::text FROM unnest({name}) AS elem) AS elems) AS {name}"#,
+                    name = name,
+                )?;
+            }
+            // Regular arrays can be dumped directly.
             PgDataType::Array { .. } => {
                 write!(f, "array_to_json({name}) AS {name}", name = name)?;
             }

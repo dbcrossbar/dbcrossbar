@@ -1,4 +1,5 @@
 use cli_test_dir::*;
+use difference::assert_diff;
 use env_logger;
 use std::{env, fs};
 
@@ -135,8 +136,8 @@ fn cp_csv_to_csv() {
 fn cp_csv_to_postgres_to_gs_to_csv() {
     env_logger::init();
     let testdir = TestDir::new("dbcrossbar", "cp_csv_to_postgres_to_gs_to_csv");
-    let src = testdir.src_path("fixtures/example.csv");
-    let schema = testdir.src_path("fixtures/example.sql");
+    let src = testdir.src_path("fixtures/many_types.csv");
+    let schema = testdir.src_path("fixtures/many_types.sql");
     let pg_table = post_test_table_url("cp_csv_to_postgres_to_gs_to_csv");
     let gs_dir = gs_test_dir_url("cp_csv_to_postgres_to_gs_to_csv");
     let bq_table = bq_test_table("cp_csv_to_postgres_to_gs_to_csv");
@@ -157,7 +158,13 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     // Postgres to gs://.
     testdir
         .cmd()
-        .args(&["cp", "--if-exists=overwrite", &pg_table, &gs_dir])
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &pg_table,
+            &gs_dir,
+        ])
         .tee_output()
         .expect_success();
 
@@ -187,5 +194,8 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
         .expect_success();
 
     let expected = fs::read_to_string(&src).unwrap();
-    testdir.expect_file_contents("out/cp_csv_to_postgres_to_gs_to_csv.csv", &expected);
+    let actual =
+        fs::read_to_string(testdir.path("out/cp_csv_to_postgres_to_gs_to_csv.csv"))
+            .unwrap();
+    assert_diff(&expected, &actual, ",", 0);
 }

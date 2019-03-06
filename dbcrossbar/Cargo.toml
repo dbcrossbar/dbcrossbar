@@ -8,6 +8,7 @@ license = "(Apache-2.0 OR MIT)"
 
 [dev-dependencies]
 cli_test_dir = "0.1.5"
+difference = "0.4"
 
 [dependencies]
 clap = { version = "2.32.0", features = ["wrap_help"] }

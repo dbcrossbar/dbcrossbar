@@ -65,13 +65,19 @@ scalar_data_type -> PgScalarDataType
     }
     / "integer"i { PgScalarDataType::Int } // Longer keyword first!
     / "int"i { PgScalarDataType::Int }
-    / "json"i { PgScalarDataType::Json }
     / "jsonb"i { PgScalarDataType::Jsonb }
+    / "json"i { PgScalarDataType::Json }
     / "numeric"i { PgScalarDataType::Numeric }
     / "real"i { PgScalarDataType::Real }
     / "smallint"i { PgScalarDataType::Smallint }
     / "text"i { PgScalarDataType::Text }
+    / "timestamp"i ws "with"i ws "time"i ws "zone"i {
+        PgScalarDataType::TimestampWithTimeZone
+    }
     / "timestamp"i ws "without"i ws "time"i ws "zone"i {
+        PgScalarDataType::TimestampWithoutTimeZone
+    }
+    / "timestamp"i {
         PgScalarDataType::TimestampWithoutTimeZone
     }
     / "uuid"i { PgScalarDataType::Uuid }

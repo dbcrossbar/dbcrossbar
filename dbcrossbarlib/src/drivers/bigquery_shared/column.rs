@@ -3,7 +3,7 @@
 use serde_derive::Serialize;
 use std::{fmt, io::Write};
 
-use super::{BqDataType, DataTypeBigQueryExt, Usage};
+use super::{BqDataType, BqNonArrayDataType, DataTypeBigQueryExt, Usage};
 use crate::common::*;
 use crate::schema::Column;
 
@@ -62,19 +62,74 @@ impl BqColumn {
         f: &mut dyn Write,
         idx: usize,
     ) -> Result<()> {
-        if let BqDataType::Array(_) = &self.ty {
+        if let BqDataType::Array(elem_ty) = &self.ty {
             write!(
                 f,
                 r#"CREATE TEMP FUNCTION ImportJson_{idx}(input STRING)
 RETURNS {bq_type}
 LANGUAGE js AS """
-return JSON.parse(input);
-""";
-
-"#,
+return "#,
                 idx = idx,
                 bq_type = self.ty,
             )?;
+            self.write_import_udf_body_for_array(f, elem_ty)?;
+            write!(
+                f,
+                r#";
+""";
+
+"#
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Write the actual import JavaScript for an array of the specified type.
+    fn write_import_udf_body_for_array(
+        &self,
+        f: &mut dyn Write,
+        elem_ty: &BqNonArrayDataType,
+    ) -> Result<()> {
+        match elem_ty {
+            // These types can be converted directly from JSON.
+            BqNonArrayDataType::Bool
+            | BqNonArrayDataType::Float64
+            | BqNonArrayDataType::String => {
+                write!(f, "JSON.parse(input)")?;
+            }
+
+            // These types all need to go through `Date`, even when they
+            // theoretically don't involve time zones.
+            //
+            // TODO: We may need to handle `TIMESTAMP` microseconds explicitly.
+            BqNonArrayDataType::Date
+            | BqNonArrayDataType::Datetime
+            | BqNonArrayDataType::Timestamp => {
+                write!(
+                    f,
+                    "JSON.parse(input).map(function (d) {{ return new Date(d); }})",
+                )?;
+            }
+
+            // This is tricky, because not all 64-bit integers can be exactly
+            // represented as JSON.
+            BqNonArrayDataType::Int64 => {
+                write!(f, "JSON.parse(input)")?;
+            }
+
+            // Unsupported types. Some of these aren't actually supported by our
+            // portable schema, so we should never see them. Others can occur in
+            // real data.
+            BqNonArrayDataType::Bytes
+            | BqNonArrayDataType::Geography
+            | BqNonArrayDataType::Numeric
+            | BqNonArrayDataType::Time
+            | BqNonArrayDataType::Struct(_) => {
+                return Err(format_err!(
+                    "cannot import `ARRAY<{}>` into BigQuery yet",
+                    elem_ty,
+                ));
+            }
         }
         Ok(())
     }
