@@ -20,7 +20,9 @@ use std::{
 use uuid::Uuid;
 
 use crate::common::*;
-use crate::drivers::postgres_shared::{PgCreateTable, PgDataType, PgScalarDataType};
+use crate::drivers::postgres_shared::{
+    PgColumn, PgCreateTable, PgDataType, PgScalarDataType,
+};
 use crate::from_csv_cell::FromCsvCell;
 use crate::from_json_value::FromJsonValue;
 
@@ -79,7 +81,7 @@ pub(crate) fn copy_csv_to_pg_binary(
     wtr.write_u32::<NE>(0)?; // Extension area length.
 
     // Iterate over our CSV rows.
-    for row in rdr.records() {
+    for (row_idx, row) in rdr.records().enumerate() {
         // Check for read errors.
         let row = row?;
 
@@ -89,28 +91,39 @@ pub(crate) fn copy_csv_to_pg_binary(
         // Write each of our rows. Using `zip` allows Rust to omit bounds
         // checks on the `row` and `columns` arrays.
         for (cell, col) in row.iter().zip(table.columns.iter()) {
-            if cell.is_empty() && col.is_nullable {
-                // We found an empty string in the CSV and this column is
-                // nullable, so represent it as an SQL `NULL`. If the column
-                // isn't nullable, then somebody else will have to figure out
-                // if they can do anything with the empty string.
-                wtr.write_i32::<NE>(-1)?;
-            } else {
-                match &col.data_type {
-                    PgDataType::Array {
-                        dimension_count,
-                        ty,
-                    } => {
-                        array_to_binary(&mut wtr, *dimension_count, ty, cell)?;
-                    }
-                    PgDataType::Scalar(ty) => {
-                        scalar_to_binary(&mut wtr, ty, cell)?;
-                    }
-                }
-            }
+            cell_to_binary(&mut wtr, col, cell).with_context(|_| {
+                format!(
+                    "could not convert row {}, column {} ({:?})",
+                    row_idx, col.name, cell,
+                )
+            })?;
         }
     }
 
+    Ok(())
+}
+
+/// Convert a cell to PostgreSQL `BINARY` format.
+fn cell_to_binary(wtr: &mut BufferedWriter, col: &PgColumn, cell: &str) -> Result<()> {
+    if cell.is_empty() && col.is_nullable {
+        // We found an empty string in the CSV and this column is
+        // nullable, so represent it as an SQL `NULL`. If the column
+        // isn't nullable, then somebody else will have to figure out
+        // if they can do anything with the empty string.
+        wtr.write_i32::<NE>(-1)?;
+    } else {
+        match &col.data_type {
+            PgDataType::Array {
+                dimension_count,
+                ty,
+            } => {
+                array_to_binary(wtr, *dimension_count, ty, cell)?;
+            }
+            PgDataType::Scalar(ty) => {
+                scalar_to_binary(wtr, ty, cell)?;
+            }
+        }
+    }
     Ok(())
 }
 

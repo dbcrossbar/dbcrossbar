@@ -169,6 +169,9 @@ impl FromCsvCell for serde_json::Value {
 impl FromCsvCell for NaiveDateTime {
     fn from_csv_cell(cell: &str) -> Result<Self> {
         Ok(NaiveDateTime::parse_from_str(cell, "%Y-%m-%d %H:%M:%S%.f")
+            .or_else(|_err| {
+                NaiveDateTime::parse_from_str(cell, "%Y-%m-%dT%H:%M:%S%.f")
+            })
             .with_context(|_| format!("cannot parse {:?} as timestamp", cell))?)
     }
 }
@@ -184,6 +187,10 @@ fn parse_naive_date_time() {
             "1969-07-20 20:17:39.0",
             NaiveDate::from_ymd(1969, 7, 20).and_hms(20, 17, 39),
         ),
+        (
+            "1969-07-20T20:17:39",
+            NaiveDate::from_ymd(1969, 7, 20).and_hms(20, 17, 39),
+        ),
     ];
     for (s, expected) in examples {
         let parsed = NaiveDateTime::from_csv_cell(s).unwrap();
@@ -194,6 +201,7 @@ fn parse_naive_date_time() {
 impl FromCsvCell for DateTime<FixedOffset> {
     fn from_csv_cell(cell: &str) -> Result<Self> {
         let parsed = DateTime::parse_from_str(cell, "%Y-%m-%d %H:%M:%S%.f%#z")
+            .or_else(|_err| DateTime::parse_from_str(cell, "%Y-%m-%dT%H:%M:%S%.f%#z"))
             .with_context(|_| {
                 format!("cannot parse {:?} as timestamp with time zone", cell)
             })?;
@@ -222,6 +230,10 @@ fn parse_utc_timestamp() {
         ),
         (
             "1969-07-20 21:17:39.0+01:00",
+            Utc.ymd(1969, 7, 20).and_hms(20, 17, 39),
+        ),
+        (
+            "1969-07-20T21:17:39.0+01:00",
             Utc.ymd(1969, 7, 20).and_hms(20, 17, 39),
         ),
     ];

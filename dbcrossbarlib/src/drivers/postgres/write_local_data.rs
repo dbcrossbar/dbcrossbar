@@ -4,7 +4,7 @@ use std::{io::prelude::*, str};
 
 use super::{connect, csv_to_binary::copy_csv_to_pg_binary, Connection};
 use crate::common::*;
-use crate::drivers::postgres_shared::{Ident, PgCreateTable, PgDataType};
+use crate::drivers::postgres_shared::{Ident, PgCreateTable};
 use crate::tokio_glue::{run_sync_fn_in_background, SyncStreamReader};
 use crate::transform::spawn_sync_transform;
 
@@ -79,9 +79,6 @@ fn copy_from_sql(
     let mut copy_sql_buff = vec![];
     writeln!(&mut copy_sql_buff, "COPY {:?} (", pg_create_table.name)?;
     for (idx, col) in pg_create_table.columns.iter().enumerate() {
-        if let PgDataType::Array { .. } = col.data_type {
-            return Err(format_err!("cannot yet import array column {:?}", col.name));
-        }
         if idx + 1 == pg_create_table.columns.len() {
             writeln!(&mut copy_sql_buff, "    {:?}", col.name)?;
         } else {
