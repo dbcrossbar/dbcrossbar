@@ -296,43 +296,6 @@ return "#,
     }
 }
 
-/*
-            Bool,
-Bytes,
-Date,
-Datetime,
-Float64,
-Geography,
-Int64,
-Numeric,
-String,
-Struct(Vec<BqStructField>),
-Time,
-Timestamp,
-        // Types which aren't supported.
-        BqDataType::Array(BqNonArrayDataType::Geography) => {
-            return Err(format_err!("can't output ARRAY<GEOGRAPHY> columns yet"));
-        }
-
-        // Fixes for general arrays.
-        BqDataType::Array(_) => {
-            write!(f, "TO_JSON_STRING({ident}) AS {ident}", ident = ident)?;
-        }
-
-        // Fixes for regular types.
-        BqDataType::NonArray(BqNonArrayDataType::Datetime) => {
-            write!(f, "ST_ASGEOJSON({ident}) AS {ident}", ident = ident)?;
-        }
-        BqDataType::NonArray(BqNonArrayDataType::Geography) => {
-            write!(f, "ST_ASGEOJSON({ident}) AS {ident}", ident = ident)?;
-        }
-
-        // Types which Just Work without us messing with them.
-        _ => {
-            write!(f, "{}", ident)?;
-        }
-        */
-
 /// A column mode.
 #[derive(Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
