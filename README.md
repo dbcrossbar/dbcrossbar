@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/faradayio/dbcrossbar.svg)](https://travis-ci.org/faradayio/dbcrossbar)
 
-This tool is intended to help move large data sets between differnt databases and storage formats. It's still very incomplete, but it already has partial support for:
+This tool is intended to help move large data sets between different databases and storage formats. It's still very incomplete, but it already has partial support for:
 
 - CSV files.
 - `gs://` URLs.
