@@ -36,6 +36,9 @@ pub use failure::Error;
 /// Standard result type for this library.
 pub type Result<T> = result::Result<T, Error>;
 
+/// The buffer size to use by default when buffering I/O.
+pub(crate) const BUFFER_SIZE: usize = 64 * 1024;
+
 pub use context::Context;
 pub use csv_stream::CsvStream;
 pub use if_exists::IfExists;
@@ -65,6 +68,6 @@ pub(crate) mod common {
             box_stream_once, tokio_fut, BoxFuture, BoxStream, FutureExt,
             ResultExt as _, StdFutureExt,
         },
-        Error, Result,
+        Error, Result, BUFFER_SIZE,
     };
 }

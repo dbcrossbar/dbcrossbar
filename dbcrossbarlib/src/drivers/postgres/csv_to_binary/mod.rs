@@ -51,7 +51,7 @@ pub(crate) fn copy_csv_to_pg_binary(
 ) -> Result<()> {
     // Set up wrappers for `rdr` and `wtr`, handling CSV parsing and buffering.
     let mut rdr = csv::Reader::from_reader(rdr);
-    let mut wtr = io::BufWriter::new(wtr);
+    let mut wtr = io::BufWriter::with_capacity(BUFFER_SIZE, wtr);
 
     // Check to make sure our CSV headers and table column names match.
     let headers = rdr.headers()?;
