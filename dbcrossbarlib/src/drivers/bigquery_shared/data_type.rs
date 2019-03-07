@@ -58,13 +58,10 @@ impl BqDataType {
                 Ok(BqDataType::NonArray(BqNonArrayDataType::String))
             }
             (DataType::Array(nested), _) => {
-                match nested.as_ref() {
-                    DataType::Json => {
-                        return Err(format_err!(
-                            "cannot represent arrays of JSON in BigQuery yet"
-                        ));
-                    }
-                    _ => {}
+                if let DataType::Json = nested.as_ref() {
+                    return Err(format_err!(
+                        "cannot represent arrays of JSON in BigQuery yet"
+                    ));
                 }
                 let bq_nested = BqNonArrayDataType::for_data_type(nested, usage)?;
                 Ok(BqDataType::Array(bq_nested))
