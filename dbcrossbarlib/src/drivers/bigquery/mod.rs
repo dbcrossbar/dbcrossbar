@@ -19,6 +19,13 @@ pub struct BigQueryLocator {
     table_name: TableName,
 }
 
+impl BigQueryLocator {
+    /// The table name for this locator.
+    pub(crate) fn as_table_name(&self) -> &TableName {
+        &self.table_name
+    }
+}
+
 impl fmt::Display for BigQueryLocator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "bigquery:{}", self.table_name)

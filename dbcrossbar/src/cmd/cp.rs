@@ -63,7 +63,7 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
         let input_ctx = ctx.child(o!("from_locator" => opt.from_locator.to_string()));
         let data = await!(opt.from_locator.local_data(input_ctx, schema.clone()))?
             .ok_or_else(|| {
-                format_err!("don't know how to read data from {}", opt.to_locator)
+                format_err!("don't know how to read data from {}", opt.from_locator)
             })?;
 
         // Write data to output.

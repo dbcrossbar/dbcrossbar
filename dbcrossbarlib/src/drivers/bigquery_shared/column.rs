@@ -62,24 +62,60 @@ impl BqColumn {
         f: &mut dyn Write,
         idx: usize,
     ) -> Result<()> {
-        if let BqDataType::Array(elem_ty) = &self.ty {
-            write!(
-                f,
-                r#"CREATE TEMP FUNCTION ImportJson_{idx}(input STRING)
+        match &self.ty {
+            // JavaScript UDFs can't return `DATETIME` yet, so we need a fairly
+            // elaborate workaround.
+            BqDataType::Array(BqNonArrayDataType::Datetime) => {
+                write!(
+                    f,
+                    r#"CREATE TEMP FUNCTION ImportJsonHelper_{idx}(input STRING)
+RETURNS ARRAY<STRING>
+LANGUAGE js AS """
+return JSON.parse(input);
+""";
+
+CREATE TEMP FUNCTION ImportJson_{idx}(input STRING)
+RETURNS {bq_type}
+AS ((
+    SELECT ARRAY_AGG(
+        COALESCE(
+            SAFE.PARSE_DATETIME('%Y-%m-%d %H:%M:%E*S', e),
+            PARSE_DATETIME('%Y-%m-%dT%H:%M:%E*S', e)
+        )
+    )
+    FROM UNNEST(ImportJsonHelper_{idx}(input)) AS e
+));
+
+"#,
+                    idx = idx,
+                    bq_type = self.ty,
+                )?;
+            }
+
+            // Most kinds of arrays can be handled with JavaScript. But some
+            // of these might be faster as SQL UDFs.
+            BqDataType::Array(elem_ty) => {
+                write!(
+                    f,
+                    r#"CREATE TEMP FUNCTION ImportJson_{idx}(input STRING)
 RETURNS {bq_type}
 LANGUAGE js AS """
 return "#,
-                idx = idx,
-                bq_type = self.ty,
-            )?;
-            self.write_import_udf_body_for_array(f, elem_ty)?;
-            write!(
-                f,
-                r#";
+                    idx = idx,
+                    bq_type = self.ty,
+                )?;
+                self.write_import_udf_body_for_array(f, elem_ty)?;
+                write!(
+                    f,
+                    r#";
 """;
 
 "#
-            )?;
+                )?;
+            }
+
+            // Other types can be passed straight through.
+            _ => {}
         }
         Ok(())
     }
@@ -151,6 +187,110 @@ return "#,
             )?;
         } else {
             write!(f, "{}", ident)?;
+        }
+        Ok(())
+    }
+
+    /// Output the SQL expression used in the `SELECT` clause of our table
+    /// export statement.
+    pub(crate) fn write_export_select_expr(&self, f: &mut dyn Write) -> Result<()> {
+        match &self.ty {
+            BqDataType::Array(ty) => self.write_export_select_expr_for_array(ty, f),
+            BqDataType::NonArray(ty) => {
+                self.write_export_select_expr_for_non_array(ty, f)
+            }
+        }
+    }
+
+    /// Output a `SELECT`-clause expression for an `ARRAY<...>` column.
+    fn write_export_select_expr_for_array(
+        &self,
+        data_type: &BqNonArrayDataType,
+        f: &mut dyn Write,
+    ) -> Result<()> {
+        let ident = Ident(&self.name);
+        write!(f, "TO_JSON_STRING(")?;
+        match data_type {
+            // We can safely convert arrays of these types directly to JSON.
+            BqNonArrayDataType::Bool
+            | BqNonArrayDataType::Date
+            | BqNonArrayDataType::Float64
+            | BqNonArrayDataType::Int64
+            | BqNonArrayDataType::Numeric
+            | BqNonArrayDataType::String => {
+                write!(f, "{}", ident)?;
+            }
+
+            BqNonArrayDataType::Datetime => {
+                write!(f, "(SELECT ARRAY_AGG(FORMAT_DATETIME(\"%Y-%m-%dT%H:%M:%E*S\", {ident})) FROM UNNEST({ident}) AS {ident})", ident = ident)?;
+            }
+
+            BqNonArrayDataType::Geography => {
+                write!(f, "(SELECT ARRAY_AGG(ST_ASGEOJSON({ident})) FROM UNNEST({ident}) AS {ident})", ident = ident,)?;
+            }
+
+            BqNonArrayDataType::Timestamp => {
+                write!(f, "(SELECT ARRAY_AGG(FORMAT_TIMESTAMP(\"%Y-%m-%dT%H:%M:%E*S%Ez\", {ident})) FROM UNNEST({ident}) AS {ident})", ident = ident,)?;
+            }
+
+            // These we don't know how to output at all. (We don't have a
+            // portable type for most of these.)
+            BqNonArrayDataType::Bytes
+            | BqNonArrayDataType::Struct(_)
+            | BqNonArrayDataType::Time => {
+                return Err(format_err!("can't output {} columns yet", self.ty));
+            }
+        }
+        write!(f, ") AS {ident}", ident = ident)?;
+        Ok(())
+    }
+
+    /// Output a `SELECT`-clause expression for a non-`ARRAY<...>` column.
+    pub(crate) fn write_export_select_expr_for_non_array(
+        &self,
+        data_type: &BqNonArrayDataType,
+        f: &mut dyn Write,
+    ) -> Result<()> {
+        let ident = Ident(&self.name);
+
+        match data_type {
+            // We trust BigQuery to output these directly.
+            BqNonArrayDataType::Bool
+            | BqNonArrayDataType::Date
+            | BqNonArrayDataType::Float64
+            | BqNonArrayDataType::Int64
+            | BqNonArrayDataType::Numeric
+            | BqNonArrayDataType::String => {
+                write!(f, "{}", ident)?;
+            }
+
+            BqNonArrayDataType::Datetime => {
+                write!(
+                    f,
+                    "FORMAT_DATETIME(\"%Y-%m-%dT%H:%M:%E*S\", {ident}) AS {ident}",
+                    ident = ident
+                )?;
+            }
+
+            BqNonArrayDataType::Geography => {
+                write!(f, "ST_ASGEOJSON({ident}) AS {ident}", ident = ident)?;
+            }
+
+            BqNonArrayDataType::Timestamp => {
+                write!(
+                    f,
+                    "FORMAT_TIMESTAMP(\"%Y-%m-%dT%H:%M:%E*S%Ez\", {ident}) AS {ident}",
+                    ident = ident
+                )?;
+            }
+
+            // These we don't know how to output at all. (We don't have a
+            // portable type for most of these.)
+            BqNonArrayDataType::Bytes
+            | BqNonArrayDataType::Struct(_)
+            | BqNonArrayDataType::Time => {
+                return Err(format_err!("can't output {} columns yet", self.ty));
+            }
         }
         Ok(())
     }
