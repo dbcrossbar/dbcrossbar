@@ -32,7 +32,8 @@ pub(crate) async fn local_data_helper(
     // Use `pipe` and a background thread to convert a `Write` to `Read`.
     let url = url.clone();
     let (mut wtr, stream) = SyncStreamWriter::pipe(ctx.clone());
-    thread::spawn(move || {
+    let thr = thread::Builder::new().name(format!("postgres read: {}", table_name));
+    thr.spawn(move || {
         // Run our code in a `try` block so we can capture errors returned by
         // `?` without needing to give up ownership of `wtr` to a local closure.
         let result: Result<()> = try {
@@ -48,7 +49,8 @@ pub(crate) async fn local_data_helper(
                 error!(ctx.log(), "cannot report error to foreground thread");
             }
         }
-    });
+    })
+    .context("could not spawn thread")?;
 
     let csv_stream = CsvStream {
         name: table_name.clone(),

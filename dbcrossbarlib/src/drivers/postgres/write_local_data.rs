@@ -117,7 +117,8 @@ async fn copy_from_async(
     copy_from_sql: String,
     stream: Box<dyn Stream<Item = BytesMut, Error = Error> + Send + 'static>,
 ) -> Result<()> {
-    await!(run_sync_fn_in_background(move || -> Result<()> {
+    let name = format!("postgres write: {}", table_name);
+    await!(run_sync_fn_in_background(name, move || -> Result<()> {
         let conn = connect(&url)?;
         let rdr = SyncStreamReader::new(ctx.clone(), stream);
         copy_from(&ctx, &conn, &table_name, &copy_from_sql, Box::new(rdr))?;
@@ -175,10 +176,10 @@ pub(crate) async fn write_local_data_helper(
                     let ctx = ctx.child(o!("stream" => csv_stream.name.clone()));
 
                     // Convert our CSV stream into a PostgreSQL `BINARY` stream.
-                    let transform_ctx = ctx.child(o!("transform" => "csv_to_binary"));
                     let transform_table = pg_create_table.clone();
                     let binary_stream = spawn_sync_transform(
-                        transform_ctx,
+                        ctx.clone(),
+                        "copy_csv_to_pg_binary".to_owned(),
                         csv_stream.data,
                         move |_ctx, rdr, wtr| {
                             copy_csv_to_pg_binary(&transform_table, rdr, wtr)

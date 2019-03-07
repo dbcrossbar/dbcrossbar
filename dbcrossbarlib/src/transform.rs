@@ -12,6 +12,7 @@ use crate::tokio_glue::{
 /// of `Write`, spawn a background thread to run the transform.
 pub(crate) fn spawn_sync_transform<T>(
     ctx: Context,
+    name: String,
     input: BoxStream<BytesMut>,
     transform: T,
 ) -> Result<BoxStream<BytesMut>>
@@ -24,13 +25,15 @@ where
         + Send
         + 'static,
 {
+    let ctx = ctx.child(o!("transform" => name.clone()));
+
     let rdr_ctx = ctx.child(o!("mode" => "input"));
     let rdr = SyncStreamReader::new(rdr_ctx, input);
     let wtr_ctx = ctx.child(o!("mode" => "output"));
     let (wtr, output) = SyncStreamWriter::pipe(wtr_ctx);
 
     let transform_ctx = ctx.clone();
-    let transform_fut = run_sync_fn_in_background(move || -> Result<()> {
+    let transform_fut = run_sync_fn_in_background(name, move || -> Result<()> {
         transform(transform_ctx, Box::new(rdr), Box::new(wtr))
     });
     ctx.spawn_worker(tokio_fut(transform_fut));

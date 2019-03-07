@@ -3,6 +3,7 @@
 //! This is mostly smaller things that happen to recur in our particular
 //! application.
 
+use failure::ResultExt as _;
 use std::{cmp::min, future::Future as StdFuture, thread};
 use tokio::io;
 use tokio_async_await::compat;
@@ -348,19 +349,24 @@ where
 
 /// Run a synchronous function `f` in a background worker thread and return its
 /// value.
-pub(crate) async fn run_sync_fn_in_background<F, T>(f: F) -> Result<T>
+pub(crate) async fn run_sync_fn_in_background<F, T>(
+    thread_name: String,
+    f: F,
+) -> Result<T>
 where
     F: (FnOnce() -> Result<T>) + Send + 'static,
     T: Send + 'static,
 {
     // Spawn a worker thread outside our thread pool to do the actual work.
     let (sender, receiver) = mpsc::channel(1);
-    let handle = thread::spawn(move || {
-        sender
-            .send(f())
-            .wait()
-            .expect("should always be able to send results from background thread");
-    });
+    let thr = thread::Builder::new().name(thread_name);
+    let handle = thr
+        .spawn(move || {
+            sender.send(f()).wait().expect(
+                "should always be able to send results from background thread",
+            );
+        })
+        .context("could not spawn thread")?;
 
     // Wait for our worker to report its results.
     let background_result = await!(receiver.into_future());
