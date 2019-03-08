@@ -59,7 +59,7 @@ scalar_data_type -> PgScalarDataType
     / "boolean"i { PgScalarDataType::Boolean }
     / "date"i { PgScalarDataType::Date }
     / "double"i ws "precision"i { PgScalarDataType::DoublePrecision }
-    / "float"i { PgScalarDataType::Real }
+    / "float"i { PgScalarDataType::DoublePrecision }
     / "public."i? "geometry"i ws? "(" ws? identifier ws? "," ws? srid:srid ws? ")" {
         PgScalarDataType::Geometry(Srid::new(srid))
     }
