@@ -228,3 +228,38 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
             .unwrap();
     assert_diff(&expected, &actual, ",", 0);
 }
+
+#[test]
+#[ignore]
+fn cp_csv_to_postgres_append() {
+    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_postgres_append");
+    let src = testdir.src_path("fixtures/many_types.csv");
+    let schema = testdir.src_path("fixtures/many_types.sql");
+    let pg_table = post_test_table_url("cp_csv_to_postgres_append");
+
+    // CSV to Postgres.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("csv:{}", src.display()),
+            &pg_table,
+        ])
+        .tee_output()
+        .expect_success();
+
+    // CSV to Postgres, again, but appending.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=append",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("csv:{}", src.display()),
+            &pg_table,
+        ])
+        .tee_output()
+        .expect_success();
+}
