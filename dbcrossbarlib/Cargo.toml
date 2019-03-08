@@ -1,11 +1,15 @@
 [package]
 name = "dbcrossbarlib"
-version = "0.0.9"
+version = "0.0.10"
 authors = ["Eric Kidd <git@randomhacks.net>"]
 build = "build.rs"
 edition = "2018"
 
-license = "(Apache-2.0 OR MIT)"
+description = "Library for copying data between databases (pre-release)"
+license = "Apache-2.0 OR MIT"
+readme = "README.md"
+repository = "https://github.com/faradayio/dbcrossbar"
+documentation = "https://docs.rs/dbcrossbarlib/"
 
 [build-dependencies]
 peg = "0.5"
@@ -30,15 +34,15 @@ regex = "1.1.0"
 serde = "1.0.79"
 serde_json = "1.0.32"
 serde_derive = "1.0.79"
-slog = { version = "2.4.1", features = ["max_level_trace", "release_max_level_trace"] }
+slog = "2.4.1"
 strum = "0.13.0"
 strum_macros = "0.13.0"
 tempdir = "0.3.7"
-tokio = { version = "0.1", features = ["async-await-preview"] }
-tokio-process = { version = "0.2" }
-# This is locked to a very specific versions of nightly Rust.
+# Lock exact versions to work around some nightly Rust breakage.
+tokio = { version = "=0.1.15", features = ["async-await-preview"] }
+tokio-process = { version = "=0.2.3" }
 tokio-async-await = "=0.1.5"
 try_from = "0.3.2"
 url = "1.7.1"
 uuid = "0.6.5"
-wkb = { git = "https://github.com/faradayio/rust-wkb", branch = "geo_0_12" }
+wkb = "0.4"

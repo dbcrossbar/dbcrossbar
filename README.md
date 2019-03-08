@@ -2,6 +2,10 @@
 
 [![Build Status](https://travis-ci.org/faradayio/dbcrossbar.svg)](https://travis-ci.org/faradayio/dbcrossbar)
 
+(Note that this requires a specific version of nightly Rust to build. See the [rust-toolchain](./rust-toolchain) file for the current Rust version, or [download pre-built binaries][releases].)
+
+[releases]: https://github.com/faradayio/dbcrossbar/releases
+
 This tool is intended to help move large data sets between different databases and storage formats. It's still very incomplete, but it already has partial support for:
 
 - CSV files.
