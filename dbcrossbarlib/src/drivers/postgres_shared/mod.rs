@@ -5,5 +5,5 @@ mod data_type;
 mod table;
 
 pub(crate) use self::column::{Ident, PgColumn};
-pub(crate) use self::data_type::{PgDataType, PgScalarDataType, Srid};
+pub(crate) use self::data_type::{PgDataType, PgScalarDataType};
 pub(crate) use self::table::PgCreateTable;

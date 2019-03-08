@@ -9,7 +9,7 @@ use wkb::geom_to_wkb;
 
 use super::WriteExt;
 use crate::common::*;
-use crate::drivers::postgres_shared::Srid;
+use crate::schema::Srid;
 
 /// A JSON string that we want to serialize as `jsonb` format 1.
 pub(crate) struct RawJsonb<'a>(pub(crate) &'a str);

@@ -3,38 +3,7 @@
 use std::fmt;
 
 use crate::common::*;
-use crate::schema::DataType;
-
-/// An SRID number specifying how to intepret geographical coordinates.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) struct Srid(u32);
-
-impl Srid {
-    /// Create a new `Srid` from a numeric code.
-    pub(crate) fn new(srid: u32) -> Srid {
-        Srid(srid)
-    }
-
-    /// Return our `Srid` as a `u32`.
-    pub(crate) fn to_u32(self) -> u32 {
-        self.0
-    }
-}
-
-impl Default for Srid {
-    fn default() -> Self {
-        // The one true SRID (WGS84), according to our GIS folks. This "measures
-        // things in degrees," and it's the coordinate system supported by
-        // BigQuery.
-        Srid(4326)
-    }
-}
-
-impl fmt::Display for Srid {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
+use crate::schema::{DataType, Srid};
 
 /// A native PostgreSQL data type.
 ///
@@ -174,7 +143,7 @@ impl PgScalarDataType {
             DataType::Decimal => Ok(PgScalarDataType::Numeric),
             DataType::Float32 => Ok(PgScalarDataType::Real),
             DataType::Float64 => Ok(PgScalarDataType::DoublePrecision),
-            DataType::GeoJson => Ok(PgScalarDataType::Geometry(Srid::default())),
+            DataType::GeoJson(srid) => Ok(PgScalarDataType::Geometry(*srid)),
             DataType::Int16 => Ok(PgScalarDataType::Smallint),
             DataType::Int32 => Ok(PgScalarDataType::Int),
             DataType::Int64 => Ok(PgScalarDataType::Bigint),
@@ -199,10 +168,7 @@ impl PgScalarDataType {
             PgScalarDataType::Numeric => Ok(DataType::Decimal),
             PgScalarDataType::Real => Ok(DataType::Float32),
             PgScalarDataType::DoublePrecision => Ok(DataType::Float64),
-            PgScalarDataType::Geometry(srid) if *srid == Srid::default() => {
-                Ok(DataType::GeoJson)
-            }
-            PgScalarDataType::Geometry(_srid) => Ok(DataType::Text),
+            PgScalarDataType::Geometry(srid) => Ok(DataType::GeoJson(*srid)),
             PgScalarDataType::Smallint => Ok(DataType::Int16),
             PgScalarDataType::Int => Ok(DataType::Int32),
             PgScalarDataType::Bigint => Ok(DataType::Int64),

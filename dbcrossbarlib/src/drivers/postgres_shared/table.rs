@@ -120,7 +120,7 @@ impl FromStr for PgCreateTable {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::schema::{Column, DataType};
+    use crate::schema::{Column, DataType, Srid};
 
     use std::str;
 
@@ -177,13 +177,13 @@ mod test {
                 Column {
                     name: "h".to_string(),
                     is_nullable: true,
-                    data_type: DataType::GeoJson,
+                    data_type: DataType::GeoJson(Srid::wgs84()),
                     comment: None,
                 },
                 Column {
                     name: "i".to_string(),
                     is_nullable: true,
-                    data_type: DataType::Text,
+                    data_type: DataType::GeoJson(Srid::new(3857)),
                     comment: None,
                 },
                 Column {
