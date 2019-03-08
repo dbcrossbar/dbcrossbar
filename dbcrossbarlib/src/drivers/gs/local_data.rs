@@ -85,6 +85,7 @@ pub(crate) async fn local_data_helper(
                     .context("error running gsutil")?;
                 let child_stdout =
                     child.stdout().take().expect("child should have stdout");
+                let child_stdout = BufReader::with_capacity(BUFFER_SIZE, child_stdout);
                 let data = copy_reader_to_stream(ctx.clone(), child_stdout)?;
                 ctx.spawn_process(format!("gsutil cp {} -", file_url), child);
 

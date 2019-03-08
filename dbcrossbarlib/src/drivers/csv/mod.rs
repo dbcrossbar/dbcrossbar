@@ -1,7 +1,7 @@
 //! Driver for working with CSV files.
 
 use csv;
-use std::{fmt, fs, path::Path, str::FromStr};
+use std::{fmt, fs, io::BufReader, path::Path, str::FromStr};
 use tokio::fs::File;
 
 use crate::common::*;
@@ -118,6 +118,7 @@ async fn local_data_helper(
             // Open our file.
             let data = await!(File::open(path.clone()))
                 .with_context(|_| format!("cannot open {}", path.display()))?;
+            let data = BufReader::with_capacity(BUFFER_SIZE, data);
             let stream = copy_reader_to_stream(ctx, data)?;
 
             let csv_stream = CsvStream {
