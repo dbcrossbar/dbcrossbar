@@ -12,6 +12,7 @@ use cast;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 use csv;
 use geo_types::Geometry;
+use hex;
 use serde_json::Value;
 use std::{
     io::{self, prelude::*},
@@ -269,12 +270,21 @@ fn scalar_to_binary(
         PgScalarDataType::Real => write_cell_as_binary::<f32>(wtr, cell),
         PgScalarDataType::DoublePrecision => write_cell_as_binary::<f64>(wtr, cell),
         PgScalarDataType::Geometry(srid) => {
-            let geometry = Geometry::<f64>::from_csv_cell(cell)?;
-            let value = GeometryWithSrid {
-                geometry: &geometry,
-                srid: *srid,
-            };
-            value.write_binary(wtr)
+            if !cell.is_empty() && cell.as_bytes()[0].is_ascii_hexdigit() {
+                // We don't have valid GeoJSON, but it looks like it's hex, so
+                // try to treat it as hexadecimal-serialized EWKB data, for
+                // compatibility with earlier versions of `dbcrossbar`.
+                let bytes = hex::decode(cell).context("not valid GeoJSON or EWKB")?;
+                (&bytes[..]).write_binary(wtr)
+            } else {
+                // We should have correct GeoJSON data, so handle it normally.
+                let geometry = Geometry::<f64>::from_csv_cell(cell)?;
+                let value = GeometryWithSrid {
+                    geometry: &geometry,
+                    srid: *srid,
+                };
+                value.write_binary(wtr)
+            }
         }
         PgScalarDataType::Smallint => write_cell_as_binary::<i16>(wtr, cell),
         PgScalarDataType::Int => write_cell_as_binary::<i32>(wtr, cell),
@@ -295,6 +305,18 @@ fn scalar_to_binary(
         }
         PgScalarDataType::Uuid => write_cell_as_binary::<Uuid>(wtr, cell),
     }
+}
+
+#[test]
+fn parse_ewkb_fallback() {
+    use crate::schema::Srid;
+
+    // It's too annoying to actually get our data back out of the
+    // `BufferedWriter` to check the actual value, so just make sure it parses.
+    let cell = "0101000020E61000000000806A7CC351C093985E78E32E4540";
+    let mut out = BufferedWriter::new(Box::new(vec![]));
+    scalar_to_binary(&mut out, &PgScalarDataType::Geometry(Srid::wgs84()), cell)
+        .unwrap();
 }
 
 /// Parse a CSV cell and write it out as a PostgreSQL binary value. This works

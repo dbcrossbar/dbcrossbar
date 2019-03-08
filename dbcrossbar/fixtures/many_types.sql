@@ -10,18 +10,16 @@ CREATE TABLE many_types (
     --
     -- test_decimal numeric,
     -- test_decimal_array numeric[],
-
     test_float32 real,
     test_float32_array real[],
     test_float64 double precision,
     test_float64_array double precision[],
-    test_geojson public.geometry (Geometry,
-        4326),
+    test_geojson public.geometry (Geometry, 4326),
     -- PostgreSQL can't import this yet because it requires an OID that changes
     -- between servers.
     --
     -- test_geojson_array public.geometry(Geometry, 4326)[],
-
+    test_geojson_3857 public.geometry (Geometry, 3857),
     test_int16 smallint,
     test_int16_array smallint[],
     test_int32 int,
@@ -32,7 +30,6 @@ CREATE TABLE many_types (
     -- Our BigQuery import code needs some work.
     --
     -- test_json_array jsonb[],
-
     test_text text,
     test_text_array text[],
     test_timestamp_without_time_zone timestamp,

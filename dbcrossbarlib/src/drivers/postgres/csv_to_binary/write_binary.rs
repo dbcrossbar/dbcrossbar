@@ -9,7 +9,7 @@ use wkb::geom_to_wkb;
 
 use super::WriteExt;
 use crate::common::*;
-use crate::drivers::postgres_shared::Srid;
+use crate::schema::Srid;
 
 /// A JSON string that we want to serialize as `jsonb` format 1.
 pub(crate) struct RawJsonb<'a>(pub(crate) &'a str);
@@ -120,6 +120,15 @@ impl<'a> WriteBinary for &'a str {
     fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         wtr.write_len(self.len())?;
         wtr.write_all(self.as_bytes())?;
+        Ok(())
+    }
+}
+
+/// Fallback for just writing binary data straight through to PostgreSQL.
+impl<'a> WriteBinary for &'a [u8] {
+    fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
+        wtr.write_len(self.len())?;
+        wtr.write_all(self)?;
         Ok(())
     }
 }

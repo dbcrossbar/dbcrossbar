@@ -33,7 +33,7 @@
 //!     { "name": "d", "is_nullable": true,  "data_type": "date" },
 //!     { "name": "e", "is_nullable": true,  "data_type": "float64" },
 //!     { "name": "f", "is_nullable": true,  "data_type": { "array": "text" } },
-//!     { "name": "h", "is_nullable": true,  "data_type": "geo_json" }
+//!     { "name": "h", "is_nullable": true,  "data_type": { "geo_json": 4326 } }
 //!   ]
 //! }
 //! "#;
@@ -44,6 +44,7 @@
 use serde_derive::{Deserialize, Serialize};
 #[cfg(test)]
 use serde_json::json;
+use std::fmt;
 
 /// Information about a table.
 ///
@@ -117,11 +118,8 @@ pub enum DataType {
     Float32,
     /// 8-byte float.
     Float64,
-    /// Geodata in GeoJSON format, using SRID EPSG:4326 (aka WGS 84). This is
-    /// the best "default" coordinate system, and the only one supported by
-    /// BigQuery. All other coordinate systems should be mapped to
-    /// `DataType::String` instead.
-    GeoJson,
+    /// Geodata in GeoJSON format, using the specified SRID.
+    GeoJson(Srid),
     /// 2-byte int.
     Int16,
     /// 4-byte integer.
@@ -208,5 +206,40 @@ fn data_type_roundtrip() {
         println!("{:?}: {}", data_type, serialized);
         let parsed: DataType = serde_json::from_str(&serialized).unwrap();
         assert_eq!(&parsed, data_type);
+    }
+}
+
+/// An SRID number specifying how to intepret geographical coordinates.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct Srid(u32);
+
+impl Srid {
+    /// Return the one true SRID (WGS84), according to our GIS folks and Google BigQuery.
+    pub fn wgs84() -> Srid {
+        Srid(4326)
+    }
+
+    /// Create a new `Srid` from a numeric code.
+    pub fn new(srid: u32) -> Srid {
+        Srid(srid)
+    }
+
+    /// Return our `Srid` as a `u32`.
+    pub fn to_u32(self) -> u32 {
+        self.0
+    }
+}
+
+impl Default for Srid {
+    /// Default to WGS84.
+    fn default() -> Self {
+        Self::wgs84()
+    }
+}
+
+impl fmt::Display for Srid {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
     }
 }

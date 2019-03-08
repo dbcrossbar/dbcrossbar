@@ -10,7 +10,8 @@
 //!
 //! [peg]: https://github.com/kevinmehall/rust-peg
 
-use super::super::{PgColumn, PgCreateTable, PgDataType, PgScalarDataType, Srid};
+use super::super::{PgColumn, PgCreateTable, PgDataType, PgScalarDataType};
+use crate::schema::Srid;
 
 /// A `CREATE TABLE` expression.
 pub create_table -> PgCreateTable

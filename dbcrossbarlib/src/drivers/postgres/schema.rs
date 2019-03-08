@@ -122,11 +122,10 @@ fn pg_data_type(
         };
         Ok(DataType::Array(Box::new(element_type)))
     } else if data_type == "USER-DEFINED" {
-        let other_type = match udt_name {
-            "geometry" => DataType::GeoJson,
-            other => DataType::Other(other.to_owned()),
-        };
-        Ok(other_type)
+        match udt_name {
+            "geometry" => Err(format_err!("don't know how to extract SRID for geometry columns yet (use `--schema=postgres-sql:`")),
+            other => Ok(DataType::Other(other.to_owned())),
+        }
     } else {
         match data_type {
             "bigint" => Ok(DataType::Int64),
@@ -219,7 +218,6 @@ fn parsing_pg_data_type() {
             ("USER-DEFINED", "public", "citext"),
             DataType::Other("citext".to_owned()),
         ),
-        (("USER-DEFINED", "public", "geometry"), DataType::GeoJson),
     ];
     for ((data_type, udt_schema, udt_name), expected) in examples {
         assert_eq!(

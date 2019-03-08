@@ -4,7 +4,7 @@ use serde::{Serialize, Serializer};
 use std::{fmt, result};
 
 use crate::common::*;
-use crate::schema::DataType;
+use crate::schema::{DataType, Srid};
 
 /// Extensions to `DataType` (the portable version) to handle BigQuery-query
 /// specific stuff.
@@ -158,7 +158,10 @@ impl BqNonArrayDataType {
             DataType::Decimal => Ok(BqNonArrayDataType::Numeric),
             DataType::Float32 => Ok(BqNonArrayDataType::Float64),
             DataType::Float64 => Ok(BqNonArrayDataType::Float64),
-            DataType::GeoJson => Ok(BqNonArrayDataType::Geography),
+            DataType::GeoJson(srid) if *srid == Srid::wgs84() => {
+                Ok(BqNonArrayDataType::Geography)
+            }
+            DataType::GeoJson(_) => Ok(BqNonArrayDataType::String),
             DataType::Int16 => Ok(BqNonArrayDataType::Int64),
             DataType::Int32 => Ok(BqNonArrayDataType::Int64),
             DataType::Int64 => Ok(BqNonArrayDataType::Int64),
