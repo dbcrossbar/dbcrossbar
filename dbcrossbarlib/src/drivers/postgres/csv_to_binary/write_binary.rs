@@ -124,6 +124,15 @@ impl<'a> WriteBinary for &'a str {
     }
 }
 
+/// Fallback for just writing binary data straight through to PostgreSQL.
+impl<'a> WriteBinary for &'a [u8] {
+    fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
+        wtr.write_len(self.len())?;
+        wtr.write_all(self)?;
+        Ok(())
+    }
+}
+
 impl<'a> WriteBinary for NaiveDateTime {
     fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         let epoch = NaiveDate::from_ymd(2000, 1, 1).and_hms(0, 0, 0);
