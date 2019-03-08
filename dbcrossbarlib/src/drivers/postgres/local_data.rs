@@ -27,7 +27,7 @@ pub(crate) async fn local_data_helper(
     let mut sql_bytes: Vec<u8> = vec![];
     pg_create_table.write_export_sql(&mut sql_bytes)?;
     let sql = String::from_utf8(sql_bytes).expect("should always be UTF-8");
-    trace!(ctx.log(), "export SQL: {}", sql);
+    debug!(ctx.log(), "export SQL: {}", sql);
 
     // Use `pipe` and a background thread to convert a `Write` to `Read`.
     let url = url.clone();

@@ -29,7 +29,7 @@ fn create_table(
 ) -> Result<()> {
     debug!(ctx.log(), "create table {}", pg_create_table.name);
     let create_sql = format!("{}", pg_create_table);
-    trace!(ctx.log(), "CREATE TABLE SQL: {}", create_sql);
+    debug!(ctx.log(), "CREATE TABLE SQL: {}", create_sql);
     conn.execute(&create_sql, &[])
         .with_context(|_| format!("error creating {}", pg_create_table.name))?;
     Ok(())

@@ -46,7 +46,7 @@ pub(crate) async fn write_remote_data_helper(
     source_table.write_export_sql(&mut export_sql_data)?;
     let export_sql =
         String::from_utf8(export_sql_data).expect("should always be UTF-8");
-    trace!(ctx.log(), "export SQL: {}", export_sql);
+    debug!(ctx.log(), "export SQL: {}", export_sql);
 
     // Run our query.
     debug!(ctx.log(), "running `bq query`");

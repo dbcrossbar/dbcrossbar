@@ -21,7 +21,7 @@ openssl-probe = "0.1.2"
 dbcrossbarlib = { path = "../dbcrossbarlib" }
 serde = "1.0.79"
 serde_json = "1.0.32"
-slog = { version = "2.4.1", features = ["max_level_trace", "release_max_level_trace"] }
+slog = { version = "2.4.1", features = ["max_level_trace", "release_max_level_debug"] }
 slog-async = "2.3.0"
 slog-envlogger = "2.1.0"
 slog-term = "2.4.0"

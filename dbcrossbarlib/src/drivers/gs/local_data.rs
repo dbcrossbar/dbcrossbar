@@ -25,7 +25,7 @@ pub(crate) async fn local_data_helper(
     };
 
     // Start a child process to list files at that URL.
-    trace!(ctx.log(), "listing {}", ls_url);
+    debug!(ctx.log(), "listing {}", ls_url);
     let mut child = Command::new("gsutil")
         .args(&["ls", url.as_str()])
         .stdout(Stdio::piped())
@@ -43,7 +43,7 @@ pub(crate) async fn local_data_helper(
         let url = url.clone();
         tokio_fut(
             async move {
-                trace!(ctx.log(), "streaming data from {}", file_url);
+                debug!(ctx.log(), "streaming data from {}", file_url);
 
                 // Extract either the basename of the URL (if it's a file URL),
                 // or the relative part of the URL (if we were given a directory

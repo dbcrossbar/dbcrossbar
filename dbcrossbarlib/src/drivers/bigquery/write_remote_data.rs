@@ -135,7 +135,7 @@ pub(crate) async fn write_remote_data_helper(
         // Generate our import query.
         let mut query = Vec::new();
         dest_table.write_import_sql(initial_table.name(), &mut query)?;
-        trace!(ctx.log(), "import sql: {}", String::from_utf8_lossy(&query));
+        debug!(ctx.log(), "import sql: {}", String::from_utf8_lossy(&query));
 
         // Pipe our query text to `bq load`.
         debug!(ctx.log(), "running `bq query`");
