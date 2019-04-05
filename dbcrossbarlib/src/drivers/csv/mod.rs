@@ -86,6 +86,7 @@ impl Locator for CsvLocator {
         ctx: Context,
         schema: Table,
         data: BoxStream<CsvStream>,
+        _temporaries: Vec<String>,
         if_exists: IfExists,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         write_local_data_helper(ctx, self.path.clone(), schema, data, if_exists)

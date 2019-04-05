@@ -100,6 +100,7 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
         _ctx: Context,
         _schema: Table,
         _data: BoxStream<CsvStream>,
+        _temporaries: Vec<String>,
         _if_exists: IfExists,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         Err(format_err!("cannot write data to {}", self)).into_boxed_future()

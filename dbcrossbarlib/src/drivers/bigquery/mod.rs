@@ -5,8 +5,10 @@ use std::{fmt, str::FromStr};
 use crate::common::*;
 use crate::drivers::{bigquery_shared::TableName, gs::GsLocator};
 
+mod write_local_data;
 mod write_remote_data;
 
+use self::write_local_data::write_local_data_helper;
 use self::write_remote_data::write_remote_data_helper;
 
 /// URL scheme for `BigQueryLocator`.
@@ -47,6 +49,25 @@ impl FromStr for BigQueryLocator {
 impl Locator for BigQueryLocator {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn write_local_data(
+        &self,
+        ctx: Context,
+        schema: Table,
+        data: BoxStream<CsvStream>,
+        temporaries: Vec<String>,
+        if_exists: IfExists,
+    ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
+        write_local_data_helper(
+            ctx,
+            self.clone(),
+            schema,
+            data,
+            temporaries,
+            if_exists,
+        )
+        .into_boxed()
     }
 
     fn supports_write_remote_data(&self, source: &dyn Locator) -> bool {

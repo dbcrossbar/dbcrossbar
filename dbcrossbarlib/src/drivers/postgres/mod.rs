@@ -100,6 +100,7 @@ impl Locator for PostgresLocator {
         ctx: Context,
         schema: Table,
         data: BoxStream<CsvStream>,
+        _temporaries: Vec<String>,
         if_exists: IfExists,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         write_local_data_helper(

@@ -18,6 +18,11 @@ pub(crate) struct Opt {
     #[structopt(long = "schema")]
     schema: Option<BoxLocator>,
 
+    /// Temporary directories, cloud storage buckets, datasets to use during
+    /// transfer (can be repeated).
+    #[structopt(long = "temporary")]
+    temporary: Vec<String>,
+
     /// The input table.
     from_locator: BoxLocator,
 
@@ -72,7 +77,8 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
             output_ctx,
             schema,
             data,
-            opt.if_exists
+            opt.temporary,
+            opt.if_exists,
         ))?;
 
         // Consume the stream of futures produced by `write_local_data`, allowing a
