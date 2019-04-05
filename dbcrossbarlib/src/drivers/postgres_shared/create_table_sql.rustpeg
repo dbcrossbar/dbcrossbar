@@ -15,7 +15,7 @@ use crate::schema::Srid;
 
 /// A `CREATE TABLE` expression.
 pub create_table -> PgCreateTable
-    = ws? "CREATE"i ws "TABLE"i ws name:identifier ws? "("
+    = ws? "CREATE"i (ws "UNLOGGED"i)? ws "TABLE"i ws name:identifier ws? "("
         ws? columns:(column ** (ws? "," ws?)) ws?
       ")" ws? (";" ws?)?
     {
