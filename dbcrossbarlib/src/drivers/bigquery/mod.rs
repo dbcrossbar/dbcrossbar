@@ -3,11 +3,16 @@
 use std::{fmt, str::FromStr};
 
 use crate::common::*;
-use crate::drivers::{bigquery_shared::TableName, gs::GsLocator};
+use crate::drivers::{
+    bigquery_shared::TableName,
+    gs::{GsLocator, GS_SCHEME},
+};
 
+mod local_data;
 mod write_local_data;
 mod write_remote_data;
 
+use self::local_data::local_data_helper;
 use self::write_local_data::write_local_data_helper;
 use self::write_remote_data::write_remote_data_helper;
 
@@ -51,12 +56,21 @@ impl Locator for BigQueryLocator {
         self
     }
 
+    fn local_data(
+        &self,
+        ctx: Context,
+        schema: Table,
+        temporary_storage: TemporaryStorage,
+    ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
+        local_data_helper(ctx, self.clone(), schema, temporary_storage).into_boxed()
+    }
+
     fn write_local_data(
         &self,
         ctx: Context,
         schema: Table,
         data: BoxStream<CsvStream>,
-        temporaries: Vec<String>,
+        temporary_storage: TemporaryStorage,
         if_exists: IfExists,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         write_local_data_helper(
@@ -64,7 +78,7 @@ impl Locator for BigQueryLocator {
             self.clone(),
             schema,
             data,
-            temporaries,
+            temporary_storage,
             if_exists,
         )
         .into_boxed()
@@ -86,4 +100,21 @@ impl Locator for BigQueryLocator {
         write_remote_data_helper(ctx, schema, source, self.to_owned(), if_exists)
             .into_boxed()
     }
+}
+
+/// Given a `TemporaryStorage`, extract a unique `gs://` temporary directory,
+/// including a random component.
+pub(crate) fn find_gs_temp_dir(
+    temporary_storage: &TemporaryStorage,
+) -> Result<GsLocator> {
+    let mut temp = temporary_storage
+        .find_scheme(GS_SCHEME)
+        .ok_or_else(|| format_err!("need `--temporary=gs://...` argument"))?
+        .to_owned();
+    if !temp.ends_with('/') {
+        temp.push_str("/");
+    }
+    temp.push_str(&TemporaryStorage::random_tag());
+    temp.push_str("/");
+    GsLocator::from_str(&temp)
 }

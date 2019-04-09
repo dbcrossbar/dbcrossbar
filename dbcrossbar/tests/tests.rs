@@ -289,17 +289,17 @@ fn cp_csv_to_bigquery_to_csv() {
         .expect_success();
 
     // BigQuery to CSV.
-    /*
     testdir
         .cmd()
         .args(&[
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
+            // TODO: Remove this line.
+            &format!("--schema=postgres-sql:{}", schema.display()),
             &bq_table,
             "csv:out/",
         ])
         .tee_output()
         .expect_success();
-    */
 }
