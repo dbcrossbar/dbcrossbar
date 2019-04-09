@@ -1,6 +1,6 @@
 //! BigQuery columns.
 
-use serde_derive::Serialize;
+use serde_derive::{Deserialize, Serialize};
 use std::{fmt, io::Write};
 
 use super::{BqDataType, BqNonArrayDataType, DataTypeBigQueryExt, Usage};
@@ -22,7 +22,7 @@ impl ColumnBigQueryExt for Column {
 }
 
 /// A BigQuery column declaration.
-#[derive(Debug, Eq, PartialEq, Serialize)]
+#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(crate) struct BqColumn {
     /// An optional description of the BigQuery column.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -52,6 +52,20 @@ impl BqColumn {
             } else {
                 Mode::Required
             },
+        })
+    }
+    /// Given a `BqColumn`, construct a portable `Column`.
+    pub(crate) fn to_column(&self) -> Result<Column> {
+        Ok(Column {
+            name: self.name.clone(),
+            data_type: self.ty.to_data_type(self.mode)?,
+            is_nullable: match self.mode {
+                // I'm not actually sure about how to best map `Repeated`, so
+                // let's make it nullable for now.
+                Mode::Nullable | Mode::Repeated => true,
+                Mode::Required => false,
+            },
+            comment: self.description.clone(),
         })
     }
 
@@ -297,14 +311,19 @@ return "#,
 }
 
 /// A column mode.
-#[derive(Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-enum Mode {
+pub(crate) enum Mode {
     /// This column is `NOT NULL`.
     Required,
 
     /// This column can contain `NULL` values.
     Nullable,
+
+    /// (Undocumented.) This column is actually an `ARRAY` column,
+    /// but the `type` doesn't actually mention that. This is an undocumented
+    /// value that we see in the output of `bq show --schema`.
+    Repeated,
 }
 
 /// A BigQuery identifier, for formatting purposes.

@@ -295,8 +295,6 @@ fn cp_csv_to_bigquery_to_csv() {
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
-            // TODO: Remove this line.
-            &format!("--schema=postgres-sql:{}", schema.display()),
             &bq_table,
             "csv:out/",
         ])

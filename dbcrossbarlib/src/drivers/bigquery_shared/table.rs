@@ -28,9 +28,9 @@ impl TableBigQueryExt for Table {
 /// A BigQuery table schema.
 pub(crate) struct BqTable {
     /// The BigQuery name of this table.
-    name: TableName,
+    pub(crate) name: TableName,
     /// The columns of this table.
-    columns: Vec<BqColumn>,
+    pub(crate) columns: Vec<BqColumn>,
 }
 
 impl BqTable {
@@ -51,6 +51,19 @@ impl BqTable {
             .map(|c| BqColumn::for_column(c, usage))
             .collect::<Result<Vec<BqColumn>>>()?;
         Ok(BqTable { name, columns })
+    }
+
+    /// Given a `BqTable`, convert it to a portable `Table`.
+    pub(crate) fn to_table(&self) -> Result<Table> {
+        let columns = self
+            .columns
+            .iter()
+            .map(|c| c.to_column())
+            .collect::<Result<Vec<Column>>>()?;
+        Ok(Table {
+            name: self.name.to_string(),
+            columns,
+        })
     }
 
     /// Get the BigQuery table name for this table.
