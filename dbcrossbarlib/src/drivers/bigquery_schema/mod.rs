@@ -3,7 +3,7 @@
 use std::{fmt, str::FromStr};
 
 use crate::common::*;
-use crate::drivers::bigquery_shared::{BqTable, TableName, Usage};
+use crate::drivers::bigquery_shared::{BqColumn, BqTable, TableName, Usage};
 
 /// URL scheme for `PostgresSqlLocator`.
 pub(crate) const BIGQUERY_SCHEMA_SCHEME: &str = "bigquery-schema:";
@@ -32,6 +32,29 @@ impl FromStr for BigQuerySchemaLocator {
 impl Locator for BigQuerySchemaLocator {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn schema(&self, _ctx: &Context) -> Result<Option<Table>> {
+        // Read our input.
+        let mut input = self.path.open_sync()?;
+        let mut data = String::new();
+        input
+            .read_to_string(&mut data)
+            .with_context(|_| format!("error reading {}", self.path))?;
+
+        // Parse our input as a list of columns.
+        let columns: Vec<BqColumn> = serde_json::from_str(&data)
+            .with_context(|_| format!("error parsing {}", self.path))?;
+
+        // Build a `BqTable`, convert it, and set a placeholder name.
+        let arbitrary_name = TableName::from_str(&"unused:unused.unused")?;
+        let bq_table = BqTable {
+            name: arbitrary_name,
+            columns,
+        };
+        let mut table = bq_table.to_table()?;
+        table.name = "unnamed".to_owned();
+        Ok(Some(table))
     }
 
     fn write_schema(

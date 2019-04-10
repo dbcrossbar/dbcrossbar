@@ -4,6 +4,7 @@
 use peg;
 
 fn main() {
-    // Run our parser generator over our grammar.
+    // Run our parser generator over our grammars.
+    peg::cargo_build("src/drivers/bigquery_shared/data_type.rustpeg");
     peg::cargo_build("src/drivers/postgres_shared/create_table_sql.rustpeg");
 }

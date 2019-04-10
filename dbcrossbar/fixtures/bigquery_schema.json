@@ -1,0 +1,137 @@
+[
+  {
+    "name": "test_null",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_not_null",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_bool",
+    "type": "BOOL",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_bool_array",
+    "type": "ARRAY<BOOL>",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_date",
+    "type": "DATE",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_date_array",
+    "type": "ARRAY<DATE>",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_float32",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_float32_array",
+    "type": "ARRAY<FLOAT64>",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_float64",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_float64_array",
+    "type": "ARRAY<FLOAT64>",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_geojson",
+    "type": "GEOGRAPHY",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_geojson_3857",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_int16",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_int16_array",
+    "type": "ARRAY<INT64>",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_int32",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_int32_array",
+    "type": "ARRAY<INT64>",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_int64",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_int64_array",
+    "type": "ARRAY<INT64>",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_json",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_text",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_text_array",
+    "type": "ARRAY<STRING>",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_timestamp_without_time_zone",
+    "type": "DATETIME",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_timestamp_without_time_zone_array",
+    "type": "ARRAY<DATETIME>",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_timestamp_with_time_zone",
+    "type": "TIMESTAMP",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_timestamp_with_time_zone_array",
+    "type": "ARRAY<TIMESTAMP>",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_uuid",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "test_uuid_array",
+    "type": "ARRAY<STRING>",
+    "mode": "NULLABLE"
+  }
+]

@@ -90,6 +90,7 @@ impl Locator for PostgresLocator {
         &self,
         ctx: Context,
         schema: Table,
+        _temporary_storage: TemporaryStorage,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
         local_data_helper(ctx, self.url.clone(), self.table_name.clone(), schema)
             .into_boxed()
@@ -100,6 +101,7 @@ impl Locator for PostgresLocator {
         ctx: Context,
         schema: Table,
         data: BoxStream<CsvStream>,
+        _temporary_storage: TemporaryStorage,
         if_exists: IfExists,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         write_local_data_helper(

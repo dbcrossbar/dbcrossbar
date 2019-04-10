@@ -1,7 +1,7 @@
 //! The `cp` subcommand.
 
 use common_failures::Result;
-use dbcrossbarlib::{BoxLocator, Context, IfExists};
+use dbcrossbarlib::{BoxLocator, Context, IfExists, TemporaryStorage};
 use failure::format_err;
 use slog::{debug, o};
 use structopt::{self, StructOpt};
@@ -17,6 +17,11 @@ pub(crate) struct Opt {
     /// The schema to use (defaults to input table schema).
     #[structopt(long = "schema")]
     schema: Option<BoxLocator>,
+
+    /// Temporary directories, cloud storage buckets, datasets to use during
+    /// transfer (can be repeated).
+    #[structopt(long = "temporary")]
+    temporaries: Vec<String>,
 
     /// The input table.
     from_locator: BoxLocator,
@@ -60,11 +65,17 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
         // We have to transfer the data via the local machine, so read data from
         // input.
         debug!(ctx.log(), "performaning local data transfer");
+        let temporary_storage = TemporaryStorage::new(opt.temporaries.clone());
+
         let input_ctx = ctx.child(o!("from_locator" => opt.from_locator.to_string()));
-        let data = await!(opt.from_locator.local_data(input_ctx, schema.clone()))?
-            .ok_or_else(|| {
-                format_err!("don't know how to read data from {}", opt.from_locator)
-            })?;
+        let data = await!(opt.from_locator.local_data(
+            input_ctx,
+            schema.clone(),
+            temporary_storage.clone()
+        ))?
+        .ok_or_else(|| {
+            format_err!("don't know how to read data from {}", opt.from_locator)
+        })?;
 
         // Write data to output.
         let output_ctx = ctx.child(o!("to_locator" => opt.to_locator.to_string()));
@@ -72,7 +83,8 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
             output_ctx,
             schema,
             data,
-            opt.if_exists
+            temporary_storage,
+            opt.if_exists,
         ))?;
 
         // Consume the stream of futures produced by `write_local_data`, allowing a

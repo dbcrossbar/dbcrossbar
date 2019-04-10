@@ -27,6 +27,7 @@ pub(crate) mod if_exists;
 pub(crate) mod locator;
 pub(crate) mod path_or_stdio;
 pub mod schema;
+mod temporary_storage;
 pub mod tokio_glue;
 pub(crate) mod transform;
 
@@ -43,6 +44,7 @@ pub use context::Context;
 pub use csv_stream::CsvStream;
 pub use if_exists::IfExists;
 pub use locator::{BoxLocator, Locator};
+pub use temporary_storage::TemporaryStorage;
 
 /// Definitions included by all the files in this crate.
 ///
@@ -64,6 +66,7 @@ pub(crate) mod common {
         locator::{BoxLocator, Locator},
         path_or_stdio::PathOrStdio,
         schema::Table,
+        temporary_storage::TemporaryStorage,
         tokio_glue::{
             box_stream_once, tokio_fut, BoxFuture, BoxStream, FutureExt,
             ResultExt as _, StdFutureExt,

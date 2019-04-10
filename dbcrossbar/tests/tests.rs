@@ -111,6 +111,23 @@ fn conv_pg_sql_to_bq_schema() {
 }
 
 #[test]
+fn conv_bq_schema_to_pg_sql() {
+    let testdir = TestDir::new("dbcrossbar", "conv_bq_schema_to_pg_sql");
+    let input_json = testdir.src_path("fixtures/bigquery_schema.json");
+    let expected_sql = testdir.src_path("fixtures/bigquery_schema_converted.sql");
+    testdir
+        .cmd()
+        .args(&[
+            "conv",
+            &format!("bigquery-schema:{}", input_json.display()),
+            "postgres-sql:output.sql",
+        ])
+        .expect_success();
+    let expected = fs::read_to_string(&expected_sql).unwrap();
+    testdir.expect_file_contents("output.sql", &expected);
+}
+
+#[test]
 fn cp_help_flag() {
     let testdir = TestDir::new("dbcrossbar", "cp_help_flag");
     let output = testdir.cmd().args(&["cp", "--help"]).expect_success();
@@ -134,7 +151,7 @@ fn cp_csv_to_csv() {
 #[test]
 #[ignore]
 fn cp_csv_to_postgres_to_gs_to_csv() {
-    env_logger::init();
+    let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "cp_csv_to_postgres_to_gs_to_csv");
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
@@ -259,6 +276,44 @@ fn cp_csv_to_postgres_append() {
             &format!("--schema=postgres-sql:{}", schema.display()),
             &format!("csv:{}", src.display()),
             &pg_table,
+        ])
+        .tee_output()
+        .expect_success();
+}
+
+#[test]
+#[ignore]
+fn cp_csv_to_bigquery_to_csv() {
+    let _ = env_logger::try_init();
+    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_bigquery_to_csv");
+    let src = testdir.src_path("fixtures/many_types.csv");
+    let schema = testdir.src_path("fixtures/many_types.sql");
+    let gs_temp_dir = gs_test_dir_url("cp_csv_to_bigquery_to_csv");
+    let bq_table = bq_test_table("cp_csv_to_bigquery_to_csv");
+
+    // CSV to BigQuery.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--temporary={}", gs_temp_dir),
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("csv:{}", src.display()),
+            &bq_table,
+        ])
+        .tee_output()
+        .expect_success();
+
+    // BigQuery to CSV.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--temporary={}", gs_temp_dir),
+            &bq_table,
+            "csv:out/",
         ])
         .tee_output()
         .expect_success();

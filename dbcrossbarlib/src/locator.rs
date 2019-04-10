@@ -70,6 +70,7 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
         &self,
         _ctx: Context,
         _schema: Table,
+        _temporary_storage: TemporaryStorage,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
         // Turn our result into a future.
         Ok(None).into_boxed_future()
@@ -100,6 +101,7 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
         _ctx: Context,
         _schema: Table,
         _data: BoxStream<CsvStream>,
+        _temporary_storage: TemporaryStorage,
         _if_exists: IfExists,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         Err(format_err!("cannot write data to {}", self)).into_boxed_future()

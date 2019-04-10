@@ -1,10 +1,19 @@
 //! Data types supported BigQuery.
 
-use serde::{Serialize, Serializer};
+use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize, Serializer};
 use std::{fmt, result};
 
+use super::column::Mode;
 use crate::common::*;
 use crate::schema::{DataType, Srid};
+
+/// Include our `rust-peg` grammar.
+///
+/// We disable lots of clippy warnings because this is machine-generated code.
+#[allow(clippy::all, rust_2018_idioms, elided_lifetimes_in_paths)]
+mod grammar {
+    include!(concat!(env!("OUT_DIR"), "/data_type.rs"));
+}
 
 /// Extensions to `DataType` (the portable version) to handle BigQuery-query
 /// specific stuff.
@@ -33,8 +42,11 @@ pub(crate) enum Usage {
 }
 
 /// A BigQuery data type.
+///
+/// This is marked `pub` instead of `pub(crate)` because of limitations in
+/// `rust-peg`.
 #[derive(Debug, Eq, PartialEq)]
-pub(crate) enum BqDataType {
+pub enum BqDataType {
     /// An array type. May not contain another directly nested array inside
     /// it. Use a nested struct with only one field instead.
     Array(BqNonArrayDataType),
@@ -73,12 +85,55 @@ impl BqDataType {
         }
     }
 
+    /// Convert this `BqDataType` to a portable `DataType`.
+    pub(crate) fn to_data_type(&self, mode: Mode) -> Result<DataType> {
+        match mode {
+            Mode::Required | Mode::Nullable => match self {
+                BqDataType::Array(ty) => {
+                    Ok(DataType::Array(Box::new(ty.to_data_type()?)))
+                }
+                BqDataType::NonArray(ty) => ty.to_data_type(),
+            },
+            Mode::Repeated => match self {
+                BqDataType::Array(_ty) => {
+                    // I'm not sure whether Google would ever output this
+                    // particular combination, or if it would accept it as
+                    // input. Since `Mode::Repeated` isn't even documented,
+                    // let's just throw up our hands pending further data.
+                    Err(format_err!(
+                        "don't known how to handle mode REPEATED with type {}",
+                        self
+                    ))
+                }
+                BqDataType::NonArray(ty) => {
+                    Ok(DataType::Array(Box::new(ty.to_data_type()?)))
+                }
+            },
+        }
+    }
+
     /// Can BigQuery import this type from a CSV file?
     pub(crate) fn bigquery_can_import_from_csv(&self) -> bool {
         match self {
             BqDataType::Array(_) => true,
             _ => false,
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for BqDataType {
+    fn deserialize<D>(deserializer: D) -> result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let raw = String::deserialize(deserializer)?;
+        let parsed = grammar::data_type(&raw).map_err(|err| {
+            D::Error::custom(format!(
+                "error parsing BigQuery data type {:?}: {}",
+                raw, err
+            ))
+        })?;
+        Ok(parsed)
     }
 }
 
@@ -102,9 +157,11 @@ impl Serialize for BqDataType {
 }
 
 /// Any type except `ARRAY` (which cannot be nested in another `ARRAY`).
+///
+/// This should really be `pub(crate)`, see [BqDataType].
 #[derive(Debug, Eq, PartialEq)]
 #[allow(dead_code)]
-pub(crate) enum BqNonArrayDataType {
+pub enum BqNonArrayDataType {
     Bool,
     Bytes,
     Date,
@@ -177,6 +234,27 @@ impl BqNonArrayDataType {
             DataType::Uuid => Ok(BqNonArrayDataType::String),
         }
     }
+
+    /// Convert this `BqNonArrayDataType` to a portable `DataType`.
+    pub(crate) fn to_data_type(&self) -> Result<DataType> {
+        match self {
+            BqNonArrayDataType::Bool => Ok(DataType::Bool),
+            BqNonArrayDataType::Date => Ok(DataType::Date),
+            BqNonArrayDataType::Numeric => Ok(DataType::Decimal),
+            BqNonArrayDataType::Float64 => Ok(DataType::Float64),
+            BqNonArrayDataType::Geography => Ok(DataType::GeoJson(Srid::wgs84())),
+            BqNonArrayDataType::Int64 => Ok(DataType::Int64),
+            BqNonArrayDataType::String => Ok(DataType::Text),
+            BqNonArrayDataType::Datetime => Ok(DataType::TimestampWithoutTimeZone),
+            BqNonArrayDataType::Timestamp => Ok(DataType::TimestampWithTimeZone),
+            BqNonArrayDataType::Bytes
+            | BqNonArrayDataType::Struct(_)
+            | BqNonArrayDataType::Time => Err(format_err!(
+                "cannot convert {} to portable type (yet)",
+                self
+            )),
+        }
+    }
 }
 
 impl fmt::Display for BqNonArrayDataType {
@@ -211,8 +289,10 @@ impl fmt::Display for BqNonArrayDataType {
 }
 
 /// A field of a `STRUCT`.
+///
+/// This should really be `pub(crate)`.
 #[derive(Debug, Eq, PartialEq)]
-pub(crate) struct BqStructField {
+pub struct BqStructField {
     /// An optional field name. BigQuery `STRUCT`s are basically tuples, but
     /// with optional names for each position in the tuple.
     name: Option<String>,
@@ -247,4 +327,64 @@ fn nested_arrays() {
         format!("{}", bq),
         "ARRAY<STRUCT<ARRAY<STRUCT<ARRAY<INT64>>>>>"
     );
+}
+
+#[test]
+fn parsing() {
+    use BqDataType as DT;
+    use BqNonArrayDataType as NADT;
+    let examples = [
+        ("BOOL", DT::NonArray(NADT::Bool)),
+        // Not documented, but it exists.
+        ("BOOLEAN", DT::NonArray(NADT::Bool)),
+        ("BYTES", DT::NonArray(NADT::Bytes)),
+        ("DATE", DT::NonArray(NADT::Date)),
+        ("DATETIME", DT::NonArray(NADT::Datetime)),
+        ("FLOAT64", DT::NonArray(NADT::Float64)),
+        ("GEOGRAPHY", DT::NonArray(NADT::Geography)),
+        ("INT64", DT::NonArray(NADT::Int64)),
+        ("NUMERIC", DT::NonArray(NADT::Numeric)),
+        ("STRING", DT::NonArray(NADT::String)),
+        ("TIME", DT::NonArray(NADT::Time)),
+        ("TIMESTAMP", DT::NonArray(NADT::Timestamp)),
+        ("ARRAY<STRING>", DT::Array(NADT::String)),
+        (
+            "STRUCT<FLOAT64, FLOAT64>",
+            DT::NonArray(NADT::Struct(vec![
+                BqStructField {
+                    name: None,
+                    ty: DT::NonArray(NADT::Float64),
+                },
+                BqStructField {
+                    name: None,
+                    ty: DT::NonArray(NADT::Float64),
+                },
+            ])),
+        ),
+        (
+            "STRUCT<x FLOAT64, y FLOAT64>",
+            DT::NonArray(NADT::Struct(vec![
+                BqStructField {
+                    name: Some("x".to_owned()),
+                    ty: DT::NonArray(NADT::Float64),
+                },
+                BqStructField {
+                    name: Some("y".to_owned()),
+                    ty: DT::NonArray(NADT::Float64),
+                },
+            ])),
+        ),
+        (
+            "ARRAY<STRUCT<ARRAY<INT64>>>",
+            DT::Array(NADT::Struct(vec![BqStructField {
+                name: None,
+                ty: DT::Array(NADT::Int64),
+            }])),
+        ),
+    ];
+    for (input, expected) in &examples {
+        let quoted = format!("\"{}\"", input);
+        let parsed: BqDataType = serde_json::from_str(&quoted).unwrap();
+        assert_eq!(&parsed, expected);
+    }
 }
