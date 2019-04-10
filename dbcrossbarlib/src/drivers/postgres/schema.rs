@@ -5,10 +5,23 @@
 //! Basically, this is old `schemaconv` code that we imported with minimal
 //! changes.
 
-use diesel::{pg::PgConnection, prelude::*};
+use diesel::{
+    pg::PgConnection,
+    prelude::*,
+    sql_function,
+    sql_types::{Integer, Text},
+};
+use std::collections::HashMap;
 
 use crate::common::*;
-use crate::schema::{Column, DataType, Table};
+use crate::schema::{Column, DataType, Srid, Table};
+
+sql_function! {
+    /// Given the PostgreSQL schema name, table name and column name of a
+    /// PostGIS geoemtry column (which must have been correctly set up using
+    /// `AddGeometryColumns`), return the SRID used by that column.
+    fn find_srid(schema_name: Text, table_name: Text, column_name: Text) -> Integer
+}
 
 table! {
     // https://www.postgresql.org/docs/10/static/infoschema-columns.html
@@ -54,15 +67,58 @@ pub(crate) fn fetch_from_url(
     let conn = PgConnection::establish(database_url.as_str())
         .context("error connecting to PostgreSQL")?;
     let (table_schema, table_name) = parse_full_table_name(full_table_name);
+
+    // Look up column information.
     let pg_columns = columns::table
         .filter(columns::table_schema.eq(table_schema))
         .filter(columns::table_name.eq(table_name))
         .order(columns::ordinal_position)
         .load::<PgColumn>(&conn)?;
 
+    // Do we have any PostGIS geometry columns?
+    let need_srids = pg_columns
+        .iter()
+        .any(|c| c.data_type == "USER-DEFINED" && c.udt_name == "geometry");
+
+    // Look up SRIDs for our geometry columns.
+    let srid_map = if need_srids {
+        columns::table
+            .filter(columns::table_schema.eq(table_schema))
+            .filter(columns::table_name.eq(table_name))
+            .filter(columns::data_type.eq("USER-DEFINED"))
+            .filter(columns::udt_name.eq("geometry"))
+            .select((
+                columns::column_name,
+                find_srid(
+                    columns::table_schema,
+                    columns::table_name,
+                    columns::column_name,
+                ),
+            ))
+            .load::<(String, i32)>(&conn)?
+            // Now do some Rust iterator magic to construct `Srid` objects, to
+            // handle integer range errors, and to convert everything into a
+            // nice `HashMap`.
+            .into_iter()
+            .map(|(name, srid)| Ok((name, Srid::new(cast::u32(srid)?))))
+            .collect::<Result<HashMap<String, Srid>>>()?
+    } else {
+        // If we don't have any geometry columns, then we don't want to run the
+        // query, because it's possible that PostGIS isn't installed and we have
+        // no `find_srid` function.
+        HashMap::new()
+    };
+
     let mut columns = Vec::with_capacity(pg_columns.len());
     for pg_col in pg_columns {
-        let data_type = pg_col.data_type()?;
+        // Get the data type for our column.
+        let data_type = if let Some(srid) = srid_map.get(&pg_col.column_name) {
+            DataType::GeoJson(*srid)
+        } else {
+            pg_col.data_type()?
+        };
+
+        // Build our column.
         columns.push(Column {
             name: pg_col.column_name,
             data_type,
@@ -114,17 +170,25 @@ fn pg_data_type(
         // base types.
         let element_type = match udt_name {
             "_bool" => DataType::Bool,
+            "_date" => DataType::Date,
+            "_float4" => DataType::Float32,
             "_float8" => DataType::Float64,
+            "_int2" => DataType::Int16,
             "_int4" => DataType::Int32,
+            "_int8" => DataType::Int64,
             "_text" => DataType::Text,
+            "_timestamp" => DataType::TimestampWithoutTimeZone,
+            "_timestamptz" => DataType::TimestampWithTimeZone,
             "_uuid" => DataType::Uuid,
             _ => return Err(format_err!("unknown array element {:?}", udt_name)),
         };
         Ok(DataType::Array(Box::new(element_type)))
     } else if data_type == "USER-DEFINED" {
         match udt_name {
-            "geometry" => Err(format_err!("don't know how to extract SRID for geometry columns yet (use `--schema=postgres-sql:`")),
-            other => Ok(DataType::Other(other.to_owned())),
+            "geometry" => Err(format_err!(
+                "cannot extract SRID for geometry columns without database connection"
+            )),
+            other => Err(format_err!("unknown user-defined data type {:?}", other)),
         }
     } else {
         match data_type {
@@ -139,9 +203,10 @@ fn pg_data_type(
             "real" => Ok(DataType::Float32),
             "smallint" => Ok(DataType::Int16),
             "text" => Ok(DataType::Text),
+            "timestamp with time zone" => Ok(DataType::TimestampWithTimeZone),
             "timestamp without time zone" => Ok(DataType::TimestampWithoutTimeZone),
             "uuid" => Ok(DataType::Uuid),
-            other => Ok(DataType::Other(other.to_owned())),
+            other => Err(format_err!("unknown data type {:?}", other)),
         }
     }
 }
@@ -162,30 +227,9 @@ fn parsing_pg_data_type() {
             DataType::Float64,
         ),
         (("integer", "pg_catalog", "int4"), DataType::Int32),
-        (
-            ("interval", "pg_catalog", "interval"),
-            DataType::Other("interval".to_owned()),
-        ),
         (("json", "pg_catalog", "json"), DataType::Json),
         (("jsonb", "pg_catalog", "jsonb"), DataType::Json),
-        (
-            ("name", "pg_catalog", "name"),
-            DataType::Other("name".to_owned()),
-        ),
-        (("numeric", "pg_catalog", "numeric"), DataType::Decimal),
-        (
-            ("oid", "pg_catalog", "oid"),
-            DataType::Other("oid".to_owned()),
-        ),
         (("real", "pg_catalog", "float4"), DataType::Float32),
-        (
-            ("regclass", "pg_catalog", "regclass"),
-            DataType::Other("regclass".to_owned()),
-        ),
-        (
-            ("regtype", "pg_catalog", "regtype"),
-            DataType::Other("regtype".to_owned()),
-        ),
         (("smallint", "pg_catalog", "int2"), DataType::Int16),
         (("text", "pg_catalog", "text"), DataType::Text),
         (
@@ -198,25 +242,44 @@ fn parsing_pg_data_type() {
             DataType::Array(Box::new(DataType::Bool)),
         ),
         (
+            ("ARRAY", "pg_catalog", "_date"),
+            DataType::Array(Box::new(DataType::Date)),
+        ),
+        (
+            ("ARRAY", "pg_catalog", "_float4"),
+            DataType::Array(Box::new(DataType::Float32)),
+        ),
+        (
             ("ARRAY", "pg_catalog", "_float8"),
             DataType::Array(Box::new(DataType::Float64)),
+        ),
+        (
+            ("ARRAY", "pg_catalog", "_int2"),
+            DataType::Array(Box::new(DataType::Int16)),
         ),
         (
             ("ARRAY", "pg_catalog", "_int4"),
             DataType::Array(Box::new(DataType::Int32)),
         ),
         (
+            ("ARRAY", "pg_catalog", "_int8"),
+            DataType::Array(Box::new(DataType::Int64)),
+        ),
+        (
             ("ARRAY", "pg_catalog", "_text"),
             DataType::Array(Box::new(DataType::Text)),
         ),
         (
+            ("ARRAY", "pg_catalog", "_timestamp"),
+            DataType::Array(Box::new(DataType::TimestampWithoutTimeZone)),
+        ),
+        (
+            ("ARRAY", "pg_catalog", "_timestamptz"),
+            DataType::Array(Box::new(DataType::TimestampWithTimeZone)),
+        ),
+        (
             ("ARRAY", "pg_catalog", "_uuid"),
             DataType::Array(Box::new(DataType::Uuid)),
-        ),
-        // User-defined types.
-        (
-            ("USER-DEFINED", "public", "citext"),
-            DataType::Other("citext".to_owned()),
         ),
     ];
     for ((data_type, udt_schema, udt_name), expected) in examples {
