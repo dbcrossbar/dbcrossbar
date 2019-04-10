@@ -111,6 +111,23 @@ fn conv_pg_sql_to_bq_schema() {
 }
 
 #[test]
+fn conv_bq_schema_to_pg_sql() {
+    let testdir = TestDir::new("dbcrossbar", "conv_bq_schema_to_pg_sql");
+    let input_json = testdir.src_path("fixtures/bigquery_schema.json");
+    let expected_sql = testdir.src_path("fixtures/bigquery_schema_converted.sql");
+    testdir
+        .cmd()
+        .args(&[
+            "conv",
+            &format!("bigquery-schema:{}", input_json.display()),
+            "postgres-sql:output.sql",
+        ])
+        .expect_success();
+    let expected = fs::read_to_string(&expected_sql).unwrap();
+    testdir.expect_file_contents("output.sql", &expected);
+}
+
+#[test]
 fn cp_help_flag() {
     let testdir = TestDir::new("dbcrossbar", "cp_help_flag");
     let output = testdir.cmd().args(&["cp", "--help"]).expect_success();
