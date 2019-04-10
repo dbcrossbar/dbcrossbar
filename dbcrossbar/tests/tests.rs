@@ -1,7 +1,7 @@
 use cli_test_dir::*;
 use difference::assert_diff;
 use env_logger;
-use std::{env, fs};
+use std::{env, fs, process::Stdio};
 
 /// An example Postgres SQL `CREATE TABLE` declaration.
 const EXAMPLE_SQL: &str = include_str!("../fixtures/example.sql");
@@ -155,6 +155,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     let testdir = TestDir::new("dbcrossbar", "cp_csv_to_postgres_to_gs_to_csv");
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
+    let expected_schema = testdir.src_path("fixtures/many_types_expected.sql");
     let pg_table = post_test_table_url("cp_csv_to_postgres_to_gs_to_csv");
     let gs_dir = gs_test_dir_url("cp_csv_to_postgres_to_gs_to_csv");
     let bq_table = bq_test_table("cp_csv_to_postgres_to_gs_to_csv");
@@ -174,16 +175,23 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
         .tee_output()
         .expect_success();
 
+    // (Check PostgreSQL schema extraction now, so we know that we aren't
+    // messing up later tests.)
+    testdir
+        .cmd()
+        .args(&["conv", &pg_table, "postgres-sql:pg.sql"])
+        .stdout(Stdio::piped())
+        .tee_output()
+        .expect_success();
+    let postgres_sql = fs::read_to_string(&expected_schema)
+        .unwrap()
+        .replace("many_types", "cp_csv_to_postgres_to_gs_to_csv");
+    testdir.expect_file_contents("pg.sql", &postgres_sql);
+
     // Postgres to gs://.
     testdir
         .cmd()
-        .args(&[
-            "cp",
-            "--if-exists=overwrite",
-            &format!("--schema=postgres-sql:{}", schema.display()),
-            &pg_table,
-            &gs_dir,
-        ])
+        .args(&["cp", "--if-exists=overwrite", &pg_table, &gs_dir])
         .tee_output()
         .expect_success();
 
