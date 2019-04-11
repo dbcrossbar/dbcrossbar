@@ -21,6 +21,7 @@ pub(crate) async fn write_remote_data_helper(
     schema: Table,
     source: BoxLocator,
     dest: GsLocator,
+    temporary_storage: TemporaryStorage,
     if_exists: IfExists,
 ) -> Result<()> {
     // Convert the source locator into the underlying `TableName. This is a bit
@@ -41,7 +42,9 @@ pub(crate) async fn write_remote_data_helper(
     )?;
 
     // We need to build a temporary export table.
-    let temp_table_name = source_table.name().temporary_table_name();
+    let temp_table_name = source_table
+        .name()
+        .temporary_table_name(&temporary_storage)?;
     let mut export_sql_data = vec![];
     source_table.write_export_sql(&mut export_sql_data)?;
     let export_sql =

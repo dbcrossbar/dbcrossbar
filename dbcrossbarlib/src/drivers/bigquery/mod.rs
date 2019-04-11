@@ -130,10 +130,18 @@ impl Locator for BigQueryLocator {
         ctx: Context,
         schema: Table,
         source: BoxLocator,
+        temporary_storage: TemporaryStorage,
         if_exists: IfExists,
     ) -> BoxFuture<()> {
-        write_remote_data_helper(ctx, schema, source, self.to_owned(), if_exists)
-            .into_boxed()
+        write_remote_data_helper(
+            ctx,
+            schema,
+            source,
+            self.to_owned(),
+            temporary_storage,
+            if_exists,
+        )
+        .into_boxed()
     }
 }
 
