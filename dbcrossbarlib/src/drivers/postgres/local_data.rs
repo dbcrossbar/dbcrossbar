@@ -37,7 +37,7 @@ pub(crate) async fn local_data_helper(
         // Run our code in a `try` block so we can capture errors returned by
         // `?` without needing to give up ownership of `wtr` to a local closure.
         let result: Result<()> = try {
-            let conn = connect(&url)?;
+            let conn = connect(&ctx, &url)?;
             let stmt = conn.prepare(&sql)?;
             stmt.copy_out(&[], &mut wtr)?;
         };

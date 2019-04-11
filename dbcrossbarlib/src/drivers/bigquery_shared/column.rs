@@ -35,7 +35,11 @@ pub(crate) struct BqColumn {
     #[serde(rename = "type")]
     ty: BqDataType,
 
-    // The mode of the column: Is it nullable?
+    /// The mode of the column: Is it nullable?
+    ///
+    /// This can be omitted in certain output from `bq show --schema`, in which
+    /// case it appears to correspond to `NULLABLE`.
+    #[serde(default)]
     mode: Mode,
 }
 
@@ -310,6 +314,13 @@ return "#,
     }
 }
 
+#[test]
+fn column_without_mode() {
+    let json = r#"{"type":"STRING","name":"state"}"#;
+    let col: BqColumn = serde_json::from_str(json).unwrap();
+    assert_eq!(col.mode, Mode::Nullable);
+}
+
 /// A column mode.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -324,6 +335,14 @@ pub(crate) enum Mode {
     /// but the `type` doesn't actually mention that. This is an undocumented
     /// value that we see in the output of `bq show --schema`.
     Repeated,
+}
+
+impl Default for Mode {
+    /// The `mode` field appears to default to `NULLABLE` in `bq show --schema`
+    /// output, so use that as our default.
+    fn default() -> Self {
+        Mode::Nullable
+    }
 }
 
 /// A BigQuery identifier, for formatting purposes.
