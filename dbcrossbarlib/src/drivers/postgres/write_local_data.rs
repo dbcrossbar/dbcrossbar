@@ -119,7 +119,7 @@ async fn copy_from_async(
 ) -> Result<()> {
     let name = format!("postgres write: {}", table_name);
     await!(run_sync_fn_in_background(name, move || -> Result<()> {
-        let conn = connect(&url)?;
+        let conn = connect(&ctx, &url)?;
         let rdr = SyncStreamReader::new(ctx.clone(), stream);
         copy_from(&ctx, &conn, &table_name, &copy_from_sql, Box::new(rdr))?;
         Ok(())
@@ -151,7 +151,7 @@ pub(crate) async fn write_local_data_helper(
     // isn't safe to send between threads (specifically, it doesn't implement
     // `Send`), and because `await!` may result in us getting scheduled onto
     // a different thread.
-    let conn = connect(&url)?;
+    let conn = connect(&ctx, &url)?;
     prepare_table(&ctx, &conn, pg_create_table.clone(), if_exists)?;
     drop(conn);
 

@@ -22,15 +22,51 @@ use self::write_local_data::write_local_data_helper;
 
 /// Connect to the database, using SSL if possible. If `?ssl=true` is set in the
 /// URL, require SSL.
-fn connect(url: &Url) -> Result<Connection> {
+fn connect(ctx: &Context, url: &Url) -> Result<Connection> {
     // Should we enable SSL?
     let negotiator = NativeTls::new()?;
     let mut tls_mode = TlsMode::Prefer(&negotiator);
     for (key, value) in url.query_pairs() {
-        if key == "ssl" && value == "true" {
-            tls_mode = TlsMode::Require(&negotiator);
+        // See https://www.postgresql.org/docs/current/libpq-connect.html for
+        // argument documentation.
+        if key == "requiressl" {
+            warn!(ctx.log(), "requiressl is deprecated in favor of sslmode");
+            tls_mode = match &value[..] {
+                "0" => TlsMode::Prefer(&negotiator),
+                "1" => TlsMode::Require(&negotiator),
+                _ => {
+                    return Err(format_err!("unknown requiressl= value {:?}", value));
+                }
+            };
+        } else if key == "sslmode" {
+            tls_mode = match &value[..] {
+                "disable" => TlsMode::None,
+                "prefer" => {
+                    // If SSL is present, we'll behave as `verify-full`, because
+                    // the Rust `postgres` library will always perform full SSL
+                    // validation if it does SSL at all.
+                    warn!(
+                        ctx.log(),
+                        "sslmode=prefer will be treated as verify-full if SSL is present",
+                    );
+                    TlsMode::Prefer(&negotiator)
+                }
+                "require" | "verify-ca" => {
+                    warn!(
+                        ctx.log(),
+                        "sslmode={} will be treated as verify-full", value,
+                    );
+                    TlsMode::Require(&negotiator)
+                }
+                "verify-full" => TlsMode::Require(&negotiator),
+                _ => {
+                    return Err(format_err!("unsupported sslmode= value {:?}", value));
+                }
+            }
         }
     }
+    let mut url = url.clone();
+    url.query_pairs_mut().clear();
     Ok(Connection::connect(url.as_str(), tls_mode)?)
 }
 
