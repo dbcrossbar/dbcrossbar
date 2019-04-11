@@ -25,6 +25,7 @@ pub(crate) async fn write_remote_data_helper(
     schema: Table,
     source: BoxLocator,
     dest: BigQueryLocator,
+    temporary_storage: TemporaryStorage,
     if_exists: IfExists,
 ) -> Result<()> {
     // Convert the source locator into the underlying `gs://` URL. This is a bit
@@ -50,7 +51,8 @@ pub(crate) async fn write_remote_data_helper(
 
     // Decide if we need to use a temp table.
     let (use_temp, initial_table_name) = if !schema.bigquery_can_import_from_csv()? {
-        let initial_table_name = dest.table_name.temporary_table_name();
+        let initial_table_name =
+            dest.table_name.temporary_table_name(&temporary_storage)?;
         debug!(
             ctx.log(),
             "loading into temporary table {}", initial_table_name

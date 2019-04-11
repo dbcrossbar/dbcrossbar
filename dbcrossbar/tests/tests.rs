@@ -46,9 +46,14 @@ fn gs_test_dir_url(dir_name: &str) -> String {
 }
 
 /// A BigQuery table to use for a test.
-fn bq_test_table(table_name: &str) -> String {
+fn bq_temp_dataset() -> String {
     let dataset = env::var("BQ_TEST_DATASET").expect("BQ_TEST_DATASET must be set");
-    format!("bigquery:{}.{}", dataset, table_name)
+    format!("bigquery:{}", dataset)
+}
+
+/// A BigQuery table to use for a test.
+fn bq_test_table(table_name: &str) -> String {
+    format!("{}.{}", bq_temp_dataset(), table_name)
 }
 
 #[test]
@@ -296,6 +301,7 @@ fn cp_csv_to_bigquery_to_csv() {
     let testdir = TestDir::new("dbcrossbar", "cp_csv_to_bigquery_to_csv");
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
+    let bq_temp_ds = bq_temp_dataset();
     let gs_temp_dir = gs_test_dir_url("cp_csv_to_bigquery_to_csv");
     let bq_table = bq_test_table("cp_csv_to_bigquery_to_csv");
 
@@ -306,6 +312,7 @@ fn cp_csv_to_bigquery_to_csv() {
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
+            &format!("--temporary={}", bq_temp_ds),
             &format!("--schema=postgres-sql:{}", schema.display()),
             &format!("csv:{}", src.display()),
             &bq_table,
@@ -320,6 +327,7 @@ fn cp_csv_to_bigquery_to_csv() {
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
+            &format!("--temporary={}", bq_temp_ds),
             &bq_table,
             "csv:out/",
         ])

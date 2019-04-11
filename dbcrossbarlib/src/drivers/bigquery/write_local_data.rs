@@ -39,7 +39,8 @@ pub(crate) async fn write_local_data_helper(
         from_temp_ctx,
         schema,
         Box::new(gs_temp),
-        if_exists
+        temporary_storage,
+        if_exists,
     ))?;
 
     // We don't need any parallelism after the BigQuery step, so just return

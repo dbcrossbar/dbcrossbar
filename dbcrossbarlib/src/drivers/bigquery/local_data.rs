@@ -20,6 +20,7 @@ pub(crate) async fn local_data_helper(
         to_temp_ctx,
         schema.clone(),
         Box::new(source),
+        temporary_storage.clone(),
         IfExists::Overwrite,
     ))?;
 

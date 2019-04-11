@@ -40,6 +40,10 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
         })
     }?;
 
+    // Build a `TemporaryStorage` object to keep track of places that we can put
+    // temporary data.
+    let temporary_storage = TemporaryStorage::new(opt.temporaries.clone());
+
     // Can we short-circuit this particular copy using special features of the
     // the source and destination, or do we need to pull the data down to the
     // local machine?
@@ -59,13 +63,13 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
             ctx,
             schema,
             opt.from_locator,
+            temporary_storage,
             opt.if_exists,
         ))?
     } else {
         // We have to transfer the data via the local machine, so read data from
         // input.
         debug!(ctx.log(), "performaning local data transfer");
-        let temporary_storage = TemporaryStorage::new(opt.temporaries.clone());
 
         let input_ctx = ctx.child(o!("from_locator" => opt.from_locator.to_string()));
         let data = await!(opt.from_locator.local_data(
