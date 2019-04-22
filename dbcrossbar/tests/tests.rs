@@ -256,7 +256,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     let actual =
         fs::read_to_string(testdir.path("out/cp_csv_to_postgres_to_gs_to_csv_2.csv"))
             .unwrap();
-    assert_diff(&expected, &actual, ",", 0);
+    assert_diff!(&expected, &actual, ",", 0);
 }
 
 #[test]

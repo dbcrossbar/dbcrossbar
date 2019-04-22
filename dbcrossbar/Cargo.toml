@@ -12,7 +12,7 @@ documentation = "https://docs.rs/dbcrossbarlib/"
 
 [dev-dependencies]
 cli_test_dir = "0.1.5"
-difference = "0.4"
+difference = "2.0"
 
 [dependencies]
 clap = { version = "2.32.0", features = ["wrap_help"] }
@@ -32,5 +32,5 @@ slog-term = "2.4.0"
 structopt = "0.2.10"
 structopt-derive = "0.2.14"
 # Lock exact version to work around some nightly Rust breakage.
-tokio = { version = "=0.1.15", features = ["async-await-preview"] }
+tokio = { version = "=0.1.18", features = ["async-await-preview"] }
 url = "1.7.1"

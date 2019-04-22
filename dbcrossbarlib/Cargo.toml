@@ -35,13 +35,16 @@ serde = "1.0.79"
 serde_json = "1.0.32"
 serde_derive = "1.0.79"
 slog = "2.4.1"
-strum = "0.13.0"
-strum_macros = "0.13.0"
+strum = "0.15.0"
+strum_macros = "0.15.0"
 tempdir = "0.3.7"
 # Lock exact versions to work around some nightly Rust breakage.
-tokio = { version = "=0.1.15", features = ["async-await-preview"] }
+#
+# See https://github.com/tokio-rs/tokio/issues/1042 for compatibility
+# of tokio-async-await with nightly Rust.
+tokio = { version = "=0.1.18", features = ["async-await-preview"] }
 tokio-process = { version = "=0.2.3" }
-tokio-async-await = "=0.1.5"
+tokio-async-await = "=0.1.6"
 try_from = "0.3.2"
 url = "1.7.1"
 uuid = "0.6.5"
