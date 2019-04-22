@@ -5,6 +5,7 @@
 
 #![feature(await_macro, async_await, futures_api, try_blocks)]
 #![warn(missing_docs, unused_extern_crates, clippy::all)]
+#![allow(clippy::redundant_closure)]
 
 // We keep one `macro_use` here, because `diesel`'s macros do not yet play
 // nicely with the new Rust 2018 macro importing features.

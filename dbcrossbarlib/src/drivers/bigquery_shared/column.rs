@@ -84,7 +84,7 @@ impl BqColumn {
             // JavaScript UDFs can't return `DATETIME` yet, so we need a fairly
             // elaborate workaround.
             BqDataType::Array(BqNonArrayDataType::Datetime) => {
-                write!(
+                writeln!(
                     f,
                     r#"CREATE TEMP FUNCTION ImportJsonHelper_{idx}(input STRING)
 RETURNS ARRAY<STRING>
@@ -103,7 +103,6 @@ AS ((
     )
     FROM UNNEST(ImportJsonHelper_{idx}(input)) AS e
 ));
-
 "#,
                     idx = idx,
                     bq_type = self.ty,
@@ -113,7 +112,7 @@ AS ((
             // Most kinds of arrays can be handled with JavaScript. But some
             // of these might be faster as SQL UDFs.
             BqDataType::Array(elem_ty) => {
-                write!(
+                writeln!(
                     f,
                     r#"CREATE TEMP FUNCTION ImportJson_{idx}(input STRING)
 RETURNS {bq_type}
@@ -123,12 +122,10 @@ return "#,
                     bq_type = self.ty,
                 )?;
                 self.write_import_udf_body_for_array(f, elem_ty)?;
-                write!(
+                writeln!(
                     f,
                     r#";
-""";
-
-"#
+""";"#
                 )?;
             }
 
