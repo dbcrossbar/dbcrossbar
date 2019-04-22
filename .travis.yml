@@ -4,7 +4,7 @@ os:
 - linux
 - osx
 rust:
-- nightly-2019-02-08
+- nightly-2019-03-23
 services:
 - docker
 before_script:
