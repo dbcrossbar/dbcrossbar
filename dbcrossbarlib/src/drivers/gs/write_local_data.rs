@@ -26,37 +26,33 @@ pub(crate) async fn write_local_data_helper(
     let written = data.map(move |stream| {
         let url = url.clone();
         let ctx = ctx.clone();
-        tokio_fut(
-            async move {
-                let url = url.join(&format!("{}.csv", stream.name))?;
-                let ctx = ctx.child(
-                    o!("stream" => stream.name.clone(), "url" => url.to_string()),
-                );
+        tokio_fut(async move {
+            let url = url.join(&format!("{}.csv", stream.name))?;
+            let ctx = ctx
+                .child(o!("stream" => stream.name.clone(), "url" => url.to_string()));
 
-                // Run `gsutil cp - $URL` as a background process.
-                debug!(ctx.log(), "uploading stream to gsutil");
-                let mut child = Command::new("gsutil")
-                    .args(&["cp", "-", url.as_str()])
-                    .stdin(Stdio::piped())
-                    .spawn_async()
-                    .context("error running gsutil")?;
-                let child_stdin =
-                    child.stdin().take().expect("child should have stdin");
+            // Run `gsutil cp - $URL` as a background process.
+            debug!(ctx.log(), "uploading stream to gsutil");
+            let mut child = Command::new("gsutil")
+                .args(&["cp", "-", url.as_str()])
+                .stdin(Stdio::piped())
+                .spawn_async()
+                .context("error running gsutil")?;
+            let child_stdin = child.stdin().take().expect("child should have stdin");
 
-                // Copy data to our child process.
-                await!(copy_stream_to_writer(ctx.clone(), stream.data, child_stdin))
-                    .context("error copying data to gsutil")?;
+            // Copy data to our child process.
+            await!(copy_stream_to_writer(ctx.clone(), stream.data, child_stdin))
+                .context("error copying data to gsutil")?;
 
-                // Wait for `gsutil` to finish.
-                let status = await!(child)
-                    .with_context(|_| format!("error finishing upload to {}", url))?;
-                if status.success() {
-                    Ok(())
-                } else {
-                    Err(format_err!("gsutil returned error: {}", status))
-                }
-            },
-        )
+            // Wait for `gsutil` to finish.
+            let status = await!(child)
+                .with_context(|_| format!("error finishing upload to {}", url))?;
+            if status.success() {
+                Ok(())
+            } else {
+                Err(format_err!("gsutil returned error: {}", status))
+            }
+        })
         .into_boxed()
     });
 
