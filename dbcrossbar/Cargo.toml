@@ -32,5 +32,5 @@ slog-term = "2.4.0"
 structopt = "0.2.10"
 structopt-derive = "0.2.14"
 # Lock exact version to work around some nightly Rust breakage.
-tokio = { version = "=0.1.18", features = ["async-await-preview"] }
+tokio = { version = "=0.1.19", features = ["async-await-preview"] }
 url = "1.7.1"

@@ -1,6 +1,6 @@
 //! A CLI tool for converting between table schema formats.
 
-#![feature(await_macro, async_await, futures_api)]
+#![feature(await_macro, async_await)]
 #![warn(rust_2018_idioms, unused_extern_crates, clippy::all)]
 
 // Needed to prevent linker errors about OpenSSL.

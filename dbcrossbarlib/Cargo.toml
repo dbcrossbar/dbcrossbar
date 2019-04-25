@@ -28,12 +28,13 @@ hex = "0.3.2"
 lazy_static = "1.2.0"
 log = "0.4.5"
 native-tls = "0.2.2"
-postgres = { version = "0.15.2", features = ["with-native-tls"] }
 rand = "0.6"
 regex = "1.1.0"
 serde = "1.0.79"
 serde_json = "1.0.32"
 serde_derive = "1.0.79"
+tokio-postgres = "0.4.0-rc.2"
+tokio-postgres-native-tls = "0.1.0-rc.1"
 slog = "2.4.1"
 strum = "0.15.0"
 strum_macros = "0.15.0"
@@ -42,9 +43,9 @@ tempdir = "0.3.7"
 #
 # See https://github.com/tokio-rs/tokio/issues/1042 for compatibility
 # of tokio-async-await with nightly Rust.
-tokio = { version = "=0.1.18", features = ["async-await-preview"] }
+tokio = { version = "=0.1.19", features = ["async-await-preview"] }
 tokio-process = { version = "=0.2.3" }
-tokio-async-await = "=0.1.6"
+tokio-async-await = "=0.1.7"
 try_from = "0.3.2"
 url = "1.7.1"
 uuid = "0.6.5"
