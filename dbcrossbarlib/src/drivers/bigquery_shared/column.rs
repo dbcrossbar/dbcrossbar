@@ -112,7 +112,7 @@ AS ((
             // Most kinds of arrays can be handled with JavaScript. But some
             // of these might be faster as SQL UDFs.
             BqDataType::Array(elem_ty) => {
-                writeln!(
+                write!(
                     f,
                     r#"CREATE TEMP FUNCTION ImportJson_{idx}(input STRING)
 RETURNS {bq_type}
