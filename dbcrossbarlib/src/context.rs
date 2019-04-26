@@ -64,16 +64,14 @@ impl Context {
     {
         let log = self.log.clone();
         let error_sender = self.error_sender.clone();
-        tokio::spawn_async(
-            async move {
-                if let Err(err) = await!(worker) {
-                    debug!(log, "reporting background worker error: {}", err);
-                    if let Err(_err) = await!(error_sender.send(err)) {
-                        debug!(log, "broken pipe reporting background worker error");
-                    }
+        tokio::spawn_async(async move {
+            if let Err(err) = await!(worker) {
+                debug!(log, "reporting background worker error: {}", err);
+                if let Err(_err) = await!(error_sender.send(err)) {
+                    debug!(log, "broken pipe reporting background worker error");
                 }
-            },
-        );
+            }
+        });
     }
 
     /// Monitor an asynchrnous child process, and report any errors or non-zero

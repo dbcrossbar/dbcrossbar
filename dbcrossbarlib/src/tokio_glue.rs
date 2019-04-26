@@ -217,6 +217,7 @@ impl SyncStreamWriter {
 
 impl SyncStreamWriter {
     /// Send an error to our stream.
+    #[allow(dead_code)]
     pub(crate) fn send_error(&mut self, err: Error) -> io::Result<()> {
         debug!(self.ctx.log(), "sending error: {}", err);
         if let Some(sender) = self.sender.take() {

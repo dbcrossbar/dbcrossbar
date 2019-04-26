@@ -1,11 +1,11 @@
 //! Support for reading data from a PostgreSQL table.
 
-use std::thread;
+use bytes::Bytes;
+use failure::Fail;
 
 use super::connect;
 use crate::common::*;
 use crate::drivers::postgres_shared::PgCreateTable;
-use crate::tokio_glue::SyncStreamWriter;
 
 /// Copy the specified table from the database, returning a `CsvStream`.
 pub(crate) async fn local_data_helper(
@@ -29,32 +29,22 @@ pub(crate) async fn local_data_helper(
     let sql = String::from_utf8(sql_bytes).expect("should always be UTF-8");
     debug!(ctx.log(), "export SQL: {}", sql);
 
-    // Use `pipe` and a background thread to convert a `Write` to `Read`.
-    let url = url.clone();
-    let (mut wtr, stream) = SyncStreamWriter::pipe(ctx.clone());
-    let thr = thread::Builder::new().name(format!("postgres read: {}", table_name));
-    thr.spawn(move || {
-        // Run our code in a `try` block so we can capture errors returned by
-        // `?` without needing to give up ownership of `wtr` to a local closure.
-        let result: Result<()> = try {
-            let conn = connect(&ctx, &url)?;
-            let stmt = conn.prepare(&sql)?;
-            stmt.copy_out(&[], &mut wtr)?;
-        };
-
-        // Report any errors to our stream.
-        if let Err(err) = result {
-            error!(ctx.log(), "error reading from PostgreSQL: {}", err);
-            if wtr.send_error(err).is_err() {
-                error!(ctx.log(), "cannot report error to foreground thread");
-            }
-        }
-    })
-    .context("could not spawn thread")?;
+    // Copy the data out of PostgreSQL as a CSV stream.
+    let mut conn = await!(connect(ctx.clone(), url))?;
+    let stmt = await!(conn.prepare(&sql))?;
+    let rdr = conn
+        .copy_out(&stmt, &[])
+        // Convert data representation to match `dbcrossbar` conventions.
+        .map(move |bytes: Bytes| -> BytesMut {
+            trace!(ctx.log(), "read {} bytes", bytes.len());
+            bytes.into()
+        })
+        // Convert errors to our standard error type.
+        .map_err(|err| err.context("error reading data from PostgreSQL").into());
 
     let csv_stream = CsvStream {
         name: table_name.clone(),
-        data: Box::new(stream),
+        data: Box::new(rdr),
     };
     let box_stream: BoxStream<CsvStream> = Box::new(stream::once(Ok(csv_stream)));
     Ok(Some(box_stream))
