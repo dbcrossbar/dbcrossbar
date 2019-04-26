@@ -30,12 +30,15 @@ pub(crate) async fn local_data_helper(
     debug!(ctx.log(), "export SQL: {}", sql);
 
     // Copy the data out of PostgreSQL as a CSV stream.
-    let mut conn = await!(connect(ctx, url))?;
+    let mut conn = await!(connect(ctx.clone(), url))?;
     let stmt = await!(conn.prepare(&sql))?;
     let rdr = conn
         .copy_out(&stmt, &[])
         // Convert data representation to match `dbcrossbar` conventions.
-        .map(|bytes: Bytes| -> BytesMut { bytes.into() })
+        .map(move |bytes: Bytes| -> BytesMut {
+            trace!(ctx.log(), "read {} bytes", bytes.len());
+            bytes.into()
+        })
         // Convert errors to our standard error type.
         .map_err(|err| err.context("error reading data from PostgreSQL").into());
 
