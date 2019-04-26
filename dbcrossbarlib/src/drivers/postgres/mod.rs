@@ -38,12 +38,14 @@ async fn connect(ctx: Context, url: Url) -> Result<Client> {
         .context("could not build PostgreSQL TLS connector")?;
     let (client, connection) =
         await!(config.connect(MakeTlsConnector::new(tls_connector)))
-        .context("could not connect to PostgreSQL")?;
+            .context("could not connect to PostgreSQL")?;
 
     // The docs say we need to run this connection object in the background.
-    ctx.spawn_worker(connection.map_err(|e| -> Error {
-        e.context("error on PostgreSQL connection").into()
-    }));
+    ctx.spawn_worker(
+        connection.map_err(|e| -> Error {
+            e.context("error on PostgreSQL connection").into()
+        }),
+    );
 
     Ok(client)
 }
