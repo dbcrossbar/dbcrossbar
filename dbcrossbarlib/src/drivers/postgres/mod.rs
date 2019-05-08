@@ -83,13 +83,37 @@ pub struct PostgresLocator {
     table_name: String,
 }
 
-impl fmt::Display for PostgresLocator {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Merge our table name back into our URL.
+impl PostgresLocator {
+    /// Return the full URL, including the table name in the URL fragment.
+    pub fn to_url(&self) -> Url {
         let mut full_url = self.url.clone();
         full_url.set_fragment(Some(&self.table_name));
-        full_url.fmt(f)
+        full_url
     }
+
+    /// Return the full URL, including the table name in the fragment, but
+    /// excluding the password.
+    pub fn to_url_without_password(&self) -> Url {
+        let mut full_url = self.to_url();
+        full_url
+            .set_password(None)
+            .expect("should always be able to set password for postgres://");
+        full_url
+    }
+}
+
+impl fmt::Display for PostgresLocator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.to_url_without_password().fmt(f)
+    }
+}
+
+#[test]
+fn do_not_display_password() {
+    let l = "postgres://user:pass@host/db#table"
+        .parse::<PostgresLocator>()
+        .expect("could not parse locator");
+    assert_eq!(format!("{}", l), "postgres://user@host/db#table");
 }
 
 impl FromStr for PostgresLocator {
