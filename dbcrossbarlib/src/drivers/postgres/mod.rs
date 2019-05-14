@@ -77,34 +77,38 @@ pub(crate) const POSTGRES_SCHEME: &str = "postgres:";
 ///
 /// This is the central point of access for talking to a running PostgreSQL
 /// database.
-#[derive(Debug)]
 pub struct PostgresLocator {
     url: Url,
     table_name: String,
 }
 
 impl PostgresLocator {
-    /// Return the full URL, including the table name in the URL fragment.
-    pub fn to_url(&self) -> Url {
-        let mut full_url = self.url.clone();
-        full_url.set_fragment(Some(&self.table_name));
-        full_url
+    /// Return our `url`, replacing any password with a placeholder string. Used
+    /// for logging.
+    fn url_without_password(&self) -> Url {
+        let mut url = self.url.clone();
+        if url.password().is_some() {
+            url.set_password(Some("XXXXXX"))
+                .expect("should always be able to set password for postgres://");
+        }
+        url
     }
+}
 
-    /// Return the full URL, including the table name in the fragment, but
-    /// excluding the password.
-    pub fn to_url_without_password(&self) -> Url {
-        let mut full_url = self.to_url();
-        full_url
-            .set_password(None)
-            .expect("should always be able to set password for postgres://");
-        full_url
+impl fmt::Debug for PostgresLocator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PostgresLocator")
+            .field("url", &self.url_without_password())
+            .field("table_name", &self.table_name)
+            .finish()
     }
 }
 
 impl fmt::Display for PostgresLocator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.to_url_without_password().fmt(f)
+        let mut full_url = self.url_without_password();
+        full_url.set_fragment(Some(&self.table_name));
+        full_url.fmt(f)
     }
 }
 
@@ -113,7 +117,7 @@ fn do_not_display_password() {
     let l = "postgres://user:pass@host/db#table"
         .parse::<PostgresLocator>()
         .expect("could not parse locator");
-    assert_eq!(format!("{}", l), "postgres://user@host/db#table");
+    assert_eq!(format!("{}", l), "postgres://user:XXXXXX@host/db#table");
 }
 
 impl FromStr for PostgresLocator {
