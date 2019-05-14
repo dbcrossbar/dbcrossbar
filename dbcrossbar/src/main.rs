@@ -17,7 +17,7 @@ use dbcrossbarlib::{tokio_glue::tokio_fut, Context};
 use env_logger;
 use openssl_probe;
 use slog::{debug, slog_o, Drain, Logger};
-use slog_async;
+use slog_async::{self, OverflowStrategy};
 use slog_envlogger;
 use slog_term;
 use structopt::{self, StructOpt};
@@ -40,7 +40,14 @@ fn run() -> Result<()> {
     let decorator = slog_term::PlainDecorator::new(std::io::stdout());
     let formatted = slog_term::CompactFormat::new(decorator).build().fuse();
     let filtered = slog_envlogger::new(formatted);
-    let drain = slog_async::Async::new(filtered).build().fuse();
+    let drain = slog_async::Async::new(filtered)
+        .chan_size(64)
+        // This may slow down application performance, even when `RUST_LOG` is
+        // not set. But we've been seeing a lot of dropped messages lately, so
+        // let's try it.
+        .overflow_strategy(OverflowStrategy::Block)
+        .build()
+        .fuse();
     let log = Logger::root(
         drain,
         slog_o!(
