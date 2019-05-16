@@ -77,9 +77,10 @@ impl Locator for CsvLocator {
         &self,
         ctx: Context,
         _schema: Table,
+        query: Query,
         _temporary_storage: TemporaryStorage,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(ctx, self.path.clone()).into_boxed()
+        local_data_helper(ctx, self.path.clone(), query).into_boxed()
     }
 
     fn write_local_data(
@@ -98,7 +99,9 @@ impl Locator for CsvLocator {
 async fn local_data_helper(
     ctx: Context,
     path: PathOrStdio,
+    query: Query,
 ) -> Result<Option<BoxStream<CsvStream>>> {
+    query.fail_if_query_details_provided()?;
     match path {
         PathOrStdio::Stdio => {
             // TODO - There's a stupid gotcha with `stdin.lock()` that makes

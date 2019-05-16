@@ -63,7 +63,7 @@ impl PgCreateTable {
     }
 
     /// Write a `COPY (SELECT ...) TO STDOUT ...` statement for this table.
-    pub(crate) fn write_export_sql(&self, f: &mut Write) -> Result<()> {
+    pub(crate) fn write_export_sql(&self, f: &mut Write, query: &Query) -> Result<()> {
         write!(f, "COPY (SELECT ")?;
         let mut first: bool = true;
         for col in &self.columns {
@@ -75,6 +75,9 @@ impl PgCreateTable {
             col.write_export_select_expr(f)?;
         }
         write!(f, " FROM {:?}", self.name)?;
+        if let Some(where_clause) = &query.where_clause {
+            write!(f, " WHERE ({})", where_clause)?;
+        }
         write!(f, ") TO STDOUT WITH CSV HEADER")?;
         Ok(())
     }

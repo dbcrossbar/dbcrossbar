@@ -26,6 +26,7 @@ pub(crate) mod from_json_value;
 pub(crate) mod if_exists;
 pub(crate) mod locator;
 pub(crate) mod path_or_stdio;
+mod query;
 pub mod schema;
 mod temporary_storage;
 pub mod tokio_glue;
@@ -44,6 +45,7 @@ pub use context::Context;
 pub use csv_stream::CsvStream;
 pub use if_exists::IfExists;
 pub use locator::{BoxLocator, Locator};
+pub use query::Query;
 pub use temporary_storage::TemporaryStorage;
 
 /// Definitions included by all the files in this crate.
@@ -65,6 +67,7 @@ pub(crate) mod common {
         if_exists::IfExists,
         locator::{BoxLocator, Locator},
         path_or_stdio::PathOrStdio,
+        query::Query,
         schema::Table,
         temporary_storage::TemporaryStorage,
         tokio_glue::{

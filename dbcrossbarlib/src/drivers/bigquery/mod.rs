@@ -95,9 +95,11 @@ impl Locator for BigQueryLocator {
         &self,
         ctx: Context,
         schema: Table,
+        query: Query,
         temporary_storage: TemporaryStorage,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(ctx, self.clone(), schema, temporary_storage).into_boxed()
+        local_data_helper(ctx, self.clone(), schema, query, temporary_storage)
+            .into_boxed()
     }
 
     fn write_local_data(
