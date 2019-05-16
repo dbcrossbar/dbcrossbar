@@ -1,7 +1,7 @@
 //! The `cp` subcommand.
 
 use common_failures::Result;
-use dbcrossbarlib::{BoxLocator, Context, IfExists, TemporaryStorage};
+use dbcrossbarlib::{BoxLocator, Context, IfExists, Query, TemporaryStorage};
 use failure::format_err;
 use slog::{debug, o};
 use structopt::{self, StructOpt};
@@ -23,6 +23,10 @@ pub(crate) struct Opt {
     #[structopt(long = "temporary")]
     temporaries: Vec<String>,
 
+    /// SQL where clause specifying rows to use.
+    #[structopt(long = "where")]
+    where_clause: Option<String>,
+
     /// The input table.
     from_locator: BoxLocator,
 
@@ -39,6 +43,10 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
             format_err!("don't know how to read schema from {}", opt.from_locator)
         })
     }?;
+
+    // Get our query details.
+    let mut query = Query::default();
+    query.where_clause = opt.where_clause.clone();
 
     // Build a `TemporaryStorage` object to keep track of places that we can put
     // temporary data.
@@ -75,6 +83,7 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
         let data = await!(opt.from_locator.local_data(
             input_ctx,
             schema.clone(),
+            query,
             temporary_storage.clone()
         ))?
         .ok_or_else(|| {

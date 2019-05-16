@@ -14,7 +14,9 @@ use crate::tokio_glue::copy_reader_to_stream;
 pub(crate) async fn local_data_helper(
     ctx: Context,
     url: Url,
+    query: Query,
 ) -> Result<Option<BoxStream<CsvStream>>> {
+    query.fail_if_query_details_provided()?;
     debug!(ctx.log(), "getting CSV files from {}", url);
 
     // Build a URL to list.

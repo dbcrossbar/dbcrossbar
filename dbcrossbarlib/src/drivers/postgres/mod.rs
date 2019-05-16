@@ -134,10 +134,17 @@ impl Locator for PostgresLocator {
         &self,
         ctx: Context,
         schema: Table,
+        query: Query,
         _temporary_storage: TemporaryStorage,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(ctx, self.url.clone(), self.table_name.clone(), schema)
-            .into_boxed()
+        local_data_helper(
+            ctx,
+            self.url.clone(),
+            self.table_name.clone(),
+            schema,
+            query,
+        )
+        .into_boxed()
     }
 
     fn write_local_data(

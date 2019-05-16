@@ -70,6 +70,7 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
         &self,
         _ctx: Context,
         _schema: Table,
+        _query: Query,
         _temporary_storage: TemporaryStorage,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
         // Turn our result into a future.
