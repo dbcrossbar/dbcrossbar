@@ -1,7 +1,11 @@
 //! Table-related support for BigQuery.
 
+use itertools::Itertools;
 use serde_json;
-use std::io::Write;
+use std::{
+    collections::{HashMap, HashSet},
+    io::Write,
+};
 
 use super::{BqColumn, ColumnBigQueryExt, Ident, TableName, Usage};
 use crate::common::*;
@@ -100,6 +104,97 @@ impl BqTable {
             f,
             " FROM {}",
             Ident(&source_table_name.dotted().to_string())
+        )?;
+        Ok(())
+    }
+
+    /// Generate a `MERGE INTO` statement using the specified columns.
+    pub(crate) fn write_merge_sql(
+        &self,
+        source_table_name: &TableName,
+        merge_keys: &[String],
+        f: &mut dyn Write,
+    ) -> Result<()> {
+        // Convert `merge_keys` into actual column values for consistency.
+        let mut column_map = HashMap::new();
+        for col in &self.columns {
+            column_map.insert(&col.name[..], col);
+        }
+        let merge_keys = merge_keys
+            .iter()
+            .map(|key| -> Result<&BqColumn> {
+                Ok(column_map.get(&key[..]).ok_or_else(|| {
+                    format_err!("upsert key {} is not in table", key)
+                })?)
+            })
+            .collect::<Result<Vec<&BqColumn>>>()?;
+
+        // Build a table when we can check for merge keys by name.
+        let merge_key_table = merge_keys
+            .iter()
+            .map(|c| &c.name[..])
+            .collect::<HashSet<_>>();
+
+        // Write out any helper functions we'll need to transform data.
+        for (idx, col) in self.columns.iter().enumerate() {
+            col.write_import_udf(f, idx)?;
+        }
+
+        // A helper function to generate import SQL for a column.
+        let col_import_expr = |c: &BqColumn, idx: usize| -> String {
+            let mut buf = vec![];
+            c.write_import_expr(&mut buf, idx, Some("temp."))
+                .expect("should always be able to write col_import_expr");
+            String::from_utf8(buf).expect("col_import_expr should be UTF-8")
+        };
+
+        // Generate our actual SQL.
+        write!(
+            f,
+            r#"
+MERGE INTO {dest_table} AS dest
+USING {temp_table} AS temp
+ON
+    {key_comparisons}
+WHEN MATCHED THEN UPDATE SET
+    {updates}
+WHEN NOT MATCHED THEN INSERT (
+    {columns}
+) VALUES (
+    {values}
+)"#,
+            dest_table = Ident(&self.name().dotted().to_string()),
+            temp_table = Ident(&source_table_name.dotted().to_string()),
+            key_comparisons = merge_keys
+                .iter()
+                .enumerate()
+                .map(|(idx, c)| format!(
+                    "dest.{col} = {expr}",
+                    col = Ident(&c.name),
+                    expr = col_import_expr(c, idx),
+                ))
+                .join(" AND\n    "),
+            updates = self
+                .columns
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, c)| if merge_key_table.contains(&c.name[..]) {
+                    None
+                } else {
+                    Some(format!(
+                        "{col} = {expr}",
+                        col = Ident(&c.name),
+                        expr = col_import_expr(c, idx),
+                    ))
+                })
+                .join(",\n    "),
+            columns = self.columns.iter().map(|c| Ident(&c.name)).join(",\n    "),
+            values = self
+                .columns
+                .iter()
+                .enumerate()
+                .map(|(idx, c)| col_import_expr(c, idx))
+                .join(",\n    "),
         )?;
         Ok(())
     }

@@ -61,7 +61,7 @@ pub(crate) async fn write_remote_data_helper(
             "query",
             "--format=none",
             &format!("--destination_table={}", temp_table_name),
-            if_exists_to_bq_load_arg(IfExists::Overwrite)?,
+            if_exists_to_bq_load_arg(&IfExists::Overwrite)?,
             "--nouse_legacy_sql",
         ])
         .spawn_async()
@@ -101,7 +101,7 @@ pub(crate) async fn write_remote_data_helper(
         return Err(format_err!("`bq load` failed with {}", status));
     }
 
-    // Delete temp table.r!
+    // Delete temp table.
     debug!(ctx.log(), "deleting export temp table: {}", temp_table_name);
     let rm_child = Command::new("bq")
         .args(&["rm", "-f", "-t", &temp_table_name.to_string()])

@@ -16,7 +16,6 @@ extern crate diesel;
 extern crate tokio;
 
 use std::result;
-use strum;
 
 pub(crate) mod context;
 pub(crate) mod csv_stream;
