@@ -44,7 +44,7 @@ fn prepare_table(
     ctx: &Context,
     conn: &Connection,
     mut pg_create_table: PgCreateTable,
-    if_exists: IfExists,
+    if_exists: &IfExists,
 ) -> Result<()> {
     match if_exists {
         IfExists::Overwrite => {
@@ -62,6 +62,9 @@ fn prepare_table(
             // We always want to create the table, so omit `IF NOT EXISTS`. If
             // the table already exists, we will fail with an error.
             pg_create_table.if_not_exists = false;
+        }
+        IfExists::Upsert(_keys) => {
+            return Err(format_err!("UPSERT is not yet implemented for PostgreSQL"));
         }
     }
     create_table(ctx, conn, &pg_create_table)
@@ -152,7 +155,7 @@ pub(crate) async fn write_local_data_helper(
     // `Send`), and because `await!` may result in us getting scheduled onto
     // a different thread.
     let conn = connect(&ctx, &url)?;
-    prepare_table(&ctx, &conn, pg_create_table.clone(), if_exists)?;
+    prepare_table(&ctx, &conn, pg_create_table.clone(), &if_exists)?;
     drop(conn);
 
     // Generate our `COPY ... FROM` SQL.

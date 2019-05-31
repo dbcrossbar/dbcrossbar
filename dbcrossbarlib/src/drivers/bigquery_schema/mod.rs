@@ -68,7 +68,7 @@ impl Locator for BigQuerySchemaLocator {
         let arbitrary_name = TableName::from_str(&"unused:unused.unused")?;
 
         // Generate our JSON.
-        let mut f = self.path.create_sync(ctx, if_exists)?;
+        let mut f = self.path.create_sync(ctx, &if_exists)?;
         let bq_table = BqTable::for_table_name_and_columns(
             arbitrary_name,
             &table.columns,

@@ -29,7 +29,7 @@ pub(crate) struct BqColumn {
     description: Option<String>,
 
     /// The name of the BigQuery column.
-    name: String,
+    pub name: String,
 
     /// The type of the BigQuery column.
     #[serde(rename = "type")]
@@ -188,6 +188,41 @@ return "#,
         Ok(())
     }
 
+    /// Output an SQL expression that returns the converted form of a column.
+    ///
+    /// The optional `table_prefix` must end with a `.` and it will not be
+    /// wrapped in `Ident`, so it can't be a string we got from the user. So we
+    /// declare it `'static` as a hack to more or less enforce this.
+    ///
+    /// This should never fail when writing output to a `Vec<u8>`.
+    pub(crate) fn write_import_expr(
+        &self,
+        f: &mut dyn Write,
+        idx: usize,
+        table_prefix: Option<&'static str>,
+    ) -> Result<()> {
+        let table_prefix = table_prefix.unwrap_or("");
+        assert!(table_prefix == "" || table_prefix.ends_with('.'));
+        let ident = Ident(&self.name);
+        if let BqDataType::Array(_) = &self.ty {
+            write!(
+                f,
+                "ImportJson_{idx}({table_prefix}{ident})",
+                idx = idx,
+                table_prefix = table_prefix,
+                ident = ident,
+            )?;
+        } else {
+            write!(
+                f,
+                "{table_prefix}{ident}",
+                table_prefix = table_prefix,
+                ident = ident
+            )?;
+        }
+        Ok(())
+    }
+
     /// Output the SQL expression used in the `SELECT` clause of our table
     /// import statement.
     pub(crate) fn write_import_select_expr(
@@ -195,17 +230,9 @@ return "#,
         f: &mut dyn Write,
         idx: usize,
     ) -> Result<()> {
+        self.write_import_expr(f, idx, None)?;
         let ident = Ident(&self.name);
-        if let BqDataType::Array(_) = &self.ty {
-            write!(
-                f,
-                "ImportJson_{idx}({ident}) AS {ident}",
-                idx = idx,
-                ident = ident,
-            )?;
-        } else {
-            write!(f, "{}", ident)?;
-        }
+        write!(f, " AS {ident}", ident = ident)?;
         Ok(())
     }
 

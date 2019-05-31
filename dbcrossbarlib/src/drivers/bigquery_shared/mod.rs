@@ -24,11 +24,11 @@ pub(crate) use self::table_name::*;
 
 /// Convert an `IfExists` value to the corresponding `bq load` argument, or
 /// return an error if we can't.
-pub(crate) fn if_exists_to_bq_load_arg(if_exists: IfExists) -> Result<&'static str> {
+pub(crate) fn if_exists_to_bq_load_arg(if_exists: &IfExists) -> Result<&'static str> {
     match if_exists {
         IfExists::Overwrite => Ok("--replace"),
         // TODO: Verify that this is the actual behavior of `--noreplace`.
-        IfExists::Append => Ok("--noreplace"),
+        IfExists::Append | IfExists::Upsert(_) => Ok("--noreplace"),
         // We need to be careful about race conditions--we don't want to try to
         // emulate this if we can't do it natively.
         IfExists::Error => Err(format_err!(

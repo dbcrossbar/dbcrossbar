@@ -101,7 +101,7 @@ impl PathOrStdio {
     pub(crate) fn create_sync(
         &self,
         ctx: &Context,
-        if_exists: IfExists,
+        if_exists: &IfExists,
     ) -> Result<Box<dyn Write>> {
         match self {
             PathOrStdio::Path(p) => {

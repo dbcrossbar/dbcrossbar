@@ -1,7 +1,7 @@
 use cli_test_dir::*;
 use difference::assert_diff;
 use env_logger;
-use std::{env, fs, process::Stdio};
+use std::{env, fs, path::Path, process::Stdio};
 
 /// An example Postgres SQL `CREATE TABLE` declaration.
 const EXAMPLE_SQL: &str = include_str!("../fixtures/example.sql");
@@ -376,4 +376,63 @@ fn cp_csv_to_bigquery_to_csv() {
         ])
         .tee_output()
         .expect_success();
+}
+
+#[test]
+#[ignore]
+fn bigquery_upsert() {
+    let _ = env_logger::try_init();
+    let testdir = TestDir::new("dbcrossbar", "bigquery_upsert");
+    let srcs = &[
+        testdir.src_path("fixtures/upsert_1.csv"),
+        testdir.src_path("fixtures/upsert_2.csv"),
+    ];
+    let expected = testdir.src_path("fixtures/upsert_result.csv");
+    let schema = testdir.src_path("fixtures/upsert.sql");
+    let bq_temp_ds = bq_temp_dataset();
+    let gs_temp_dir = gs_test_dir_url("bigquery_upsert");
+    let bq_table = bq_test_table("bigquery_upsert");
+
+    // CSVes to BigQuery.
+    for src in srcs {
+        testdir
+            .cmd()
+            .args(&[
+                "cp",
+                "--if-exists=upsert-on:key1,key2",
+                &format!("--temporary={}", gs_temp_dir),
+                &format!("--temporary={}", bq_temp_ds),
+                &format!("--schema=postgres-sql:{}", schema.display()),
+                &format!("csv:{}", src.display()),
+                &bq_table,
+            ])
+            .tee_output()
+            .expect_success();
+    }
+
+    // BigQuery to CSV.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--temporary={}", gs_temp_dir),
+            &format!("--temporary={}", bq_temp_ds),
+            &bq_table,
+            "csv:out/",
+        ])
+        .tee_output()
+        .expect_success();
+
+    // We sort the lines of the CSVs because BigQuery outputs in any order.
+    // This has the side effect of putting the headers at the end.
+    let normalize_csv = |path: &Path| -> String {
+        let text = fs::read_to_string(&path).unwrap();
+        let mut lines = text.lines().collect::<Vec<_>>();
+        lines.sort();
+        lines.join("\n")
+    };
+    let expected = normalize_csv(&expected);
+    let actual = normalize_csv(&testdir.path("out/000000000000.csv"));
+    assert_diff(&expected, &actual, ",", 0);
 }

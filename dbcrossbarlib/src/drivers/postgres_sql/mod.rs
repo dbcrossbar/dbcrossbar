@@ -59,7 +59,7 @@ impl Locator for PostgresSqlLocator {
         // database with a very different naming scheme.
         let pg_create_table =
             PgCreateTable::from_name_and_columns(table.name.clone(), &table.columns)?;
-        let mut out = self.path.create_sync(ctx, if_exists)?;
+        let mut out = self.path.create_sync(ctx, &if_exists)?;
         write!(out, "{}", pg_create_table)
             .with_context(|_| format!("error writing {}", self.path))?;
         Ok(())
