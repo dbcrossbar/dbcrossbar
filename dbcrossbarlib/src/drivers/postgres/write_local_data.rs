@@ -68,6 +68,9 @@ async fn prepare_table(
             // the table already exists, we will fail with an error.
             pg_create_table.if_not_exists = false;
         }
+        IfExists::Upsert(_keys) => {
+            return Err(format_err!("UPSERT is not yet implemented for PostgreSQL"));
+        }
     }
     Ok(await!(create_table(ctx, client, pg_create_table))?)
 }
@@ -143,7 +146,7 @@ pub(crate) async fn write_local_data_helper(
         ctx.clone(),
         &mut client,
         pg_create_table.clone(),
-        if_exists
+        if_exists.clone(),
     ))?;
     drop(client);
 

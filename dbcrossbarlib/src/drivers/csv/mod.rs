@@ -161,6 +161,7 @@ async fn write_local_data_helper(
             let result_stream = data.map(move |stream| {
                 let path = path.clone();
                 let ctx = ctx.clone();
+                let if_exists = if_exists.clone();
                 tokio_fut(
                     async move {
                         // TODO: This join does not handle `..` or nested `/` in a

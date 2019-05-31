@@ -50,21 +50,22 @@ pub(crate) async fn write_remote_data_helper(
     let ctx = ctx.child(o!("source_url" => source_url.as_str().to_owned()));
 
     // Decide if we need to use a temp table.
-    let (use_temp, initial_table_name) = if !schema.bigquery_can_import_from_csv()? {
+    let use_temp = !schema.bigquery_can_import_from_csv()? || if_exists.is_upsert();
+    let initial_table_name = if use_temp {
         let initial_table_name =
             dest.table_name.temporary_table_name(&temporary_storage)?;
         debug!(
             ctx.log(),
             "loading into temporary table {}", initial_table_name
         );
-        (true, initial_table_name)
+        initial_table_name
     } else {
         let initial_table_name = dest.table_name.clone();
         debug!(
             ctx.log(),
             "loading directly into final table {}", initial_table_name,
         );
-        (false, initial_table_name)
+        initial_table_name
     };
 
     // Build the information we'll need about our initial table.
@@ -86,15 +87,15 @@ pub(crate) async fn write_remote_data_helper(
     // We use `use_temp` to decide whether to generate the final schema or a
     // temporary schema that we'll fix later.
     let tmp_dir = TempDir::new("bq_load")?;
-    let schema_path = tmp_dir.path().join("schema.json");
-    let mut schema_file = File::create(&schema_path)?;
-    initial_table.write_json_schema(&mut schema_file)?;
+    let initial_schema_path = tmp_dir.path().join("schema.json");
+    let mut initial_schema_file = File::create(&initial_schema_path)?;
+    initial_table.write_json_schema(&mut initial_schema_file)?;
 
     // Decide how to handle overwrites of the initial table.
     let initial_table_replace = if use_temp {
         "--replace"
     } else {
-        if_exists_to_bq_load_arg(if_exists)?
+        if_exists_to_bq_load_arg(&if_exists)?
     };
 
     // Build and run a `bq load` command.
@@ -111,7 +112,7 @@ pub(crate) async fn write_remote_data_helper(
         // This argument is a path, and so it might contain non-UTF-8
         // characters. We pass it separately because Rust won't allow us to
         // create an array of mixed strings and paths.
-        .arg(&schema_path)
+        .arg(&initial_schema_path)
         .spawn_async()
         .context("error starting `bq load`")?;
     let status = await!(load_child).context("error running `bq load`")?;
@@ -134,24 +135,56 @@ pub(crate) async fn write_remote_data_helper(
             dest_table.name(),
         );
 
+        // If we're doing an upsert, make sure the destination table exists.
+        if if_exists.is_upsert() {
+            debug!(ctx.log(), "making sure table {} exists", dest_table.name(),);
+            let dest_schema_path = tmp_dir.path().join("schema.json");
+            let mut dest_schema_file = File::create(&dest_schema_path)?;
+            dest_table.write_json_schema(&mut dest_schema_file)?;
+            let mk_child = Command::new("bq")
+                // Use `--force` to ignore existing tables.
+                .args(&["mk", "--force", "--schema"])
+                // Pass separately, because paths may not be UTF-8.
+                .arg(&dest_schema_path)
+                .arg(&dest_table.name().to_string())
+                .spawn_async()
+                .context("error starting `bq mk`")?;
+            let status = await!(mk_child).context("error running `bq mk`")?;
+            if !status.success() {
+                return Err(format_err!("`bq mk` failed with {}", status));
+            }
+        }
+
         // Generate our import query.
         let mut query = Vec::new();
-        dest_table.write_import_sql(initial_table.name(), &mut query)?;
+        if let IfExists::Upsert(merge_keys) = &if_exists {
+            dest_table.write_merge_sql(
+                initial_table.name(),
+                &merge_keys[..],
+                &mut query,
+            )?;
+        } else {
+            dest_table.write_import_sql(initial_table.name(), &mut query)?;
+        }
         debug!(ctx.log(), "import sql: {}", String::from_utf8_lossy(&query));
 
         // Pipe our query text to `bq load`.
         debug!(ctx.log(), "running `bq query`");
-        let mut query_child = Command::new("bq")
+        let mut query_command = Command::new("bq");
+        query_command
             // We'll pass the query on `stdin`.
             .stdin(Stdio::piped())
             // Run query with no output.
             .args(&[
                 "query",
                 "--format=none",
-                &format!("--destination_table={}", dest_table.name()),
-                if_exists_to_bq_load_arg(if_exists)?,
+                if_exists_to_bq_load_arg(&if_exists)?,
                 "--nouse_legacy_sql",
-            ])
+            ]);
+        if !if_exists.is_upsert() {
+            query_command.arg(&format!("--destination_table={}", dest_table.name()));
+        }
+        let mut query_child = query_command
             .spawn_async()
             .context("error starting `bq query`")?;
         let child_stdin = query_child
