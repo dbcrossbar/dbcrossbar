@@ -14,7 +14,7 @@ pub data_type -> BqDataType
 array_data_type -> BqDataType
     = "ARRAY<" ty:non_array_data_type ">" { BqDataType::Array(ty) }
 
-non_array_data_type -> BqNonArrayDataType
+pub non_array_data_type -> BqNonArrayDataType
     // BOOLEAN, FLOAT and INTEGER are undocumented but seen in `bq show --schema`
     // output. Also, longer names must go first.
     = "BOOLEAN" { BqNonArrayDataType::Bool }

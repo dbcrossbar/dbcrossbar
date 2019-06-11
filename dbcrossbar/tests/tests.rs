@@ -112,7 +112,7 @@ fn conv_pg_sql_to_bq_schema() {
         .output_with_stdin(INPUT_SQL)
         .expect_success();
     assert!(output.stdout_str().contains("GEOGRAPHY"));
-    assert!(output.stdout_str().contains("ARRAY<INT64>"));
+    assert!(output.stdout_str().contains("REPEATED"));
 }
 
 #[test]
