@@ -33,7 +33,7 @@ pub(crate) struct BqColumn {
 
     /// The type of the BigQuery column.
     #[serde(rename = "type")]
-    ty: BqDataType,
+    ty: BqNonArrayDataType,
 
     /// The mode of the column: Is it nullable?
     ///
@@ -47,15 +47,19 @@ impl BqColumn {
     /// Given a portable `Column`, and an intended usage, return a corresponding
     /// `BqColumn`.
     pub(crate) fn for_column(col: &Column, usage: Usage) -> Result<BqColumn> {
+        let bq_data_type = BqDataType::for_data_type(&col.data_type, usage)?;
+        let (ty, mode): (BqNonArrayDataType, Mode) = match bq_data_type {
+            BqDataType::Array(ty) => (ty, Mode::Repeated),
+            BqDataType::NonArray(ref ty) if col.is_nullable => {
+                (ty.to_owned(), Mode::Nullable)
+            }
+            BqDataType::NonArray(ty) => (ty, Mode::Required),
+        };
         Ok(BqColumn {
             name: col.name.to_owned(),
             description: None,
-            ty: BqDataType::for_data_type(&col.data_type, usage)?,
-            mode: if col.is_nullable {
-                Mode::Nullable
-            } else {
-                Mode::Required
-            },
+            ty,
+            mode,
         })
     }
     /// Given a `BqColumn`, construct a portable `Column`.
@@ -80,20 +84,21 @@ impl BqColumn {
         f: &mut dyn Write,
         idx: usize,
     ) -> Result<()> {
-        match &self.ty {
-            // JavaScript UDFs can't return `DATETIME` yet, so we need a fairly
-            // elaborate workaround.
-            BqDataType::Array(BqNonArrayDataType::Datetime) => {
-                writeln!(
-                    f,
-                    r#"CREATE TEMP FUNCTION ImportJsonHelper_{idx}(input STRING)
+        if self.mode == Mode::Repeated {
+            match &self.ty {
+                // JavaScript UDFs can't return `DATETIME` yet, so we need a fairly
+                // elaborate workaround.
+                BqNonArrayDataType::Datetime => {
+                    writeln!(
+                        f,
+                        r#"CREATE TEMP FUNCTION ImportJsonHelper_{idx}(input STRING)
 RETURNS ARRAY<STRING>
 LANGUAGE js AS """
 return JSON.parse(input);
 """;
 
 CREATE TEMP FUNCTION ImportJson_{idx}(input STRING)
-RETURNS {bq_type}
+RETURNS ARRAY<{bq_type}>
 AS ((
     SELECT ARRAY_AGG(
         COALESCE(
@@ -104,33 +109,33 @@ AS ((
     FROM UNNEST(ImportJsonHelper_{idx}(input)) AS e
 ));
 "#,
-                    idx = idx,
-                    bq_type = self.ty,
-                )?;
-            }
+                        idx = idx,
+                        bq_type = self.ty,
+                    )?;
+                }
 
-            // Most kinds of arrays can be handled with JavaScript. But some
-            // of these might be faster as SQL UDFs.
-            BqDataType::Array(elem_ty) => {
-                write!(
-                    f,
-                    r#"CREATE TEMP FUNCTION ImportJson_{idx}(input STRING)
-RETURNS {bq_type}
+                // Most kinds of arrays can be handled with JavaScript. But some
+                // of these might be faster as SQL UDFs.
+                elem_ty => {
+                    write!(
+                        f,
+                        r#"CREATE TEMP FUNCTION ImportJson_{idx}(input STRING)
+RETURNS ARRAY<{bq_type}>
 LANGUAGE js AS """
 return "#,
-                    idx = idx,
-                    bq_type = self.ty,
-                )?;
-                self.write_import_udf_body_for_array(f, elem_ty)?;
-                writeln!(
-                    f,
-                    r#";
-""";"#
-                )?;
-            }
+                        idx = idx,
+                        bq_type = self.ty,
+                    )?;
+                    self.write_import_udf_body_for_array(f, elem_ty)?;
+                    writeln!(
+                        f,
+                        r#";
+""";
 
-            // Other types can be passed straight through.
-            _ => {}
+"#
+                    )?;
+                }
+            }
         }
         Ok(())
     }
@@ -201,7 +206,7 @@ return "#,
         let table_prefix = table_prefix.unwrap_or("");
         assert!(table_prefix == "" || table_prefix.ends_with('.'));
         let ident = Ident(&self.name);
-        if let BqDataType::Array(_) = &self.ty {
+        if self.mode == Mode::Repeated {
             write!(
                 f,
                 "ImportJson_{idx}({table_prefix}{ident})",
@@ -236,10 +241,10 @@ return "#,
     /// Output the SQL expression used in the `SELECT` clause of our table
     /// export statement.
     pub(crate) fn write_export_select_expr(&self, f: &mut dyn Write) -> Result<()> {
-        match &self.ty {
-            BqDataType::Array(ty) => self.write_export_select_expr_for_array(ty, f),
-            BqDataType::NonArray(ty) => {
-                self.write_export_select_expr_for_non_array(ty, f)
+        match self.mode {
+            Mode::Repeated => self.write_export_select_expr_for_array(&self.ty, f),
+            Mode::Required | Mode::Nullable => {
+                self.write_export_select_expr_for_non_array(&self.ty, f)
             }
         }
     }

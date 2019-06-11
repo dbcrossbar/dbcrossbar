@@ -45,7 +45,7 @@ pub(crate) enum Usage {
 ///
 /// This is marked `pub` instead of `pub(crate)` because of limitations in
 /// `rust-peg`.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BqDataType {
     /// An array type. May not contain another directly nested array inside
     /// it. Use a nested struct with only one field instead.
@@ -82,33 +82,6 @@ impl BqDataType {
                 let bq_other = BqNonArrayDataType::for_data_type(other, usage)?;
                 Ok(BqDataType::NonArray(bq_other))
             }
-        }
-    }
-
-    /// Convert this `BqDataType` to a portable `DataType`.
-    pub(crate) fn to_data_type(&self, mode: Mode) -> Result<DataType> {
-        match mode {
-            Mode::Required | Mode::Nullable => match self {
-                BqDataType::Array(ty) => {
-                    Ok(DataType::Array(Box::new(ty.to_data_type()?)))
-                }
-                BqDataType::NonArray(ty) => ty.to_data_type(),
-            },
-            Mode::Repeated => match self {
-                BqDataType::Array(_ty) => {
-                    // I'm not sure whether Google would ever output this
-                    // particular combination, or if it would accept it as
-                    // input. Since `Mode::Repeated` isn't even documented,
-                    // let's just throw up our hands pending further data.
-                    Err(format_err!(
-                        "don't known how to handle mode REPEATED with type {}",
-                        self
-                    ))
-                }
-                BqDataType::NonArray(ty) => {
-                    Ok(DataType::Array(Box::new(ty.to_data_type()?)))
-                }
-            },
         }
     }
 
@@ -159,7 +132,7 @@ impl Serialize for BqDataType {
 /// Any type except `ARRAY` (which cannot be nested in another `ARRAY`).
 ///
 /// This should really be `pub(crate)`, see [BqDataType].
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[allow(dead_code)]
 pub enum BqNonArrayDataType {
     Bool,
@@ -236,24 +209,47 @@ impl BqNonArrayDataType {
     }
 
     /// Convert this `BqNonArrayDataType` to a portable `DataType`.
-    pub(crate) fn to_data_type(&self) -> Result<DataType> {
-        match self {
-            BqNonArrayDataType::Bool => Ok(DataType::Bool),
-            BqNonArrayDataType::Date => Ok(DataType::Date),
-            BqNonArrayDataType::Numeric => Ok(DataType::Decimal),
-            BqNonArrayDataType::Float64 => Ok(DataType::Float64),
-            BqNonArrayDataType::Geography => Ok(DataType::GeoJson(Srid::wgs84())),
-            BqNonArrayDataType::Int64 => Ok(DataType::Int64),
-            BqNonArrayDataType::String => Ok(DataType::Text),
-            BqNonArrayDataType::Datetime => Ok(DataType::TimestampWithoutTimeZone),
-            BqNonArrayDataType::Timestamp => Ok(DataType::TimestampWithTimeZone),
-            BqNonArrayDataType::Bytes
-            | BqNonArrayDataType::Struct(_)
-            | BqNonArrayDataType::Time => Err(format_err!(
-                "cannot convert {} to portable type (yet)",
-                self
-            )),
+    pub(crate) fn to_data_type(&self, mode: Mode) -> Result<DataType> {
+        if mode == Mode::Repeated {
+            // I _think_ all values in arrays are always nullable.
+            Ok(DataType::Array(Box::new(
+                self.to_data_type(Mode::Nullable)?,
+            )))
+        } else {
+            match self {
+                BqNonArrayDataType::Bool => Ok(DataType::Bool),
+                BqNonArrayDataType::Date => Ok(DataType::Date),
+                BqNonArrayDataType::Numeric => Ok(DataType::Decimal),
+                BqNonArrayDataType::Float64 => Ok(DataType::Float64),
+                BqNonArrayDataType::Geography => Ok(DataType::GeoJson(Srid::wgs84())),
+                BqNonArrayDataType::Int64 => Ok(DataType::Int64),
+                BqNonArrayDataType::String => Ok(DataType::Text),
+                BqNonArrayDataType::Datetime => Ok(DataType::TimestampWithoutTimeZone),
+                BqNonArrayDataType::Timestamp => Ok(DataType::TimestampWithTimeZone),
+                BqNonArrayDataType::Bytes
+                | BqNonArrayDataType::Struct(_)
+                | BqNonArrayDataType::Time => Err(format_err!(
+                    "cannot convert {} to portable type (yet)",
+                    self
+                )),
+            }
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for BqNonArrayDataType {
+    fn deserialize<D>(deserializer: D) -> result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let raw = String::deserialize(deserializer)?;
+        let parsed = grammar::non_array_data_type(&raw).map_err(|err| {
+            D::Error::custom(format!(
+                "error parsing BigQuery data type {:?}: {}",
+                raw, err
+            ))
+        })?;
+        Ok(parsed)
     }
 }
 
@@ -288,10 +284,20 @@ impl fmt::Display for BqNonArrayDataType {
     }
 }
 
+impl Serialize for BqNonArrayDataType {
+    fn serialize<S>(&self, serializer: S) -> result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // Convert to a string and serialize that.
+        format!("{}", self).serialize(serializer)
+    }
+}
+
 /// A field of a `STRUCT`.
 ///
 /// This should really be `pub(crate)`.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BqStructField {
     /// An optional field name. BigQuery `STRUCT`s are basically tuples, but
     /// with optional names for each position in the tuple.
