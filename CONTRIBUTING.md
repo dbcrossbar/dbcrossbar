@@ -18,12 +18,25 @@ Our Rust projects use the standard Rust coding style, and should all have tests.
 First, make sure you have an up-to-date stable Rust, with the necessary tools. You can install Rust using `rustup`:
 
 ```sh
+
+# If you have linux system rust installed, remove it first
+sudo apt-get remove rustc
+
 # On Linux and MacOS. Others see https://rustup.rs/
 curl https://sh.rustup.rs -sSf | sh
 
 # Install Rust tools for code formatting and lints.
 rustup component add rustfmt
 rustup component add clippy
+
+# To switch to rust nightly
+rustup toolchain install nightly
+rustup default nightly
+
+git clone git@github.com:faradayio/dbcrossbar.git
+cd dbcrossbar/
+cargo build
+./target/debug/dbcrossbar --help
 ```
 
 You may also need to install a package like Ubuntu's `build-essential`, the MacOS Xcode tools, or other basic developer tools for your platform.
