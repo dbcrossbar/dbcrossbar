@@ -115,7 +115,10 @@ pub(crate) async fn write_remote_data_helper(
         .arg(&initial_schema_path)
         .spawn_async()
         .context("error starting `bq load`")?;
-    let status = await!(load_child).context("error running `bq load`")?;
+    let status = load_child
+        .compat()
+        .await
+        .context("error running `bq load`")?;
     if !status.success() {
         return Err(format_err!("`bq load` failed with {}", status));
     }
@@ -149,7 +152,7 @@ pub(crate) async fn write_remote_data_helper(
                 .arg(&dest_table.name().to_string())
                 .spawn_async()
                 .context("error starting `bq mk`")?;
-            let status = await!(mk_child).context("error running `bq mk`")?;
+            let status = mk_child.compat().await.context("error running `bq mk`")?;
             if !status.success() {
                 return Err(format_err!("`bq mk` failed with {}", status));
             }
@@ -191,9 +194,14 @@ pub(crate) async fn write_remote_data_helper(
             .stdin()
             .take()
             .expect("don't have stdio that we requested");
-        await!(io::write_all(child_stdin, query))
+        io::write_all(child_stdin, query)
+            .compat()
+            .await
             .context("error piping query to `bq load`")?;
-        let status = await!(query_child).context("error running `bq query`")?;
+        let status = query_child
+            .compat()
+            .await
+            .context("error running `bq query`")?;
         if !status.success() {
             return Err(format_err!("`bq load` failed with {}", status));
         }
@@ -208,7 +216,7 @@ pub(crate) async fn write_remote_data_helper(
             .args(&["rm", "-f", "-t", &initial_table.name().to_string()])
             .spawn_async()
             .context("error starting `bq rm`")?;
-        let status = await!(rm_child).context("error running `bq rm`")?;
+        let status = rm_child.compat().await.context("error running `bq rm`")?;
         if !status.success() {
             return Err(format_err!("`bq rm` failed with {}", status));
         }

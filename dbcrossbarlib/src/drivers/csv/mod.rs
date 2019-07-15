@@ -80,7 +80,9 @@ impl Locator for CsvLocator {
         query: Query,
         _temporary_storage: TemporaryStorage,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(ctx, self.path.clone(), query).into_boxed()
+        local_data_helper(ctx, self.path.clone(), query)
+            .boxed()
+            .compat()
     }
 
     fn write_local_data(
@@ -92,7 +94,8 @@ impl Locator for CsvLocator {
         if_exists: IfExists,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         write_local_data_helper(ctx, self.path.clone(), schema, data, if_exists)
-            .into_boxed()
+            .boxed()
+            .compat()
     }
 }
 
@@ -121,7 +124,9 @@ async fn local_data_helper(
             );
 
             // Open our file.
-            let data = await!(File::open(path.clone()))
+            let data = File::open(path.clone())
+                .compat()
+                .await
                 .with_context(|_| format!("cannot open {}", path.display()))?;
             let data = BufReader::with_capacity(BUFFER_SIZE, data);
             let stream = copy_reader_to_stream(ctx, data)?;
@@ -162,22 +167,22 @@ async fn write_local_data_helper(
                 let path = path.clone();
                 let ctx = ctx.clone();
                 let if_exists = if_exists.clone();
-                tokio_fut(
-                    async move {
-                        // TODO: This join does not handle `..` or nested `/` in a
-                        // particularly safe fashion.
-                        let csv_path = path.join(&format!("{}.csv", stream.name));
-                        let ctx = ctx.child(o!("stream" => stream.name.clone(), "path" => format!("{}", csv_path.display())));
-                        let wtr = await!(if_exists
-                            .to_async_open_options_no_append()?
-                            .open(csv_path.clone()))?;
-                        await!(copy_stream_to_writer(ctx.clone(), stream.data, wtr)).with_context(
-                            |_| format!("error writing {}", csv_path.display()),
-                        )?;
-                        Ok(())
-                    },
-                )
-                .into_boxed()
+
+                async move {
+                    // TODO: This join does not handle `..` or nested `/` in a
+                    // particularly safe fashion.
+                    let csv_path = path.join(&format!("{}.csv", stream.name));
+                    let ctx = ctx.child(o!("stream" => stream.name.clone(), "path" => format!("{}", csv_path.display())));
+                    let wtr = if_exists
+                        .to_async_open_options_no_append()?
+                        .open(csv_path.clone())
+                        .compat()
+                        .await?;
+                    copy_stream_to_writer(ctx.clone(), stream.data, wtr).await.with_context(
+                        |_| format!("error writing {}", csv_path.display()),
+                    )?;
+                    Ok(())
+                }.boxed().compat()
             });
             Ok(Box::new(result_stream) as BoxStream<BoxFuture<()>>)
         }

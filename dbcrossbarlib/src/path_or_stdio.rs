@@ -52,7 +52,9 @@ impl PathOrStdio {
         match self {
             PathOrStdio::Path(p) => {
                 let p = p.to_owned();
-                let f = await!(tokio_fs::File::open(p.clone()))
+                let f = tokio_fs::File::open(p.clone())
+                    .compat()
+                    .await
                     .with_context(|_| format!("error opening {}", p.display()))?;
                 Ok(Box::new(f) as Box<dyn AsyncRead>)
             }
@@ -84,10 +86,12 @@ impl PathOrStdio {
         match self {
             PathOrStdio::Path(p) => {
                 let p = p.to_owned();
-                let f = await!(if_exists
+                let f = if_exists
                     .to_async_open_options_no_append()?
-                    .open(p.clone()))
-                .with_context(|_| format!("error opening {}", p.display()))?;
+                    .open(p.clone())
+                    .compat()
+                    .await
+                    .with_context(|_| format!("error opening {}", p.display()))?;
                 Ok(Box::new(f) as Box<dyn AsyncWrite>)
             }
             PathOrStdio::Stdio => {

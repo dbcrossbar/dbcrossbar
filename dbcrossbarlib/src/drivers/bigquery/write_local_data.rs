@@ -18,33 +18,38 @@ pub(crate) async fn write_local_data_helper(
 
     // Copy to a temporary gs:// location.
     let to_temp_ctx = ctx.child(o!("to_temp" => gs_temp.to_string()));
-    let result_stream = await!(gs_temp.write_local_data(
-        to_temp_ctx,
-        schema.clone(),
-        data,
-        temporary_storage.clone(),
-        IfExists::Overwrite,
-    ))?;
+    let result_stream = gs_temp
+        .write_local_data(
+            to_temp_ctx,
+            schema.clone(),
+            data,
+            temporary_storage.clone(),
+            IfExists::Overwrite,
+        )
+        .compat()
+        .await?;
 
     // Wait for all gs:// uploads to finish with controllable parallelism.
     //
     // TODO: This duplicates our top-level `cp` code and we need to implement the
     // same rules for picking a good argument to `buffered` and not just hard code
     // our parallelism.
-    await!(result_stream.buffered(4).collect())?;
+    result_stream.buffered(4).collect().compat().await?;
 
     // Load from gs:// to BigQuery.
     let from_temp_ctx = ctx.child(o!("from_temp" => gs_temp.to_string()));
-    await!(dest.write_remote_data(
+    dest.write_remote_data(
         from_temp_ctx,
         schema,
         Box::new(gs_temp),
         temporary_storage,
         if_exists,
-    ))?;
+    )
+    .compat()
+    .await?;
 
     // We don't need any parallelism after the BigQuery step, so just return
     // a stream containing a single future.
-    let fut = Ok(()).into_boxed_future();
+    let fut = async { Ok(()) }.boxed().compat();
     Ok(box_stream_once(Ok(fut)))
 }
