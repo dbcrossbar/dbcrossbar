@@ -256,7 +256,7 @@ return "#,
         f: &mut dyn Write,
     ) -> Result<()> {
         let ident = Ident(&self.name);
-        write!(f, "TO_JSON_STRING(")?;
+        write!(f, "NULLIF(TO_JSON_STRING(")?;
         match data_type {
             // We can safely convert arrays of these types directly to JSON.
             BqNonArrayDataType::Bool
@@ -288,7 +288,7 @@ return "#,
                 return Err(format_err!("can't output {} columns yet", self.ty));
             }
         }
-        write!(f, ") AS {ident}", ident = ident)?;
+        write!(f, ", '[]')) AS {ident}", ident = ident)?;
         Ok(())
     }
 
