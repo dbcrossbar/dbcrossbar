@@ -29,7 +29,7 @@ use wkb::geom_to_wkb;
 type NE = NetworkEndian;
 
 #[rustfmt::skip]
-fn main() -> Result<(), Box<Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     let stdout = io::stdout();
     let mut out = stdout.lock();
 
