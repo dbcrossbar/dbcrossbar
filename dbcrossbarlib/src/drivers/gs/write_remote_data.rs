@@ -70,19 +70,21 @@ pub(crate) async fn write_remote_data_helper(
         .stdin()
         .take()
         .expect("don't have stdio that we requested");
-    await!(io::write_all(child_stdin, export_sql))
+    io::write_all(child_stdin, export_sql)
+        .compat()
+        .await
         .context("error piping query to `bq load`")?;
-    let status = await!(query_child).context("error running `bq query`")?;
+    let status = query_child
+        .compat()
+        .await
+        .context("error running `bq query`")?;
     if !status.success() {
         return Err(format_err!("`bq load` failed with {}", status));
     }
 
     // Delete the existing output, if it exists.
-    await!(prepare_as_destination_helper(
-        ctx.clone(),
-        dest.as_url().to_owned(),
-        if_exists
-    ))?;
+    prepare_as_destination_helper(ctx.clone(), dest.as_url().to_owned(), if_exists)
+        .await?;
 
     // Build and run a `bq extract` command.
     debug!(ctx.log(), "running `bq extract`");
@@ -96,7 +98,10 @@ pub(crate) async fn write_remote_data_helper(
         ])
         .spawn_async()
         .context("error starting `bq load`")?;
-    let status = await!(load_child).context("error running `bq load`")?;
+    let status = load_child
+        .compat()
+        .await
+        .context("error running `bq load`")?;
     if !status.success() {
         return Err(format_err!("`bq load` failed with {}", status));
     }
@@ -107,7 +112,7 @@ pub(crate) async fn write_remote_data_helper(
         .args(&["rm", "-f", "-t", &temp_table_name.to_string()])
         .spawn_async()
         .context("error starting `bq rm`")?;
-    let status = await!(rm_child).context("error running `bq rm`")?;
+    let status = rm_child.compat().await.context("error running `bq rm`")?;
     if !status.success() {
         return Err(format_err!("`bq rm` failed with {}", status));
     }

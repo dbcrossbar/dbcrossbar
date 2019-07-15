@@ -63,7 +63,11 @@ impl PgCreateTable {
     }
 
     /// Write a `COPY (SELECT ...) TO STDOUT ...` statement for this table.
-    pub(crate) fn write_export_sql(&self, f: &mut Write, query: &Query) -> Result<()> {
+    pub(crate) fn write_export_sql(
+        &self,
+        f: &mut dyn Write,
+        query: &Query,
+    ) -> Result<()> {
         write!(f, "COPY (SELECT ")?;
         let mut first: bool = true;
         for col in &self.columns {

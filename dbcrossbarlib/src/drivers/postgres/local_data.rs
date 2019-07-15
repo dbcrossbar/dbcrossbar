@@ -31,8 +31,8 @@ pub(crate) async fn local_data_helper(
     debug!(ctx.log(), "export SQL: {}", sql);
 
     // Copy the data out of PostgreSQL as a CSV stream.
-    let mut conn = await!(connect(ctx.clone(), url))?;
-    let stmt = await!(conn.prepare(&sql))?;
+    let mut conn = connect(ctx.clone(), url).await?;
+    let stmt = conn.prepare(&sql).compat().await?;
     let rdr = conn
         .copy_out(&stmt, &[])
         // Convert data representation to match `dbcrossbar` conventions.

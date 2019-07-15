@@ -23,7 +23,7 @@ impl Context {
         let (error_sender, receiver) = mpsc::channel(1);
         let context = Context { log, error_sender };
         let worker_future = async move {
-            match await!(receiver.into_future()) {
+            match receiver.into_future().compat().await {
                 // An error occurred in the low-level mechanisms of our `mpsc`
                 // channel.
                 Err((_err, _rcvr)) => {
@@ -36,7 +36,7 @@ impl Context {
                 Ok((Some(err), _rcvr)) => Err(err),
             }
         };
-        (context, tokio_fut(worker_future))
+        (context, worker_future.boxed().compat())
     }
 
     /// Get the logger associated with this context.
@@ -64,26 +64,31 @@ impl Context {
     {
         let log = self.log.clone();
         let error_sender = self.error_sender.clone();
-        tokio::spawn_async(async move {
-            if let Err(err) = await!(worker) {
-                debug!(log, "reporting background worker error: {}", err);
-                if let Err(_err) = await!(error_sender.send(err)) {
-                    debug!(log, "broken pipe reporting background worker error");
+        tokio::spawn(
+            async move {
+                if let Err(err) = worker.compat().await {
+                    debug!(log, "reporting background worker error: {}", err);
+                    if let Err(_err) = error_sender.send(err).compat().await {
+                        debug!(log, "broken pipe reporting background worker error");
+                    }
                 }
+                Ok(())
             }
-        });
+                .boxed()
+                .compat(),
+        );
     }
 
     /// Monitor an asynchrnous child process, and report any errors or non-zero
     /// exit codes that occur.
     pub fn spawn_process(&self, name: String, child: Child) {
         let worker = async move {
-            match await!(child) {
+            match child.compat().await {
                 Ok(ref status) if status.success() => Ok(()),
                 Ok(status) => Err(format_err!("{} failed with {}", name, status)),
                 Err(err) => Err(format_err!("{} failed with error: {}", name, err)),
             }
         };
-        self.spawn_worker(tokio_fut(worker));
+        self.spawn_worker(worker.boxed().compat());
     }
 }

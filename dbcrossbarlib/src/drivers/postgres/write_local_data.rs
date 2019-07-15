@@ -15,8 +15,11 @@ async fn drop_table_if_exists(
 ) -> Result<()> {
     debug!(ctx.log(), "deleting table {} if exists", table_name);
     let drop_sql = format!("DROP TABLE IF EXISTS {}", Ident(&table_name));
-    let drop_stmt = await!(client.prepare(&drop_sql))?;
-    await!(client.execute(&drop_stmt, &[]))
+    let drop_stmt = client.prepare(&drop_sql).compat().await?;
+    client
+        .execute(&drop_stmt, &[])
+        .compat()
+        .await
         .with_context(|_| format!("error deleting existing {}", table_name))?;
     Ok(())
 }
@@ -30,8 +33,11 @@ async fn create_table(
     debug!(ctx.log(), "create table {}", pg_create_table.name);
     let create_sql = format!("{}", pg_create_table);
     debug!(ctx.log(), "CREATE TABLE SQL: {}", create_sql);
-    let create_stmt = await!(client.prepare(&create_sql))?;
-    await!(client.execute(&create_stmt, &[]))
+    let create_stmt = client.prepare(&create_sql).compat().await?;
+    client
+        .execute(&create_stmt, &[])
+        .compat()
+        .await
         .with_context(|_| format!("error creating {}", pg_create_table.name))?;
     Ok(())
 }
@@ -49,11 +55,8 @@ async fn prepare_table(
 ) -> Result<()> {
     match if_exists {
         IfExists::Overwrite => {
-            await!(drop_table_if_exists(
-                ctx.clone(),
-                client,
-                pg_create_table.name.clone()
-            ))?;
+            drop_table_if_exists(ctx.clone(), client, pg_create_table.name.clone())
+                .await?;
             pg_create_table.if_not_exists = false;
         }
         IfExists::Append => {
@@ -72,7 +75,7 @@ async fn prepare_table(
             return Err(format_err!("UPSERT is not yet implemented for PostgreSQL"));
         }
     }
-    Ok(await!(create_table(ctx, client, pg_create_table))?)
+    Ok(create_table(ctx, client, pg_create_table).await?)
 }
 
 /// Generate the `COPY ... FROM ...` SQL we'll pass to `copy_in`. `data_format`
@@ -108,10 +111,13 @@ async fn copy_from_async(
     copy_from_sql: String,
     stream: Box<dyn Stream<Item = BytesMut, Error = Error> + Send + 'static>,
 ) -> Result<()> {
-    let mut client = await!(connect(ctx.clone(), url))?;
+    let mut client = connect(ctx.clone(), url).await?;
     debug!(ctx.log(), "copying data into table");
-    let stmt = await!(client.prepare(&copy_from_sql))?;
-    await!(client.copy_in(&stmt, &[], stream))
+    let stmt = client.prepare(&copy_from_sql).compat().await?;
+    client
+        .copy_in(&stmt, &[], stream)
+        .compat()
+        .await
         .with_context(|_| format!("error copying data into {}", table_name))?;
     Ok(())
 }
@@ -141,13 +147,14 @@ pub(crate) async fn write_local_data_helper(
     // isn't safe to send between threads (specifically, it doesn't implement
     // `Send`), and because `await!` may result in us getting scheduled onto
     // a different thread.
-    let mut client = await!(connect(ctx.clone(), url.clone()))?;
-    await!(prepare_table(
+    let mut client = connect(ctx.clone(), url.clone()).await?;
+    prepare_table(
         ctx.clone(),
         &mut client,
         pg_create_table.clone(),
         if_exists.clone(),
-    ))?;
+    )
+    .await?;
     drop(client);
 
     // Generate our `COPY ... FROM` SQL.
@@ -157,7 +164,7 @@ pub(crate) async fn write_local_data_helper(
     // won't gain much with Postgres (but we haven't measured).
     let fut = async move {
         loop {
-            match await!(data.into_future()) {
+            match data.into_future().compat().await {
                 Err((err, _rest_of_stream)) => {
                     debug!(ctx.log(), "error reading stream of streams: {}", err);
                     return Err(err);
@@ -182,16 +189,17 @@ pub(crate) async fn write_local_data_helper(
                     )?;
 
                     // Run our copy code in a background thread.
-                    await!(copy_from_async(
+                    copy_from_async(
                         ctx,
                         url.clone(),
                         table_name.clone(),
                         copy_sql.clone(),
                         binary_stream,
-                    ))?;
+                    )
+                    .await?;
                 }
             }
         }
     };
-    Ok(box_stream_once(Ok(fut.into_boxed())))
+    Ok(box_stream_once(Ok(fut.boxed().compat())))
 }

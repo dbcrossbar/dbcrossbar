@@ -19,6 +19,7 @@ clap = { version = "2.32.0", features = ["wrap_help"] }
 common_failures = "0.1.1"
 env_logger = "0.6"
 failure = "0.1.2"
+futures-preview = { version = "0.3.0-alpha.17", features = ["compat"] }
 log = "0.4.5"
 openssl = "0.10.16" # Needed to prevent link errors.
 openssl-probe = "0.1.2"
@@ -31,6 +32,5 @@ slog-envlogger = "2.1.0"
 slog-term = "2.4.0"
 structopt = "0.2.10"
 structopt-derive = "0.2.14"
-# Lock exact version to work around some nightly Rust breakage.
-tokio = { version = "=0.1.19", features = ["async-await-preview"] }
+tokio = "0.1.22"
 url = "1.7.1"

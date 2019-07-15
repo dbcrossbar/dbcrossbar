@@ -1,6 +1,6 @@
 //! A CLI tool for converting between table schema formats.
 
-#![feature(await_macro, async_await)]
+#![feature(async_await)]
 #![warn(rust_2018_idioms, unused_extern_crates, clippy::all)]
 
 // Needed to prevent linker errors about OpenSSL.
@@ -13,8 +13,9 @@ extern crate openssl;
 extern crate tokio;
 
 use common_failures::{quick_main, Result};
-use dbcrossbarlib::{tokio_glue::tokio_fut, Context};
+use dbcrossbarlib::Context;
 use env_logger;
+use futures::{compat::Future01CompatExt, FutureExt, TryFutureExt};
 use openssl_probe;
 use slog::{debug, slog_o, Drain, Logger};
 use slog_async::{self, OverflowStrategy};
@@ -72,13 +73,14 @@ fn run() -> Result<()> {
     // If a background worker fails, then `copy_fut` will be automatically
     // dropped, or vice vera.
     let combined_fut = async move {
-        await!(cmd_fut.join(worker_fut))?;
-        Ok(())
+        cmd_fut.join(worker_fut).compat().await?;
+        let result: Result<()> = Ok(());
+        result
     };
 
     // Pass `combined_fut` to our `tokio` runtime, and wait for it to finish.
     let mut runtime =
         tokio::runtime::Runtime::new().expect("Unable to create a runtime");
-    runtime.block_on(tokio_fut(combined_fut))?;
+    runtime.block_on(combined_fut.boxed().compat())?;
     Ok(())
 }

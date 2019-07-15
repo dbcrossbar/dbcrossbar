@@ -27,7 +27,7 @@ pub(crate) async fn prepare_as_destination_helper(
             .args(&["rm", "-f", delete_url.as_str()])
             .status_async()
             .context("error running gsutil")?;
-        if !await!(status)?.success() {
+        if !status.compat().await?.success() {
             warn!(
                 ctx.log(),
                 "can't delete contents of {}, possibly because it doesn't exist",

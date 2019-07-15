@@ -3,7 +3,7 @@
 //! At the moment, the most interesting type here is the [`schema`](./schema/)
 //! module, which defines a portable SQL schema.
 
-#![feature(await_macro, async_await)]
+#![feature(async_await)]
 #![warn(missing_docs, unused_extern_crates, clippy::all)]
 // Work around clippy false positives.
 #![allow(clippy::redundant_closure, clippy::needless_lifetimes)]
@@ -12,10 +12,6 @@
 // nicely with the new Rust 2018 macro importing features.
 #[macro_use]
 extern crate diesel;
-
-// Pull in all of `tokio`'s experimental `async` and `await` support.
-#[macro_use]
-extern crate tokio;
 
 use std::result;
 
@@ -57,6 +53,10 @@ pub use temporary_storage::TemporaryStorage;
 pub(crate) mod common {
     pub(crate) use bytes::BytesMut;
     pub(crate) use failure::{format_err, ResultExt};
+    pub(crate) use futures::{
+        compat::{Compat01As03, Future01CompatExt},
+        FutureExt, TryFutureExt,
+    };
     pub(crate) use slog::{debug, error, info, o, trace, warn, Logger};
     pub(crate) use std::any::Any;
     pub(crate) use tokio::{prelude::*, sync::mpsc};
@@ -71,10 +71,7 @@ pub(crate) mod common {
         query::Query,
         schema::Table,
         temporary_storage::TemporaryStorage,
-        tokio_glue::{
-            box_stream_once, tokio_fut, BoxFuture, BoxStream, FutureExt,
-            ResultExt as _, StdFutureExt,
-        },
+        tokio_glue::{box_stream_once, BoxFuture, BoxStream},
         Error, Result, BUFFER_SIZE,
     };
 }

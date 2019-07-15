@@ -43,7 +43,7 @@ pub(crate) async fn local_data_helper(
     let csv_streams = file_urls.and_then(move |file_url| -> BoxFuture<CsvStream> {
         let ctx = ctx.clone();
         let url = url.clone();
-        tokio_fut(async move {
+        async move {
             debug!(ctx.log(), "streaming data from {}", file_url);
 
             // Extract either the basename of the URL (if it's a file URL),
@@ -95,8 +95,9 @@ pub(crate) async fn local_data_helper(
                 name,
                 data: Box::new(data),
             })
-        })
-        .into_boxed()
+        }
+            .boxed()
+            .compat()
     });
 
     Ok(Some(Box::new(csv_streams) as BoxStream<CsvStream>))

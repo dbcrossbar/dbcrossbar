@@ -36,9 +36,11 @@ async fn connect(ctx: Context, url: Url) -> Result<Client> {
     let tls_connector = TlsConnector::builder()
         .build()
         .context("could not build PostgreSQL TLS connector")?;
-    let (client, connection) =
-        await!(config.connect(MakeTlsConnector::new(tls_connector)))
-            .context("could not connect to PostgreSQL")?;
+    let (client, connection) = config
+        .connect(MakeTlsConnector::new(tls_connector))
+        .compat()
+        .await
+        .context("could not connect to PostgreSQL")?;
 
     // The docs say we need to run this connection object in the background.
     ctx.spawn_worker(
@@ -144,7 +146,8 @@ impl Locator for PostgresLocator {
             schema,
             query,
         )
-        .into_boxed()
+        .boxed()
+        .compat()
     }
 
     fn write_local_data(
@@ -163,6 +166,7 @@ impl Locator for PostgresLocator {
             data,
             if_exists,
         )
-        .into_boxed()
+        .boxed()
+        .compat()
     }
 }

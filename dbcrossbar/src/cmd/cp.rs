@@ -3,6 +3,7 @@
 use common_failures::Result;
 use dbcrossbarlib::{BoxLocator, Context, IfExists, Query, TemporaryStorage};
 use failure::format_err;
+use futures::compat::Future01CompatExt;
 use slog::{debug, o};
 use structopt::{self, StructOpt};
 use tokio::prelude::*;
@@ -67,44 +68,50 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
 
         // Perform a remote transfer.
         debug!(ctx.log(), "performing remote data transfer");
-        await!(opt.to_locator.write_remote_data(
-            ctx,
-            schema,
-            opt.from_locator,
-            temporary_storage,
-            opt.if_exists,
-        ))?
+        opt.to_locator
+            .write_remote_data(
+                ctx,
+                schema,
+                opt.from_locator,
+                temporary_storage,
+                opt.if_exists,
+            )
+            .compat()
+            .await?
     } else {
         // We have to transfer the data via the local machine, so read data from
         // input.
         debug!(ctx.log(), "performaning local data transfer");
 
         let input_ctx = ctx.child(o!("from_locator" => opt.from_locator.to_string()));
-        let data = await!(opt.from_locator.local_data(
-            input_ctx,
-            schema.clone(),
-            query,
-            temporary_storage.clone()
-        ))?
-        .ok_or_else(|| {
-            format_err!("don't know how to read data from {}", opt.from_locator)
-        })?;
+        let data = opt
+            .from_locator
+            .local_data(input_ctx, schema.clone(), query, temporary_storage.clone())
+            .compat()
+            .await?
+            .ok_or_else(|| {
+                format_err!("don't know how to read data from {}", opt.from_locator)
+            })?;
 
         // Write data to output.
         let output_ctx = ctx.child(o!("to_locator" => opt.to_locator.to_string()));
-        let result_stream = await!(opt.to_locator.write_local_data(
-            output_ctx,
-            schema,
-            data,
-            temporary_storage,
-            opt.if_exists,
-        ))?;
+        let result_stream = opt
+            .to_locator
+            .write_local_data(
+                output_ctx,
+                schema,
+                data,
+                temporary_storage,
+                opt.if_exists,
+            )
+            .compat()
+            .await?;
 
         // Consume the stream of futures produced by `write_local_data`, allowing a
         // certain degree of parallelism. This is where all the actual work happens,
         // and this what controls how many "input driver" -> "output driver"
         // connections are running at any given time.
-        await!(result_stream.buffered(4).collect())?;
+        result_stream.buffered(4).collect().compat().await?;
     }
 
     Ok(())

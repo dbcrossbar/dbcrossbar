@@ -19,20 +19,26 @@ pub(crate) async fn local_data_helper(
 
     // Extract from BigQuery to gs://.
     let to_temp_ctx = ctx.child(o!("to_temp" => gs_temp.to_string()));
-    await!(gs_temp.write_remote_data(
-        to_temp_ctx,
-        schema.clone(),
-        Box::new(source),
-        temporary_storage.clone(),
-        IfExists::Overwrite,
-    ))?;
+    gs_temp
+        .write_remote_data(
+            to_temp_ctx,
+            schema.clone(),
+            Box::new(source),
+            temporary_storage.clone(),
+            IfExists::Overwrite,
+        )
+        .compat()
+        .await?;
 
     // Copy from a temporary gs:// location.
     let from_temp_ctx = ctx.child(o!("from_temp" => gs_temp.to_string()));
-    Ok(await!(gs_temp.local_data(
-        from_temp_ctx,
-        schema,
-        Query::default(),
-        temporary_storage.clone(),
-    ))?)
+    Ok(gs_temp
+        .local_data(
+            from_temp_ctx,
+            schema,
+            Query::default(),
+            temporary_storage.clone(),
+        )
+        .compat()
+        .await?)
 }

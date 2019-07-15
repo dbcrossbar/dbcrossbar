@@ -36,7 +36,7 @@ where
     let transform_fut = run_sync_fn_in_background(name, move || -> Result<()> {
         transform(transform_ctx, Box::new(rdr), Box::new(wtr))
     });
-    ctx.spawn_worker(tokio_fut(transform_fut));
+    ctx.spawn_worker(transform_fut.boxed().compat());
 
     Ok(Box::new(output))
 }
