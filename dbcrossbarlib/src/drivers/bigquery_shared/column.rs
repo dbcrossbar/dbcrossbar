@@ -288,7 +288,7 @@ return "#,
                 return Err(format_err!("can't output {} columns yet", self.ty));
             }
         }
-        write!(f, ", '[]')) AS {ident}", ident = ident)?;
+        write!(f, "), '[]') AS {ident}", ident = ident)?;
         Ok(())
     }
 
