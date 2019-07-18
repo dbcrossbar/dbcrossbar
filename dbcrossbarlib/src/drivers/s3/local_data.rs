@@ -81,7 +81,8 @@ pub(crate) async fn local_data_helper(
 
 /// Given an S3 URL, get the URL for just the bucket itself.
 fn bucket_url(url: &Url) -> Result<Url> {
-    let bucket = url.host()
+    let bucket = url
+        .host()
         .ok_or_else(|| format_err!("could not find bucket name in {}", url))?;
     let bucket_url = format!("s3://{}/", bucket)
         .parse::<Url>()
