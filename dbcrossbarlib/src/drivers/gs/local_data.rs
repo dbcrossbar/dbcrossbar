@@ -8,6 +8,7 @@ use tokio::io;
 use tokio_process::CommandExt;
 
 use crate::common::*;
+use crate::csv_stream::csv_stream_name;
 use crate::tokio_glue::copy_reader_to_stream;
 
 /// Implementation of `local_data`, but as a real `async` function.
@@ -27,6 +28,8 @@ pub(crate) async fn local_data_helper(
     };
 
     // Start a child process to list files at that URL.
+    //
+    // XXX - Shouldn't we be using `ls_url` below?
     debug!(ctx.log(), "listing {}", ls_url);
     let mut child = Command::new("gsutil")
         .args(&["ls", url.as_str()])
@@ -44,41 +47,11 @@ pub(crate) async fn local_data_helper(
         let ctx = ctx.clone();
         let url = url.clone();
         async move {
-            debug!(ctx.log(), "streaming data from {}", file_url);
-
-            // Extract either the basename of the URL (if it's a file URL),
-            // or the relative part of the URL (if we were given a directory
-            // URL and found a file URL inside it).
-            let basename_or_relative = if file_url == url.as_str() {
-                // We have just a regular file URL, so take everything after
-                // the last '/'.
-                file_url
-                    .rsplitn(2, '/')
-                    .last()
-                    .expect("should have '/' in URL")
-            } else if file_url.starts_with(url.as_str()) {
-                // We have a directory URL, so attempt to preserve directory structure
-                // including '/' characters below that point.
-                &file_url[url.as_str().len()..]
-            } else {
-                return Err(format_err!(
-                    "expected {} to start with {}",
-                    file_url,
-                    url
-                ));
-            };
-
-            // Now strip any extension.
-            let name = basename_or_relative
-                .splitn(2, '.')
-                .next()
-                .ok_or_else(|| format_err!("can't get basename of {}", file_url))?
-                .to_owned();
-            let ctx =
-                ctx.child(o!("stream" => name.clone(), "url" => file_url.clone()));
-            debug!(ctx.log(), "streaming from `gsutil cp`");
-
             // Stream the file from the cloud.
+            let name = csv_stream_name(url.as_str(), &file_url)?;
+            let ctx =
+                ctx.child(o!("stream" => name.to_owned(), "url" => file_url.clone()));
+            debug!(ctx.log(), "streaming from {} using `gsutil cp`", file_url);
             let mut child = Command::new("gsutil")
                 .args(&["cp", file_url.as_str(), "-"])
                 .stdout(Stdio::piped())
@@ -92,7 +65,7 @@ pub(crate) async fn local_data_helper(
 
             // Assemble everything into a CSV stream.
             Ok(CsvStream {
-                name,
+                name: name.to_owned(),
                 data: Box::new(data),
             })
         }

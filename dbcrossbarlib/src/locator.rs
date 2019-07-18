@@ -141,12 +141,12 @@ impl FromStr for BoxLocator {
     fn from_str(s: &str) -> Result<Self> {
         use crate::drivers::{
             bigquery::*, bigquery_schema::*, csv::*, gs::*, postgres::*,
-            postgres_sql::*,
+            postgres_sql::*, s3::*,
         };
 
         // Parse our locator into a URL-style scheme and the rest.
         lazy_static! {
-            static ref SCHEME_RE: Regex = Regex::new("^[A-Za-z][-A-Za-z0-0+.]*:")
+            static ref SCHEME_RE: Regex = Regex::new("^[A-Za-z][-A-Za-z0-9+.]*:")
                 .expect("invalid regex in source");
         }
         let cap = SCHEME_RE
@@ -164,6 +164,7 @@ impl FromStr for BoxLocator {
             GS_SCHEME => Ok(Box::new(GsLocator::from_str(s)?)),
             POSTGRES_SCHEME => Ok(Box::new(PostgresLocator::from_str(s)?)),
             POSTGRES_SQL_SCHEME => Ok(Box::new(PostgresSqlLocator::from_str(s)?)),
+            S3_SCHEME => Ok(Box::new(S3Locator::from_str(s)?)),
             _ => Err(format_err!("unknown locator scheme in {:?}", s)),
         }
     }
@@ -179,6 +180,7 @@ fn locator_from_str_to_string_roundtrip() {
         "gs://example-bucket/tmp/",
         "postgres://localhost:5432/db#my_table",
         "postgres-sql:dir/my_table.sql",
+        "s3://example/my-dir/",
     ];
     for locator in locators.into_iter() {
         let parsed: BoxLocator = locator.parse().unwrap();
