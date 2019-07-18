@@ -10,3 +10,4 @@ pub mod gs;
 pub mod postgres;
 pub mod postgres_shared;
 pub mod postgres_sql;
+pub mod s3;

@@ -173,11 +173,13 @@ async fn write_local_data_helper(
                     // particularly safe fashion.
                     let csv_path = path.join(&format!("{}.csv", stream.name));
                     let ctx = ctx.child(o!("stream" => stream.name.clone(), "path" => format!("{}", csv_path.display())));
+                    debug!(ctx.log(), "writing CSV stream to file");
                     let wtr = if_exists
                         .to_async_open_options_no_append()?
                         .open(csv_path.clone())
                         .compat()
-                        .await?;
+                        .await
+                        .with_context(|_| format!("cannot open {}", csv_path.display()))?;
                     copy_stream_to_writer(ctx.clone(), stream.data, wtr).await.with_context(
                         |_| format!("error writing {}", csv_path.display()),
                     )?;

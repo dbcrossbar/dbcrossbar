@@ -57,7 +57,7 @@ Right now, certain drivers still have restrictions on what column types are supp
 
 ## Architecture
 
-`dbcrossbar` is written using nightly Rust, including `tokio`, `async` and `await!`. It uses multiple CSV streams to transfer data between databases.
+`dbcrossbar` is written using nightly Rust, including `tokio`, `async` and `.await`. It uses multiple CSV streams to transfer data between databases.
 
 It uses a very specific "interchange CSV" format, supporting the types listed in [`schema.rs`](./dbcrossbarlib/src/schema.rs). In a few cases, it supports purely cloud-based transfers, such as when importing `gs://**/*.csv` URLs into BigQuery.
 
@@ -122,10 +122,11 @@ export POSTGRES_TEST_URL=postgres://postgres:@localhost:5432/dbcrossbar_test
 echo "create extension if not exists postgis;" | psql $POSTGRES_TEST_URL
 
 # Point to a Goolge Cloud Storage bucket for which you have write permissions.
-export GS_TEST_URL=gs://$MY_TEST_BUCKET/dbcrossbar/
-export BQ_TEST_DATASET=$MY_ROOT:test
+export GS_TEST_URL=gs://$MY_GS_TEST_BUCKET/dbcrossbar/
+export BQ_TEST_DATASET=$MY_BQ_ROOT:test
+export S3_TEST_URL=s3://$MT_S3_TEST_BUCKET/dbcrossbar/
 
 # Run the integration tests.
-env RUST_BACKTRACE=1 RUST_LOG=warn,dbcrossbarlib=trace,dbcrossbar=trace \
+env RUST_BACKTRACE=1 RUST_LOG=warn,dbcrossbarlib=debug,dbcrossbar=debug \
     cargo test --all -- --ignored --nocapture
 ```

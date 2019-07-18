@@ -56,6 +56,22 @@ fn bq_test_table(table_name: &str) -> String {
     format!("{}.{}", bq_temp_dataset(), table_name)
 }
 
+/// The URL to our test `s3://` bucket and directory.
+fn s3_url() -> String {
+    env::var("S3_TEST_URL").expect("S3_TEST_URL must be set")
+}
+
+/// The URL to a subdirectory of `gs_url`.
+fn s3_test_dir_url(dir_name: &str) -> String {
+    let mut url = s3_url();
+    if !url.ends_with('/') {
+        url.push_str("/");
+    }
+    url.push_str(dir_name);
+    url.push_str("/");
+    url
+}
+
 #[test]
 fn help_flag() {
     let testdir = TestDir::new("dbcrossbar", "help_flag");
@@ -434,5 +450,45 @@ fn bigquery_upsert() {
     };
     let expected = normalize_csv(&expected);
     let actual = normalize_csv(&testdir.path("out/000000000000.csv"));
+    assert_diff!(&expected, &actual, ",", 0);
+}
+
+#[test]
+#[ignore]
+fn cp_csv_s3_to_csv() {
+    let _ = env_logger::try_init();
+    let testdir = TestDir::new("dbcrossbar", "cp_csv_s3_to_csv");
+    let src = testdir.src_path("fixtures/many_types.csv");
+    let schema = testdir.src_path("fixtures/many_types.sql");
+    let s3_dir = s3_test_dir_url("cp_csv_s3_to_csv");
+
+    // CSV to S3.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("csv:{}", src.display()),
+            &s3_dir,
+        ])
+        .tee_output()
+        .expect_success();
+
+    // S3 to CSV.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &s3_dir,
+            "csv:out/",
+        ])
+        .tee_output()
+        .expect_success();
+
+    let expected = fs::read_to_string(&src).unwrap();
+    let actual = fs::read_to_string(testdir.path("out/many_types.csv")).unwrap();
     assert_diff!(&expected, &actual, ",", 0);
 }
