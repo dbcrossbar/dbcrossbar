@@ -105,6 +105,30 @@ fn conv_pg_sql_to_pg_sql() {
 }
 
 #[test]
+fn conv_pg_sql_to_dbcrossbar_schema_to_pg_sql() {
+    let testdir = TestDir::new("dbcrossbar", "conv_pg_sql_to_pg_sql");
+    let output1 = testdir
+        .cmd()
+        .args(&["conv", "postgres-sql:-", "dbcrossbar-schema:-"])
+        .output_with_stdin(EXAMPLE_SQL)
+        .expect_success();
+    let output2 = testdir
+        .cmd()
+        .args(&["conv", "dbcrossbar-schema:-", "postgres-sql:-"])
+        .output_with_stdin(output1.stdout_str())
+        .expect_success();
+    assert!(output2.stdout_str().contains("CREATE TABLE"));
+
+    // And make sure it round-trips.
+    let output3 = testdir
+        .cmd()
+        .args(&["conv", "postgres-sql:-", "dbcrossbar-schema:-"])
+        .output_with_stdin(output2.stdout_str())
+        .expect_success();
+    assert_eq!(output3.stdout_str(), output1.stdout_str());
+}
+
+#[test]
 fn conv_csv_to_pg_sql() {
     let testdir = TestDir::new("dbcrossbar", "conv_csv_to_pg_sql");
     let src = testdir.src_path("fixtures/example.csv");

@@ -140,8 +140,8 @@ impl FromStr for BoxLocator {
 
     fn from_str(s: &str) -> Result<Self> {
         use crate::drivers::{
-            bigquery::*, bigquery_schema::*, csv::*, gs::*, postgres::*,
-            postgres_sql::*, s3::*,
+            bigquery::*, bigquery_schema::*, csv::*, dbcrossbar_schema::*, gs::*,
+            postgres::*, postgres_sql::*, s3::*,
         };
 
         // Parse our locator into a URL-style scheme and the rest.
@@ -161,6 +161,9 @@ impl FromStr for BoxLocator {
                 Ok(Box::new(BigQuerySchemaLocator::from_str(s)?))
             }
             CSV_SCHEME => Ok(Box::new(CsvLocator::from_str(s)?)),
+            DBCROSSBAR_SCHEMA_SCHEME => {
+                Ok(Box::new(DbcrossbarSchemaLocator::from_str(s)?))
+            }
             GS_SCHEME => Ok(Box::new(GsLocator::from_str(s)?)),
             POSTGRES_SCHEME => Ok(Box::new(PostgresLocator::from_str(s)?)),
             POSTGRES_SQL_SCHEME => Ok(Box::new(PostgresSqlLocator::from_str(s)?)),
@@ -177,6 +180,7 @@ fn locator_from_str_to_string_roundtrip() {
         "bigquery-schema:dir/my_table.json",
         "csv:file.csv",
         "csv:dir/",
+        "dbcrossbar-schema:file.json",
         "gs://example-bucket/tmp/",
         "postgres://localhost:5432/db#my_table",
         "postgres-sql:dir/my_table.sql",

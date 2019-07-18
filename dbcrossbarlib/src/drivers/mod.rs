@@ -6,6 +6,7 @@ pub mod bigquery;
 pub mod bigquery_schema;
 pub mod bigquery_shared;
 pub mod csv;
+pub mod dbcrossbar_schema;
 pub mod gs;
 pub mod postgres;
 pub mod postgres_shared;
