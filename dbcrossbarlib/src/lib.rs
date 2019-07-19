@@ -44,6 +44,7 @@ pub use if_exists::IfExists;
 pub use locator::{BoxLocator, Locator};
 pub use query::Query;
 pub use temporary_storage::TemporaryStorage;
+pub use tokio_glue::ConsumeWithParallelism;
 
 /// Definitions included by all the files in this crate.
 ///
@@ -71,7 +72,7 @@ pub(crate) mod common {
         query::Query,
         schema::Table,
         temporary_storage::TemporaryStorage,
-        tokio_glue::{box_stream_once, BoxFuture, BoxStream},
+        tokio_glue::{box_stream_once, BoxFuture, BoxStream, ConsumeWithParallelism},
         Error, Result, BUFFER_SIZE,
     };
 }

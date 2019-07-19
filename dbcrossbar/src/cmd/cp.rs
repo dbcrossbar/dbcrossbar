@@ -1,12 +1,12 @@
 //! The `cp` subcommand.
 
 use common_failures::Result;
-use dbcrossbarlib::{BoxLocator, Context, IfExists, Query, TemporaryStorage};
+use dbcrossbarlib::{
+    BoxLocator, ConsumeWithParallelism, Context, IfExists, Query, TemporaryStorage,
+};
 use failure::format_err;
-use futures::{compat::Future01CompatExt, FutureExt, TryFutureExt};
 use slog::{debug, o};
 use structopt::{self, StructOpt};
-use tokio::prelude::*;
 
 /// Schema conversion arguments.
 #[derive(Debug, StructOpt)]
@@ -108,17 +108,7 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
         // certain degree of parallelism. This is where all the actual work happens,
         // and this what controls how many "input driver" -> "output driver"
         // connections are running at any given time.
-        result_stream
-            // This stream contains std futures, but we need tokio futures for
-            // `buffered`.
-            .map(|fut| fut.compat())
-            .buffered(4)
-            .collect()
-            .compat()
-            // This `boxed` is needed to prevent weird lifetime issues from
-            // seeping into the type of this function.
-            .boxed()
-            .await?;
+        result_stream.consume_with_parallelism(4).await?;
     }
 
     Ok(())

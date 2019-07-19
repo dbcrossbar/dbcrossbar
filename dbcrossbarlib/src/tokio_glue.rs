@@ -19,6 +19,34 @@ pub type BoxFuture<T> = Pin<Box<dyn StdFuture<Output = Result<T>> + Send + 'stat
 /// enough restrictions to be able send streams between threads.
 pub type BoxStream<T> = Box<dyn Stream<Item = T, Error = Error> + Send + 'static>;
 
+/// Extension for `BoxStream<BoxFuture<()>>`.
+pub trait ConsumeWithParallelism: Sized {
+    /// Consume futures from the stream, running `parallelism` futures at any
+    /// given time.
+    fn consume_with_parallelism(self, parallelism: usize) -> BoxFuture<()>;
+}
+
+impl ConsumeWithParallelism for BoxStream<BoxFuture<()>> {
+    fn consume_with_parallelism(self, parallelism: usize) -> BoxFuture<()> {
+        self
+            // This stream contains std futures, but we need tokio futures for
+            // `buffered`.
+            .map(|fut: BoxFuture<()>| fut.compat())
+            // Run up to `parallelism` futures in parallel.
+            .buffered(parallelism)
+            // Collect our resulting zero-byte `()` values as a zero-byte
+            // vector.
+            .collect()
+            // Throw away the result of `collect`.
+            .map(|_| ())
+            // Convert back to a standard future.
+            .compat()
+            // This `boxed` is needed to prevent weird lifetime issues from
+            // seeping into the type of this function and its callers.
+            .boxed()
+    }
+}
+
 /// Given a `Stream` of data chunks of type `BytesMut`, write the entire stream
 /// to an `AsyncWrite` implementation.
 pub(crate) async fn copy_stream_to_writer<S, W>(
