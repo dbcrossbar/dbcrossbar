@@ -27,7 +27,6 @@ pub(crate) async fn local_data_helper(
             temporary_storage.clone(),
             IfExists::Overwrite,
         )
-        .compat()
         .await?;
 
     // Copy from a temporary gs:// location.
@@ -39,6 +38,5 @@ pub(crate) async fn local_data_helper(
             Query::default(),
             temporary_storage.clone(),
         )
-        .compat()
         .await?)
 }

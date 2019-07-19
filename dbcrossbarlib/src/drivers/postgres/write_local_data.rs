@@ -201,5 +201,5 @@ pub(crate) async fn write_local_data_helper(
             }
         }
     };
-    Ok(box_stream_once(Ok(fut.boxed().compat())))
+    Ok(box_stream_once(Ok(fut.boxed())))
 }

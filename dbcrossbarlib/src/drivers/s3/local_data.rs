@@ -40,7 +40,7 @@ pub(crate) async fn local_data_helper(
     // switching from `aws s3` to native S3 API calls from Rust.
     let lines = io::lines(BufReader::with_capacity(BUFFER_SIZE, child_stdout))
         .map_err(|e| format_err!("error reading `aws s3 ls` output: {}", e));
-    let csv_streams = lines.and_then(move |line| -> BoxFuture<CsvStream> {
+    let csv_streams = lines.and_then(move |line| {
         let ctx = ctx.clone();
         let url = url.clone();
         async move {

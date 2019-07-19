@@ -59,9 +59,7 @@ impl Locator for S3Locator {
         query: Query,
         _temporary_storage: TemporaryStorage,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(ctx, self.url.clone(), query)
-            .boxed()
-            .compat()
+        local_data_helper(ctx, self.url.clone(), query).boxed()
     }
 
     fn write_local_data(
@@ -72,8 +70,6 @@ impl Locator for S3Locator {
         _temporary_storage: TemporaryStorage,
         if_exists: IfExists,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
-        write_local_data_helper(ctx, self.url.clone(), schema, data, if_exists)
-            .boxed()
-            .compat()
+        write_local_data_helper(ctx, self.url.clone(), schema, data, if_exists).boxed()
     }
 }

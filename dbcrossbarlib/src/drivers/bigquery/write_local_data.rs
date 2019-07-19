@@ -26,7 +26,6 @@ pub(crate) async fn write_local_data_helper(
             temporary_storage.clone(),
             IfExists::Overwrite,
         )
-        .compat()
         .await?;
 
     // Wait for all gs:// uploads to finish with controllable parallelism.
@@ -34,7 +33,17 @@ pub(crate) async fn write_local_data_helper(
     // TODO: This duplicates our top-level `cp` code and we need to implement the
     // same rules for picking a good argument to `buffered` and not just hard code
     // our parallelism.
-    result_stream.buffered(4).collect().compat().await?;
+    result_stream
+        // This stream contains std futures, but we need tokio futures for
+        // `buffered`.
+        .map(|fut: BoxFuture<()>| fut.compat())
+        .buffered(4)
+        .collect()
+        .compat()
+        // This `boxed` is needed to prevent weird lifetime issues from
+        // seeping into the type of this function.
+        .boxed()
+        .await?;
 
     // Load from gs:// to BigQuery.
     let from_temp_ctx = ctx.child(o!("from_temp" => gs_temp.to_string()));
@@ -45,11 +54,10 @@ pub(crate) async fn write_local_data_helper(
         temporary_storage,
         if_exists,
     )
-    .compat()
     .await?;
 
     // We don't need any parallelism after the BigQuery step, so just return
     // a stream containing a single future.
-    let fut = async { Ok(()) }.boxed().compat();
+    let fut = async { Ok(()) }.boxed();
     Ok(box_stream_once(Ok(fut)))
 }

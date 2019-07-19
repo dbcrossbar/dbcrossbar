@@ -3,18 +3,17 @@
 //! This is mostly smaller things that happen to recur in our particular
 //! application.
 
-use futures::compat::Compat as Compat03As01;
 use std::{cmp::min, future::Future as StdFuture, pin::Pin, thread};
 use tokio::io;
 
 use crate::common::*;
 
-/// Standard future type for this library. Like `Result`, but used by async.
-/// This is a bit tricky, because we want it to be a `tokio` future, but to do
-/// that, we need to box it, mark it as pinned, and _then_ apply a compatibility
-/// wrapper.
-pub type BoxFuture<T> =
-    Compat03As01<Pin<Box<dyn StdFuture<Output = Result<T>> + Send>>>;
+/// Standard future type for this library. Like `Result`, but used by async. We
+/// mark it as `Send` to ensure it can be sent between threads safely (even when
+/// blocked on `.await`!), and we `Pin<Box<...>>` it using `.boxed()` to make it
+/// an abstract, heap-based type, for convenience. All we know is that it will
+/// return a `Result<T>`.
+pub type BoxFuture<T> = Pin<Box<dyn StdFuture<Output = Result<T>> + Send + 'static>>;
 
 /// A stream of values of type `T`, using our standard error type, and imposing
 /// enough restrictions to be able send streams between threads.
