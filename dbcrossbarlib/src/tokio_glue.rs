@@ -47,6 +47,23 @@ impl ConsumeWithParallelism for BoxStream<BoxFuture<()>> {
     }
 }
 
+/// Create a new channel with an output end of type `BoxStream<BytesMut>`.
+pub(crate) fn bytes_channel(
+    buffer: usize,
+) -> (
+    mpsc::Sender<Result<BytesMut>>,
+    impl Stream<Item = BytesMut, Error = Error> + Send + 'static,
+) {
+    let (sender, receiver) = mpsc::channel(buffer);
+    let receiver = receiver
+        // Change `Error` from `mpsc::Error` to our standard `Error`.
+        .map_err(|_| format_err!("stream read error"))
+        // Change `Item` from `Result<BytesMut>` to `BytesMut`, pushing
+        // the error into the stream's `Error` channel instead.
+        .and_then(|result| result);
+    (sender, receiver)
+}
+
 /// Given a `Stream` of data chunks of type `BytesMut`, write the entire stream
 /// to an `AsyncWrite` implementation.
 pub(crate) async fn copy_stream_to_writer<S, W>(
@@ -89,7 +106,7 @@ pub(crate) fn copy_reader_to_stream<R>(
 where
     R: AsyncRead + Send + 'static,
 {
-    let (mut sender, receiver) = mpsc::channel(1);
+    let (mut sender, receiver) = bytes_channel(1);
     let worker = async move {
         let mut buffer = vec![0; 64 * 1024];
         loop {
@@ -137,14 +154,6 @@ where
         }
     };
     tokio::spawn(worker.boxed().compat());
-
-    let receiver = receiver
-        // Change `Error` from `mpsc::Error` to our standard `Error`.
-        .map_err(|_| format_err!("stream read error"))
-        // Change `Item` from `Result<BytesMut>` to `BytesMut`, pushing
-        // the error into the stream's `Error` channel instead.
-        .and_then(|result| result);
-
     Ok(receiver)
 }
 
@@ -164,18 +173,13 @@ impl SyncStreamWriter {
     /// Create a new `SyncStreamWriter` and a receiver that implements
     /// `Stream<Item = BytesMut, Error = Error>`.
     pub fn pipe(ctx: Context) -> (Self, impl Stream<Item = BytesMut, Error = Error>) {
-        let (sender, receiver) = mpsc::channel(1);
+        let (sender, receiver) = bytes_channel(1);
         (
             SyncStreamWriter {
                 ctx,
                 sender: Some(sender),
             },
-            receiver
-                // Change `Error` from `mpsc::Error` to our standard `Error`.
-                .map_err(|_| format_err!("stream read error"))
-                // Change `Item` from `Result<BytesMut>` to `BytesMut`, pushing
-                // the error into the stream's `Error` channel instead.
-                .and_then(|result| result),
+            receiver,
         )
     }
 }
