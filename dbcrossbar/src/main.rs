@@ -13,16 +13,14 @@ extern crate openssl;
 extern crate tokio;
 
 use common_failures::{quick_main, Result};
-use dbcrossbarlib::Context;
+use dbcrossbarlib::{run_futures_with_runtime, Context};
 use env_logger;
-use futures::{compat::Future01CompatExt, FutureExt, TryFutureExt};
 use openssl_probe;
 use slog::{debug, slog_o, Drain, Logger};
 use slog_async::{self, OverflowStrategy};
 use slog_envlogger;
 use slog_term;
 use structopt::{self, StructOpt};
-use tokio::prelude::*;
 
 mod cmd;
 
@@ -38,7 +36,7 @@ fn run() -> Result<()> {
     // Set up `slog`-based structured logging for our async code, because we
     // need to be able to untangle very complicated logs from many parallel
     // async tasks.
-    let decorator = slog_term::PlainDecorator::new(std::io::stdout());
+    let decorator = slog_term::PlainDecorator::new(std::io::stderr());
     let formatted = slog_term::CompactFormat::new(decorator).build().fuse();
     let filtered = slog_envlogger::new(formatted);
     let drain = slog_async::Async::new(filtered)
@@ -68,19 +66,6 @@ fn run() -> Result<()> {
     debug!(ctx.log(), "{:?}", opt);
     let cmd_fut = cmd::run(ctx, opt);
 
-    // Wait for both `cmd_fut` and `copy_fut` to finish, but bail out as soon
-    // as either returns an error. This involves some pretty deep `tokio` magic:
-    // If a background worker fails, then `copy_fut` will be automatically
-    // dropped, or vice vera.
-    let combined_fut = async move {
-        cmd_fut.compat().join(worker_fut).compat().await?;
-        let result: Result<()> = Ok(());
-        result
-    };
-
-    // Pass `combined_fut` to our `tokio` runtime, and wait for it to finish.
-    let mut runtime =
-        tokio::runtime::Runtime::new().expect("Unable to create a runtime");
-    runtime.block_on(combined_fut.boxed().compat())?;
-    Ok(())
+    // Run our futures.
+    run_futures_with_runtime(cmd_fut, worker_fut)
 }

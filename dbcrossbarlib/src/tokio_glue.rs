@@ -361,3 +361,40 @@ where
     handle.join().expect("background worker thread panicked");
     result
 }
+
+/// Create a new `tokio` runtime and use it to run `cmd_future` (which carries
+/// out whatever task we want to perform), and `worker_future` (which should
+/// have been created by `Context::create` or `Context::create_for_test`).
+///
+/// Return when at least one future has failed, or both futures have completed
+/// successfully.
+///
+/// This can be safely used from within a test, but it may only be called from a
+/// synchronous context.
+///
+/// If this hangs, make sure all `Context` values are getting dropped once the
+/// work is done.
+pub fn run_futures_with_runtime(
+    cmd_future: BoxFuture<()>,
+    worker_future: BoxFuture<()>,
+) -> Result<()> {
+    // Wait for both `cmd_fut` and `copy_fut` to finish, but bail out as soon
+    // as either returns an error. This involves some pretty deep `tokio` magic:
+    // If a background worker fails, then `copy_fut` will be automatically
+    // dropped, or vice vera.
+    let combined_fut = async move {
+        cmd_future
+            .compat()
+            .join(worker_future.compat())
+            .compat()
+            .await?;
+        let result: Result<()> = Ok(());
+        result
+    };
+
+    // Pass `combined_fut` to our `tokio` runtime, and wait for it to finish.
+    let mut runtime =
+        tokio::runtime::Runtime::new().expect("Unable to create a runtime");
+    runtime.block_on(combined_fut.boxed().compat())?;
+    Ok(())
+}

@@ -6,8 +6,54 @@ use crate::common::*;
 pub struct CsvStream {
     /// The name of this stream.
     pub name: String,
-    /// A reader associated with this stream.
-    pub data: Box<dyn Stream<Item = BytesMut, Error = Error> + Send + 'static>,
+    /// Our data.
+    pub data: BoxStream<BytesMut>,
+}
+
+impl CsvStream {
+    /// Construct a CSV stream from bytes.
+    #[cfg(test)]
+    pub(crate) async fn from_bytes<B>(bytes: B) -> Self
+    where
+        B: Into<BytesMut>,
+    {
+        use crate::tokio_glue::bytes_channel;
+        let (sender, receiver) = bytes_channel(1);
+        sender
+            .send(Ok(bytes.into()))
+            .compat()
+            .await
+            .expect("could not send bytes to channel");
+        CsvStream {
+            name: "bytes".to_owned(),
+            data: Box::new(receiver),
+        }
+    }
+
+    /// Receive all data on a CSV stream and return it as bytes.
+    #[cfg(test)]
+    pub(crate) async fn into_bytes(self, ctx: Context) -> Result<BytesMut> {
+        let ctx = ctx.child(o!("fn" => "into_bytes"));
+        let mut stream = self.data;
+        let mut bytes = BytesMut::new();
+        loop {
+            match stream.into_future().compat().await {
+                Err((err, _rest_of_stream)) => {
+                    error!(ctx.log(), "error reading stream: {}", err);
+                    return Err(err);
+                }
+                Ok((None, _rest_of_stream)) => {
+                    trace!(ctx.log(), "end of stream");
+                    return Ok(bytes);
+                }
+                Ok((Some(new_bytes), rest_of_stream)) => {
+                    trace!(ctx.log(), "received {} bytes", new_bytes.len());
+                    stream = rest_of_stream;
+                    bytes.extend_from_slice(&new_bytes);
+                }
+            }
+        }
+    }
 }
 
 /// Given a `base_path` refering to one of more CSV files, and a `file_path`
