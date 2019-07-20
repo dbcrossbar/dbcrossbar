@@ -72,7 +72,7 @@ pub(crate) mod common {
         query::Query,
         schema::Table,
         temporary_storage::TemporaryStorage,
-        tokio_glue::{box_stream_once, BoxFuture, BoxStream, ConsumeWithParallelism},
+        tokio_glue::{box_stream_once, BoxFuture, BoxStream},
         Error, Result, BUFFER_SIZE,
     };
 }
