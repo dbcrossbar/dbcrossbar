@@ -80,9 +80,7 @@ impl Locator for CsvLocator {
         query: Query,
         _temporary_storage: TemporaryStorage,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(ctx, self.path.clone(), query)
-            .boxed()
-            .compat()
+        local_data_helper(ctx, self.path.clone(), query).boxed()
     }
 
     fn write_local_data(
@@ -95,7 +93,6 @@ impl Locator for CsvLocator {
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         write_local_data_helper(ctx, self.path.clone(), schema, data, if_exists)
             .boxed()
-            .compat()
     }
 }
 
@@ -184,7 +181,7 @@ async fn write_local_data_helper(
                         |_| format!("error writing {}", csv_path.display()),
                     )?;
                     Ok(())
-                }.boxed().compat()
+                }.boxed()
             });
             Ok(Box::new(result_stream) as BoxStream<BoxFuture<()>>)
         }

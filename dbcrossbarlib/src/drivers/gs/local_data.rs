@@ -43,7 +43,7 @@ pub(crate) async fn local_data_helper(
     // in case there are a lot of CSV files we need to read.
     let file_urls = io::lines(BufReader::with_capacity(BUFFER_SIZE, child_stdout))
         .map_err(|e| format_err!("error reading gsutil output: {}", e));
-    let csv_streams = file_urls.and_then(move |file_url| -> BoxFuture<CsvStream> {
+    let csv_streams = file_urls.and_then(move |file_url| {
         let ctx = ctx.clone();
         let url = url.clone();
         async move {

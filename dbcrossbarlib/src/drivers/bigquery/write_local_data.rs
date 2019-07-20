@@ -3,6 +3,7 @@
 use super::find_gs_temp_dir;
 use crate::common::*;
 use crate::drivers::bigquery::BigQueryLocator;
+use crate::tokio_glue::ConsumeWithParallelism;
 
 /// Implementation of `write_local_data`, but as a real `async` function.
 pub(crate) async fn write_local_data_helper(
@@ -26,15 +27,14 @@ pub(crate) async fn write_local_data_helper(
             temporary_storage.clone(),
             IfExists::Overwrite,
         )
-        .compat()
         .await?;
 
     // Wait for all gs:// uploads to finish with controllable parallelism.
     //
-    // TODO: This duplicates our top-level `cp` code and we need to implement the
-    // same rules for picking a good argument to `buffered` and not just hard code
-    // our parallelism.
-    result_stream.buffered(4).collect().compat().await?;
+    // TODO: This duplicates our top-level `cp` code and we need to implement
+    // the same rules for picking a good argument to `consume_with_parallelism`
+    // and not just hard code our parallelism.
+    result_stream.consume_with_parallelism(4).await?;
 
     // Load from gs:// to BigQuery.
     let from_temp_ctx = ctx.child(o!("from_temp" => gs_temp.to_string()));
@@ -45,11 +45,10 @@ pub(crate) async fn write_local_data_helper(
         temporary_storage,
         if_exists,
     )
-    .compat()
     .await?;
 
     // We don't need any parallelism after the BigQuery step, so just return
     // a stream containing a single future.
-    let fut = async { Ok(()) }.boxed().compat();
+    let fut = async { Ok(()) }.boxed();
     Ok(box_stream_once(Ok(fut)))
 }

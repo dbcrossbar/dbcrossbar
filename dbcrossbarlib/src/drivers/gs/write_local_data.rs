@@ -53,7 +53,6 @@ pub(crate) async fn write_local_data_helper(
             }
         }
             .boxed()
-            .compat()
     });
 
     Ok(Box::new(written) as BoxStream<BoxFuture<()>>)

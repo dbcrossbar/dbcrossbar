@@ -147,7 +147,6 @@ impl Locator for PostgresLocator {
             query,
         )
         .boxed()
-        .compat()
     }
 
     fn write_local_data(
@@ -167,6 +166,5 @@ impl Locator for PostgresLocator {
             if_exists,
         )
         .boxed()
-        .compat()
     }
 }

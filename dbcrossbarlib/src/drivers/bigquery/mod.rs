@@ -98,9 +98,7 @@ impl Locator for BigQueryLocator {
         query: Query,
         temporary_storage: TemporaryStorage,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(ctx, self.clone(), schema, query, temporary_storage)
-            .boxed()
-            .compat()
+        local_data_helper(ctx, self.clone(), schema, query, temporary_storage).boxed()
     }
 
     fn write_local_data(
@@ -120,7 +118,6 @@ impl Locator for BigQueryLocator {
             if_exists,
         )
         .boxed()
-        .compat()
     }
 
     fn supports_write_remote_data(&self, source: &dyn Locator) -> bool {
@@ -146,7 +143,6 @@ impl Locator for BigQueryLocator {
             if_exists,
         )
         .boxed()
-        .compat()
     }
 }
 

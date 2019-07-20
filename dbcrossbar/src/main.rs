@@ -73,7 +73,7 @@ fn run() -> Result<()> {
     // If a background worker fails, then `copy_fut` will be automatically
     // dropped, or vice vera.
     let combined_fut = async move {
-        cmd_fut.join(worker_fut).compat().await?;
+        cmd_fut.compat().join(worker_fut).compat().await?;
         let result: Result<()> = Ok(());
         result
     };

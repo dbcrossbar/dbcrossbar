@@ -1,12 +1,12 @@
 //! The `cp` subcommand.
 
 use common_failures::Result;
-use dbcrossbarlib::{BoxLocator, Context, IfExists, Query, TemporaryStorage};
+use dbcrossbarlib::{
+    BoxLocator, ConsumeWithParallelism, Context, IfExists, Query, TemporaryStorage,
+};
 use failure::format_err;
-use futures::compat::Future01CompatExt;
 use slog::{debug, o};
 use structopt::{self, StructOpt};
-use tokio::prelude::*;
 
 /// Schema conversion arguments.
 #[derive(Debug, StructOpt)]
@@ -76,7 +76,6 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
                 temporary_storage,
                 opt.if_exists,
             )
-            .compat()
             .await?
     } else {
         // We have to transfer the data via the local machine, so read data from
@@ -87,7 +86,6 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
         let data = opt
             .from_locator
             .local_data(input_ctx, schema.clone(), query, temporary_storage.clone())
-            .compat()
             .await?
             .ok_or_else(|| {
                 format_err!("don't know how to read data from {}", opt.from_locator)
@@ -104,14 +102,13 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
                 temporary_storage,
                 opt.if_exists,
             )
-            .compat()
             .await?;
 
         // Consume the stream of futures produced by `write_local_data`, allowing a
         // certain degree of parallelism. This is where all the actual work happens,
         // and this what controls how many "input driver" -> "output driver"
         // connections are running at any given time.
-        result_stream.buffered(4).collect().compat().await?;
+        result_stream.consume_with_parallelism(4).await?;
     }
 
     Ok(())

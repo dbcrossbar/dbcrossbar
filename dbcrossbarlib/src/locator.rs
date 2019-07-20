@@ -74,7 +74,7 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
         _temporary_storage: TemporaryStorage,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
         // Turn our result into a future.
-        async { Ok(None) }.boxed().compat()
+        async { Ok(None) }.boxed()
     }
 
     /// If this locator can be used as a local data sink, write data to it.
@@ -106,7 +106,7 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
         _if_exists: IfExists,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         let err = format_err!("cannot write data to {}", self);
-        async move { Err(err) }.boxed().compat()
+        async move { Err(err) }.boxed()
     }
 
     /// Can we access the data at `source` directly using `write_remote_data`?
@@ -128,7 +128,7 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
         _if_exists: IfExists,
     ) -> BoxFuture<()> {
         let err = format_err!("cannot write_remote_data from source {}", source);
-        async move { Err(err) }.boxed().compat()
+        async move { Err(err) }.boxed()
     }
 }
 
