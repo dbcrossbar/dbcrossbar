@@ -10,7 +10,6 @@ use crate::tokio_glue::bytes_channel;
 ///
 /// This is a bit complicated because it needs to be asynchronous, and it tries
 /// to impose near-zero overhead on the underlying data copies.
-#[allow(dead_code)]
 pub(crate) fn concatenate_csv_streams(
     ctx: Context,
     mut csv_streams: BoxStream<CsvStream>,

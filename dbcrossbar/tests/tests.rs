@@ -6,8 +6,8 @@ use std::{env, fs, path::Path, process::Stdio};
 /// An example Postgres SQL `CREATE TABLE` declaration.
 const EXAMPLE_SQL: &str = include_str!("../fixtures/example.sql");
 
-// /// An example CSV file with columns corresponding to `EXAMPLE_SQL`.
-// const EXAMPLE_CSV: &str = include_str!("../fixtures/example.csv");
+/// An example CSV file with columns corresponding to `EXAMPLE_SQL`.
+const EXAMPLE_CSV: &str = include_str!("../fixtures/example.csv");
 
 /// Sample input SQL. We test against this, and not against a running copy of
 /// PostgreSQL, because it keeps the test environment much simpler. But this
@@ -191,6 +191,23 @@ fn cp_csv_to_csv() {
         .expect_success();
     let expected = fs::read_to_string(&src).unwrap();
     testdir.expect_file_contents("out/example.csv", &expected);
+}
+
+#[test]
+fn cp_csv_to_csv_piped() {
+    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_csv");
+    let schema = testdir.src_path("fixtures/example.sql");
+    let output = testdir
+        .cmd()
+        .args(&[
+            "cp",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            "csv:-",
+            "csv:-",
+        ])
+        .output_with_stdin(EXAMPLE_CSV)
+        .expect_success();
+    assert_eq!(output.stdout_str(), EXAMPLE_CSV);
 }
 
 #[test]

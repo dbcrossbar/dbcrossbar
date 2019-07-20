@@ -2,9 +2,10 @@
 
 use csv;
 use std::{fmt, fs, io::BufReader, path::Path, str::FromStr};
-use tokio::fs::File;
+use tokio::{self, fs::File};
 
 use crate::common::*;
+use crate::concat::concatenate_csv_streams;
 use crate::schema::{Column, DataType, Table};
 use crate::tokio_glue::{copy_reader_to_stream, copy_stream_to_writer};
 
@@ -104,14 +105,15 @@ async fn local_data_helper(
     query.fail_if_query_details_provided()?;
     match path {
         PathOrStdio::Stdio => {
-            // TODO - There's a stupid gotcha with `stdin.lock()` that makes
-            // this much harder to do than you'd expect without a bunch of
-            // extra messing around, so don't implement it for now. We need
-            // to fix the API of `PathOrStdio` to _return_ locked stdin like
-            // any other stream, which probably means using a background
-            // copy thread like we do for Postgres export. Or maybe `tokio`
-            // will make this easy?
-            Err(format_err!("cannot yet read CSV data from stdin"))
+            let data = BufReader::with_capacity(BUFFER_SIZE, tokio::io::stdin());
+            let stream = copy_reader_to_stream(ctx, data)?;
+            let csv_stream = CsvStream {
+                name: "data".to_owned(),
+                data: Box::new(
+                    stream.map_err(move |e| format_err!("cannot read stdin: {}", e)),
+                ),
+            };
+            Ok(Some(box_stream_once(Ok(csv_stream))))
         }
         PathOrStdio::Path(path) => {
             // Get the name of our stream.
@@ -149,7 +151,14 @@ async fn write_local_data_helper(
     match path {
         PathOrStdio::Stdio => {
             if_exists.warn_if_not_default_for_stdout(&ctx);
-            Err(format_err!("cannot yet write CSV data to stdout"))
+            let data = concatenate_csv_streams(ctx.clone(), data)?;
+            let fut = async move {
+                copy_stream_to_writer(ctx.clone(), data.data, tokio::io::stdout())
+                    .await
+                    .context("error writing to stdout")?;
+                Ok(())
+            };
+            Ok(box_stream_once(Ok(fut.boxed())))
         }
         PathOrStdio::Path(path) => {
             // TODO - Handle to an individual file.
