@@ -180,7 +180,7 @@ fn cp_help_flag() {
 }
 
 #[test]
-fn cp_csv_to_csv() {
+fn cp_csv_to_csvs() {
     let testdir = TestDir::new("dbcrossbar", "cp_csv_to_csv");
     let src = testdir.src_path("fixtures/example.csv");
     testdir
@@ -191,6 +191,21 @@ fn cp_csv_to_csv() {
         .expect_success();
     let expected = fs::read_to_string(&src).unwrap();
     testdir.expect_file_contents("out/example.csv", &expected);
+}
+
+#[test]
+fn cp_csvs_to_csv() {
+    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_csv");
+    let src = testdir.src_path("fixtures/example.csv");
+    testdir
+        .cmd()
+        .arg("cp")
+        // TODO - Use a directory as input here.
+        .arg(&format!("csv:{}", src.display()))
+        .arg("csv:out.csv")
+        .expect_success();
+    let expected = fs::read_to_string(&src).unwrap();
+    testdir.expect_file_contents("out.csv", &expected);
 }
 
 #[test]
