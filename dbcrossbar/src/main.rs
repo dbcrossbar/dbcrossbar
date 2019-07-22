@@ -20,11 +20,11 @@ use openssl_probe;
 use slog::{debug, slog_o, Drain, Logger};
 use slog_async::{self, OverflowStrategy};
 use slog_envlogger;
-use slog_term;
 use structopt::{self, StructOpt};
 use tokio::prelude::*;
 
 mod cmd;
+mod logging;
 
 quick_main!(run);
 
@@ -35,12 +35,14 @@ fn run() -> Result<()> {
     // Find our system SSL configuration, even if we're statically linked.
     openssl_probe::init_ssl_cert_env_vars();
 
+    // Parse our command-line arguments.
+    let opt = cmd::Opt::from_args();
+
     // Set up `slog`-based structured logging for our async code, because we
     // need to be able to untangle very complicated logs from many parallel
     // async tasks.
-    let decorator = slog_term::PlainDecorator::new(std::io::stdout());
-    let formatted = slog_term::CompactFormat::new(decorator).build().fuse();
-    let filtered = slog_envlogger::new(formatted);
+    let base_drain = opt.log_format.create_drain();
+    let filtered = slog_envlogger::new(base_drain);
     let drain = slog_async::Async::new(filtered)
         .chan_size(64)
         // This may slow down application performance, even when `RUST_LOG` is
@@ -63,9 +65,10 @@ fn run() -> Result<()> {
     // error as soon as one fails.
     let (ctx, worker_fut) = Context::create(log);
 
-    // Parse our command-line arguments.
-    let opt = cmd::Opt::from_args();
+    // Log our command-line options.
     debug!(ctx.log(), "{:?}", opt);
+
+    // Create a future to run our command.
     let cmd_fut = cmd::run(ctx, opt);
 
     // Wait for both `cmd_fut` and `copy_fut` to finish, but bail out as soon
