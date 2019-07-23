@@ -215,7 +215,13 @@ pub(crate) async fn write_remote_data_helper(
             initial_table.name()
         );
         let rm_child = Command::new("bq")
-            .args(&["rm", "--headless", "-f", "-t", &initial_table.name().to_string()])
+            .args(&[
+                "rm",
+                "--headless",
+                "-f",
+                "-t",
+                &initial_table.name().to_string(),
+            ])
             .spawn_async()
             .context("error starting `bq rm`")?;
         let status = rm_child.compat().await.context("error running `bq rm`")?;
