@@ -59,6 +59,7 @@ pub(crate) async fn write_remote_data_helper(
         // Run query with no output.
         .args(&[
             "query",
+            "--headless",
             "--format=none",
             &format!("--destination_table={}", temp_table_name),
             if_exists_to_bq_load_arg(&IfExists::Overwrite)?,
@@ -92,6 +93,7 @@ pub(crate) async fn write_remote_data_helper(
         // These arguments can all be represented as UTF-8 `&str`.
         .args(&[
             "extract",
+            "--headless",
             "--destination_format=CSV",
             &temp_table_name.to_string(),
             &format!("{}/*.csv", dest),
@@ -109,7 +111,7 @@ pub(crate) async fn write_remote_data_helper(
     // Delete temp table.
     debug!(ctx.log(), "deleting export temp table: {}", temp_table_name);
     let rm_child = Command::new("bq")
-        .args(&["rm", "-f", "-t", &temp_table_name.to_string()])
+        .args(&["rm", "--headless", "-f", "-t", &temp_table_name.to_string()])
         .spawn_async()
         .context("error starting `bq rm`")?;
     let status = rm_child.compat().await.context("error running `bq rm`")?;

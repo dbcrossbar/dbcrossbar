@@ -64,6 +64,7 @@ impl Locator for BigQueryLocator {
         let output = Command::new("bq")
             .args(&[
                 "show",
+                "--headless",
                 "--schema",
                 "--format=json",
                 &self.table_name.to_string(),
