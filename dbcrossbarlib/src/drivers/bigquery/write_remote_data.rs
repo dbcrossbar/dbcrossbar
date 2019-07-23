@@ -104,6 +104,7 @@ pub(crate) async fn write_remote_data_helper(
         // These arguments can all be represented as UTF-8 `&str`.
         .args(&[
             "load",
+            "--headless",
             "--skip_leading_rows=1",
             initial_table_replace,
             &initial_table.name().to_string(),
@@ -146,7 +147,7 @@ pub(crate) async fn write_remote_data_helper(
             dest_table.write_json_schema(&mut dest_schema_file)?;
             let mk_child = Command::new("bq")
                 // Use `--force` to ignore existing tables.
-                .args(&["mk", "--force", "--schema"])
+                .args(&["mk", "--headless", "--force", "--schema"])
                 // Pass separately, because paths may not be UTF-8.
                 .arg(&dest_schema_path)
                 .arg(&dest_table.name().to_string())
@@ -180,6 +181,7 @@ pub(crate) async fn write_remote_data_helper(
             // Run query with no output.
             .args(&[
                 "query",
+                "--headless",
                 "--format=none",
                 if_exists_to_bq_load_arg(&if_exists)?,
                 "--nouse_legacy_sql",
@@ -213,7 +215,7 @@ pub(crate) async fn write_remote_data_helper(
             initial_table.name()
         );
         let rm_child = Command::new("bq")
-            .args(&["rm", "-f", "-t", &initial_table.name().to_string()])
+            .args(&["rm", "--headless", "-f", "-t", &initial_table.name().to_string()])
             .spawn_async()
             .context("error starting `bq rm`")?;
         let status = rm_child.compat().await.context("error running `bq rm`")?;
