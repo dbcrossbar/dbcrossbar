@@ -17,7 +17,7 @@ use dbcrossbarlib::Context;
 use env_logger;
 use futures::{compat::Future01CompatExt, FutureExt, TryFutureExt};
 use openssl_probe;
-use slog::{debug, slog_o, Drain, Logger};
+use slog::{debug, Drain};
 use slog_async::{self, OverflowStrategy};
 use slog_envlogger;
 use structopt::{self, StructOpt};
