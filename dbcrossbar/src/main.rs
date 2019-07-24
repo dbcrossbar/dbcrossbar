@@ -51,13 +51,7 @@ fn run() -> Result<()> {
         .overflow_strategy(OverflowStrategy::Block)
         .build()
         .fuse();
-    let log = Logger::root(
-        drain,
-        slog_o!(
-            "app" => env!("CARGO_PKG_NAME"),
-            "ver" => env!("CARGO_PKG_VERSION"),
-        ),
-    );
+    let log = logging::global_logger_with_extra_values(drain, &opt.log_extra)?;
 
     // Set up an execution context for our background workers, if any. The `ctx`
     // must be passed to all our background operations. The `worker_fut` will

@@ -21,6 +21,10 @@ pub(crate) struct Opt {
     #[structopt(long = "log-format", default_value = "indented")]
     pub(crate) log_format: LogFormat,
 
+    /// A `key=value` pair to add to our logs. May be passed multiple times.
+    #[structopt(long = "log-extra")]
+    pub(crate) log_extra: Vec<String>,
+
     /// The command to run.
     #[structopt(subcommand)]
     pub(crate) cmd: Command,
