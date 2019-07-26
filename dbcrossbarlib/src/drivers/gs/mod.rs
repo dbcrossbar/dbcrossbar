@@ -94,6 +94,7 @@ impl Locator for GsLocator {
         ctx: Context,
         schema: Table,
         source: BoxLocator,
+        query: Query,
         temporary_storage: TemporaryStorage,
         if_exists: IfExists,
     ) -> BoxFuture<()> {
@@ -102,6 +103,7 @@ impl Locator for GsLocator {
             schema,
             source,
             self.to_owned(),
+            query,
             temporary_storage,
             if_exists,
         )

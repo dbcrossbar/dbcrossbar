@@ -25,9 +25,11 @@ pub(crate) async fn write_remote_data_helper(
     schema: Table,
     source: BoxLocator,
     dest: BigQueryLocator,
+    query: Query,
     temporary_storage: TemporaryStorage,
     if_exists: IfExists,
 ) -> Result<()> {
+    query.fail_if_query_details_provided()?;
     // Convert the source locator into the underlying `gs://` URL. This is a bit
     // fiddly because we're downcasting `source` and relying on knowledge about
     // the `GsLocator` type, and Rust doesn't make that especially easy.

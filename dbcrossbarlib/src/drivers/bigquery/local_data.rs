@@ -12,8 +12,6 @@ pub(crate) async fn local_data_helper(
     query: Query,
     temporary_storage: TemporaryStorage,
 ) -> Result<Option<BoxStream<CsvStream>>> {
-    query.fail_if_query_details_provided()?;
-
     // Build a temporary location.
     let gs_temp = find_gs_temp_dir(&temporary_storage)?;
 
@@ -24,6 +22,7 @@ pub(crate) async fn local_data_helper(
             to_temp_ctx,
             schema.clone(),
             Box::new(source),
+            query,
             temporary_storage.clone(),
             IfExists::Overwrite,
         )

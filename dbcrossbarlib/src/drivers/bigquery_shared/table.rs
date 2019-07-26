@@ -201,7 +201,11 @@ WHEN NOT MATCHED THEN INSERT (
 
     /// Generate SQL which `SELECT`s from a table, producing something we can
     /// export to CSV.
-    pub(crate) fn write_export_sql(&self, f: &mut dyn Write) -> Result<()> {
+    pub(crate) fn write_export_sql(
+        &self,
+        query: &Query,
+        f: &mut dyn Write,
+    ) -> Result<()> {
         write!(f, "SELECT ")?;
         for (i, col) in self.columns.iter().enumerate() {
             if i > 0 {
@@ -210,6 +214,9 @@ WHEN NOT MATCHED THEN INSERT (
             col.write_export_select_expr(f)?;
         }
         write!(f, " FROM {}", Ident(&self.name.dotted().to_string()))?;
+        if let Some(where_clause) = &query.where_clause {
+            write!(f, " WHERE ({})", where_clause)?;
+        }
         Ok(())
     }
 }
