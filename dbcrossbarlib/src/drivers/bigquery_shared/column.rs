@@ -40,7 +40,7 @@ pub(crate) struct BqColumn {
     /// This can be omitted in certain output from `bq show --schema`, in which
     /// case it appears to correspond to `NULLABLE`.
     #[serde(default)]
-    mode: Mode,
+    pub(crate) mode: Mode,
 }
 
 impl BqColumn {
