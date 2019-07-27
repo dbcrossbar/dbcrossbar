@@ -71,16 +71,28 @@ pub(crate) fn csv_stream_name<'a>(
             .rsplitn(2, '/')
             .next()
             .expect("should have '/' in URL")
-    } else if base_path.ends_with('/') && file_path.starts_with(base_path) {
-        // Our file_path starts with our base_path, which means that we have an
-        // entire directory tree full of files and this is one. This means we
-        // want to take the relative path within this directory.
-        &file_path[base_path.len()..]
+    } else if file_path.starts_with(base_path) {
+        if base_path.ends_with('/') {
+            // Our file_path starts with our base_path, which means that we have an
+            // entire directory tree full of files and this is one. This means we
+            // want to take the relative path within this directory.
+            &file_path[base_path.len()..]
+        } else if file_path.len() > base_path.len()
+            && file_path[base_path.len()..].starts_with('/')
+        {
+            &file_path[base_path.len()+1..]
+        } else {
+            return Err(format_err!(
+                "expected {} to start with {}",
+                file_path,
+                base_path,
+            ));
+        }
     } else {
         return Err(format_err!(
             "expected {} to start with {}",
             file_path,
-            base_path
+            base_path,
         ));
     };
 
@@ -109,6 +121,7 @@ fn csv_stream_name_handles_file_inputs() {
 fn csv_stream_name_handles_directory_inputs() {
     let expected = &[
         ("dir/", "dir/file1.csv", "file1"),
+        ("dir", "dir/file1.csv", "file1"),
         ("dir/", "dir/subdir/file2.csv", "subdir/file2"),
         (
             "s3://bucket/dir/",

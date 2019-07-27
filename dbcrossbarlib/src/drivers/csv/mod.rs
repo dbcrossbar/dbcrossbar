@@ -1,16 +1,13 @@
 //! Driver for working with CSV files.
 
 use csv;
-use std::{
-    fmt,
-    io::BufReader,
-    path::{Path, PathBuf},
-    str::FromStr,
-};
+use std::{ffi::OsStr, fmt, io::BufReader, path::PathBuf, str::FromStr};
 use tokio::{fs, io};
+use walkdir::WalkDir;
 
 use crate::common::*;
 use crate::concat::concatenate_csv_streams;
+use crate::csv_stream::csv_stream_name;
 use crate::schema::{Column, DataType, Table};
 use crate::tokio_glue::{copy_reader_to_stream, copy_stream_to_writer};
 
@@ -73,7 +70,11 @@ impl Locator for CsvLocator {
                 }
 
                 // Build our table.
-                let name = stream_name(path)?.to_owned();
+                let name = path
+                    .file_stem()
+                    .unwrap_or_else(|| OsStr::new("data"))
+                    .to_string_lossy()
+                    .into_owned();
                 Ok(Some(Table { name, columns }))
             }
         }
@@ -120,30 +121,73 @@ async fn local_data_helper(
             };
             Ok(Some(box_stream_once(Ok(csv_stream))))
         }
-        PathOrStdio::Path(path) => {
-            // TODO - Handle input directories.
+        PathOrStdio::Path(base_path) => {
+            // Recursively look at our paths, picking out the ones that look
+            // like CSVs. We do this synchronously because it's reasonably
+            // fast and we'd like to catch errors up front.
+            let mut paths = vec![];
+            debug!(ctx.log(), "walking {}", base_path.display());
+            let walker = WalkDir::new(&base_path).follow_links(true);
+            for dirent in walker.into_iter() {
+                let dirent = dirent.with_context(|_| {
+                    format!("error listing files in {}", base_path.display())
+                })?;
+                let p = dirent.path();
+                trace!(ctx.log(), "found dirent {}", p.display());
+                if dirent.file_type().is_dir() {
+                    continue;
+                } else if !dirent.file_type().is_file() {
+                    return Err(format_err!("not a file: {}", p.display()));
+                }
 
-            // Get the name of our stream.
-            let name = stream_name(&path)?.to_owned();
-            let ctx = ctx.child(
-                o!("stream" => name.clone(), "path" => format!("{}", path.display())),
-            );
+                let ext = p.extension();
+                if ext == Some(OsStr::new("csv")) || ext == Some(OsStr::new("CSV")) {
+                    paths.push(p.to_owned());
+                } else {
+                    return Err(format_err!(
+                        "{} must end in *.csv or *.CSV",
+                        p.display()
+                    ));
+                }
+            }
 
-            // Open our file.
-            let data = fs::File::open(path.clone())
-                .compat()
-                .await
-                .with_context(|_| format!("cannot open {}", path.display()))?;
-            let data = BufReader::with_capacity(BUFFER_SIZE, data);
-            let stream = copy_reader_to_stream(ctx, data)?;
+            let csv_streams = stream::iter_ok(paths).and_then(move |file_path| {
+                let ctx = ctx.clone();
+                let base_path = base_path.clone();
+                async move {
+                    // Get the name of our stream.
+                    let name = csv_stream_name(
+                        &base_path.to_string_lossy(),
+                        &file_path.to_string_lossy(),
+                    )?
+                    .to_owned();
+                    let ctx = ctx.child(o!(
+                        "stream" => name.clone(),
+                        "path" => format!("{}", file_path.display())
+                    ));
 
-            let csv_stream = CsvStream {
-                name,
-                data: Box::new(stream.map_err(move |e| {
-                    format_err!("cannot read {}: {}", path.display(), e)
-                })),
-            };
-            Ok(Some(box_stream_once(Ok(csv_stream))))
+                    // Open our file.
+                    let data = fs::File::open(file_path.clone())
+                        .compat()
+                        .await
+                        .with_context(|_| {
+                            format!("cannot open {}", file_path.display())
+                        })?;
+                    let data = BufReader::with_capacity(BUFFER_SIZE, data);
+                    let stream = copy_reader_to_stream(ctx, data)?;
+
+                    Ok(CsvStream {
+                        name,
+                        data: Box::new(stream.map_err(move |e| {
+                            format_err!("cannot read {}: {}", file_path.display(), e)
+                        })),
+                    })
+                }
+                    .boxed()
+                    .compat()
+            });
+
+            Ok(Some(Box::new(csv_streams) as BoxStream<CsvStream>))
         }
     }
 }
@@ -233,11 +277,4 @@ async fn write_stream_to_file(
         .await
         .with_context(|_| format!("error writing {}", dest.display()))?;
     Ok(())
-}
-
-/// Given a path, extract the base name of the file.
-fn stream_name(path: &Path) -> Result<&str> {
-    path.file_stem()
-        .and_then(|name| name.to_str())
-        .ok_or_else(|| format_err!("cannot get file name from {}", path.display()))
 }

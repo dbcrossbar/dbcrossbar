@@ -195,16 +195,18 @@ fn cp_csv_to_csvs() {
 
 #[test]
 fn cp_csvs_to_csv() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_csv");
-    let src = testdir.src_path("fixtures/example.csv");
+    let testdir = TestDir::new("dbcrossbar", "cp_csvs_to_csv");
+    let schema = testdir.src_path("fixtures/concat.sql");
+    let concat_in = testdir.src_path("fixtures/concat_in");
+    let concat_out = testdir.src_path("fixtures/concat_out.csv");
     testdir
         .cmd()
         .arg("cp")
-        // TODO - Use a directory as input here.
-        .arg(&format!("csv:{}", src.display()))
+        .arg(&format!("--schema=postgres-sql:{}", schema.display()))
+        .arg(&format!("csv:{}", concat_in.display()))
         .arg("csv:out.csv")
         .expect_success();
-    let expected = fs::read_to_string(&src).unwrap();
+    let expected = fs::read_to_string(&concat_out).unwrap();
     testdir.expect_file_contents("out.csv", &expected);
 }
 
