@@ -14,6 +14,11 @@ documentation = "https://docs.rs/dbcrossbarlib/"
 [build-dependencies]
 peg = "0.5"
 
+[dev-dependencies]
+slog-async = "2.3.0"
+slog-envlogger = "2.1.0"
+slog-term = "2.4.0"
+
 [dependencies]
 byteorder = "1.3.1"
 bytes = "0.4.11"
@@ -49,4 +54,5 @@ tokio-process = "0.2.4"
 try_from = "0.3.2"
 url = "1.7.1"
 uuid = "0.7.4"
+walkdir = "2.2.9"
 wkb = "0.4"

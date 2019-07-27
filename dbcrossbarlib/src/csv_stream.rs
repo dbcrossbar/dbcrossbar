@@ -6,8 +6,54 @@ use crate::common::*;
 pub struct CsvStream {
     /// The name of this stream.
     pub name: String,
-    /// A reader associated with this stream.
-    pub data: Box<dyn Stream<Item = BytesMut, Error = Error> + Send + 'static>,
+    /// Our data.
+    pub data: BoxStream<BytesMut>,
+}
+
+impl CsvStream {
+    /// Construct a CSV stream from bytes.
+    #[cfg(test)]
+    pub(crate) async fn from_bytes<B>(bytes: B) -> Self
+    where
+        B: Into<BytesMut>,
+    {
+        use crate::tokio_glue::bytes_channel;
+        let (sender, receiver) = bytes_channel(1);
+        sender
+            .send(Ok(bytes.into()))
+            .compat()
+            .await
+            .expect("could not send bytes to channel");
+        CsvStream {
+            name: "bytes".to_owned(),
+            data: Box::new(receiver),
+        }
+    }
+
+    /// Receive all data on a CSV stream and return it as bytes.
+    #[cfg(test)]
+    pub(crate) async fn into_bytes(self, ctx: Context) -> Result<BytesMut> {
+        let ctx = ctx.child(o!("fn" => "into_bytes"));
+        let mut stream = self.data;
+        let mut bytes = BytesMut::new();
+        loop {
+            match stream.into_future().compat().await {
+                Err((err, _rest_of_stream)) => {
+                    error!(ctx.log(), "error reading stream: {}", err);
+                    return Err(err);
+                }
+                Ok((None, _rest_of_stream)) => {
+                    trace!(ctx.log(), "end of stream");
+                    return Ok(bytes);
+                }
+                Ok((Some(new_bytes), rest_of_stream)) => {
+                    trace!(ctx.log(), "received {} bytes", new_bytes.len());
+                    stream = rest_of_stream;
+                    bytes.extend_from_slice(&new_bytes);
+                }
+            }
+        }
+    }
 }
 
 /// Given a `base_path` refering to one of more CSV files, and a `file_path`
@@ -25,16 +71,28 @@ pub(crate) fn csv_stream_name<'a>(
             .rsplitn(2, '/')
             .next()
             .expect("should have '/' in URL")
-    } else if base_path.ends_with('/') && file_path.starts_with(base_path) {
-        // Our file_path starts with our base_path, which means that we have an
-        // entire directory tree full of files and this is one. This means we
-        // want to take the relative path within this directory.
-        &file_path[base_path.len()..]
+    } else if file_path.starts_with(base_path) {
+        if base_path.ends_with('/') {
+            // Our file_path starts with our base_path, which means that we have an
+            // entire directory tree full of files and this is one. This means we
+            // want to take the relative path within this directory.
+            &file_path[base_path.len()..]
+        } else if file_path.len() > base_path.len()
+            && file_path[base_path.len()..].starts_with('/')
+        {
+            &file_path[base_path.len()+1..]
+        } else {
+            return Err(format_err!(
+                "expected {} to start with {}",
+                file_path,
+                base_path,
+            ));
+        }
     } else {
         return Err(format_err!(
             "expected {} to start with {}",
             file_path,
-            base_path
+            base_path,
         ));
     };
 
@@ -63,6 +121,7 @@ fn csv_stream_name_handles_file_inputs() {
 fn csv_stream_name_handles_directory_inputs() {
     let expected = &[
         ("dir/", "dir/file1.csv", "file1"),
+        ("dir", "dir/file1.csv", "file1"),
         ("dir/", "dir/subdir/file2.csv", "subdir/file2"),
         (
             "s3://bucket/dir/",

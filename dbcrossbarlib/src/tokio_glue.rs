@@ -47,6 +47,23 @@ impl ConsumeWithParallelism for BoxStream<BoxFuture<()>> {
     }
 }
 
+/// Create a new channel with an output end of type `BoxStream<BytesMut>`.
+pub(crate) fn bytes_channel(
+    buffer: usize,
+) -> (
+    mpsc::Sender<Result<BytesMut>>,
+    impl Stream<Item = BytesMut, Error = Error> + Send + 'static,
+) {
+    let (sender, receiver) = mpsc::channel(buffer);
+    let receiver = receiver
+        // Change `Error` from `mpsc::Error` to our standard `Error`.
+        .map_err(|_| format_err!("stream read error"))
+        // Change `Item` from `Result<BytesMut>` to `BytesMut`, pushing
+        // the error into the stream's `Error` channel instead.
+        .and_then(|result| result);
+    (sender, receiver)
+}
+
 /// Given a `Stream` of data chunks of type `BytesMut`, write the entire stream
 /// to an `AsyncWrite` implementation.
 pub(crate) async fn copy_stream_to_writer<S, W>(
@@ -89,7 +106,7 @@ pub(crate) fn copy_reader_to_stream<R>(
 where
     R: AsyncRead + Send + 'static,
 {
-    let (mut sender, receiver) = mpsc::channel(1);
+    let (mut sender, receiver) = bytes_channel(1);
     let worker = async move {
         let mut buffer = vec![0; 64 * 1024];
         loop {
@@ -137,14 +154,6 @@ where
         }
     };
     tokio::spawn(worker.boxed().compat());
-
-    let receiver = receiver
-        // Change `Error` from `mpsc::Error` to our standard `Error`.
-        .map_err(|_| format_err!("stream read error"))
-        // Change `Item` from `Result<BytesMut>` to `BytesMut`, pushing
-        // the error into the stream's `Error` channel instead.
-        .and_then(|result| result);
-
     Ok(receiver)
 }
 
@@ -164,18 +173,13 @@ impl SyncStreamWriter {
     /// Create a new `SyncStreamWriter` and a receiver that implements
     /// `Stream<Item = BytesMut, Error = Error>`.
     pub fn pipe(ctx: Context) -> (Self, impl Stream<Item = BytesMut, Error = Error>) {
-        let (sender, receiver) = mpsc::channel(1);
+        let (sender, receiver) = bytes_channel(1);
         (
             SyncStreamWriter {
                 ctx,
                 sender: Some(sender),
             },
-            receiver
-                // Change `Error` from `mpsc::Error` to our standard `Error`.
-                .map_err(|_| format_err!("stream read error"))
-                // Change `Item` from `Result<BytesMut>` to `BytesMut`, pushing
-                // the error into the stream's `Error` channel instead.
-                .and_then(|result| result),
+            receiver,
         )
     }
 }
@@ -356,4 +360,41 @@ where
     // so the wait should be short.
     handle.join().expect("background worker thread panicked");
     result
+}
+
+/// Create a new `tokio` runtime and use it to run `cmd_future` (which carries
+/// out whatever task we want to perform), and `worker_future` (which should
+/// have been created by `Context::create` or `Context::create_for_test`).
+///
+/// Return when at least one future has failed, or both futures have completed
+/// successfully.
+///
+/// This can be safely used from within a test, but it may only be called from a
+/// synchronous context.
+///
+/// If this hangs, make sure all `Context` values are getting dropped once the
+/// work is done.
+pub fn run_futures_with_runtime(
+    cmd_future: BoxFuture<()>,
+    worker_future: BoxFuture<()>,
+) -> Result<()> {
+    // Wait for both `cmd_fut` and `copy_fut` to finish, but bail out as soon
+    // as either returns an error. This involves some pretty deep `tokio` magic:
+    // If a background worker fails, then `copy_fut` will be automatically
+    // dropped, or vice vera.
+    let combined_fut = async move {
+        cmd_future
+            .compat()
+            .join(worker_future.compat())
+            .compat()
+            .await?;
+        let result: Result<()> = Ok(());
+        result
+    };
+
+    // Pass `combined_fut` to our `tokio` runtime, and wait for it to finish.
+    let mut runtime =
+        tokio::runtime::Runtime::new().expect("Unable to create a runtime");
+    runtime.block_on(combined_fut.boxed().compat())?;
+    Ok(())
 }

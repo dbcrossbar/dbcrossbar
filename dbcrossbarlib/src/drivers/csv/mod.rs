@@ -1,10 +1,13 @@
 //! Driver for working with CSV files.
 
 use csv;
-use std::{fmt, fs, io::BufReader, path::Path, str::FromStr};
-use tokio::fs::File;
+use std::{ffi::OsStr, fmt, io::BufReader, path::PathBuf, str::FromStr};
+use tokio::{fs, io};
+use walkdir::WalkDir;
 
 use crate::common::*;
+use crate::concat::concatenate_csv_streams;
+use crate::csv_stream::csv_stream_name;
 use crate::schema::{Column, DataType, Table};
 use crate::tokio_glue::{copy_reader_to_stream, copy_stream_to_writer};
 
@@ -67,7 +70,11 @@ impl Locator for CsvLocator {
                 }
 
                 // Build our table.
-                let name = stream_name(path)?.to_owned();
+                let name = path
+                    .file_stem()
+                    .unwrap_or_else(|| OsStr::new("data"))
+                    .to_string_lossy()
+                    .into_owned();
                 Ok(Some(Table { name, columns }))
             }
         }
@@ -104,37 +111,83 @@ async fn local_data_helper(
     query.fail_if_query_details_provided()?;
     match path {
         PathOrStdio::Stdio => {
-            // TODO - There's a stupid gotcha with `stdin.lock()` that makes
-            // this much harder to do than you'd expect without a bunch of
-            // extra messing around, so don't implement it for now. We need
-            // to fix the API of `PathOrStdio` to _return_ locked stdin like
-            // any other stream, which probably means using a background
-            // copy thread like we do for Postgres export. Or maybe `tokio`
-            // will make this easy?
-            Err(format_err!("cannot yet read CSV data from stdin"))
-        }
-        PathOrStdio::Path(path) => {
-            // Get the name of our stream.
-            let name = stream_name(&path)?.to_owned();
-            let ctx = ctx.child(
-                o!("stream" => name.clone(), "path" => format!("{}", path.display())),
-            );
-
-            // Open our file.
-            let data = File::open(path.clone())
-                .compat()
-                .await
-                .with_context(|_| format!("cannot open {}", path.display()))?;
-            let data = BufReader::with_capacity(BUFFER_SIZE, data);
+            let data = BufReader::with_capacity(BUFFER_SIZE, io::stdin());
             let stream = copy_reader_to_stream(ctx, data)?;
-
             let csv_stream = CsvStream {
-                name,
-                data: Box::new(stream.map_err(move |e| {
-                    format_err!("cannot read {}: {}", path.display(), e)
-                })),
+                name: "data".to_owned(),
+                data: Box::new(
+                    stream.map_err(move |e| format_err!("cannot read stdin: {}", e)),
+                ),
             };
             Ok(Some(box_stream_once(Ok(csv_stream))))
+        }
+        PathOrStdio::Path(base_path) => {
+            // Recursively look at our paths, picking out the ones that look
+            // like CSVs. We do this synchronously because it's reasonably
+            // fast and we'd like to catch errors up front.
+            let mut paths = vec![];
+            debug!(ctx.log(), "walking {}", base_path.display());
+            let walker = WalkDir::new(&base_path).follow_links(true);
+            for dirent in walker.into_iter() {
+                let dirent = dirent.with_context(|_| {
+                    format!("error listing files in {}", base_path.display())
+                })?;
+                let p = dirent.path();
+                trace!(ctx.log(), "found dirent {}", p.display());
+                if dirent.file_type().is_dir() {
+                    continue;
+                } else if !dirent.file_type().is_file() {
+                    return Err(format_err!("not a file: {}", p.display()));
+                }
+
+                let ext = p.extension();
+                if ext == Some(OsStr::new("csv")) || ext == Some(OsStr::new("CSV")) {
+                    paths.push(p.to_owned());
+                } else {
+                    return Err(format_err!(
+                        "{} must end in *.csv or *.CSV",
+                        p.display()
+                    ));
+                }
+            }
+
+            let csv_streams = stream::iter_ok(paths).and_then(move |file_path| {
+                let ctx = ctx.clone();
+                let base_path = base_path.clone();
+                async move {
+                    // Get the name of our stream.
+                    let name = csv_stream_name(
+                        &base_path.to_string_lossy(),
+                        &file_path.to_string_lossy(),
+                    )?
+                    .to_owned();
+                    let ctx = ctx.child(o!(
+                        "stream" => name.clone(),
+                        "path" => format!("{}", file_path.display())
+                    ));
+
+                    // Open our file.
+                    let data = fs::File::open(file_path.clone())
+                        .compat()
+                        .await
+                        .with_context(|_| {
+                            format!("cannot open {}", file_path.display())
+                        })?;
+                    let data = BufReader::with_capacity(BUFFER_SIZE, data);
+                    let stream = copy_reader_to_stream(ctx, data)?;
+
+                    Ok(CsvStream {
+                        name,
+                        data: Box::new(stream.map_err(move |e| {
+                            format_err!("cannot read {}: {}", file_path.display(), e)
+                        })),
+                    })
+                }
+                    .boxed()
+                    .compat()
+            });
+
+            Ok(Some(Box::new(csv_streams) as BoxStream<CsvStream>))
         }
     }
 }
@@ -149,48 +202,79 @@ async fn write_local_data_helper(
     match path {
         PathOrStdio::Stdio => {
             if_exists.warn_if_not_default_for_stdout(&ctx);
-            Err(format_err!("cannot yet write CSV data to stdout"))
+            let stream = concatenate_csv_streams(ctx.clone(), data)?;
+            let fut = async move {
+                copy_stream_to_writer(ctx.clone(), stream.data, io::stdout())
+                    .await
+                    .context("error writing to stdout")?;
+                Ok(())
+            };
+            Ok(box_stream_once(Ok(fut.boxed())))
         }
         PathOrStdio::Path(path) => {
-            // TODO - Handle to an individual file.
+            if path.to_string_lossy().ends_with('/') {
+                // Write streams to our directory as multiple files.
+                let result_stream = data.map(move |stream| {
+                    let path = path.clone();
+                    let ctx = ctx.clone();
+                    let if_exists = if_exists.clone();
 
-            // Make sure our directory exists.
-            fs::create_dir_all(path.clone()).with_context(|_| {
-                format!("unable to create directory {}", path.display())
-            })?;
-
-            // Write streams to our directory.
-            let result_stream = data.map(move |stream| {
-                let path = path.clone();
-                let ctx = ctx.clone();
-                let if_exists = if_exists.clone();
-
-                async move {
-                    // TODO: This join does not handle `..` or nested `/` in a
-                    // particularly safe fashion.
-                    let csv_path = path.join(&format!("{}.csv", stream.name));
-                    let ctx = ctx.child(o!("stream" => stream.name.clone(), "path" => format!("{}", csv_path.display())));
-                    debug!(ctx.log(), "writing CSV stream to file");
-                    let wtr = if_exists
-                        .to_async_open_options_no_append()?
-                        .open(csv_path.clone())
-                        .compat()
-                        .await
-                        .with_context(|_| format!("cannot open {}", csv_path.display()))?;
-                    copy_stream_to_writer(ctx.clone(), stream.data, wtr).await.with_context(
-                        |_| format!("error writing {}", csv_path.display()),
-                    )?;
-                    Ok(())
-                }.boxed()
-            });
-            Ok(Box::new(result_stream) as BoxStream<BoxFuture<()>>)
+                    async move {
+                        // TODO: This join does not handle `..` or nested `/` in
+                        // a particularly safe fashion.
+                        let csv_path = path.join(&format!("{}.csv", stream.name));
+                        let ctx = ctx.child(o!(
+                            "stream" => stream.name.clone(),
+                            "path" => format!("{}", csv_path.display()),
+                        ));
+                        write_stream_to_file(ctx, stream.data, csv_path, if_exists)
+                            .await
+                    }
+                        .boxed()
+                });
+                Ok(Box::new(result_stream) as BoxStream<BoxFuture<()>>)
+            } else {
+                // Write all our streams as a single file.
+                let stream = concatenate_csv_streams(ctx.clone(), data)?;
+                let fut = async move {
+                    let ctx = ctx.child(o!(
+                        "stream" => stream.name.clone(),
+                        "path" => format!("{}", path.display()),
+                    ));
+                    write_stream_to_file(ctx, stream.data, path, if_exists).await
+                };
+                Ok(box_stream_once(Ok(fut.boxed())))
+            }
         }
     }
 }
 
-/// Given a path, extract the base name of the file.
-fn stream_name(path: &Path) -> Result<&str> {
-    path.file_stem()
-        .and_then(|name| name.to_str())
-        .ok_or_else(|| format_err!("cannot get file name from {}", path.display()))
+/// Write `data` to `dest`, honoring `if_exists`.
+async fn write_stream_to_file(
+    ctx: Context,
+    data: BoxStream<BytesMut>,
+    dest: PathBuf,
+    if_exists: IfExists,
+) -> Result<()> {
+    // Make sure our destination directory exists.
+    let dir = dest
+        .parent()
+        .ok_or_else(|| format_err!("cannot find parent dir for {}", dest.display()))?;
+    fs::create_dir_all(dir)
+        .compat()
+        .await
+        .with_context(|_| format!("unable to create directory {}", dir.display()))?;
+
+    // Write our our CSV stream.
+    debug!(ctx.log(), "writing stream to file {}", dest.display());
+    let wtr = if_exists
+        .to_async_open_options_no_append()?
+        .open(dest.clone())
+        .compat()
+        .await
+        .with_context(|_| format!("cannot open {}", dest.display()))?;
+    copy_stream_to_writer(ctx.clone(), data, wtr)
+        .await
+        .with_context(|_| format!("error writing {}", dest.display()))?;
+    Ok(())
 }

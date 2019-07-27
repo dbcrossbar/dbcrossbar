@@ -15,6 +15,7 @@ extern crate diesel;
 
 use std::result;
 
+pub(crate) mod concat;
 pub(crate) mod context;
 pub(crate) mod csv_stream;
 pub mod drivers;
@@ -44,7 +45,7 @@ pub use if_exists::IfExists;
 pub use locator::{BoxLocator, Locator};
 pub use query::Query;
 pub use temporary_storage::TemporaryStorage;
-pub use tokio_glue::ConsumeWithParallelism;
+pub use tokio_glue::{run_futures_with_runtime, ConsumeWithParallelism};
 
 /// Definitions included by all the files in this crate.
 ///
@@ -72,7 +73,9 @@ pub(crate) mod common {
         query::Query,
         schema::Table,
         temporary_storage::TemporaryStorage,
-        tokio_glue::{box_stream_once, BoxFuture, BoxStream},
+        tokio_glue::{
+            box_stream_once, run_futures_with_runtime, BoxFuture, BoxStream,
+        },
         Error, Result, BUFFER_SIZE,
     };
 }

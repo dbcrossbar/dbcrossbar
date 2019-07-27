@@ -19,7 +19,7 @@ impl Context {
     /// Create a new context, and a future represents our background workers,
     /// returning `()` if they all succeed, or an `Error` as soon as one of them
     /// fails.
-    pub fn create(log: Logger) -> (Self, impl Future<Item = (), Error = Error>) {
+    pub fn create(log: Logger) -> (Self, BoxFuture<()>) {
         let (error_sender, receiver) = mpsc::channel(1);
         let context = Context { log, error_sender };
         let worker_future = async move {
@@ -36,7 +36,26 @@ impl Context {
                 Ok((Some(err), _rcvr)) => Err(err),
             }
         };
-        (context, worker_future.boxed().compat())
+        (context, worker_future.boxed())
+    }
+
+    /// Create a new context which can be used from a test case.
+    #[cfg(test)]
+    pub fn create_for_test(test_name: &str) -> (Self, BoxFuture<()>) {
+        use slog::Drain;
+        use slog_async::OverflowStrategy;
+
+        let decorator = slog_term::PlainDecorator::new(std::io::stderr());
+        let formatted = slog_term::FullFormat::new(decorator).build().fuse();
+        let filtered = slog_envlogger::new(formatted);
+        let drain = slog_async::Async::new(filtered)
+            .chan_size(2)
+            // Keep all log entries, at possible performance cost.
+            .overflow_strategy(OverflowStrategy::Block)
+            .build()
+            .fuse();
+        let log = Logger::root(drain, o!("test" => test_name.to_owned()));
+        Self::create(log)
     }
 
     /// Get the logger associated with this context.
