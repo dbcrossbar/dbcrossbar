@@ -80,7 +80,7 @@ pub(crate) fn csv_stream_name<'a>(
         } else if file_path.len() > base_path.len()
             && file_path[base_path.len()..].starts_with('/')
         {
-            &file_path[base_path.len()+1..]
+            &file_path[base_path.len() + 1..]
         } else {
             return Err(format_err!(
                 "expected {} to start with {}",
