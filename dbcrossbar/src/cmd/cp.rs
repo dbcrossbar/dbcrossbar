@@ -73,6 +73,7 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
                 ctx,
                 schema,
                 opt.from_locator,
+                query,
                 temporary_storage,
                 opt.if_exists,
             )
