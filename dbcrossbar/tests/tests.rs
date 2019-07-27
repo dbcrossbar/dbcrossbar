@@ -384,39 +384,43 @@ fn cp_from_bigquery_with_where() {
     let src = testdir.src_path("fixtures/posts.csv");
     let filtered = testdir.src_path("fixtures/posts_where_author_id_1.csv");
     let schema = testdir.src_path("fixtures/posts.sql");
-    let pg_table = post_test_table_url("cp_from_postgres_with_where");
+    let gs_temp_dir = gs_test_dir_url("cp_from_bigquery_with_where");
+    let bq_temp_ds = bq_temp_dataset();
+    let bq_table = bq_test_table("cp_from_bigquery_with_where");
 
-    // CSV to Postgres.
+    // CSV to BigQuery.
     testdir
         .cmd()
         .args(&[
             "cp",
             "--if-exists=overwrite",
+            &format!("--temporary={}", gs_temp_dir),
+            &format!("--temporary={}", bq_temp_ds),
             &format!("--schema=postgres-sql:{}", schema.display()),
             &format!("csv:{}", src.display()),
-            &pg_table,
+            &bq_table,
         ])
         .tee_output()
         .expect_success();
 
-    // PostgreSQL back to CSV using --where.
+    // BigQuery back to CSV using --where.
     testdir
         .cmd()
         .args(&[
             "cp",
+            &format!("--temporary={}", gs_temp_dir),
+            &format!("--temporary={}", bq_temp_ds),
             &format!("--schema=postgres-sql:{}", schema.display()),
             "--where",
             "author_id = 1",
-            &pg_table,
+            &bq_table,
             "csv:out/",
         ])
         .tee_output()
         .expect_success();
 
     let expected = fs::read_to_string(&filtered).unwrap();
-    let actual =
-        fs::read_to_string(testdir.path("out/cp_from_postgres_with_where.csv"))
-            .unwrap();
+    let actual = fs::read_to_string(testdir.path("out/000000000000.csv")).unwrap();
     assert_diff!(&expected, &actual, ",", 0);
 }
 
