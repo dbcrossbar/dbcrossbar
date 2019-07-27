@@ -21,6 +21,7 @@ pub(crate) async fn write_remote_data_helper(
     schema: Table,
     source: BoxLocator,
     dest: GsLocator,
+    query: Query,
     temporary_storage: TemporaryStorage,
     if_exists: IfExists,
 ) -> Result<()> {
@@ -46,7 +47,7 @@ pub(crate) async fn write_remote_data_helper(
         .name()
         .temporary_table_name(&temporary_storage)?;
     let mut export_sql_data = vec![];
-    source_table.write_export_sql(&mut export_sql_data)?;
+    source_table.write_export_sql(&query, &mut export_sql_data)?;
     let export_sql =
         String::from_utf8(export_sql_data).expect("should always be UTF-8");
     debug!(ctx.log(), "export SQL: {}", export_sql);

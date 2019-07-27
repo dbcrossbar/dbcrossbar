@@ -124,6 +124,7 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
         _ctx: Context,
         _schema: Table,
         source: BoxLocator,
+        _query: Query,
         _temporary_storage: TemporaryStorage,
         _if_exists: IfExists,
     ) -> BoxFuture<()> {

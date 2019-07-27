@@ -42,6 +42,7 @@ pub(crate) async fn write_local_data_helper(
         from_temp_ctx,
         schema,
         Box::new(gs_temp),
+        Query::default(),
         temporary_storage,
         if_exists,
     )
