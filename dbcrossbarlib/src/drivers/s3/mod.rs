@@ -20,6 +20,13 @@ pub(crate) struct S3Locator {
     url: Url,
 }
 
+impl S3Locator {
+    /// Access the `s3://` URL in this locator.
+    pub(crate) fn as_url(&self) -> &Url {
+        &self.url
+    }
+}
+
 impl fmt::Display for S3Locator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.url.fmt(f)
@@ -58,8 +65,9 @@ impl Locator for S3Locator {
         _schema: Table,
         query: Query,
         _temporary_storage: TemporaryStorage,
+        args: DriverArgs,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(ctx, self.url.clone(), query).boxed()
+        local_data_helper(ctx, self.url.clone(), query, args).boxed()
     }
 
     fn write_local_data(
@@ -68,8 +76,10 @@ impl Locator for S3Locator {
         schema: Table,
         data: BoxStream<CsvStream>,
         _temporary_storage: TemporaryStorage,
+        args: DriverArgs,
         if_exists: IfExists,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
-        write_local_data_helper(ctx, self.url.clone(), schema, data, if_exists).boxed()
+        write_local_data_helper(ctx, self.url.clone(), schema, data, args, if_exists)
+            .boxed()
     }
 }

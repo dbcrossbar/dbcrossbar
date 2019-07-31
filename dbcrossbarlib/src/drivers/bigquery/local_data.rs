@@ -11,9 +11,11 @@ pub(crate) async fn local_data_helper(
     schema: Table,
     query: Query,
     temporary_storage: TemporaryStorage,
+    args: DriverArgs,
 ) -> Result<Option<BoxStream<CsvStream>>> {
     // Build a temporary location.
     let gs_temp = find_gs_temp_dir(&temporary_storage)?;
+    let temp_args = DriverArgs::default();
 
     // Extract from BigQuery to gs://.
     let to_temp_ctx = ctx.child(o!("to_temp" => gs_temp.to_string()));
@@ -24,6 +26,8 @@ pub(crate) async fn local_data_helper(
             Box::new(source),
             query,
             temporary_storage.clone(),
+            args,
+            temp_args.clone(),
             IfExists::Overwrite,
         )
         .await?;
@@ -36,6 +40,7 @@ pub(crate) async fn local_data_helper(
             schema,
             Query::default(),
             temporary_storage.clone(),
+            temp_args,
         )
         .await?)
 }

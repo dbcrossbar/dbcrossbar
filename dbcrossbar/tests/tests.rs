@@ -72,6 +72,16 @@ fn s3_test_dir_url(dir_name: &str) -> String {
     url
 }
 
+/// The URL of our Redshift test database.
+fn redshift_test_url() -> String {
+    env::var("REDSHIFT_TEST_URL").expect("could not find REDSHIFT_TEST_URL")
+}
+
+/// The URL of a table in our Redshift test database.
+fn redshift_test_table_url(table_name: &str) -> String {
+    format!("{}#{}", redshift_test_url(), table_name)
+}
+
 #[test]
 fn help_flag() {
     let testdir = TestDir::new("dbcrossbar", "help_flag");
@@ -560,12 +570,12 @@ fn bigquery_upsert() {
 
 #[test]
 #[ignore]
-fn cp_csv_s3_to_csv() {
+fn cp_csv_to_s3_to_csv() {
     let _ = env_logger::try_init();
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_s3_to_csv");
+    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_s3_to_csv");
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
-    let s3_dir = s3_test_dir_url("cp_csv_s3_to_csv");
+    let s3_dir = s3_test_dir_url("cp_csv_to_s3_to_csv");
 
     // CSV to S3.
     testdir
@@ -595,5 +605,51 @@ fn cp_csv_s3_to_csv() {
 
     let expected = fs::read_to_string(&src).unwrap();
     let actual = fs::read_to_string(testdir.path("out/many_types.csv")).unwrap();
+    assert_diff!(&expected, &actual, ",", 0);
+}
+
+#[test]
+#[ignore]
+fn cp_csv_to_redshift_to_csv() {
+    let _ = env_logger::try_init();
+    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_redshift_to_csv");
+    let src = testdir.src_path("fixtures/redshift_types.csv");
+    let schema = testdir.src_path("fixtures/redshift_types.sql");
+    let s3_dir = s3_test_dir_url("cp_csv_to_redshift_to_csv");
+    let redshift_table = redshift_test_table_url("cp_csv_to_redshift_to_csv");
+
+    // CSV to Redshift.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--temporary={}", s3_dir),
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            "--to-arg=iam_role=XXX",
+            "--to-arg=region=us-east-1",
+            &format!("csv:{}", src.display()),
+            &redshift_table,
+        ])
+        .tee_output()
+        .expect_success();
+
+    // Redshift to CSV.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--temporary={}", s3_dir),
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &redshift_table,
+            "csv:out/",
+        ])
+        .tee_output()
+        .expect_success();
+
+    let expected = fs::read_to_string(&src).unwrap();
+    let actual =
+        fs::read_to_string(testdir.path("out/cp_csv_to_redshift_to_csv.csv")).unwrap();
     assert_diff!(&expected, &actual, ",", 0);
 }

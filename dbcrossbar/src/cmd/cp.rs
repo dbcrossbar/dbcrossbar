@@ -2,7 +2,8 @@
 
 use common_failures::Result;
 use dbcrossbarlib::{
-    BoxLocator, ConsumeWithParallelism, Context, IfExists, Query, TemporaryStorage,
+    BoxLocator, ConsumeWithParallelism, Context, DriverArgs, IfExists, Query,
+    TemporaryStorage,
 };
 use failure::format_err;
 use slog::{debug, o};
@@ -24,6 +25,15 @@ pub(crate) struct Opt {
     #[structopt(long = "temporary")]
     temporaries: Vec<String>,
 
+    /// Pass an extra argument of the form `key=value` to the source driver.
+    #[structopt(long = "from-arg")]
+    from_args: Vec<String>,
+
+    /// Pass an extra argument of the form `key=value` to the destination
+    /// driver.
+    #[structopt(long = "to-arg")]
+    to_args: Vec<String>,
+
     /// SQL where clause specifying rows to use.
     #[structopt(long = "where")]
     where_clause: Option<String>,
@@ -44,6 +54,10 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
             format_err!("don't know how to read schema from {}", opt.from_locator)
         })
     }?;
+
+    // Get our driver args.
+    let from_args = DriverArgs::from_cli_args(&opt.from_args)?;
+    let to_args = DriverArgs::from_cli_args(&opt.to_args)?;
 
     // Get our query details.
     let mut query = Query::default();
@@ -75,6 +89,8 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
                 opt.from_locator,
                 query,
                 temporary_storage,
+                from_args,
+                to_args,
                 opt.if_exists,
             )
             .await?
@@ -86,7 +102,13 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
         let input_ctx = ctx.child(o!("from_locator" => opt.from_locator.to_string()));
         let data = opt
             .from_locator
-            .local_data(input_ctx, schema.clone(), query, temporary_storage.clone())
+            .local_data(
+                input_ctx,
+                schema.clone(),
+                query,
+                temporary_storage.clone(),
+                from_args,
+            )
             .await?
             .ok_or_else(|| {
                 format_err!("don't know how to read data from {}", opt.from_locator)
@@ -101,6 +123,7 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
                 schema,
                 data,
                 temporary_storage,
+                to_args,
                 opt.if_exists,
             )
             .await?;

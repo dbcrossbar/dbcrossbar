@@ -86,8 +86,9 @@ impl Locator for CsvLocator {
         _schema: Table,
         query: Query,
         _temporary_storage: TemporaryStorage,
+        args: DriverArgs,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(ctx, self.path.clone(), query).boxed()
+        local_data_helper(ctx, self.path.clone(), query, args).boxed()
     }
 
     fn write_local_data(
@@ -96,9 +97,10 @@ impl Locator for CsvLocator {
         schema: Table,
         data: BoxStream<CsvStream>,
         _temporary_storage: TemporaryStorage,
+        args: DriverArgs,
         if_exists: IfExists,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
-        write_local_data_helper(ctx, self.path.clone(), schema, data, if_exists)
+        write_local_data_helper(ctx, self.path.clone(), schema, data, args, if_exists)
             .boxed()
     }
 }
@@ -107,8 +109,10 @@ async fn local_data_helper(
     ctx: Context,
     path: PathOrStdio,
     query: Query,
+    args: DriverArgs,
 ) -> Result<Option<BoxStream<CsvStream>>> {
     query.fail_if_query_details_provided()?;
+    args.fail_if_present()?;
     match path {
         PathOrStdio::Stdio => {
             let data = BufReader::with_capacity(BUFFER_SIZE, io::stdin());
@@ -197,8 +201,10 @@ async fn write_local_data_helper(
     path: PathOrStdio,
     _schema: Table,
     data: BoxStream<CsvStream>,
+    args: DriverArgs,
     if_exists: IfExists,
 ) -> Result<BoxStream<BoxFuture<()>>> {
+    args.fail_if_present()?;
     match path {
         PathOrStdio::Stdio => {
             if_exists.warn_if_not_default_for_stdout(&ctx);

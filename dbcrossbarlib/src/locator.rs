@@ -72,6 +72,7 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
         _schema: Table,
         _query: Query,
         _temporary_storage: TemporaryStorage,
+        _args: DriverArgs,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
         // Turn our result into a future.
         async { Ok(None) }.boxed()
@@ -103,6 +104,7 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
         _schema: Table,
         _data: BoxStream<CsvStream>,
         _temporary_storage: TemporaryStorage,
+        _args: DriverArgs,
         _if_exists: IfExists,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         let err = format_err!("cannot write data to {}", self);
@@ -119,6 +121,7 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     ///
     /// This is used to bypass `source.local_data` and `dest.write_local_data`
     /// when we don't need them.
+    #[allow(clippy::too_many_arguments)]
     fn write_remote_data(
         &self,
         _ctx: Context,
@@ -126,6 +129,8 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
         source: BoxLocator,
         _query: Query,
         _temporary_storage: TemporaryStorage,
+        _from_args: DriverArgs,
+        _to_args: DriverArgs,
         _if_exists: IfExists,
     ) -> BoxFuture<()> {
         let err = format_err!("cannot write_remote_data from source {}", source);
@@ -142,7 +147,7 @@ impl FromStr for BoxLocator {
     fn from_str(s: &str) -> Result<Self> {
         use crate::drivers::{
             bigquery::*, bigquery_schema::*, csv::*, dbcrossbar_schema::*, gs::*,
-            postgres::*, postgres_sql::*, s3::*,
+            postgres::*, postgres_sql::*, redshift::*, s3::*,
         };
 
         // Parse our locator into a URL-style scheme and the rest.
@@ -168,6 +173,7 @@ impl FromStr for BoxLocator {
             GS_SCHEME => Ok(Box::new(GsLocator::from_str(s)?)),
             POSTGRES_SCHEME => Ok(Box::new(PostgresLocator::from_str(s)?)),
             POSTGRES_SQL_SCHEME => Ok(Box::new(PostgresSqlLocator::from_str(s)?)),
+            REDSHIFT_SCHEME => Ok(Box::new(RedshiftLocator::from_str(s)?)),
             S3_SCHEME => Ok(Box::new(S3Locator::from_str(s)?)),
             _ => Err(format_err!("unknown locator scheme in {:?}", s)),
         }

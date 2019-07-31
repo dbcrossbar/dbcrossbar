@@ -13,8 +13,11 @@ pub(crate) async fn write_local_data_helper(
     url: Url,
     _schema: Table,
     data: BoxStream<CsvStream>,
+    args: DriverArgs,
     if_exists: IfExists,
 ) -> Result<BoxStream<BoxFuture<()>>> {
+    args.fail_if_present()?;
+
     // Delete the existing output, if it exists.
     prepare_as_destination_helper(ctx.clone(), url.clone(), if_exists).await?;
 

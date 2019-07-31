@@ -1,14 +1,13 @@
-//! Implementation of `write_local_data` for BigQuery.
+//! Implementation of `write_local_data` for Redshift.
 
-use super::find_gs_temp_dir;
+use super::{find_s3_temp_dir, RedshiftLocator};
 use crate::common::*;
-use crate::drivers::bigquery::BigQueryLocator;
 use crate::tokio_glue::ConsumeWithParallelism;
 
 /// Implementation of `write_local_data`, but as a real `async` function.
 pub(crate) async fn write_local_data_helper(
     ctx: Context,
-    dest: BigQueryLocator,
+    dest: RedshiftLocator,
     schema: Table,
     data: BoxStream<CsvStream>,
     temporary_storage: TemporaryStorage,
@@ -16,12 +15,12 @@ pub(crate) async fn write_local_data_helper(
     if_exists: IfExists,
 ) -> Result<BoxStream<BoxFuture<()>>> {
     // Build a temporary location.
-    let gs_temp = find_gs_temp_dir(&temporary_storage)?;
+    let s3_temp = find_s3_temp_dir(&temporary_storage)?;
     let temp_args = DriverArgs::default();
 
     // Copy to a temporary gs:// location.
-    let to_temp_ctx = ctx.child(o!("to_temp" => gs_temp.to_string()));
-    let result_stream = gs_temp
+    let to_temp_ctx = ctx.child(o!("to_temp" => s3_temp.to_string()));
+    let result_stream = s3_temp
         .write_local_data(
             to_temp_ctx,
             schema.clone(),
@@ -40,11 +39,11 @@ pub(crate) async fn write_local_data_helper(
     result_stream.consume_with_parallelism(4).await?;
 
     // Load from gs:// to BigQuery.
-    let from_temp_ctx = ctx.child(o!("from_temp" => gs_temp.to_string()));
+    let from_temp_ctx = ctx.child(o!("from_temp" => s3_temp.to_string()));
     dest.write_remote_data(
         from_temp_ctx,
         schema,
-        Box::new(gs_temp),
+        Box::new(s3_temp),
         Query::default(),
         temporary_storage,
         temp_args,

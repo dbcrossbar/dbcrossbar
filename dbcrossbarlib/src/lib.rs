@@ -18,6 +18,7 @@ use std::result;
 pub(crate) mod concat;
 pub(crate) mod context;
 pub(crate) mod csv_stream;
+mod driver_args;
 pub mod drivers;
 pub(crate) mod from_csv_cell;
 pub(crate) mod from_json_value;
@@ -41,6 +42,7 @@ pub(crate) const BUFFER_SIZE: usize = 64 * 1024;
 
 pub use context::Context;
 pub use csv_stream::CsvStream;
+pub use driver_args::DriverArgs;
 pub use if_exists::IfExists;
 pub use locator::{BoxLocator, Locator};
 pub use query::Query;
@@ -67,6 +69,7 @@ pub(crate) mod common {
     pub(crate) use crate::{
         context::Context,
         csv_stream::CsvStream,
+        driver_args::DriverArgs,
         if_exists::IfExists,
         locator::{BoxLocator, Locator},
         path_or_stdio::PathOrStdio,

@@ -18,8 +18,10 @@ pub(crate) async fn local_data_helper(
     ctx: Context,
     url: Url,
     query: Query,
+    args: DriverArgs,
 ) -> Result<Option<BoxStream<CsvStream>>> {
     query.fail_if_query_details_provided()?;
+    args.fail_if_present()?;
     debug!(ctx.log(), "getting CSV files from {}", url);
 
     // Start a child process to list files at that URL.

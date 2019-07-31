@@ -1,4 +1,4 @@
-//! Driver for working with BigQuery schemas.
+//! Driver for working with BigQuery.
 
 use std::{
     fmt,
@@ -98,8 +98,10 @@ impl Locator for BigQueryLocator {
         schema: Table,
         query: Query,
         temporary_storage: TemporaryStorage,
+        args: DriverArgs,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(ctx, self.clone(), schema, query, temporary_storage).boxed()
+        local_data_helper(ctx, self.clone(), schema, query, temporary_storage, args)
+            .boxed()
     }
 
     fn write_local_data(
@@ -108,6 +110,7 @@ impl Locator for BigQueryLocator {
         schema: Table,
         data: BoxStream<CsvStream>,
         temporary_storage: TemporaryStorage,
+        args: DriverArgs,
         if_exists: IfExists,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         write_local_data_helper(
@@ -116,6 +119,7 @@ impl Locator for BigQueryLocator {
             schema,
             data,
             temporary_storage,
+            args,
             if_exists,
         )
         .boxed()
@@ -134,6 +138,8 @@ impl Locator for BigQueryLocator {
         source: BoxLocator,
         query: Query,
         temporary_storage: TemporaryStorage,
+        from_args: DriverArgs,
+        to_args: DriverArgs,
         if_exists: IfExists,
     ) -> BoxFuture<()> {
         write_remote_data_helper(
@@ -143,6 +149,8 @@ impl Locator for BigQueryLocator {
             self.to_owned(),
             query,
             temporary_storage,
+            from_args,
+            to_args,
             if_exists,
         )
         .boxed()

@@ -68,8 +68,9 @@ impl Locator for GsLocator {
         _schema: Table,
         query: Query,
         _temporary_storage: TemporaryStorage,
+        args: DriverArgs,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(ctx, self.url.clone(), query).boxed()
+        local_data_helper(ctx, self.url.clone(), query, args).boxed()
     }
 
     fn write_local_data(
@@ -78,9 +79,11 @@ impl Locator for GsLocator {
         schema: Table,
         data: BoxStream<CsvStream>,
         _temporary_storage: TemporaryStorage,
+        args: DriverArgs,
         if_exists: IfExists,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
-        write_local_data_helper(ctx, self.url.clone(), schema, data, if_exists).boxed()
+        write_local_data_helper(ctx, self.url.clone(), schema, data, args, if_exists)
+            .boxed()
     }
 
     fn supports_write_remote_data(&self, source: &dyn Locator) -> bool {
@@ -96,6 +99,8 @@ impl Locator for GsLocator {
         source: BoxLocator,
         query: Query,
         temporary_storage: TemporaryStorage,
+        from_args: DriverArgs,
+        to_args: DriverArgs,
         if_exists: IfExists,
     ) -> BoxFuture<()> {
         write_remote_data_helper(
@@ -105,6 +110,8 @@ impl Locator for GsLocator {
             self.to_owned(),
             query,
             temporary_storage,
+            from_args,
+            to_args,
             if_exists,
         )
         .boxed()

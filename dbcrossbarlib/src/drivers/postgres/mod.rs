@@ -24,8 +24,10 @@ mod write_local_data;
 use self::local_data::local_data_helper;
 use self::write_local_data::write_local_data_helper;
 
+pub(crate) use write_local_data::prepare_table;
+
 /// Connect to the database, using SSL if possible.
-async fn connect(ctx: Context, url: Url) -> Result<Client> {
+pub(crate) async fn connect(ctx: Context, url: Url) -> Result<Client> {
     let mut base_url = url.clone();
     base_url.set_fragment(None);
 
@@ -59,12 +61,23 @@ pub(crate) const POSTGRES_SCHEME: &str = "postgres:";
 ///
 /// This is the central point of access for talking to a running PostgreSQL
 /// database.
+#[derive(Clone)]
 pub struct PostgresLocator {
     url: Url,
     table_name: String,
 }
 
 impl PostgresLocator {
+    /// The URL associated with this locator.
+    pub(crate) fn url(&self) -> &Url {
+        &self.url
+    }
+
+    /// The table name associated with this locator.
+    pub(crate) fn table_name(&self) -> &str {
+        &self.table_name
+    }
+
     /// Return our `url`, replacing any password with a placeholder string. Used
     /// for logging.
     fn url_without_password(&self) -> Url {
@@ -138,6 +151,7 @@ impl Locator for PostgresLocator {
         schema: Table,
         query: Query,
         _temporary_storage: TemporaryStorage,
+        args: DriverArgs,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
         local_data_helper(
             ctx,
@@ -145,6 +159,7 @@ impl Locator for PostgresLocator {
             self.table_name.clone(),
             schema,
             query,
+            args,
         )
         .boxed()
     }
@@ -155,6 +170,7 @@ impl Locator for PostgresLocator {
         schema: Table,
         data: BoxStream<CsvStream>,
         _temporary_storage: TemporaryStorage,
+        args: DriverArgs,
         if_exists: IfExists,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         write_local_data_helper(
@@ -163,6 +179,7 @@ impl Locator for PostgresLocator {
             self.table_name.clone(),
             schema,
             data,
+            args,
             if_exists,
         )
         .boxed()

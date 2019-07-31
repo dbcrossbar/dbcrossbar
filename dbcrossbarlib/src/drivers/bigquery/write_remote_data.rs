@@ -20,6 +20,7 @@ use crate::drivers::{
 /// The function `BigQueryLocator::write_remote_data` isn't (yet) allowed to be
 /// async, because it's part of a trait. This version is an `async fn`, which
 /// makes the code much clearer.
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn write_remote_data_helper(
     ctx: Context,
     schema: Table,
@@ -27,9 +28,14 @@ pub(crate) async fn write_remote_data_helper(
     dest: BigQueryLocator,
     query: Query,
     temporary_storage: TemporaryStorage,
+    from_args: DriverArgs,
+    to_args: DriverArgs,
     if_exists: IfExists,
 ) -> Result<()> {
     query.fail_if_query_details_provided()?;
+    from_args.fail_if_present()?;
+    to_args.fail_if_present()?;
+
     // Convert the source locator into the underlying `gs://` URL. This is a bit
     // fiddly because we're downcasting `source` and relying on knowledge about
     // the `GsLocator` type, and Rust doesn't make that especially easy.

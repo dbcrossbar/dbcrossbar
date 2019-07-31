@@ -14,7 +14,10 @@ pub(crate) async fn local_data_helper(
     table_name: String,
     schema: Table,
     query: Query,
+    args: DriverArgs,
 ) -> Result<Option<BoxStream<CsvStream>>> {
+    args.fail_if_present()?;
+
     // Set up our logger.
     let ctx =
         ctx.child(o!("stream" => table_name.clone(), "table" => table_name.clone()));

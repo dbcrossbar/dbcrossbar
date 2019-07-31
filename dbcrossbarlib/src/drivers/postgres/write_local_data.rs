@@ -47,7 +47,7 @@ async fn create_table(
 ///
 /// We take ownership of `pg_create_table` because we want to edit it before
 /// running it.
-async fn prepare_table(
+pub(crate) async fn prepare_table(
     ctx: Context,
     client: &mut Client,
     mut pg_create_table: PgCreateTable,
@@ -130,8 +130,10 @@ pub(crate) async fn write_local_data_helper(
     table_name: String,
     schema: Table,
     mut data: BoxStream<CsvStream>,
+    args: DriverArgs,
     if_exists: IfExists,
 ) -> Result<BoxStream<BoxFuture<()>>> {
+    args.fail_if_present()?;
     let ctx = ctx.child(o!("table" => schema.name.clone()));
     debug!(
         ctx.log(),
@@ -142,11 +144,7 @@ pub(crate) async fn write_local_data_helper(
     let pg_create_table =
         PgCreateTable::from_name_and_columns(table_name.clone(), &schema.columns)?;
 
-    // Connect to PostgreSQL and prepare our table. We `drop(conn)` afterwards
-    // because it can't be kept alive over an `await!`. This is because `conn`
-    // isn't safe to send between threads (specifically, it doesn't implement
-    // `Send`), and because `await!` may result in us getting scheduled onto
-    // a different thread.
+    // Connect to PostgreSQL and prepare our table.
     let mut client = connect(ctx.clone(), url.clone()).await?;
     prepare_table(
         ctx.clone(),
