@@ -72,14 +72,15 @@ fn s3_test_dir_url(dir_name: &str) -> String {
     url
 }
 
-/// The URL of our Redshift test database.
-fn redshift_test_url() -> String {
-    env::var("REDSHIFT_TEST_URL").expect("could not find REDSHIFT_TEST_URL")
+/// The URL of our Redshift test database. Optional because we're not going to
+/// keep Redshift running just for unit tests, not at a minimum of $0.25/hour.
+fn redshift_test_url() -> Option<String> {
+    env::var("REDSHIFT_TEST_URL").ok()
 }
 
 /// The URL of a table in our Redshift test database.
-fn redshift_test_table_url(table_name: &str) -> String {
-    format!("{}#{}", redshift_test_url(), table_name)
+fn redshift_test_table_url(table_name: &str) -> Option<String> {
+    redshift_test_url().map(|url| format!("{}#{}", url, table_name))
 }
 
 #[test]
@@ -616,7 +617,20 @@ fn cp_csv_to_redshift_to_csv() {
     let src = testdir.src_path("fixtures/redshift_types.csv");
     let schema = testdir.src_path("fixtures/redshift_types.sql");
     let s3_dir = s3_test_dir_url("cp_csv_to_redshift_to_csv");
-    let redshift_table = redshift_test_table_url("cp_csv_to_redshift_to_csv");
+    let redshift_table = match redshift_test_table_url("cp_csv_to_redshift_to_csv") {
+        Some(redshift_table) => redshift_table,
+        None => {
+            // We allow this test to be disabled by default even when --ignored
+            // is passed, because Redshift is hard to set up, and it costs a
+            // minimum of ~$180/month to run.
+            eprintln!("SKIPPING REDSHIFT TEST - PLEASE SET `REDSHIFT_TEST_URL`!");
+            return;
+        }
+    };
+    let iam_role =
+        env::var("REDSHIFT_TEST_IAM_ROLE").expect("Please set REDSHIFT_TEST_IAM_ROLE");
+    let region =
+        env::var("REDSHIFT_TEST_REGION").expect("Please set REDSHIFT_TEST_REGION");
 
     // CSV to Redshift.
     testdir
@@ -626,8 +640,10 @@ fn cp_csv_to_redshift_to_csv() {
             "--if-exists=overwrite",
             &format!("--temporary={}", s3_dir),
             &format!("--schema=postgres-sql:{}", schema.display()),
-            "--to-arg=iam_role=XXX",
-            "--to-arg=region=us-east-1",
+            // --to-arg values will be converted into Redshift "credentials"
+            // arguments to COPY and UNLOAD, directly.
+            &format!("--to-arg=iam_role={}", iam_role),
+            &format!("--to-arg=region={}", region),
             &format!("csv:{}", src.display()),
             &redshift_table,
         ])
@@ -642,14 +658,16 @@ fn cp_csv_to_redshift_to_csv() {
             "--if-exists=overwrite",
             &format!("--temporary={}", s3_dir),
             &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("--from-arg=iam_role={}", iam_role),
+            &format!("--from-arg=region={}", region),
             &redshift_table,
-            "csv:out/",
+            // Output as a single file to avoid weird naming conventions.
+            "csv:out.csv",
         ])
         .tee_output()
         .expect_success();
 
     let expected = fs::read_to_string(&src).unwrap();
-    let actual =
-        fs::read_to_string(testdir.path("out/cp_csv_to_redshift_to_csv.csv")).unwrap();
+    let actual = fs::read_to_string(testdir.path("out.csv")).unwrap();
     assert_diff!(&expected, &actual, ",", 0);
 }

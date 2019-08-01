@@ -37,7 +37,7 @@ pub(crate) async fn write_remote_data_helper(
     let source_table_name = source
         .as_any()
         .downcast_ref::<BigQueryLocator>()
-        .ok_or_else(|| format_err!("not a gs:// locator: {}", source))?
+        .ok_or_else(|| format_err!("not a bigquery locator: {}", source))?
         .as_table_name()
         .to_owned();
 

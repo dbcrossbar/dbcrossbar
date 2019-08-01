@@ -68,7 +68,19 @@ impl PgCreateTable {
         f: &mut dyn Write,
         query: &Query,
     ) -> Result<()> {
-        write!(f, "COPY (SELECT ")?;
+        write!(f, "COPY (")?;
+        self.write_export_select_sql(f, query)?;
+        write!(f, ") TO STDOUT WITH CSV HEADER")?;
+        Ok(())
+    }
+
+    /// Write a `SELECT ...` statement for this table.
+    pub(crate) fn write_export_select_sql(
+        &self,
+        f: &mut dyn Write,
+        query: &Query,
+    ) -> Result<()> {
+        write!(f, "SELECT ")?;
         let mut first: bool = true;
         for col in &self.columns {
             if first {
@@ -82,7 +94,6 @@ impl PgCreateTable {
         if let Some(where_clause) = &query.where_clause {
             write!(f, " WHERE ({})", where_clause)?;
         }
-        write!(f, ") TO STDOUT WITH CSV HEADER")?;
         Ok(())
     }
 }

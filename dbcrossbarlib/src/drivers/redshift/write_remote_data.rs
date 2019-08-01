@@ -1,9 +1,6 @@
 //! Implementation of `RedshiftLocator::write_remote_data`.
 
-use lazy_static::lazy_static;
-use regex::Regex;
-
-use super::RedshiftLocator;
+use super::{credentials_sql, RedshiftLocator};
 use crate::common::*;
 use crate::drivers::{
     postgres::{connect, prepare_table},
@@ -71,7 +68,7 @@ pub(crate) async fn write_remote_data_helper(
         .compat()
         .await
         .with_context(|_| {
-            format!("error copying {} from {}", pg_create_table.name, source_url,)
+            format!("error copying {} from {}", pg_create_table.name, source_url)
         })?;
     Ok(())
 }
@@ -124,20 +121,4 @@ impl VerifyRedshiftCanImportFromCsv for DataType {
             )),
         }
     }
-}
-
-/// Given a `DriverArgs` structure, convert it into Redshift credentials SQL.
-fn credentials_sql(args: &DriverArgs) -> Result<String> {
-    let mut out = vec![];
-    for (k, v) in args.iter() {
-        lazy_static! {
-            static ref KEY_RE: Regex =
-                Regex::new("^[-_A-Za-z0-9]+$").expect("invalid regex in source code");
-        }
-        if !KEY_RE.is_match(k) {
-            return Err(format_err!("cannot pass {:?} as Redshift credential", k));
-        }
-        writeln!(&mut out, "{} {}", k, pg_quote(v))?;
-    }
-    Ok(String::from_utf8(out).expect("found non-UTF-8 SQL"))
 }

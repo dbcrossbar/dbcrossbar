@@ -3,14 +3,17 @@
 use std::{fmt, str::FromStr};
 
 use crate::common::*;
+use crate::drivers::redshift::RedshiftLocator;
 
 mod local_data;
 mod prepare_as_destination;
 mod write_local_data;
+mod write_remote_data;
 
 use local_data::local_data_helper;
 pub(crate) use prepare_as_destination::prepare_as_destination_helper;
 use write_local_data::write_local_data_helper;
+use write_remote_data::write_remote_data_helper;
 
 /// Locator scheme for S3.
 pub(crate) const S3_SCHEME: &str = "s3:";
@@ -81,5 +84,36 @@ impl Locator for S3Locator {
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         write_local_data_helper(ctx, self.url.clone(), schema, data, args, if_exists)
             .boxed()
+    }
+
+    fn supports_write_remote_data(&self, source: &dyn Locator) -> bool {
+        // We can only do `write_remote_data` if `source` is a
+        // `RedshiftLocator`. Otherwise, we need to do `write_local_data` like
+        // normal.
+        source.as_any().is::<RedshiftLocator>()
+    }
+
+    fn write_remote_data(
+        &self,
+        ctx: Context,
+        schema: Table,
+        source: BoxLocator,
+        query: Query,
+        _temporary_storage: TemporaryStorage,
+        from_args: DriverArgs,
+        to_args: DriverArgs,
+        if_exists: IfExists,
+    ) -> BoxFuture<()> {
+        write_remote_data_helper(
+            ctx,
+            schema,
+            source,
+            self.to_owned(),
+            query,
+            from_args,
+            to_args,
+            if_exists,
+        )
+        .boxed()
     }
 }

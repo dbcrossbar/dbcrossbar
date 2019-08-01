@@ -1,5 +1,7 @@
 //! Driver for working with Redshift.
 
+use lazy_static::lazy_static;
+use regex::Regex;
 use std::{
     fmt,
     str::{self, FromStr},
@@ -7,11 +9,16 @@ use std::{
 
 use crate::common::*;
 use crate::drivers::postgres::PostgresLocator;
-use crate::drivers::s3::{S3Locator, S3_SCHEME};
+use crate::drivers::{
+    postgres_shared::pg_quote,
+    s3::{S3Locator, S3_SCHEME},
+};
 
+mod local_data;
 mod write_local_data;
 mod write_remote_data;
 
+use local_data::local_data_helper;
 use write_local_data::write_local_data_helper;
 use write_remote_data::write_remote_data_helper;
 
@@ -74,6 +81,18 @@ impl Locator for RedshiftLocator {
 
     fn schema(&self, ctx: &Context) -> Result<Option<Table>> {
         self.postgres_locator.schema(ctx)
+    }
+
+    fn local_data(
+        &self,
+        ctx: Context,
+        schema: Table,
+        query: Query,
+        temporary_storage: TemporaryStorage,
+        args: DriverArgs,
+    ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
+        local_data_helper(ctx, self.clone(), schema, query, temporary_storage, args)
+            .boxed()
     }
 
     fn write_local_data(
@@ -143,4 +162,20 @@ pub(crate) fn find_s3_temp_dir(
     temp.push_str(&TemporaryStorage::random_tag());
     temp.push_str("/");
     S3Locator::from_str(&temp)
+}
+
+/// Given a `DriverArgs` structure, convert it into Redshift credentials SQL.
+pub(crate) fn credentials_sql(args: &DriverArgs) -> Result<String> {
+    let mut out = vec![];
+    for (k, v) in args.iter() {
+        lazy_static! {
+            static ref KEY_RE: Regex =
+                Regex::new("^[-_A-Za-z0-9]+$").expect("invalid regex in source code");
+        }
+        if !KEY_RE.is_match(k) {
+            return Err(format_err!("cannot pass {:?} as Redshift credential", k));
+        }
+        writeln!(&mut out, "{} {}", k, pg_quote(v))?;
+    }
+    Ok(String::from_utf8(out).expect("found non-UTF-8 SQL"))
 }
