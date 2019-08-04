@@ -246,7 +246,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
     let expected_schema = testdir.src_path("fixtures/many_types_expected.sql");
-    let pg_table = post_test_table_url("cp_csv_to_postgres_to_gs_to_csv");
+    let pg_table = post_test_table_url("public.cp_csv_to_postgres_to_gs_to_csv");
     let gs_dir = gs_test_dir_url("cp_csv_to_postgres_to_gs_to_csv");
     let bq_table = bq_test_table("cp_csv_to_postgres_to_gs_to_csv");
     let gs_dir_2 = gs_test_dir_url("cp_csv_to_postgres_to_gs_to_csv_2");
@@ -617,16 +617,17 @@ fn cp_csv_to_redshift_to_csv() {
     let src = testdir.src_path("fixtures/redshift_types.csv");
     let schema = testdir.src_path("fixtures/redshift_types.sql");
     let s3_dir = s3_test_dir_url("cp_csv_to_redshift_to_csv");
-    let redshift_table = match redshift_test_table_url("cp_csv_to_redshift_to_csv") {
-        Some(redshift_table) => redshift_table,
-        None => {
-            // We allow this test to be disabled by default even when --ignored
-            // is passed, because Redshift is hard to set up, and it costs a
-            // minimum of ~$180/month to run.
-            eprintln!("SKIPPING REDSHIFT TEST - PLEASE SET `REDSHIFT_TEST_URL`!");
-            return;
-        }
-    };
+    let redshift_table =
+        match redshift_test_table_url("public.cp_csv_to_redshift_to_csv") {
+            Some(redshift_table) => redshift_table,
+            None => {
+                // We allow this test to be disabled by default even when --ignored
+                // is passed, because Redshift is hard to set up, and it costs a
+                // minimum of ~$180/month to run.
+                eprintln!("SKIPPING REDSHIFT TEST - PLEASE SET `REDSHIFT_TEST_URL`!");
+                return;
+            }
+        };
     let iam_role =
         env::var("REDSHIFT_TEST_IAM_ROLE").expect("Please set REDSHIFT_TEST_IAM_ROLE");
     let region =
