@@ -66,10 +66,10 @@ impl PgCreateTable {
     pub(crate) fn write_export_sql(
         &self,
         f: &mut dyn Write,
-        query: &Query,
+        source_args: &SourceArguments<Verified>,
     ) -> Result<()> {
         write!(f, "COPY (")?;
-        self.write_export_select_sql(f, query)?;
+        self.write_export_select_sql(f, source_args)?;
         write!(f, ") TO STDOUT WITH CSV HEADER")?;
         Ok(())
     }
@@ -78,7 +78,7 @@ impl PgCreateTable {
     pub(crate) fn write_export_select_sql(
         &self,
         f: &mut dyn Write,
-        query: &Query,
+        source_args: &SourceArguments<Verified>,
     ) -> Result<()> {
         write!(f, "SELECT ")?;
         let mut first: bool = true;
@@ -91,7 +91,7 @@ impl PgCreateTable {
             col.write_export_select_expr(f)?;
         }
         write!(f, " FROM {:?}", self.name)?;
-        if let Some(where_clause) = &query.where_clause {
+        if let Some(where_clause) = source_args.where_clause() {
             write!(f, " WHERE ({})", where_clause)?;
         }
         Ok(())

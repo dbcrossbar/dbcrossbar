@@ -3,7 +3,7 @@
 use std::process::{Command, Stdio};
 use tokio_process::CommandExt;
 
-use super::prepare_as_destination_helper;
+use super::{prepare_as_destination_helper, S3Locator};
 use crate::common::*;
 use crate::tokio_glue::copy_stream_to_writer;
 
@@ -11,12 +11,15 @@ use crate::tokio_glue::copy_stream_to_writer;
 pub(crate) async fn write_local_data_helper(
     ctx: Context,
     url: Url,
-    _schema: Table,
     data: BoxStream<CsvStream>,
-    args: DriverArgs,
-    if_exists: IfExists,
+    shared_args: SharedArguments<Unverified>,
+    dest_args: DestinationArguments<Unverified>,
 ) -> Result<BoxStream<BoxFuture<()>>> {
-    args.fail_if_present()?;
+    let _shared_args = shared_args.verify(S3Locator::features())?;
+    let dest_args = dest_args.verify(S3Locator::features())?;
+
+    // Look up our arguments.
+    let if_exists = dest_args.if_exists().to_owned();
 
     // Delete the existing output, if it exists.
     prepare_as_destination_helper(ctx.clone(), url.clone(), if_exists).await?;

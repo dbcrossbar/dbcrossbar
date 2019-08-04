@@ -2,14 +2,14 @@ use std::iter::FromIterator;
 
 use crate::common::*;
 
-/// Driver arguments.
-#[derive(Clone, Default)]
-pub struct DriverArgs {
+/// Driver-specific arguments.
+#[derive(Clone, Debug, Default)]
+pub struct DriverArguments {
     /// A list of key-value pairs, in order.
     args: Vec<(String, String)>,
 }
 
-impl DriverArgs {
+impl DriverArguments {
     /// Parse a list of command-line arguments of the form `key=value` into a
     /// `DriverArgs` structure.
     pub fn from_cli_args(args: &[String]) -> Result<Self> {
@@ -29,13 +29,9 @@ impl DriverArgs {
         Ok(Self { args })
     }
 
-    /// Return an error if any driver args have been specified.
-    pub(crate) fn fail_if_present(&self) -> Result<()> {
-        if self.args.is_empty() {
-            Ok(())
-        } else {
-            Err(format_err!("unexpected driver arguments: {:?}", self.args))
-        }
+    /// Is this collection of driver arguments empty?
+    pub(crate) fn is_empty(&self) -> bool {
+        self.args.is_empty()
     }
 
     /// Return an iterator over the key-value pairs of this `DriverArgs`.
@@ -44,7 +40,7 @@ impl DriverArgs {
     }
 }
 
-impl<K, V> FromIterator<(K, V)> for DriverArgs
+impl<K, V> FromIterator<(K, V)> for DriverArguments
 where
     K: Into<String>,
     V: Into<String>,

@@ -148,18 +148,15 @@ impl Locator for PostgresLocator {
     fn local_data(
         &self,
         ctx: Context,
-        schema: Table,
-        query: Query,
-        _temporary_storage: TemporaryStorage,
-        args: DriverArgs,
+        shared_args: SharedArguments<Unverified>,
+        source_args: SourceArguments<Unverified>,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
         local_data_helper(
             ctx,
             self.url.clone(),
             self.table_name.clone(),
-            schema,
-            query,
-            args,
+            shared_args,
+            source_args,
         )
         .boxed()
     }
@@ -167,21 +164,35 @@ impl Locator for PostgresLocator {
     fn write_local_data(
         &self,
         ctx: Context,
-        schema: Table,
         data: BoxStream<CsvStream>,
-        _temporary_storage: TemporaryStorage,
-        args: DriverArgs,
-        if_exists: IfExists,
+        shared_args: SharedArguments<Unverified>,
+        dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         write_local_data_helper(
             ctx,
             self.url.clone(),
             self.table_name.clone(),
-            schema,
             data,
-            args,
-            if_exists,
+            shared_args,
+            dest_args,
         )
         .boxed()
+    }
+}
+
+impl LocatorStatic for PostgresLocator {
+    fn features() -> Features {
+        Features {
+            locator: LocatorFeatures::SCHEMA
+                | LocatorFeatures::LOCAL_DATA
+                | LocatorFeatures::WRITE_LOCAL_DATA,
+            write_schema_if_exists: IfExistsFeatures::empty(),
+            source_args: SourceArgumentsFeatures::WHERE_CLAUSE,
+            dest_args: DestinationArgumentsFeatures::empty(),
+            dest_if_exists: IfExistsFeatures::OVERWRITE
+                | IfExistsFeatures::APPEND
+                | IfExistsFeatures::ERROR,
+            _placeholder: (),
+        }
     }
 }

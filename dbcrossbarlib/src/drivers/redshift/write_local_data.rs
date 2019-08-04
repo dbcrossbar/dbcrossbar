@@ -8,27 +8,20 @@ use crate::tokio_glue::ConsumeWithParallelism;
 pub(crate) async fn write_local_data_helper(
     ctx: Context,
     dest: RedshiftLocator,
-    schema: Table,
     data: BoxStream<CsvStream>,
-    temporary_storage: TemporaryStorage,
-    args: DriverArgs,
-    if_exists: IfExists,
+    shared_args: SharedArguments<Unverified>,
+    dest_args: DestinationArguments<Unverified>,
 ) -> Result<BoxStream<BoxFuture<()>>> {
     // Build a temporary location.
-    let s3_temp = find_s3_temp_dir(&temporary_storage)?;
-    let temp_args = DriverArgs::default();
+    let shared_args_v = shared_args.clone().verify(RedshiftLocator::features())?;
+    let s3_temp = find_s3_temp_dir(shared_args_v.temporary_storage())?;
+    let s3_dest_args = DestinationArguments::for_temporary();
+    let s3_source_args = SourceArguments::for_temporary();
 
     // Copy to a temporary gs:// location.
     let to_temp_ctx = ctx.child(o!("to_temp" => s3_temp.to_string()));
     let result_stream = s3_temp
-        .write_local_data(
-            to_temp_ctx,
-            schema.clone(),
-            data,
-            temporary_storage.clone(),
-            temp_args.clone(),
-            IfExists::Overwrite,
-        )
+        .write_local_data(to_temp_ctx, data, shared_args.clone(), s3_dest_args)
         .await?;
 
     // Wait for all gs:// uploads to finish with controllable parallelism.
@@ -42,13 +35,10 @@ pub(crate) async fn write_local_data_helper(
     let from_temp_ctx = ctx.child(o!("from_temp" => s3_temp.to_string()));
     dest.write_remote_data(
         from_temp_ctx,
-        schema,
         Box::new(s3_temp),
-        Query::default(),
-        temporary_storage,
-        temp_args,
-        args,
-        if_exists,
+        shared_args,
+        s3_source_args,
+        dest_args,
     )
     .await?;
 

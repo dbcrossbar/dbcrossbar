@@ -7,6 +7,7 @@ use std::{
 use tokio::io;
 use tokio_process::CommandExt;
 
+use super::GsLocator;
 use crate::common::*;
 use crate::csv_stream::csv_stream_name;
 use crate::tokio_glue::copy_reader_to_stream;
@@ -15,11 +16,11 @@ use crate::tokio_glue::copy_reader_to_stream;
 pub(crate) async fn local_data_helper(
     ctx: Context,
     url: Url,
-    query: Query,
-    args: DriverArgs,
+    shared_args: SharedArguments<Unverified>,
+    source_args: SourceArguments<Unverified>,
 ) -> Result<Option<BoxStream<CsvStream>>> {
-    query.fail_if_query_details_provided()?;
-    args.fail_if_present()?;
+    let _shared_args = shared_args.verify(GsLocator::features())?;
+    let _source_args = source_args.verify(GsLocator::features())?;
     debug!(ctx.log(), "getting CSV files from {}", url);
 
     // Build a URL to list.

@@ -77,3 +77,16 @@ impl Locator for BigQuerySchemaLocator {
         bq_table.write_json_schema(&mut f)
     }
 }
+
+impl LocatorStatic for BigQuerySchemaLocator {
+    fn features() -> Features {
+        Features {
+            locator: LocatorFeatures::SCHEMA | LocatorFeatures::WRITE_SCHEMA,
+            write_schema_if_exists: IfExistsFeatures::no_append(),
+            source_args: SourceArgumentsFeatures::empty(),
+            dest_args: DestinationArgumentsFeatures::empty(),
+            dest_if_exists: IfExistsFeatures::empty(),
+            _placeholder: (),
+        }
+    }
+}

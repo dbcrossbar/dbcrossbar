@@ -65,24 +65,20 @@ impl Locator for S3Locator {
     fn local_data(
         &self,
         ctx: Context,
-        _schema: Table,
-        query: Query,
-        _temporary_storage: TemporaryStorage,
-        args: DriverArgs,
+        shared_args: SharedArguments<Unverified>,
+        source_args: SourceArguments<Unverified>,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(ctx, self.url.clone(), query, args).boxed()
+        local_data_helper(ctx, self.url.clone(), shared_args, source_args).boxed()
     }
 
     fn write_local_data(
         &self,
         ctx: Context,
-        schema: Table,
         data: BoxStream<CsvStream>,
-        _temporary_storage: TemporaryStorage,
-        args: DriverArgs,
-        if_exists: IfExists,
+        shared_args: SharedArguments<Unverified>,
+        dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
-        write_local_data_helper(ctx, self.url.clone(), schema, data, args, if_exists)
+        write_local_data_helper(ctx, self.url.clone(), data, shared_args, dest_args)
             .boxed()
     }
 
@@ -96,24 +92,32 @@ impl Locator for S3Locator {
     fn write_remote_data(
         &self,
         ctx: Context,
-        schema: Table,
         source: BoxLocator,
-        query: Query,
-        _temporary_storage: TemporaryStorage,
-        from_args: DriverArgs,
-        to_args: DriverArgs,
-        if_exists: IfExists,
+        shared_args: SharedArguments<Unverified>,
+        source_args: SourceArguments<Unverified>,
+        dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<()> {
         write_remote_data_helper(
             ctx,
-            schema,
             source,
             self.to_owned(),
-            query,
-            from_args,
-            to_args,
-            if_exists,
+            shared_args,
+            source_args,
+            dest_args,
         )
         .boxed()
+    }
+}
+
+impl LocatorStatic for S3Locator {
+    fn features() -> Features {
+        Features {
+            locator: LocatorFeatures::LOCAL_DATA | LocatorFeatures::WRITE_LOCAL_DATA,
+            write_schema_if_exists: IfExistsFeatures::empty(),
+            source_args: SourceArgumentsFeatures::empty(),
+            dest_args: DestinationArgumentsFeatures::empty(),
+            dest_if_exists: IfExistsFeatures::OVERWRITE,
+            _placeholder: (),
+        }
     }
 }

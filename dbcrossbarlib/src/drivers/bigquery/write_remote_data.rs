@@ -20,22 +20,14 @@ use crate::drivers::{
 /// The function `BigQueryLocator::write_remote_data` isn't (yet) allowed to be
 /// async, because it's part of a trait. This version is an `async fn`, which
 /// makes the code much clearer.
-#[allow(clippy::too_many_arguments)]
 pub(crate) async fn write_remote_data_helper(
     ctx: Context,
-    schema: Table,
     source: BoxLocator,
     dest: BigQueryLocator,
-    query: Query,
-    temporary_storage: TemporaryStorage,
-    from_args: DriverArgs,
-    to_args: DriverArgs,
-    if_exists: IfExists,
+    shared_args: SharedArguments<Unverified>,
+    source_args: SourceArguments<Unverified>,
+    dest_args: DestinationArguments<Unverified>,
 ) -> Result<()> {
-    query.fail_if_query_details_provided()?;
-    from_args.fail_if_present()?;
-    to_args.fail_if_present()?;
-
     // Convert the source locator into the underlying `gs://` URL. This is a bit
     // fiddly because we're downcasting `source` and relying on knowledge about
     // the `GsLocator` type, and Rust doesn't make that especially easy.
@@ -45,6 +37,16 @@ pub(crate) async fn write_remote_data_helper(
         .ok_or_else(|| format_err!("not a gs:// locator: {}", source))?
         .as_url()
         .to_owned();
+
+    // Verify our arguments.
+    let shared_args = shared_args.verify(BigQueryLocator::features())?;
+    let _source_args = source_args.verify(Features::empty())?;
+    let dest_args = dest_args.verify(BigQueryLocator::features())?;
+
+    // Get the arguments we care about.
+    let schema = shared_args.schema();
+    let temporary_storage = shared_args.temporary_storage();
+    let if_exists = dest_args.if_exists();
 
     // If our URL looks like a directory, add a glob.
     //
@@ -61,7 +63,7 @@ pub(crate) async fn write_remote_data_helper(
     let use_temp = !schema.bigquery_can_import_from_csv()? || if_exists.is_upsert();
     let initial_table_name = if use_temp {
         let initial_table_name =
-            dest.table_name.temporary_table_name(&temporary_storage)?;
+            dest.table_name.temporary_table_name(temporary_storage)?;
         debug!(
             ctx.log(),
             "loading into temporary table {}", initial_table_name

@@ -15,6 +15,7 @@ extern crate diesel;
 
 use std::result;
 
+pub(crate) mod args;
 pub(crate) mod concat;
 pub(crate) mod context;
 pub(crate) mod csv_stream;
@@ -25,7 +26,6 @@ pub(crate) mod from_json_value;
 pub(crate) mod if_exists;
 pub(crate) mod locator;
 pub(crate) mod path_or_stdio;
-mod query;
 pub mod schema;
 mod temporary_storage;
 pub mod tokio_glue;
@@ -40,12 +40,15 @@ pub type Result<T> = result::Result<T, Error>;
 /// The buffer size to use by default when buffering I/O.
 pub(crate) const BUFFER_SIZE: usize = 64 * 1024;
 
+pub use args::{
+    ArgumentState, DestinationArguments, SharedArguments, SourceArguments, Unverified,
+    Verified,
+};
 pub use context::Context;
 pub use csv_stream::CsvStream;
-pub use driver_args::DriverArgs;
+pub use driver_args::DriverArguments;
 pub use if_exists::IfExists;
 pub use locator::{BoxLocator, Locator};
-pub use query::Query;
 pub use temporary_storage::TemporaryStorage;
 pub use tokio_glue::{run_futures_with_runtime, ConsumeWithParallelism};
 
@@ -67,13 +70,17 @@ pub(crate) mod common {
     pub(crate) use url::Url;
 
     pub(crate) use crate::{
+        args::{
+            ArgumentState, DestinationArguments, DestinationArgumentsFeatures,
+            SharedArguments, SourceArguments, SourceArgumentsFeatures, Unverified,
+            Verified,
+        },
         context::Context,
         csv_stream::CsvStream,
-        driver_args::DriverArgs,
-        if_exists::IfExists,
-        locator::{BoxLocator, Locator},
+        driver_args::DriverArguments,
+        if_exists::{IfExists, IfExistsFeatures},
+        locator::{BoxLocator, Features, Locator, LocatorFeatures, LocatorStatic},
         path_or_stdio::PathOrStdio,
-        query::Query,
         schema::Table,
         temporary_storage::TemporaryStorage,
         tokio_glue::{

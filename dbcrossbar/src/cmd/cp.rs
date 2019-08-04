@@ -2,8 +2,8 @@
 
 use common_failures::Result;
 use dbcrossbarlib::{
-    BoxLocator, ConsumeWithParallelism, Context, DriverArgs, IfExists, Query,
-    TemporaryStorage,
+    BoxLocator, ConsumeWithParallelism, Context, DestinationArguments,
+    DriverArguments, IfExists, SharedArguments, SourceArguments, TemporaryStorage,
 };
 use failure::format_err;
 use slog::{debug, o};
@@ -55,77 +55,52 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
         })
     }?;
 
-    // Get our driver args.
-    let from_args = DriverArgs::from_cli_args(&opt.from_args)?;
-    let to_args = DriverArgs::from_cli_args(&opt.to_args)?;
-
-    // Get our query details.
-    let mut query = Query::default();
-    query.where_clause = opt.where_clause.clone();
-
-    // Build a `TemporaryStorage` object to keep track of places that we can put
-    // temporary data.
+    // Build our shared arguments.
     let temporary_storage = TemporaryStorage::new(opt.temporaries.clone());
+    let shared_args = SharedArguments::new(schema, temporary_storage);
+
+    // Build our source arguments.
+    let from_args = DriverArguments::from_cli_args(&opt.from_args)?;
+    let source_args = SourceArguments::new(from_args, opt.where_clause.clone());
+
+    // Build our destination arguments.
+    let to_args = DriverArguments::from_cli_args(&opt.to_args)?;
+    let dest_args = DestinationArguments::new(to_args, opt.if_exists);
 
     // Can we short-circuit this particular copy using special features of the
     // the source and destination, or do we need to pull the data down to the
     // local machine?
-    if opt
-        .to_locator
-        .supports_write_remote_data(opt.from_locator.as_ref())
-    {
+    let to_locator = opt.to_locator;
+    let from_locator = opt.from_locator;
+    if to_locator.supports_write_remote_data(from_locator.as_ref()) {
         // Build a logging context.
         let ctx = ctx.child(o!(
-            "from_locator" => opt.from_locator.to_string(),
-            "to_locator" => opt.to_locator.to_string(),
+            "from_locator" => from_locator.to_string(),
+            "to_locator" => to_locator.to_string(),
         ));
 
         // Perform a remote transfer.
         debug!(ctx.log(), "performing remote data transfer");
-        opt.to_locator
-            .write_remote_data(
-                ctx,
-                schema,
-                opt.from_locator,
-                query,
-                temporary_storage,
-                from_args,
-                to_args,
-                opt.if_exists,
-            )
+        to_locator
+            .write_remote_data(ctx, from_locator, shared_args, source_args, dest_args)
             .await?
     } else {
         // We have to transfer the data via the local machine, so read data from
         // input.
         debug!(ctx.log(), "performaning local data transfer");
 
-        let input_ctx = ctx.child(o!("from_locator" => opt.from_locator.to_string()));
-        let data = opt
-            .from_locator
-            .local_data(
-                input_ctx,
-                schema.clone(),
-                query,
-                temporary_storage.clone(),
-                from_args,
-            )
+        let input_ctx = ctx.child(o!("from_locator" => from_locator.to_string()));
+        let data = from_locator
+            .local_data(input_ctx, shared_args.clone(), source_args)
             .await?
             .ok_or_else(|| {
-                format_err!("don't know how to read data from {}", opt.from_locator)
+                format_err!("don't know how to read data from {}", from_locator)
             })?;
 
         // Write data to output.
-        let output_ctx = ctx.child(o!("to_locator" => opt.to_locator.to_string()));
-        let result_stream = opt
-            .to_locator
-            .write_local_data(
-                output_ctx,
-                schema,
-                data,
-                temporary_storage,
-                to_args,
-                opt.if_exists,
-            )
+        let output_ctx = ctx.child(o!("to_locator" => to_locator.to_string()));
+        let result_stream = to_locator
+            .write_local_data(output_ctx, data, shared_args, dest_args)
             .await?;
 
         // Consume the stream of futures produced by `write_local_data`, allowing a

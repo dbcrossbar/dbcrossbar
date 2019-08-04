@@ -2,7 +2,7 @@
 
 use std::{io::prelude::*, str};
 
-use super::{connect, csv_to_binary::copy_csv_to_pg_binary, Client};
+use super::{connect, csv_to_binary::copy_csv_to_pg_binary, Client, PostgresLocator};
 use crate::common::*;
 use crate::drivers::postgres_shared::{Ident, PgCreateTable};
 use crate::transform::spawn_sync_transform;
@@ -128,12 +128,17 @@ pub(crate) async fn write_local_data_helper(
     ctx: Context,
     url: Url,
     table_name: String,
-    schema: Table,
     mut data: BoxStream<CsvStream>,
-    args: DriverArgs,
-    if_exists: IfExists,
+    shared_args: SharedArguments<Unverified>,
+    dest_args: DestinationArguments<Unverified>,
 ) -> Result<BoxStream<BoxFuture<()>>> {
-    args.fail_if_present()?;
+    let shared_args = shared_args.verify(PostgresLocator::features())?;
+    let dest_args = dest_args.verify(PostgresLocator::features())?;
+
+    // Look up our arguments.
+    let schema = shared_args.schema();
+    let if_exists = dest_args.if_exists();
+
     let ctx = ctx.child(o!("table" => schema.name.clone()));
     debug!(
         ctx.log(),

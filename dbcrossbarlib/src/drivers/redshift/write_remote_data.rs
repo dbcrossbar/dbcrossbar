@@ -14,20 +14,14 @@ use crate::schema::{Column, DataType};
 /// The function `BigQueryLocator::write_remote_data` isn't (yet) allowed to be
 /// async, because it's part of a trait. This version is an `async fn`, which
 /// makes the code much clearer.
-#[allow(clippy::too_many_arguments)]
 pub(crate) async fn write_remote_data_helper(
     ctx: Context,
-    schema: Table,
     source: BoxLocator,
     dest: RedshiftLocator,
-    query: Query,
-    from_args: DriverArgs,
-    to_args: DriverArgs,
-    if_exists: IfExists,
+    shared_args: SharedArguments<Unverified>,
+    source_args: SourceArguments<Unverified>,
+    dest_args: DestinationArguments<Unverified>,
 ) -> Result<()> {
-    query.fail_if_query_details_provided()?;
-    from_args.fail_if_present()?;
-
     // Convert the source locator into the underlying `s3://` URL. This is a bit
     // fiddly because we're downcasting `source` and relying on knowledge about
     // the `S3Locator` type, and Rust doesn't make that especially easy.
@@ -38,6 +32,15 @@ pub(crate) async fn write_remote_data_helper(
         .as_url()
         .to_owned();
     let ctx = ctx.child(o!("source_url" => source_url.as_str().to_owned()));
+
+    let shared_args = shared_args.verify(RedshiftLocator::features())?;
+    let _source_args = source_args.verify(Features::empty())?;
+    let dest_args = dest_args.verify(RedshiftLocator::features())?;
+
+    // Look up our arguments.
+    let schema = shared_args.schema();
+    let to_args = dest_args.driver_args();
+    let if_exists = dest_args.if_exists().to_owned();
 
     // Convert our `schema` to a `PgCreateTable`.
     schema.verify_redshift_can_import_from_csv()?;
@@ -60,7 +63,7 @@ pub(crate) async fn write_remote_data_helper(
         "COPY {dest} FROM {source}\n{credentials}FORMAT CSV\nIGNOREHEADER 1",
         dest = Ident(table_name),
         source = pg_quote(source_url.as_str()), // `$1` doesn't work here.
-        credentials = credentials_sql(&to_args)?,
+        credentials = credentials_sql(to_args)?,
     );
     let copy_stmt = client.prepare(&copy_sql).compat().await?;
     client

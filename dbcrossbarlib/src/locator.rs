@@ -1,5 +1,6 @@
 //! Specify the location of data or a schema.
 
+use bitflags::bitflags;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::{fmt, str::FromStr};
@@ -69,10 +70,8 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     fn local_data(
         &self,
         _ctx: Context,
-        _schema: Table,
-        _query: Query,
-        _temporary_storage: TemporaryStorage,
-        _args: DriverArgs,
+        _shared_args: SharedArguments<Unverified>,
+        _source_args: SourceArguments<Unverified>,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
         // Turn our result into a future.
         async { Ok(None) }.boxed()
@@ -88,7 +87,7 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     /// ```no_compile
     /// # Pseudo code for parallel output.
     /// data.map(async |csv_stream| {
-    ///     await!(write(csv_stream))?;
+    ///     write(csv_stream).await?;
     ///     Ok(())
     /// })
     /// ```
@@ -101,11 +100,9 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     fn write_local_data(
         &self,
         _ctx: Context,
-        _schema: Table,
         _data: BoxStream<CsvStream>,
-        _temporary_storage: TemporaryStorage,
-        _args: DriverArgs,
-        _if_exists: IfExists,
+        _shared_args: SharedArguments<Unverified>,
+        _dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         let err = format_err!("cannot write data to {}", self);
         async move { Err(err) }.boxed()
@@ -121,17 +118,13 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     ///
     /// This is used to bypass `source.local_data` and `dest.write_local_data`
     /// when we don't need them.
-    #[allow(clippy::too_many_arguments)]
     fn write_remote_data(
         &self,
         _ctx: Context,
-        _schema: Table,
         source: BoxLocator,
-        _query: Query,
-        _temporary_storage: TemporaryStorage,
-        _from_args: DriverArgs,
-        _to_args: DriverArgs,
-        _if_exists: IfExists,
+        _shared_args: SharedArguments<Unverified>,
+        _source_args: SourceArguments<Unverified>,
+        _dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<()> {
         let err = format_err!("cannot write_remote_data from source {}", source);
         async move { Err(err) }.boxed()
@@ -196,5 +189,49 @@ fn locator_from_str_to_string_roundtrip() {
     for locator in locators.into_iter() {
         let parsed: BoxLocator = locator.parse().unwrap();
         assert_eq!(parsed.to_string(), locator);
+    }
+}
+
+/// Extra `Locator` methods that can only be called statically. These cannot
+/// accessed via a `Box<Locator>`.
+pub trait LocatorStatic: Locator {
+    /// Return a mask of `LocatorFeatures` supported by this `Locator` type.
+    fn features() -> Features;
+}
+
+bitflags! {
+    /// What `Locator` features are supported by a given driver?
+    pub struct LocatorFeatures: u8 {
+        const SCHEMA = 0b0000_0001;
+        const WRITE_SCHEMA = 0b0000_0010;
+        const LOCAL_DATA = 0b0000_0100;
+        const WRITE_LOCAL_DATA = 0b0000_1000;
+    }
+}
+
+/// A collection of all the features supported by a given driver. This is
+/// used to automatically verify whether the arguments passed to a driver
+/// are actually supported.
+#[derive(Debug, Copy, Clone)]
+pub struct Features {
+    pub locator: LocatorFeatures,
+    pub write_schema_if_exists: IfExistsFeatures,
+    pub source_args: SourceArgumentsFeatures,
+    pub dest_args: DestinationArgumentsFeatures,
+    pub dest_if_exists: IfExistsFeatures,
+    pub(crate) _placeholder: (),
+}
+
+impl Features {
+    /// Return the empty set of features.
+    pub(crate) fn empty() -> Self {
+        Features {
+            locator: LocatorFeatures::empty(),
+            write_schema_if_exists: IfExistsFeatures::empty(),
+            source_args: SourceArgumentsFeatures::empty(),
+            dest_args: DestinationArgumentsFeatures::empty(),
+            dest_if_exists: IfExistsFeatures::empty(),
+            _placeholder: (),
+        }
     }
 }

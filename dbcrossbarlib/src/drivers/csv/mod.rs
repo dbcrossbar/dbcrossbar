@@ -83,24 +83,20 @@ impl Locator for CsvLocator {
     fn local_data(
         &self,
         ctx: Context,
-        _schema: Table,
-        query: Query,
-        _temporary_storage: TemporaryStorage,
-        args: DriverArgs,
+        shared_args: SharedArguments<Unverified>,
+        source_args: SourceArguments<Unverified>,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(ctx, self.path.clone(), query, args).boxed()
+        local_data_helper(ctx, self.path.clone(), shared_args, source_args).boxed()
     }
 
     fn write_local_data(
         &self,
         ctx: Context,
-        schema: Table,
         data: BoxStream<CsvStream>,
-        _temporary_storage: TemporaryStorage,
-        args: DriverArgs,
-        if_exists: IfExists,
+        shared_args: SharedArguments<Unverified>,
+        dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
-        write_local_data_helper(ctx, self.path.clone(), schema, data, args, if_exists)
+        write_local_data_helper(ctx, self.path.clone(), data, shared_args, dest_args)
             .boxed()
     }
 }
@@ -108,11 +104,11 @@ impl Locator for CsvLocator {
 async fn local_data_helper(
     ctx: Context,
     path: PathOrStdio,
-    query: Query,
-    args: DriverArgs,
+    shared_args: SharedArguments<Unverified>,
+    source_args: SourceArguments<Unverified>,
 ) -> Result<Option<BoxStream<CsvStream>>> {
-    query.fail_if_query_details_provided()?;
-    args.fail_if_present()?;
+    let _shared_args = shared_args.verify(CsvLocator::features())?;
+    let _source_args = source_args.verify(CsvLocator::features())?;
     match path {
         PathOrStdio::Stdio => {
             let data = BufReader::with_capacity(BUFFER_SIZE, io::stdin());
@@ -199,12 +195,13 @@ async fn local_data_helper(
 async fn write_local_data_helper(
     ctx: Context,
     path: PathOrStdio,
-    _schema: Table,
     data: BoxStream<CsvStream>,
-    args: DriverArgs,
-    if_exists: IfExists,
+    shared_args: SharedArguments<Unverified>,
+    dest_args: DestinationArguments<Unverified>,
 ) -> Result<BoxStream<BoxFuture<()>>> {
-    args.fail_if_present()?;
+    let _shared_args = shared_args.verify(CsvLocator::features())?;
+    let dest_args = dest_args.verify(CsvLocator::features())?;
+    let if_exists = dest_args.if_exists().to_owned();
     match path {
         PathOrStdio::Stdio => {
             if_exists.warn_if_not_default_for_stdout(&ctx);
@@ -283,4 +280,19 @@ async fn write_stream_to_file(
         .await
         .with_context(|_| format!("error writing {}", dest.display()))?;
     Ok(())
+}
+
+impl LocatorStatic for CsvLocator {
+    fn features() -> Features {
+        Features {
+            locator: LocatorFeatures::SCHEMA
+                | LocatorFeatures::LOCAL_DATA
+                | LocatorFeatures::WRITE_LOCAL_DATA,
+            write_schema_if_exists: IfExistsFeatures::empty(),
+            source_args: SourceArgumentsFeatures::empty(),
+            dest_args: DestinationArgumentsFeatures::empty(),
+            dest_if_exists: IfExistsFeatures::no_append(),
+            _placeholder: (),
+        }
+    }
 }

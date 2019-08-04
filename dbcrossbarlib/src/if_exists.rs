@@ -1,10 +1,29 @@
 //! What to do if the destination already exists.
 
+use bitflags::bitflags;
 use itertools::Itertools;
 use std::{fmt, fs as std_fs, str::FromStr};
 use tokio::fs as tokio_fs;
 
 use crate::common::*;
+
+bitflags! {
+    /// Which `IfExists` features are supported by a given driver or API?
+    pub struct IfExistsFeatures: u8 {
+        const ERROR = 0b0000_0001;
+        const APPEND = 0b0000_0010;
+        const OVERWRITE = 0b0000_0100;
+        const UPSERT = 0b0000_1000;
+    }
+}
+
+impl IfExistsFeatures {
+    /// Returns the features supported for `to_async_open_options_no_append` and
+    /// `to_sync_open_options_no_append`.
+    pub(crate) fn no_append() -> Self {
+        IfExistsFeatures::ERROR | IfExistsFeatures::OVERWRITE
+    }
+}
 
 /// What to do if the destination already exists.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -81,6 +100,30 @@ impl IfExists {
     pub(crate) fn warn_if_not_default_for_stdout(&self, ctx: &Context) {
         if self != &IfExists::default() {
             warn!(ctx.log(), "{} ignored for stdout", self)
+        }
+    }
+
+    /// Verify that this `if_exists` is one of the possibilities allowed by
+    /// `features`.
+    pub(crate) fn verify(&self, features: IfExistsFeatures) -> Result<()> {
+        match self {
+            IfExists::Error if !features.contains(IfExistsFeatures::ERROR) => Err(
+                format_err!("this driver does not support --if-exists=error"),
+            ),
+            IfExists::Overwrite if !features.contains(IfExistsFeatures::OVERWRITE) => {
+                Err(format_err!(
+                    "this driver does not support --if-exists=overwrite"
+                ))
+            }
+            IfExists::Append if !features.contains(IfExistsFeatures::APPEND) => Err(
+                format_err!("this driver does not support --if-exists=append"),
+            ),
+            IfExists::Upsert(_) if !features.contains(IfExistsFeatures::UPSERT) => {
+                Err(format_err!(
+                    "this driver does not support --if-exists=upsert-on:..."
+                ))
+            }
+            _ => Ok(()),
         }
     }
 }

@@ -95,34 +95,21 @@ impl Locator for BigQueryLocator {
     fn local_data(
         &self,
         ctx: Context,
-        schema: Table,
-        query: Query,
-        temporary_storage: TemporaryStorage,
-        args: DriverArgs,
+        shared_args: SharedArguments<Unverified>,
+        source_args: SourceArguments<Unverified>,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(ctx, self.clone(), schema, query, temporary_storage, args)
-            .boxed()
+        local_data_helper(ctx, self.clone(), shared_args, source_args).boxed()
     }
 
     fn write_local_data(
         &self,
         ctx: Context,
-        schema: Table,
         data: BoxStream<CsvStream>,
-        temporary_storage: TemporaryStorage,
-        args: DriverArgs,
-        if_exists: IfExists,
+        shared_args: SharedArguments<Unverified>,
+        dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
-        write_local_data_helper(
-            ctx,
-            self.clone(),
-            schema,
-            data,
-            temporary_storage,
-            args,
-            if_exists,
-        )
-        .boxed()
+        write_local_data_helper(ctx, self.clone(), data, shared_args, dest_args)
+            .boxed()
     }
 
     fn supports_write_remote_data(&self, source: &dyn Locator) -> bool {
@@ -134,26 +121,37 @@ impl Locator for BigQueryLocator {
     fn write_remote_data(
         &self,
         ctx: Context,
-        schema: Table,
         source: BoxLocator,
-        query: Query,
-        temporary_storage: TemporaryStorage,
-        from_args: DriverArgs,
-        to_args: DriverArgs,
-        if_exists: IfExists,
+        shared_args: SharedArguments<Unverified>,
+        source_args: SourceArguments<Unverified>,
+        dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<()> {
         write_remote_data_helper(
             ctx,
-            schema,
             source,
             self.to_owned(),
-            query,
-            temporary_storage,
-            from_args,
-            to_args,
-            if_exists,
+            shared_args,
+            source_args,
+            dest_args,
         )
         .boxed()
+    }
+}
+
+impl LocatorStatic for BigQueryLocator {
+    fn features() -> Features {
+        Features {
+            locator: LocatorFeatures::SCHEMA
+                | LocatorFeatures::LOCAL_DATA
+                | LocatorFeatures::WRITE_LOCAL_DATA,
+            write_schema_if_exists: IfExistsFeatures::empty(),
+            source_args: SourceArgumentsFeatures::WHERE_CLAUSE,
+            dest_args: DestinationArgumentsFeatures::empty(),
+            dest_if_exists: IfExistsFeatures::OVERWRITE
+                | IfExistsFeatures::APPEND
+                | IfExistsFeatures::UPSERT,
+            _placeholder: (),
+        }
     }
 }
 

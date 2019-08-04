@@ -215,7 +215,7 @@ WHEN NOT MATCHED THEN INSERT (
     /// export to CSV.
     pub(crate) fn write_export_sql(
         &self,
-        query: &Query,
+        source_args: &SourceArguments<Verified>,
         f: &mut dyn Write,
     ) -> Result<()> {
         write!(f, "SELECT ")?;
@@ -226,7 +226,7 @@ WHEN NOT MATCHED THEN INSERT (
             col.write_export_select_expr(f)?;
         }
         write!(f, " FROM {}", Ident(&self.name.dotted().to_string()))?;
-        if let Some(where_clause) = &query.where_clause {
+        if let Some(where_clause) = source_args.where_clause() {
             write!(f, " WHERE ({})", where_clause)?;
         }
         Ok(())
