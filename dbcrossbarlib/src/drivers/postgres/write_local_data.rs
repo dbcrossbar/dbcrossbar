@@ -4,7 +4,7 @@ use std::{io::prelude::*, str};
 
 use super::{connect, csv_to_binary::copy_csv_to_pg_binary, Client, PostgresLocator};
 use crate::common::*;
-use crate::drivers::postgres_shared::{Ident, PgCreateTable};
+use crate::drivers::postgres_shared::{Ident, PgCreateTable, TableName};
 use crate::transform::spawn_sync_transform;
 
 /// If `table_name` exists, `DROP` it.
@@ -14,7 +14,7 @@ async fn drop_table_if_exists(
     table_name: String,
 ) -> Result<()> {
     debug!(ctx.log(), "deleting table {} if exists", table_name);
-    let drop_sql = format!("DROP TABLE IF EXISTS {}", Ident(&table_name));
+    let drop_sql = format!("DROP TABLE IF EXISTS {}", TableName(&table_name));
     let drop_stmt = client.prepare(&drop_sql).compat().await?;
     client
         .execute(&drop_stmt, &[])
@@ -88,12 +88,16 @@ fn copy_from_sql(
     data_format: &str,
 ) -> Result<String> {
     let mut copy_sql_buff = vec![];
-    writeln!(&mut copy_sql_buff, "COPY {:?} (", pg_create_table.name)?;
+    writeln!(
+        &mut copy_sql_buff,
+        "COPY {} (",
+        TableName(&pg_create_table.name),
+    )?;
     for (idx, col) in pg_create_table.columns.iter().enumerate() {
         if idx + 1 == pg_create_table.columns.len() {
-            writeln!(&mut copy_sql_buff, "    {:?}", col.name)?;
+            writeln!(&mut copy_sql_buff, "    {}", Ident(&col.name))?;
         } else {
-            writeln!(&mut copy_sql_buff, "    {:?},", col.name)?;
+            writeln!(&mut copy_sql_buff, "    {},", Ident(&col.name))?;
         }
     }
     writeln!(&mut copy_sql_buff, ") FROM STDIN WITH {}", data_format)?;

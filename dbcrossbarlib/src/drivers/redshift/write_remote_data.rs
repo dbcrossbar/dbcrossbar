@@ -4,7 +4,7 @@ use super::{credentials_sql, RedshiftLocator};
 use crate::common::*;
 use crate::drivers::{
     postgres::{connect, prepare_table},
-    postgres_shared::{pg_quote, Ident, PgCreateTable},
+    postgres_shared::{pg_quote, PgCreateTable, TableName},
     s3::S3Locator,
 };
 use crate::schema::{Column, DataType};
@@ -61,7 +61,7 @@ pub(crate) async fn write_remote_data_helper(
     // Ask RedShift to import from S3.
     let copy_sql = format!(
         "COPY {dest} FROM {source}\n{credentials}FORMAT CSV\nIGNOREHEADER 1",
-        dest = Ident(table_name),
+        dest = TableName(table_name),
         source = pg_quote(source_url.as_str()), // `$1` doesn't work here.
         credentials = credentials_sql(to_args)?,
     );

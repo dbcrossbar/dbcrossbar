@@ -2,7 +2,7 @@
 
 use std::{fmt, str::FromStr};
 
-use super::{Ident, PgColumn};
+use super::{PgColumn, TableName};
 use crate::common::*;
 use crate::schema::Column;
 
@@ -81,6 +81,9 @@ impl PgCreateTable {
         source_args: &SourceArguments<Verified>,
     ) -> Result<()> {
         write!(f, "SELECT ")?;
+        if self.columns.is_empty() {
+            return Err(format_err!("cannot export 0 columns"));
+        }
         let mut first: bool = true;
         for col in &self.columns {
             if first {
@@ -90,7 +93,7 @@ impl PgCreateTable {
             }
             col.write_export_select_expr(f)?;
         }
-        write!(f, " FROM {:?}", self.name)?;
+        write!(f, " FROM {}", TableName(&self.name))?;
         if let Some(where_clause) = source_args.where_clause() {
             write!(f, " WHERE ({})", where_clause)?;
         }
@@ -104,7 +107,7 @@ impl fmt::Display for PgCreateTable {
         if self.if_not_exists {
             write!(f, " IF NOT EXISTS")?;
         }
-        writeln!(f, " {} (", Ident(&self.name))?;
+        writeln!(f, " {} (", TableName(&self.name))?;
         for (idx, col) in self.columns.iter().enumerate() {
             write!(f, "    {}", col)?;
             if idx + 1 == self.columns.len() {

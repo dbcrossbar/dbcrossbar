@@ -246,7 +246,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
     let expected_schema = testdir.src_path("fixtures/many_types_expected.sql");
-    let pg_table = post_test_table_url("public.cp_csv_to_postgres_to_gs_to_csv");
+    let pg_table = post_test_table_url("testme1.cp_csv_to_postgres_to_gs_to_csv");
     let gs_dir = gs_test_dir_url("cp_csv_to_postgres_to_gs_to_csv");
     let bq_table = bq_test_table("cp_csv_to_postgres_to_gs_to_csv");
     let gs_dir_2 = gs_test_dir_url("cp_csv_to_postgres_to_gs_to_csv_2");
@@ -273,9 +273,10 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
         .stdout(Stdio::piped())
         .tee_output()
         .expect_success();
-    let postgres_sql = fs::read_to_string(&expected_schema)
-        .unwrap()
-        .replace("many_types", "cp_csv_to_postgres_to_gs_to_csv");
+    let postgres_sql = fs::read_to_string(&expected_schema).unwrap().replace(
+        "\"many_types\"",
+        "\"testme1\".\"cp_csv_to_postgres_to_gs_to_csv\"",
+    );
     testdir.expect_file_contents("pg.sql", &postgres_sql);
 
     // Postgres to gs://.

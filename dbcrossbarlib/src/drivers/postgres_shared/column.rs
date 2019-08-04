@@ -2,21 +2,9 @@
 
 use std::fmt;
 
-use super::{PgDataType, PgScalarDataType};
+use super::{Ident, PgDataType, PgScalarDataType};
 use crate::common::*;
 use crate::schema::Column;
-
-/// A PostgreSQL identifier. This will be printed with quotes as necessary to
-/// prevent clashes with keywords.
-pub(crate) struct Ident<'a>(pub(crate) &'a str);
-
-impl<'a> fmt::Display for Ident<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // TODO: For now, we just quote everything, and not even necessarily
-        // correctly.
-        write!(f, "{:?}", self.0)
-    }
-}
 
 /// A column in a PostgreSQL table.
 #[derive(Clone, Debug, Eq, PartialEq)]

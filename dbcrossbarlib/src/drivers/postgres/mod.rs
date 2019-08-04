@@ -136,6 +136,24 @@ impl FromStr for PostgresLocator {
     }
 }
 
+#[test]
+fn from_str_parses_schemas() {
+    let examples = &[
+        ("postgres://user:pass@host/db#table", "table"),
+        ("postgres://user:pass@host/db#public.table", "public.table"),
+        (
+            "postgres://user:pass@host/db#testme1.table",
+            "testme1.table",
+        ),
+    ];
+    for &(url, table_name) in examples {
+        assert_eq!(
+            PostgresLocator::from_str(url).unwrap().table_name,
+            table_name,
+        );
+    }
+}
+
 impl Locator for PostgresLocator {
     fn as_any(&self) -> &dyn Any {
         self
