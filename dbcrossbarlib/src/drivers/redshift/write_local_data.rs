@@ -18,20 +18,20 @@ pub(crate) async fn write_local_data_helper(
     let s3_dest_args = DestinationArguments::for_temporary();
     let s3_source_args = SourceArguments::for_temporary();
 
-    // Copy to a temporary gs:// location.
+    // Copy to a temporary s3:// location.
     let to_temp_ctx = ctx.child(o!("to_temp" => s3_temp.to_string()));
     let result_stream = s3_temp
         .write_local_data(to_temp_ctx, data, shared_args.clone(), s3_dest_args)
         .await?;
 
-    // Wait for all gs:// uploads to finish with controllable parallelism.
+    // Wait for all s3:// uploads to finish with controllable parallelism.
     //
     // TODO: This duplicates our top-level `cp` code and we need to implement
     // the same rules for picking a good argument to `consume_with_parallelism`
     // and not just hard code our parallelism.
     result_stream.consume_with_parallelism(4).await?;
 
-    // Load from gs:// to BigQuery.
+    // Load from s3:// to Redshift.
     let from_temp_ctx = ctx.child(o!("from_temp" => s3_temp.to_string()));
     dest.write_remote_data(
         from_temp_ctx,
@@ -42,7 +42,7 @@ pub(crate) async fn write_local_data_helper(
     )
     .await?;
 
-    // We don't need any parallelism after the BigQuery step, so just return
+    // We don't need any parallelism after the Redshift step, so just return
     // a stream containing a single future.
     let fut = async { Ok(()) }.boxed();
     Ok(box_stream_once(Ok(fut)))

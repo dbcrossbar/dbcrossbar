@@ -16,7 +16,7 @@ pub(crate) async fn local_data_helper(
     let s3_dest_args = DestinationArguments::for_temporary();
     let s3_source_args = SourceArguments::for_temporary();
 
-    // Extract from BigQuery to gs://.
+    // Extract from Redshift to s3://.
     let to_temp_ctx = ctx.child(o!("to_temp" => s3_temp.to_string()));
     s3_temp
         .write_remote_data(
