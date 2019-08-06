@@ -6,6 +6,7 @@ use std::{fmt, result};
 use super::column::Mode;
 use crate::common::*;
 use crate::schema::{DataType, Srid};
+use crate::separator::Separator;
 
 /// Include our `rust-peg` grammar.
 ///
@@ -267,14 +268,9 @@ impl fmt::Display for BqNonArrayDataType {
             BqNonArrayDataType::String => write!(f, "STRING"),
             BqNonArrayDataType::Struct(fields) => {
                 write!(f, "STRUCT<")?;
-                let mut is_first = true;
+                let mut sep = Separator::new(",");
                 for field in fields {
-                    if is_first {
-                        is_first = false;
-                    } else {
-                        write!(f, ",")?;
-                    }
-                    write!(f, "{}", field)?;
+                    write!(f, "{}{}", sep.display(), field)?;
                 }
                 write!(f, ">")
             }

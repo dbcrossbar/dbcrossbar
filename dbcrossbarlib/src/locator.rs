@@ -1,10 +1,12 @@
 //! Specify the location of data or a schema.
 
+use bitflags::bitflags;
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::{fmt, str::FromStr};
+use std::{fmt, marker::PhantomData, str::FromStr};
 
 use crate::common::*;
+use crate::drivers::find_driver;
 
 /// Specify the the location of data or a schema.
 pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
@@ -69,9 +71,8 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     fn local_data(
         &self,
         _ctx: Context,
-        _schema: Table,
-        _query: Query,
-        _temporary_storage: TemporaryStorage,
+        _shared_args: SharedArguments<Unverified>,
+        _source_args: SourceArguments<Unverified>,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
         // Turn our result into a future.
         async { Ok(None) }.boxed()
@@ -87,7 +88,7 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     /// ```no_compile
     /// # Pseudo code for parallel output.
     /// data.map(async |csv_stream| {
-    ///     await!(write(csv_stream))?;
+    ///     write(csv_stream).await?;
     ///     Ok(())
     /// })
     /// ```
@@ -100,10 +101,9 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     fn write_local_data(
         &self,
         _ctx: Context,
-        _schema: Table,
         _data: BoxStream<CsvStream>,
-        _temporary_storage: TemporaryStorage,
-        _if_exists: IfExists,
+        _shared_args: SharedArguments<Unverified>,
+        _dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         let err = format_err!("cannot write data to {}", self);
         async move { Err(err) }.boxed()
@@ -122,11 +122,10 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     fn write_remote_data(
         &self,
         _ctx: Context,
-        _schema: Table,
         source: BoxLocator,
-        _query: Query,
-        _temporary_storage: TemporaryStorage,
-        _if_exists: IfExists,
+        _shared_args: SharedArguments<Unverified>,
+        _source_args: SourceArguments<Unverified>,
+        _dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<()> {
         let err = format_err!("cannot write_remote_data from source {}", source);
         async move { Err(err) }.boxed()
@@ -140,11 +139,6 @@ impl FromStr for BoxLocator {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        use crate::drivers::{
-            bigquery::*, bigquery_schema::*, csv::*, dbcrossbar_schema::*, gs::*,
-            postgres::*, postgres_sql::*, s3::*,
-        };
-
         // Parse our locator into a URL-style scheme and the rest.
         lazy_static! {
             static ref SCHEME_RE: Regex = Regex::new("^[A-Za-z][-A-Za-z0-9+.]*:")
@@ -156,21 +150,8 @@ impl FromStr for BoxLocator {
         let scheme = &cap[0];
 
         // Select an appropriate locator type.
-        match scheme {
-            BIGQUERY_SCHEME => Ok(Box::new(BigQueryLocator::from_str(s)?)),
-            BIGQUERY_SCHEMA_SCHEME => {
-                Ok(Box::new(BigQuerySchemaLocator::from_str(s)?))
-            }
-            CSV_SCHEME => Ok(Box::new(CsvLocator::from_str(s)?)),
-            DBCROSSBAR_SCHEMA_SCHEME => {
-                Ok(Box::new(DbcrossbarSchemaLocator::from_str(s)?))
-            }
-            GS_SCHEME => Ok(Box::new(GsLocator::from_str(s)?)),
-            POSTGRES_SCHEME => Ok(Box::new(PostgresLocator::from_str(s)?)),
-            POSTGRES_SQL_SCHEME => Ok(Box::new(PostgresSqlLocator::from_str(s)?)),
-            S3_SCHEME => Ok(Box::new(S3Locator::from_str(s)?)),
-            _ => Err(format_err!("unknown locator scheme in {:?}", s)),
-        }
+        let driver = find_driver(scheme)?;
+        driver.parse(s)
     }
 }
 
@@ -190,5 +171,130 @@ fn locator_from_str_to_string_roundtrip() {
     for locator in locators.into_iter() {
         let parsed: BoxLocator = locator.parse().unwrap();
         assert_eq!(parsed.to_string(), locator);
+    }
+}
+
+bitflags! {
+    /// What `Locator` features are supported by a given driver?
+    pub struct LocatorFeatures: u8 {
+        const SCHEMA = 0b0000_0001;
+        const WRITE_SCHEMA = 0b0000_0010;
+        const LOCAL_DATA = 0b0000_0100;
+        const WRITE_LOCAL_DATA = 0b0000_1000;
+    }
+}
+
+/// A collection of all the features supported by a given driver. This is
+/// used to automatically verify whether the arguments passed to a driver
+/// are actually supported.
+#[derive(Debug, Copy, Clone)]
+pub struct Features {
+    pub locator: LocatorFeatures,
+    pub write_schema_if_exists: IfExistsFeatures,
+    pub source_args: SourceArgumentsFeatures,
+    pub dest_args: DestinationArgumentsFeatures,
+    pub dest_if_exists: IfExistsFeatures,
+    pub(crate) _placeholder: (),
+}
+
+impl Features {
+    /// Return the empty set of features.
+    pub(crate) fn empty() -> Self {
+        Features {
+            locator: LocatorFeatures::empty(),
+            write_schema_if_exists: IfExistsFeatures::empty(),
+            source_args: SourceArgumentsFeatures::empty(),
+            dest_args: DestinationArgumentsFeatures::empty(),
+            dest_if_exists: IfExistsFeatures::empty(),
+            _placeholder: (),
+        }
+    }
+}
+
+impl fmt::Display for Features {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.locator.contains(LocatorFeatures::SCHEMA) {
+            writeln!(f, "- conv FROM")?;
+        }
+        if self.locator.contains(LocatorFeatures::WRITE_SCHEMA) {
+            writeln!(f, "- conv TO:")?;
+            writeln!(f, "  {}", self.write_schema_if_exists)?;
+        }
+        if self.locator.contains(LocatorFeatures::LOCAL_DATA) {
+            writeln!(f, "- cp FROM:")?;
+            if !self.source_args.is_empty() {
+                writeln!(f, "  {}", self.source_args)?;
+            }
+        }
+        if self.locator.contains(LocatorFeatures::WRITE_LOCAL_DATA) {
+            writeln!(f, "- cp TO:")?;
+            if !self.dest_args.is_empty() {
+                writeln!(f, "  {}", self.dest_args)?;
+            }
+            writeln!(f, "  {}", self.dest_if_exists)?;
+        }
+        Ok(())
+    }
+}
+
+/// Extra `Locator` methods that can only be called statically. These cannot
+/// accessed via a `Box<Locator>`.
+pub trait LocatorStatic: Locator + Clone + FromStr<Err = Error> + Sized {
+    /// Return the "scheme" used to format this locator, e.g., `"postgres:"`.
+    fn scheme() -> &'static str;
+
+    /// Return a mask of `LocatorFeatures` supported by this `Locator` type.
+    fn features() -> Features;
+}
+
+/// Interface to a locator driver. This exists because we Rust can't treat
+/// classes as objects, the way Ruby can. Instead, what we do is take classes
+/// that implement [`LocatorStatic`] and wrap them up in objects that implement
+/// the `LocatorDriver` interface.
+pub trait LocatorDriver: Send + Sync + 'static {
+    /// Return the "scheme" used to format this locator, e.g., `"postgres:"`.
+    fn scheme(&self) -> &str;
+
+    /// The name of this driver. The same as [`LocatorDriver::schema`], but
+    /// without the trailing `:`.
+    fn name(&self) -> &str {
+        let scheme = self.scheme();
+        assert!(scheme.ends_with(':'));
+        &scheme[..scheme.len() - 1]
+    }
+
+    /// The features supported by this driver.
+    fn features(&self) -> Features;
+
+    /// Parse a locator string and return a [`BoxLocator`].
+    fn parse(&self, s: &str) -> Result<BoxLocator>;
+}
+
+/// A wrapper type which converts a [`LocatorStatic`] class into an
+/// implementation of the [`LocatorDriver`] interface. This allows us to treat
+/// Rust classes as run-time objects, the way we can in Ruby.
+pub(crate) struct LocatorDriverWrapper<L> {
+    _phantom: PhantomData<L>,
+}
+
+impl<L: LocatorStatic> LocatorDriverWrapper<L> {
+    pub(crate) fn new() -> Self {
+        LocatorDriverWrapper {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<L: LocatorStatic> LocatorDriver for LocatorDriverWrapper<L> {
+    fn scheme(&self) -> &str {
+        L::scheme()
+    }
+
+    fn features(&self) -> Features {
+        L::features()
+    }
+
+    fn parse(&self, s: &str) -> Result<BoxLocator> {
+        Ok(Box::new(s.parse::<L>()?))
     }
 }

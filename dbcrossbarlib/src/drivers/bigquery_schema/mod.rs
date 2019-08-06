@@ -5,18 +5,15 @@ use std::{fmt, str::FromStr};
 use crate::common::*;
 use crate::drivers::bigquery_shared::{BqColumn, BqTable, TableName, Usage};
 
-/// URL scheme for `PostgresSqlLocator`.
-pub(crate) const BIGQUERY_SCHEMA_SCHEME: &str = "bigquery-schema:";
-
 /// A JSON file containing BigQuery table schema.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BigQuerySchemaLocator {
     path: PathOrStdio,
 }
 
 impl fmt::Display for BigQuerySchemaLocator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.path.fmt_locator_helper(BIGQUERY_SCHEMA_SCHEME, f)
+        self.path.fmt_locator_helper(Self::scheme(), f)
     }
 }
 
@@ -24,7 +21,7 @@ impl FromStr for BigQuerySchemaLocator {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        let path = PathOrStdio::from_str_locator_helper(BIGQUERY_SCHEMA_SCHEME, s)?;
+        let path = PathOrStdio::from_str_locator_helper(Self::scheme(), s)?;
         Ok(BigQuerySchemaLocator { path })
     }
 }
@@ -75,5 +72,22 @@ impl Locator for BigQuerySchemaLocator {
             Usage::FinalTable,
         )?;
         bq_table.write_json_schema(&mut f)
+    }
+}
+
+impl LocatorStatic for BigQuerySchemaLocator {
+    fn scheme() -> &'static str {
+        "bigquery-schema:"
+    }
+
+    fn features() -> Features {
+        Features {
+            locator: LocatorFeatures::SCHEMA | LocatorFeatures::WRITE_SCHEMA,
+            write_schema_if_exists: IfExistsFeatures::no_append(),
+            source_args: SourceArgumentsFeatures::empty(),
+            dest_args: DestinationArgumentsFeatures::empty(),
+            dest_if_exists: IfExistsFeatures::empty(),
+            _placeholder: (),
+        }
     }
 }

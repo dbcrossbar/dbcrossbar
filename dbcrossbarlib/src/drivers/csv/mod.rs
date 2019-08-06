@@ -11,22 +11,19 @@ use crate::csv_stream::csv_stream_name;
 use crate::schema::{Column, DataType, Table};
 use crate::tokio_glue::{copy_reader_to_stream, copy_stream_to_writer};
 
-/// Locator scheme for CSV files.
-pub(crate) const CSV_SCHEME: &str = "csv:";
-
 /// (Incomplete.) A CSV file containing data, or a directory containing CSV
 /// files.
 ///
 /// TODO: Right now, we take a file path as input and a directory path as
 /// output, because we're lazy and haven't finished building this.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct CsvLocator {
     path: PathOrStdio,
 }
 
 impl fmt::Display for CsvLocator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.path.fmt_locator_helper(CSV_SCHEME, f)
+        self.path.fmt_locator_helper(Self::scheme(), f)
     }
 }
 
@@ -34,7 +31,7 @@ impl FromStr for CsvLocator {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        let path = PathOrStdio::from_str_locator_helper(CSV_SCHEME, s)?;
+        let path = PathOrStdio::from_str_locator_helper(Self::scheme(), s)?;
         Ok(CsvLocator { path })
     }
 }
@@ -83,22 +80,20 @@ impl Locator for CsvLocator {
     fn local_data(
         &self,
         ctx: Context,
-        _schema: Table,
-        query: Query,
-        _temporary_storage: TemporaryStorage,
+        shared_args: SharedArguments<Unverified>,
+        source_args: SourceArguments<Unverified>,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(ctx, self.path.clone(), query).boxed()
+        local_data_helper(ctx, self.path.clone(), shared_args, source_args).boxed()
     }
 
     fn write_local_data(
         &self,
         ctx: Context,
-        schema: Table,
         data: BoxStream<CsvStream>,
-        _temporary_storage: TemporaryStorage,
-        if_exists: IfExists,
+        shared_args: SharedArguments<Unverified>,
+        dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
-        write_local_data_helper(ctx, self.path.clone(), schema, data, if_exists)
+        write_local_data_helper(ctx, self.path.clone(), data, shared_args, dest_args)
             .boxed()
     }
 }
@@ -106,9 +101,11 @@ impl Locator for CsvLocator {
 async fn local_data_helper(
     ctx: Context,
     path: PathOrStdio,
-    query: Query,
+    shared_args: SharedArguments<Unverified>,
+    source_args: SourceArguments<Unverified>,
 ) -> Result<Option<BoxStream<CsvStream>>> {
-    query.fail_if_query_details_provided()?;
+    let _shared_args = shared_args.verify(CsvLocator::features())?;
+    let _source_args = source_args.verify(CsvLocator::features())?;
     match path {
         PathOrStdio::Stdio => {
             let data = BufReader::with_capacity(BUFFER_SIZE, io::stdin());
@@ -195,10 +192,13 @@ async fn local_data_helper(
 async fn write_local_data_helper(
     ctx: Context,
     path: PathOrStdio,
-    _schema: Table,
     data: BoxStream<CsvStream>,
-    if_exists: IfExists,
+    shared_args: SharedArguments<Unverified>,
+    dest_args: DestinationArguments<Unverified>,
 ) -> Result<BoxStream<BoxFuture<()>>> {
+    let _shared_args = shared_args.verify(CsvLocator::features())?;
+    let dest_args = dest_args.verify(CsvLocator::features())?;
+    let if_exists = dest_args.if_exists().to_owned();
     match path {
         PathOrStdio::Stdio => {
             if_exists.warn_if_not_default_for_stdout(&ctx);
@@ -277,4 +277,23 @@ async fn write_stream_to_file(
         .await
         .with_context(|_| format!("error writing {}", dest.display()))?;
     Ok(())
+}
+
+impl LocatorStatic for CsvLocator {
+    fn scheme() -> &'static str {
+        "csv:"
+    }
+
+    fn features() -> Features {
+        Features {
+            locator: LocatorFeatures::SCHEMA
+                | LocatorFeatures::LOCAL_DATA
+                | LocatorFeatures::WRITE_LOCAL_DATA,
+            write_schema_if_exists: IfExistsFeatures::empty(),
+            source_args: SourceArgumentsFeatures::empty(),
+            dest_args: DestinationArgumentsFeatures::empty(),
+            dest_if_exists: IfExistsFeatures::no_append(),
+            _placeholder: (),
+        }
+    }
 }

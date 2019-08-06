@@ -4,18 +4,15 @@ use std::{fmt, str::FromStr};
 
 use crate::common::*;
 
-/// URL scheme for `DbcrossbarSchemaLocator`.
-pub(crate) const DBCROSSBAR_SCHEMA_SCHEME: &str = "dbcrossbar-schema:";
-
 /// A JSON file containing BigQuery table schema.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct DbcrossbarSchemaLocator {
     path: PathOrStdio,
 }
 
 impl fmt::Display for DbcrossbarSchemaLocator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.path.fmt_locator_helper(DBCROSSBAR_SCHEMA_SCHEME, f)
+        self.path.fmt_locator_helper(Self::scheme(), f)
     }
 }
 
@@ -23,7 +20,7 @@ impl FromStr for DbcrossbarSchemaLocator {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        let path = PathOrStdio::from_str_locator_helper(DBCROSSBAR_SCHEMA_SCHEME, s)?;
+        let path = PathOrStdio::from_str_locator_helper(Self::scheme(), s)?;
         Ok(DbcrossbarSchemaLocator { path })
     }
 }
@@ -58,5 +55,22 @@ impl Locator for DbcrossbarSchemaLocator {
         serde_json::to_writer_pretty(&mut f, table)
             .with_context(|_| format!("error writing {}", self.path))?;
         Ok(())
+    }
+}
+
+impl LocatorStatic for DbcrossbarSchemaLocator {
+    fn scheme() -> &'static str {
+        "dbcrossbar-schema:"
+    }
+
+    fn features() -> Features {
+        Features {
+            locator: LocatorFeatures::SCHEMA | LocatorFeatures::WRITE_SCHEMA,
+            write_schema_if_exists: IfExistsFeatures::no_append(),
+            source_args: SourceArgumentsFeatures::empty(),
+            dest_args: DestinationArgumentsFeatures::empty(),
+            dest_if_exists: IfExistsFeatures::empty(),
+            _placeholder: (),
+        }
     }
 }

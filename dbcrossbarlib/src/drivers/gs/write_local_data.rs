@@ -3,7 +3,7 @@
 use std::process::{Command, Stdio};
 use tokio_process::CommandExt;
 
-use super::prepare_as_destination_helper;
+use super::{prepare_as_destination_helper, GsLocator};
 use crate::common::*;
 use crate::tokio_glue::copy_stream_to_writer;
 
@@ -11,11 +11,15 @@ use crate::tokio_glue::copy_stream_to_writer;
 pub(crate) async fn write_local_data_helper(
     ctx: Context,
     url: Url,
-    _schema: Table,
     data: BoxStream<CsvStream>,
-    if_exists: IfExists,
+    shared_args: SharedArguments<Unverified>,
+    dest_args: DestinationArguments<Unverified>,
 ) -> Result<BoxStream<BoxFuture<()>>> {
+    let _shared_args = shared_args.verify(GsLocator::features())?;
+    let dest_args = dest_args.verify(GsLocator::features())?;
+
     // Delete the existing output, if it exists.
+    let if_exists = dest_args.if_exists().to_owned();
     prepare_as_destination_helper(ctx.clone(), url.clone(), if_exists).await?;
 
     // Spawn our uploader processes.

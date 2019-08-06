@@ -18,12 +18,11 @@ use crate::drivers::{
 /// makes the code much clearer.
 pub(crate) async fn write_remote_data_helper(
     ctx: Context,
-    schema: Table,
     source: BoxLocator,
     dest: GsLocator,
-    query: Query,
-    temporary_storage: TemporaryStorage,
-    if_exists: IfExists,
+    shared_args: SharedArguments<Unverified>,
+    source_args: SourceArguments<Unverified>,
+    dest_args: DestinationArguments<Unverified>,
 ) -> Result<()> {
     // Convert the source locator into the underlying `TableName. This is a bit
     // fiddly because we're downcasting `source` and relying on knowledge about
@@ -31,9 +30,19 @@ pub(crate) async fn write_remote_data_helper(
     let source_table_name = source
         .as_any()
         .downcast_ref::<BigQueryLocator>()
-        .ok_or_else(|| format_err!("not a gs:// locator: {}", source))?
+        .ok_or_else(|| format_err!("not a bigquery locator: {}", source))?
         .as_table_name()
         .to_owned();
+
+    // Verify our arguments.
+    let shared_args = shared_args.verify(GsLocator::features())?;
+    let source_args = source_args.verify(BigQueryLocator::features())?;
+    let dest_args = dest_args.verify(GsLocator::features())?;
+
+    // Look up the arguments we need.
+    let schema = shared_args.schema();
+    let temporary_storage = shared_args.temporary_storage();
+    let if_exists = dest_args.if_exists().to_owned();
 
     // Construct a `BqTable` describing our source table.
     let source_table = BqTable::for_table_name_and_columns(
@@ -47,7 +56,7 @@ pub(crate) async fn write_remote_data_helper(
         .name()
         .temporary_table_name(&temporary_storage)?;
     let mut export_sql_data = vec![];
-    source_table.write_export_sql(&query, &mut export_sql_data)?;
+    source_table.write_export_sql(&source_args, &mut export_sql_data)?;
     let export_sql =
         String::from_utf8(export_sql_data).expect("should always be UTF-8");
     debug!(ctx.log(), "export SQL: {}", export_sql);

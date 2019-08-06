@@ -9,24 +9,20 @@ use crate::tokio_glue::ConsumeWithParallelism;
 pub(crate) async fn write_local_data_helper(
     ctx: Context,
     dest: BigQueryLocator,
-    schema: Table,
     data: BoxStream<CsvStream>,
-    temporary_storage: TemporaryStorage,
-    if_exists: IfExists,
+    shared_args: SharedArguments<Unverified>,
+    dest_args: DestinationArguments<Unverified>,
 ) -> Result<BoxStream<BoxFuture<()>>> {
     // Build a temporary location.
-    let gs_temp = find_gs_temp_dir(&temporary_storage)?;
+    let shared_args_v = shared_args.clone().verify(BigQueryLocator::features())?;
+    let gs_temp = find_gs_temp_dir(shared_args_v.temporary_storage())?;
+    let gs_dest_args = DestinationArguments::for_temporary();
+    let gs_source_args = SourceArguments::for_temporary();
 
     // Copy to a temporary gs:// location.
     let to_temp_ctx = ctx.child(o!("to_temp" => gs_temp.to_string()));
     let result_stream = gs_temp
-        .write_local_data(
-            to_temp_ctx,
-            schema.clone(),
-            data,
-            temporary_storage.clone(),
-            IfExists::Overwrite,
-        )
+        .write_local_data(to_temp_ctx, data, shared_args.clone(), gs_dest_args)
         .await?;
 
     // Wait for all gs:// uploads to finish with controllable parallelism.
@@ -40,11 +36,10 @@ pub(crate) async fn write_local_data_helper(
     let from_temp_ctx = ctx.child(o!("from_temp" => gs_temp.to_string()));
     dest.write_remote_data(
         from_temp_ctx,
-        schema,
         Box::new(gs_temp),
-        Query::default(),
-        temporary_storage,
-        if_exists,
+        shared_args,
+        gs_source_args,
+        dest_args,
     )
     .await?;
 

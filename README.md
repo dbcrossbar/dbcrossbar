@@ -120,11 +120,17 @@ docker run --name postgres -e POSTGRES_PASSWORD= -p 5432:5432 -d mdillon/postgis
 createdb -h localhost -U postgres -w dbcrossbar_test
 export POSTGRES_TEST_URL=postgres://postgres:@localhost:5432/dbcrossbar_test
 echo "create extension if not exists postgis;" | psql $POSTGRES_TEST_URL
+echo "create schema if not exists testme1;" | psql $POSTGRES_TEST_URL
 
-# Point to a Goolge Cloud Storage bucket for which you have write permissions.
+# Point to test databases and test buckets.
 export GS_TEST_URL=gs://$MY_GS_TEST_BUCKET/dbcrossbar/
 export BQ_TEST_DATASET=$MY_BQ_ROOT:test
 export S3_TEST_URL=s3://$MT_S3_TEST_BUCKET/dbcrossbar/
+
+# These can be omitted if you don't want to test Redshift.
+export REDSHIFT_TEST_URL=redshift://user:pass@server:port/db
+export REDSHIFT_TEST_IAM_ROLE=$MY_IAM_ROLE
+export REDSHIFT_TEST_REGIION=$MY_AWS_REGION
 
 # Run the integration tests.
 env RUST_BACKTRACE=1 RUST_LOG=warn,dbcrossbarlib=debug,dbcrossbar=debug \

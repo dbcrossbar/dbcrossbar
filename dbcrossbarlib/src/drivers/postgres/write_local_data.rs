@@ -2,9 +2,9 @@
 
 use std::{io::prelude::*, str};
 
-use super::{connect, csv_to_binary::copy_csv_to_pg_binary, Client};
+use super::{connect, csv_to_binary::copy_csv_to_pg_binary, Client, PostgresLocator};
 use crate::common::*;
-use crate::drivers::postgres_shared::{Ident, PgCreateTable};
+use crate::drivers::postgres_shared::{Ident, PgCreateTable, TableName};
 use crate::transform::spawn_sync_transform;
 
 /// If `table_name` exists, `DROP` it.
@@ -14,7 +14,7 @@ async fn drop_table_if_exists(
     table_name: String,
 ) -> Result<()> {
     debug!(ctx.log(), "deleting table {} if exists", table_name);
-    let drop_sql = format!("DROP TABLE IF EXISTS {}", Ident(&table_name));
+    let drop_sql = format!("DROP TABLE IF EXISTS {}", TableName(&table_name));
     let drop_stmt = client.prepare(&drop_sql).compat().await?;
     client
         .execute(&drop_stmt, &[])
@@ -47,7 +47,7 @@ async fn create_table(
 ///
 /// We take ownership of `pg_create_table` because we want to edit it before
 /// running it.
-async fn prepare_table(
+pub(crate) async fn prepare_table(
     ctx: Context,
     client: &mut Client,
     mut pg_create_table: PgCreateTable,
@@ -88,12 +88,16 @@ fn copy_from_sql(
     data_format: &str,
 ) -> Result<String> {
     let mut copy_sql_buff = vec![];
-    writeln!(&mut copy_sql_buff, "COPY {:?} (", pg_create_table.name)?;
+    writeln!(
+        &mut copy_sql_buff,
+        "COPY {} (",
+        TableName(&pg_create_table.name),
+    )?;
     for (idx, col) in pg_create_table.columns.iter().enumerate() {
         if idx + 1 == pg_create_table.columns.len() {
-            writeln!(&mut copy_sql_buff, "    {:?}", col.name)?;
+            writeln!(&mut copy_sql_buff, "    {}", Ident(&col.name))?;
         } else {
-            writeln!(&mut copy_sql_buff, "    {:?},", col.name)?;
+            writeln!(&mut copy_sql_buff, "    {},", Ident(&col.name))?;
         }
     }
     writeln!(&mut copy_sql_buff, ") FROM STDIN WITH {}", data_format)?;
@@ -128,10 +132,17 @@ pub(crate) async fn write_local_data_helper(
     ctx: Context,
     url: Url,
     table_name: String,
-    schema: Table,
     mut data: BoxStream<CsvStream>,
-    if_exists: IfExists,
+    shared_args: SharedArguments<Unverified>,
+    dest_args: DestinationArguments<Unverified>,
 ) -> Result<BoxStream<BoxFuture<()>>> {
+    let shared_args = shared_args.verify(PostgresLocator::features())?;
+    let dest_args = dest_args.verify(PostgresLocator::features())?;
+
+    // Look up our arguments.
+    let schema = shared_args.schema();
+    let if_exists = dest_args.if_exists();
+
     let ctx = ctx.child(o!("table" => schema.name.clone()));
     debug!(
         ctx.log(),
@@ -142,11 +153,7 @@ pub(crate) async fn write_local_data_helper(
     let pg_create_table =
         PgCreateTable::from_name_and_columns(table_name.clone(), &schema.columns)?;
 
-    // Connect to PostgreSQL and prepare our table. We `drop(conn)` afterwards
-    // because it can't be kept alive over an `await!`. This is because `conn`
-    // isn't safe to send between threads (specifically, it doesn't implement
-    // `Send`), and because `await!` may result in us getting scheduled onto
-    // a different thread.
+    // Connect to PostgreSQL and prepare our table.
     let mut client = connect(ctx.clone(), url.clone()).await?;
     prepare_table(
         ctx.clone(),

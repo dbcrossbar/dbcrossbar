@@ -24,8 +24,10 @@ mod write_local_data;
 use self::local_data::local_data_helper;
 use self::write_local_data::write_local_data_helper;
 
+pub(crate) use write_local_data::prepare_table;
+
 /// Connect to the database, using SSL if possible.
-async fn connect(ctx: Context, url: Url) -> Result<Client> {
+pub(crate) async fn connect(ctx: Context, url: Url) -> Result<Client> {
     let mut base_url = url.clone();
     base_url.set_fragment(None);
 
@@ -52,19 +54,27 @@ async fn connect(ctx: Context, url: Url) -> Result<Client> {
     Ok(client)
 }
 
-/// URL scheme for `PostgresLocator`.
-pub(crate) const POSTGRES_SCHEME: &str = "postgres:";
-
 /// A Postgres database URL and a table name.
 ///
 /// This is the central point of access for talking to a running PostgreSQL
 /// database.
+#[derive(Clone)]
 pub struct PostgresLocator {
     url: Url,
     table_name: String,
 }
 
 impl PostgresLocator {
+    /// The URL associated with this locator.
+    pub(crate) fn url(&self) -> &Url {
+        &self.url
+    }
+
+    /// The table name associated with this locator.
+    pub(crate) fn table_name(&self) -> &str {
+        &self.table_name
+    }
+
     /// Return our `url`, replacing any password with a placeholder string. Used
     /// for logging.
     fn url_without_password(&self) -> Url {
@@ -107,7 +117,7 @@ impl FromStr for PostgresLocator {
 
     fn from_str(s: &str) -> Result<Self> {
         let mut url: Url = s.parse::<Url>().context("cannot parse Postgres URL")?;
-        if url.scheme() != &POSTGRES_SCHEME[..POSTGRES_SCHEME.len() - 1] {
+        if url.scheme() != &Self::scheme()[..Self::scheme().len() - 1] {
             Err(format_err!("expected URL scheme postgres: {:?}", s))
         } else {
             // Extract table name from URL.
@@ -123,6 +133,24 @@ impl FromStr for PostgresLocator {
     }
 }
 
+#[test]
+fn from_str_parses_schemas() {
+    let examples = &[
+        ("postgres://user:pass@host/db#table", "table"),
+        ("postgres://user:pass@host/db#public.table", "public.table"),
+        (
+            "postgres://user:pass@host/db#testme1.table",
+            "testme1.table",
+        ),
+    ];
+    for &(url, table_name) in examples {
+        assert_eq!(
+            PostgresLocator::from_str(url).unwrap().table_name,
+            table_name,
+        );
+    }
+}
+
 impl Locator for PostgresLocator {
     fn as_any(&self) -> &dyn Any {
         self
@@ -135,16 +163,15 @@ impl Locator for PostgresLocator {
     fn local_data(
         &self,
         ctx: Context,
-        schema: Table,
-        query: Query,
-        _temporary_storage: TemporaryStorage,
+        shared_args: SharedArguments<Unverified>,
+        source_args: SourceArguments<Unverified>,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
         local_data_helper(
             ctx,
             self.url.clone(),
             self.table_name.clone(),
-            schema,
-            query,
+            shared_args,
+            source_args,
         )
         .boxed()
     }
@@ -152,19 +179,39 @@ impl Locator for PostgresLocator {
     fn write_local_data(
         &self,
         ctx: Context,
-        schema: Table,
         data: BoxStream<CsvStream>,
-        _temporary_storage: TemporaryStorage,
-        if_exists: IfExists,
+        shared_args: SharedArguments<Unverified>,
+        dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
         write_local_data_helper(
             ctx,
             self.url.clone(),
             self.table_name.clone(),
-            schema,
             data,
-            if_exists,
+            shared_args,
+            dest_args,
         )
         .boxed()
+    }
+}
+
+impl LocatorStatic for PostgresLocator {
+    fn scheme() -> &'static str {
+        "postgres:"
+    }
+
+    fn features() -> Features {
+        Features {
+            locator: LocatorFeatures::SCHEMA
+                | LocatorFeatures::LOCAL_DATA
+                | LocatorFeatures::WRITE_LOCAL_DATA,
+            write_schema_if_exists: IfExistsFeatures::empty(),
+            source_args: SourceArgumentsFeatures::WHERE_CLAUSE,
+            dest_args: DestinationArgumentsFeatures::empty(),
+            dest_if_exists: IfExistsFeatures::OVERWRITE
+                | IfExistsFeatures::APPEND
+                | IfExistsFeatures::ERROR,
+            _placeholder: (),
+        }
     }
 }

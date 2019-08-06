@@ -15,9 +15,6 @@ pub(crate) use prepare_as_destination::prepare_as_destination_helper;
 use write_local_data::write_local_data_helper;
 use write_remote_data::write_remote_data_helper;
 
-/// Locator scheme for Google Cloud Storage.
-pub(crate) const GS_SCHEME: &str = "gs:";
-
 #[derive(Clone, Debug)]
 pub(crate) struct GsLocator {
     url: Url,
@@ -40,7 +37,7 @@ impl FromStr for GsLocator {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        if s.starts_with(GS_SCHEME) {
+        if s.starts_with(Self::scheme()) {
             let url = s
                 .parse::<Url>()
                 .with_context(|_| format!("cannot parse {}", s))?;
@@ -65,22 +62,21 @@ impl Locator for GsLocator {
     fn local_data(
         &self,
         ctx: Context,
-        _schema: Table,
-        query: Query,
-        _temporary_storage: TemporaryStorage,
+        shared_args: SharedArguments<Unverified>,
+        source_args: SourceArguments<Unverified>,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(ctx, self.url.clone(), query).boxed()
+        local_data_helper(ctx, self.url.clone(), shared_args, source_args).boxed()
     }
 
     fn write_local_data(
         &self,
         ctx: Context,
-        schema: Table,
         data: BoxStream<CsvStream>,
-        _temporary_storage: TemporaryStorage,
-        if_exists: IfExists,
+        shared_args: SharedArguments<Unverified>,
+        dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
-        write_local_data_helper(ctx, self.url.clone(), schema, data, if_exists).boxed()
+        write_local_data_helper(ctx, self.url.clone(), data, shared_args, dest_args)
+            .boxed()
     }
 
     fn supports_write_remote_data(&self, source: &dyn Locator) -> bool {
@@ -92,21 +88,36 @@ impl Locator for GsLocator {
     fn write_remote_data(
         &self,
         ctx: Context,
-        schema: Table,
         source: BoxLocator,
-        query: Query,
-        temporary_storage: TemporaryStorage,
-        if_exists: IfExists,
+        shared_args: SharedArguments<Unverified>,
+        source_args: SourceArguments<Unverified>,
+        dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<()> {
         write_remote_data_helper(
             ctx,
-            schema,
             source,
             self.to_owned(),
-            query,
-            temporary_storage,
-            if_exists,
+            shared_args,
+            source_args,
+            dest_args,
         )
         .boxed()
+    }
+}
+
+impl LocatorStatic for GsLocator {
+    fn scheme() -> &'static str {
+        "gs:"
+    }
+
+    fn features() -> Features {
+        Features {
+            locator: LocatorFeatures::LOCAL_DATA | LocatorFeatures::WRITE_LOCAL_DATA,
+            write_schema_if_exists: IfExistsFeatures::empty(),
+            source_args: SourceArgumentsFeatures::empty(),
+            dest_args: DestinationArgumentsFeatures::empty(),
+            dest_if_exists: IfExistsFeatures::OVERWRITE,
+            _placeholder: (),
+        }
     }
 }

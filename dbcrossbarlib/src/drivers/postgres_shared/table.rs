@@ -2,9 +2,10 @@
 
 use std::{fmt, str::FromStr};
 
-use super::{Ident, PgColumn};
+use super::{PgColumn, TableName};
 use crate::common::*;
 use crate::schema::Column;
+use crate::separator::Separator;
 
 /// A PostgreSQL table declaration.
 ///
@@ -66,23 +67,33 @@ impl PgCreateTable {
     pub(crate) fn write_export_sql(
         &self,
         f: &mut dyn Write,
-        query: &Query,
+        source_args: &SourceArguments<Verified>,
     ) -> Result<()> {
-        write!(f, "COPY (SELECT ")?;
-        let mut first: bool = true;
+        write!(f, "COPY (")?;
+        self.write_export_select_sql(f, source_args)?;
+        write!(f, ") TO STDOUT WITH CSV HEADER")?;
+        Ok(())
+    }
+
+    /// Write a `SELECT ...` statement for this table.
+    pub(crate) fn write_export_select_sql(
+        &self,
+        f: &mut dyn Write,
+        source_args: &SourceArguments<Verified>,
+    ) -> Result<()> {
+        write!(f, "SELECT ")?;
+        if self.columns.is_empty() {
+            return Err(format_err!("cannot export 0 columns"));
+        }
+        let mut sep = Separator::new(",");
         for col in &self.columns {
-            if first {
-                first = false;
-            } else {
-                write!(f, ",")?;
-            }
+            write!(f, "{}", sep.display())?;
             col.write_export_select_expr(f)?;
         }
-        write!(f, " FROM {:?}", self.name)?;
-        if let Some(where_clause) = &query.where_clause {
+        write!(f, " FROM {}", TableName(&self.name))?;
+        if let Some(where_clause) = source_args.where_clause() {
             write!(f, " WHERE ({})", where_clause)?;
         }
-        write!(f, ") TO STDOUT WITH CSV HEADER")?;
         Ok(())
     }
 }
@@ -93,7 +104,7 @@ impl fmt::Display for PgCreateTable {
         if self.if_not_exists {
             write!(f, " IF NOT EXISTS")?;
         }
-        writeln!(f, " {} (", Ident(&self.name))?;
+        writeln!(f, " {} (", TableName(&self.name))?;
         for (idx, col) in self.columns.iter().enumerate() {
             write!(f, "    {}", col)?;
             if idx + 1 == self.columns.len() {

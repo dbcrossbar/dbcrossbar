@@ -9,6 +9,7 @@ use crate::logging::LogFormat;
 
 pub(crate) mod conv;
 pub(crate) mod cp;
+pub(crate) mod features;
 
 /// Command-line options, parsed using `structopt`.
 #[derive(Debug, StructOpt)]
@@ -33,6 +34,7 @@ pub(crate) struct Opt {
 /// The command to run.
 #[derive(Debug, StructOpt)]
 pub(crate) enum Command {
+    /// Convert table schemas from one format to another.
     #[structopt(name = "conv")]
     #[structopt(after_help = r#"EXAMPLE LOCATORS:
     postgres-sql:table.sql
@@ -44,6 +46,7 @@ pub(crate) enum Command {
         command: conv::Opt,
     },
 
+    /// Copy tables from one location to another.
     #[structopt(name = "cp")]
     #[structopt(after_help = r#"EXAMPLE LOCATORS:
     postgres://localhost:5432/db#table
@@ -53,11 +56,19 @@ pub(crate) enum Command {
         #[structopt(flatten)]
         command: cp::Opt,
     },
+
+    /// List available drivers and supported features.
+    #[structopt(name = "features")]
+    Features {
+        #[structopt(flatten)]
+        command: features::Opt,
+    },
 }
 
 pub(crate) fn run(ctx: Context, opt: Opt) -> BoxFuture<()> {
     match opt.cmd {
         Command::Conv { command } => conv::run(ctx, command).boxed(),
         Command::Cp { command } => cp::run(ctx, command).boxed(),
+        Command::Features { command } => features::run(ctx, command).boxed(),
     }
 }

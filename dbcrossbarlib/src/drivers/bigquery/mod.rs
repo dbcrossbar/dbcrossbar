@@ -1,4 +1,4 @@
-//! Driver for working with BigQuery schemas.
+//! Driver for working with BigQuery.
 
 use std::{
     fmt,
@@ -9,7 +9,7 @@ use std::{
 use crate::common::*;
 use crate::drivers::{
     bigquery_shared::{BqColumn, BqTable, TableName},
-    gs::{GsLocator, GS_SCHEME},
+    gs::GsLocator,
 };
 
 mod local_data;
@@ -19,9 +19,6 @@ mod write_remote_data;
 use self::local_data::local_data_helper;
 use self::write_local_data::write_local_data_helper;
 use self::write_remote_data::write_remote_data_helper;
-
-/// URL scheme for `BigQueryLocator`.
-pub(crate) const BIGQUERY_SCHEME: &str = "bigquery:";
 
 /// A locator for a BigQuery table.
 #[derive(Debug, Clone)]
@@ -47,10 +44,10 @@ impl FromStr for BigQueryLocator {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        if !s.starts_with(BIGQUERY_SCHEME) {
+        if !s.starts_with(Self::scheme()) {
             return Err(format_err!("expected a bigquery: locator, found {}", s));
         }
-        let table_name = s[BIGQUERY_SCHEME.len()..].parse()?;
+        let table_name = s[Self::scheme().len()..].parse()?;
         Ok(BigQueryLocator { table_name })
     }
 }
@@ -95,30 +92,21 @@ impl Locator for BigQueryLocator {
     fn local_data(
         &self,
         ctx: Context,
-        schema: Table,
-        query: Query,
-        temporary_storage: TemporaryStorage,
+        shared_args: SharedArguments<Unverified>,
+        source_args: SourceArguments<Unverified>,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(ctx, self.clone(), schema, query, temporary_storage).boxed()
+        local_data_helper(ctx, self.clone(), shared_args, source_args).boxed()
     }
 
     fn write_local_data(
         &self,
         ctx: Context,
-        schema: Table,
         data: BoxStream<CsvStream>,
-        temporary_storage: TemporaryStorage,
-        if_exists: IfExists,
+        shared_args: SharedArguments<Unverified>,
+        dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
-        write_local_data_helper(
-            ctx,
-            self.clone(),
-            schema,
-            data,
-            temporary_storage,
-            if_exists,
-        )
-        .boxed()
+        write_local_data_helper(ctx, self.clone(), data, shared_args, dest_args)
+            .boxed()
     }
 
     fn supports_write_remote_data(&self, source: &dyn Locator) -> bool {
@@ -130,22 +118,41 @@ impl Locator for BigQueryLocator {
     fn write_remote_data(
         &self,
         ctx: Context,
-        schema: Table,
         source: BoxLocator,
-        query: Query,
-        temporary_storage: TemporaryStorage,
-        if_exists: IfExists,
+        shared_args: SharedArguments<Unverified>,
+        source_args: SourceArguments<Unverified>,
+        dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<()> {
         write_remote_data_helper(
             ctx,
-            schema,
             source,
             self.to_owned(),
-            query,
-            temporary_storage,
-            if_exists,
+            shared_args,
+            source_args,
+            dest_args,
         )
         .boxed()
+    }
+}
+
+impl LocatorStatic for BigQueryLocator {
+    fn scheme() -> &'static str {
+        "bigquery:"
+    }
+
+    fn features() -> Features {
+        Features {
+            locator: LocatorFeatures::SCHEMA
+                | LocatorFeatures::LOCAL_DATA
+                | LocatorFeatures::WRITE_LOCAL_DATA,
+            write_schema_if_exists: IfExistsFeatures::empty(),
+            source_args: SourceArgumentsFeatures::WHERE_CLAUSE,
+            dest_args: DestinationArgumentsFeatures::empty(),
+            dest_if_exists: IfExistsFeatures::OVERWRITE
+                | IfExistsFeatures::APPEND
+                | IfExistsFeatures::UPSERT,
+            _placeholder: (),
+        }
     }
 }
 
@@ -155,7 +162,7 @@ pub(crate) fn find_gs_temp_dir(
     temporary_storage: &TemporaryStorage,
 ) -> Result<GsLocator> {
     let mut temp = temporary_storage
-        .find_scheme(GS_SCHEME)
+        .find_scheme(GsLocator::scheme())
         .ok_or_else(|| format_err!("need `--temporary=gs://...` argument"))?
         .to_owned();
     if !temp.ends_with('/') {
