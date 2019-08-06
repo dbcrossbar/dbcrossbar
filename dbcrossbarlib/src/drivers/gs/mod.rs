@@ -15,9 +15,6 @@ pub(crate) use prepare_as_destination::prepare_as_destination_helper;
 use write_local_data::write_local_data_helper;
 use write_remote_data::write_remote_data_helper;
 
-/// Locator scheme for Google Cloud Storage.
-pub(crate) const GS_SCHEME: &str = "gs:";
-
 #[derive(Clone, Debug)]
 pub(crate) struct GsLocator {
     url: Url,
@@ -40,7 +37,7 @@ impl FromStr for GsLocator {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        if s.starts_with(GS_SCHEME) {
+        if s.starts_with(Self::scheme()) {
             let url = s
                 .parse::<Url>()
                 .with_context(|_| format!("cannot parse {}", s))?;
@@ -109,6 +106,10 @@ impl Locator for GsLocator {
 }
 
 impl LocatorStatic for GsLocator {
+    fn scheme() -> &'static str {
+        "gs:"
+    }
+
     fn features() -> Features {
         Features {
             locator: LocatorFeatures::LOCAL_DATA | LocatorFeatures::WRITE_LOCAL_DATA,

@@ -15,9 +15,6 @@ pub(crate) use prepare_as_destination::prepare_as_destination_helper;
 use write_local_data::write_local_data_helper;
 use write_remote_data::write_remote_data_helper;
 
-/// Locator scheme for S3.
-pub(crate) const S3_SCHEME: &str = "s3:";
-
 #[derive(Clone, Debug)]
 pub(crate) struct S3Locator {
     url: Url,
@@ -40,7 +37,7 @@ impl FromStr for S3Locator {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        if s.starts_with(S3_SCHEME) {
+        if s.starts_with(Self::scheme()) {
             let url = s
                 .parse::<Url>()
                 .with_context(|_| format!("cannot parse {}", s))?;
@@ -110,6 +107,10 @@ impl Locator for S3Locator {
 }
 
 impl LocatorStatic for S3Locator {
+    fn scheme() -> &'static str {
+        "s3:"
+    }
+
     fn features() -> Features {
         Features {
             locator: LocatorFeatures::LOCAL_DATA | LocatorFeatures::WRITE_LOCAL_DATA,

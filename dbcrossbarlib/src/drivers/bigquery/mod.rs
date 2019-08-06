@@ -9,7 +9,7 @@ use std::{
 use crate::common::*;
 use crate::drivers::{
     bigquery_shared::{BqColumn, BqTable, TableName},
-    gs::{GsLocator, GS_SCHEME},
+    gs::GsLocator,
 };
 
 mod local_data;
@@ -19,9 +19,6 @@ mod write_remote_data;
 use self::local_data::local_data_helper;
 use self::write_local_data::write_local_data_helper;
 use self::write_remote_data::write_remote_data_helper;
-
-/// URL scheme for `BigQueryLocator`.
-pub(crate) const BIGQUERY_SCHEME: &str = "bigquery:";
 
 /// A locator for a BigQuery table.
 #[derive(Debug, Clone)]
@@ -47,10 +44,10 @@ impl FromStr for BigQueryLocator {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        if !s.starts_with(BIGQUERY_SCHEME) {
+        if !s.starts_with(Self::scheme()) {
             return Err(format_err!("expected a bigquery: locator, found {}", s));
         }
-        let table_name = s[BIGQUERY_SCHEME.len()..].parse()?;
+        let table_name = s[Self::scheme().len()..].parse()?;
         Ok(BigQueryLocator { table_name })
     }
 }
@@ -139,6 +136,10 @@ impl Locator for BigQueryLocator {
 }
 
 impl LocatorStatic for BigQueryLocator {
+    fn scheme() -> &'static str {
+        "bigquery:"
+    }
+
     fn features() -> Features {
         Features {
             locator: LocatorFeatures::SCHEMA
@@ -161,7 +162,7 @@ pub(crate) fn find_gs_temp_dir(
     temporary_storage: &TemporaryStorage,
 ) -> Result<GsLocator> {
     let mut temp = temporary_storage
-        .find_scheme(GS_SCHEME)
+        .find_scheme(GsLocator::scheme())
         .ok_or_else(|| format_err!("need `--temporary=gs://...` argument"))?
         .to_owned();
     if !temp.ends_with('/') {

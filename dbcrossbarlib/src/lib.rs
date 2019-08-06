@@ -27,6 +27,7 @@ pub(crate) mod if_exists;
 pub(crate) mod locator;
 pub(crate) mod path_or_stdio;
 pub mod schema;
+pub(crate) mod separator;
 mod temporary_storage;
 pub mod tokio_glue;
 pub(crate) mod transform;

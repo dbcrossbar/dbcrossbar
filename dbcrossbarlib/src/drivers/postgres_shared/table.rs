@@ -5,6 +5,7 @@ use std::{fmt, str::FromStr};
 use super::{PgColumn, TableName};
 use crate::common::*;
 use crate::schema::Column;
+use crate::separator::Separator;
 
 /// A PostgreSQL table declaration.
 ///
@@ -84,13 +85,9 @@ impl PgCreateTable {
         if self.columns.is_empty() {
             return Err(format_err!("cannot export 0 columns"));
         }
-        let mut first: bool = true;
+        let mut sep = Separator::new(",");
         for col in &self.columns {
-            if first {
-                first = false;
-            } else {
-                write!(f, ",")?;
-            }
+            write!(f, "{}", sep.display())?;
             col.write_export_select_expr(f)?;
         }
         write!(f, " FROM {}", TableName(&self.name))?;

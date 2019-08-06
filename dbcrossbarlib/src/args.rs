@@ -1,9 +1,10 @@
 //! Arguments passed to various operations.
 
 use bitflags::bitflags;
-use std::marker::PhantomData;
+use std::{fmt, marker::PhantomData};
 
 use crate::common::*;
+use crate::separator::Separator;
 
 /// This is a marker trait used by `SharedArguments`, `SourceArguments` and
 /// `DestinationArguments`. We use it to keep track whether or not the arguments
@@ -20,7 +21,7 @@ pub trait ArgumentState: Clone {}
 ///
 /// [type state]: http://cliffle.com/blog/rust-typestate/
 #[derive(Clone)]
-pub struct Unverified;
+pub enum Unverified {}
 impl ArgumentState for Unverified {}
 
 /// This is used to mark an `*Arguments` structure that has not yet been
@@ -29,12 +30,12 @@ impl ArgumentState for Unverified {}
 ///
 /// [type state]: http://cliffle.com/blog/rust-typestate/
 #[derive(Clone)]
-pub struct Verified;
+pub enum Verified {}
 impl ArgumentState for Verified {}
 
 /// Arguments used by both the data source and destination.
 #[derive(Clone, Debug)]
-pub struct SharedArguments<ArgumentState> {
+pub struct SharedArguments<S: ArgumentState> {
     /// The portable data schema describing the table we're transfering.
     schema: Table,
 
@@ -44,7 +45,7 @@ pub struct SharedArguments<ArgumentState> {
 
     /// We need to include a reference to `ArgumentState` somewhere, so use a
     /// 0-byte phantom value.
-    _phantom: PhantomData<ArgumentState>,
+    _phantom: PhantomData<S>,
 }
 
 // These methods are only available in the `Unverified` state.
@@ -91,6 +92,19 @@ bitflags! {
     pub struct SourceArgumentsFeatures: u8 {
         const DRIVER_ARGS = 0b0000_0001;
         const WHERE_CLAUSE = 0b0000_0010;
+    }
+}
+
+impl fmt::Display for SourceArgumentsFeatures {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut sep = Separator::new(" ");
+        if self.contains(SourceArgumentsFeatures::DRIVER_ARGS) {
+            write!(f, "{}--from-arg=$NAME=$VALUE", sep.display())?;
+        }
+        if self.contains(SourceArgumentsFeatures::WHERE_CLAUSE) {
+            write!(f, "{}--where=$SQL_EXPR", sep.display())?;
+        }
+        Ok(())
     }
 }
 
@@ -173,6 +187,15 @@ bitflags! {
     }
 }
 
+impl fmt::Display for DestinationArgumentsFeatures {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut sep = Separator::new(" ");
+        if self.contains(DestinationArgumentsFeatures::DRIVER_ARGS) {
+            write!(f, "{}--to-arg=$NAME=$VALUE", sep.display())?;
+        }
+        Ok(())
+    }
+}
 /// Data destination arguments.
 #[derive(Clone, Debug, Default)]
 pub struct DestinationArguments<ArgumentState> {

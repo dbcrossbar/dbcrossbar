@@ -5,7 +5,7 @@ use regex::Regex;
 use std::{fmt, str::FromStr};
 
 use crate::common::*;
-use crate::drivers::bigquery::BIGQUERY_SCHEME;
+use crate::drivers::bigquery::BigQueryLocator;
 
 /// A BigQuery table name of the form `"project:dataset.table"`.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -37,12 +37,12 @@ impl TableName {
         }
 
         // Decide on what project and dataset to use.
-        let temp = temporary_storage.find_scheme(BIGQUERY_SCHEME);
+        let temp = temporary_storage.find_scheme(BigQueryLocator::scheme());
         let (project, dataset) = if let Some(temp) = temp {
             // We have a `--temporary=bigquery:...` argument, so extract a project
             // and dataset name.
             let cap = DATASET_RE
-                .captures(&temp[BIGQUERY_SCHEME.len()..])
+                .captures(&temp[BigQueryLocator::scheme().len()..])
                 .ok_or_else(|| {
                     format_err!("could not parse BigQuery dataset name: {:?}", temp)
                 })?;

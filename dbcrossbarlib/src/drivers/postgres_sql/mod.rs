@@ -8,18 +8,15 @@ use std::{
 use crate::common::*;
 use crate::drivers::postgres_shared::PgCreateTable;
 
-/// URL scheme for `PostgresSqlLocator`.
-pub(crate) const POSTGRES_SQL_SCHEME: &str = "postgres-sql:";
-
 /// An SQL file containing a `CREATE TABLE` statement using Postgres syntax.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct PostgresSqlLocator {
     path: PathOrStdio,
 }
 
 impl fmt::Display for PostgresSqlLocator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.path.fmt_locator_helper(POSTGRES_SQL_SCHEME, f)
+        self.path.fmt_locator_helper(Self::scheme(), f)
     }
 }
 
@@ -27,7 +24,7 @@ impl FromStr for PostgresSqlLocator {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        let path = PathOrStdio::from_str_locator_helper(POSTGRES_SQL_SCHEME, s)?;
+        let path = PathOrStdio::from_str_locator_helper(Self::scheme(), s)?;
         Ok(PostgresSqlLocator { path })
     }
 }
@@ -63,5 +60,22 @@ impl Locator for PostgresSqlLocator {
         write!(out, "{}", pg_create_table)
             .with_context(|_| format!("error writing {}", self.path))?;
         Ok(())
+    }
+}
+
+impl LocatorStatic for PostgresSqlLocator {
+    fn scheme() -> &'static str {
+        "postgres-sql:"
+    }
+
+    fn features() -> Features {
+        Features {
+            locator: LocatorFeatures::SCHEMA | LocatorFeatures::WRITE_SCHEMA,
+            write_schema_if_exists: IfExistsFeatures::no_append(),
+            source_args: SourceArgumentsFeatures::empty(),
+            dest_args: DestinationArgumentsFeatures::empty(),
+            dest_if_exists: IfExistsFeatures::empty(),
+            _placeholder: (),
+        }
     }
 }

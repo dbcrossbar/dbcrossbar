@@ -6,6 +6,7 @@ use std::{fmt, fs as std_fs, str::FromStr};
 use tokio::fs as tokio_fs;
 
 use crate::common::*;
+use crate::separator::Separator;
 
 bitflags! {
     /// Which `IfExists` features are supported by a given driver or API?
@@ -22,6 +23,26 @@ impl IfExistsFeatures {
     /// `to_sync_open_options_no_append`.
     pub(crate) fn no_append() -> Self {
         IfExistsFeatures::ERROR | IfExistsFeatures::OVERWRITE
+    }
+}
+
+impl fmt::Display for IfExistsFeatures {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut sep = Separator::new(" ");
+        let mut write_flag = |flag, value| -> fmt::Result {
+            if self.contains(flag) {
+                write!(f, "{}--if-exists={}", sep.display(), value)?;
+            }
+            Ok(())
+        };
+        write_flag(IfExistsFeatures::ERROR, IfExists::Error)?;
+        write_flag(IfExistsFeatures::APPEND, IfExists::Append)?;
+        write_flag(IfExistsFeatures::OVERWRITE, IfExists::Overwrite)?;
+        write_flag(
+            IfExistsFeatures::UPSERT,
+            IfExists::Upsert(vec!["col".to_owned()]),
+        )?;
+        Ok(())
     }
 }
 

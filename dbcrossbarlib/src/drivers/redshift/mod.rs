@@ -9,10 +9,7 @@ use std::{
 
 use crate::common::*;
 use crate::drivers::postgres::PostgresLocator;
-use crate::drivers::{
-    postgres_shared::pg_quote,
-    s3::{S3Locator, S3_SCHEME},
-};
+use crate::drivers::{postgres_shared::pg_quote, s3::S3Locator};
 
 mod local_data;
 mod write_local_data;
@@ -21,9 +18,6 @@ mod write_remote_data;
 use local_data::local_data_helper;
 use write_local_data::write_local_data_helper;
 use write_remote_data::write_remote_data_helper;
-
-/// URL scheme for `RedshiftLocator`.
-pub(crate) const REDSHIFT_SCHEME: &str = "redshift:";
 
 /// A locator for a Redshift table.
 #[derive(Debug, Clone)]
@@ -130,6 +124,10 @@ impl Locator for RedshiftLocator {
 }
 
 impl LocatorStatic for RedshiftLocator {
+    fn scheme() -> &'static str {
+        "redshift:"
+    }
+
     fn features() -> Features {
         Features {
             locator: LocatorFeatures::SCHEMA
@@ -151,7 +149,7 @@ pub(crate) fn find_s3_temp_dir(
     temporary_storage: &TemporaryStorage,
 ) -> Result<S3Locator> {
     let mut temp = temporary_storage
-        .find_scheme(S3_SCHEME)
+        .find_scheme(S3Locator::scheme())
         .ok_or_else(|| format_err!("need `--temporary=s3://...` argument"))?
         .to_owned();
     if !temp.ends_with('/') {

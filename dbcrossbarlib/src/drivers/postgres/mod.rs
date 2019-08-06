@@ -54,9 +54,6 @@ pub(crate) async fn connect(ctx: Context, url: Url) -> Result<Client> {
     Ok(client)
 }
 
-/// URL scheme for `PostgresLocator`.
-pub(crate) const POSTGRES_SCHEME: &str = "postgres:";
-
 /// A Postgres database URL and a table name.
 ///
 /// This is the central point of access for talking to a running PostgreSQL
@@ -120,7 +117,7 @@ impl FromStr for PostgresLocator {
 
     fn from_str(s: &str) -> Result<Self> {
         let mut url: Url = s.parse::<Url>().context("cannot parse Postgres URL")?;
-        if url.scheme() != &POSTGRES_SCHEME[..POSTGRES_SCHEME.len() - 1] {
+        if url.scheme() != &Self::scheme()[..Self::scheme().len() - 1] {
             Err(format_err!("expected URL scheme postgres: {:?}", s))
         } else {
             // Extract table name from URL.
@@ -199,6 +196,10 @@ impl Locator for PostgresLocator {
 }
 
 impl LocatorStatic for PostgresLocator {
+    fn scheme() -> &'static str {
+        "postgres:"
+    }
+
     fn features() -> Features {
         Features {
             locator: LocatorFeatures::SCHEMA

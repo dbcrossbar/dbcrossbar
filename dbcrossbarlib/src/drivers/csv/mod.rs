@@ -11,22 +11,19 @@ use crate::csv_stream::csv_stream_name;
 use crate::schema::{Column, DataType, Table};
 use crate::tokio_glue::{copy_reader_to_stream, copy_stream_to_writer};
 
-/// Locator scheme for CSV files.
-pub(crate) const CSV_SCHEME: &str = "csv:";
-
 /// (Incomplete.) A CSV file containing data, or a directory containing CSV
 /// files.
 ///
 /// TODO: Right now, we take a file path as input and a directory path as
 /// output, because we're lazy and haven't finished building this.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct CsvLocator {
     path: PathOrStdio,
 }
 
 impl fmt::Display for CsvLocator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.path.fmt_locator_helper(CSV_SCHEME, f)
+        self.path.fmt_locator_helper(Self::scheme(), f)
     }
 }
 
@@ -34,7 +31,7 @@ impl FromStr for CsvLocator {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        let path = PathOrStdio::from_str_locator_helper(CSV_SCHEME, s)?;
+        let path = PathOrStdio::from_str_locator_helper(Self::scheme(), s)?;
         Ok(CsvLocator { path })
     }
 }
@@ -283,6 +280,10 @@ async fn write_stream_to_file(
 }
 
 impl LocatorStatic for CsvLocator {
+    fn scheme() -> &'static str {
+        "csv:"
+    }
+
     fn features() -> Features {
         Features {
             locator: LocatorFeatures::SCHEMA
