@@ -76,6 +76,7 @@ where
     W: AsyncWrite + 'static,
 {
     loop {
+        trace!(ctx.log(), "reading from stream");
         match stream.into_future().compat().await {
             Err((err, _rest_of_stream)) => {
                 error!(ctx.log(), "error reading stream: {}", err);
@@ -92,6 +93,7 @@ where
                     error!(ctx.log(), "write error: {}", e);
                     format_err!("error writing data: {}", e)
                 })?;
+                trace!(ctx.log(), "wrote to writer");
             }
         }
     }
@@ -112,6 +114,7 @@ where
         loop {
             // Read the data. This consumes `rdr`, so we'll have to put it back
             // below.
+            trace!(ctx.log(), "reading bytes from reader");
             match io::read(rdr, &mut buffer).compat().await {
                 Err(err) => {
                     let nice_err = format_err!("stream read error: {}", err);
@@ -139,6 +142,7 @@ where
                     trace!(ctx.log(), "sending {} bytes to stream", bytes.len());
                     match sender.send(Ok(bytes)).wait() {
                         Ok(new_sender) => {
+                            trace!(ctx.log(), "sent bytes to stream");
                             sender = new_sender;
                         }
                         Err(_err) => {
