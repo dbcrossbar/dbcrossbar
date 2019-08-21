@@ -58,9 +58,7 @@ impl PathOrStdio {
                     .with_context(|_| format!("error opening {}", p.display()))?;
                 Ok(Box::new(f) as Box<dyn AsyncRead>)
             }
-            PathOrStdio::Stdio => {
-                Ok(Box::new(tokio_io::stdin()) as Box<dyn AsyncRead>)
-            }
+            PathOrStdio::Stdio => Ok(Box::new(tokio_io::stdin()) as Box<dyn AsyncRead>),
         }
     }
 
