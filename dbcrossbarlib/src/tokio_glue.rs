@@ -140,7 +140,7 @@ where
                     // `sender`, so we'll have to put it back below.
                     let bytes = BytesMut::from(&data[..count]);
                     trace!(ctx.log(), "sending {} bytes to stream", bytes.len());
-                    match sender.send(Ok(bytes)).wait() {
+                    match sender.send(Ok(bytes)).compat().await {
                         Ok(new_sender) => {
                             trace!(ctx.log(), "sent bytes to stream");
                             sender = new_sender;
