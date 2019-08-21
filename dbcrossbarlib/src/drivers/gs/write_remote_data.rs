@@ -84,13 +84,13 @@ pub(crate) async fn write_remote_data_helper(
     io::write_all(child_stdin, export_sql)
         .compat()
         .await
-        .context("error piping query to `bq load`")?;
+        .context("error piping query to `bq query`")?;
     let status = query_child
         .compat()
         .await
         .context("error running `bq query`")?;
     if !status.success() {
-        return Err(format_err!("`bq load` failed with {}", status));
+        return Err(format_err!("`bq query` failed with {}", status));
     }
 
     // Delete the existing output, if it exists.

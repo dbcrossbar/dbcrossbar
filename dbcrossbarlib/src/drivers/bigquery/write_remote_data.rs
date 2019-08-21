@@ -182,7 +182,7 @@ pub(crate) async fn write_remote_data_helper(
         }
         debug!(ctx.log(), "import sql: {}", String::from_utf8_lossy(&query));
 
-        // Pipe our query text to `bq load`.
+        // Pipe our query text to `bq query`.
         debug!(ctx.log(), "running `bq query`");
         let mut query_command = Command::new("bq");
         query_command
@@ -209,13 +209,13 @@ pub(crate) async fn write_remote_data_helper(
         io::write_all(child_stdin, query)
             .compat()
             .await
-            .context("error piping query to `bq load`")?;
+            .context("error piping query to `bq query`")?;
         let status = query_child
             .compat()
             .await
             .context("error running `bq query`")?;
         if !status.success() {
-            return Err(format_err!("`bq load` failed with {}", status));
+            return Err(format_err!("`bq query` failed with {}", status));
         }
 
         // Delete temp table.

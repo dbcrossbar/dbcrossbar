@@ -27,12 +27,16 @@ pub(crate) use self::table_name::*;
 pub(crate) fn if_exists_to_bq_load_arg(if_exists: &IfExists) -> Result<&'static str> {
     match if_exists {
         IfExists::Overwrite => Ok("--replace"),
-        // TODO: Verify that this is the actual behavior of `--noreplace`.
-        IfExists::Append | IfExists::Upsert(_) => Ok("--noreplace"),
+        // When appending, we need to tell bigquery to... append. Just specifying a
+        // destination table will result in "Already Exists" errors.
+        IfExists::Append => Ok("--append_table"),
+        // Since we specify our own upsert SQL, be sure bq doesn't helpfully
+        // clear the table first.
+        IfExists::Upsert(_) => Ok("--noreplace"),
         // We need to be careful about race conditions--we don't want to try to
         // emulate this if we can't do it natively.
         IfExists::Error => Err(format_err!(
-            "BigQuery only supports --if-exists=overwrite or --if-exists=append"
+            "BigQuery only supports --if-exists={{overwrite,append,upsert-on:X}}"
         )),
     }
 }
