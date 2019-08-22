@@ -92,7 +92,7 @@ impl Locator for RedshiftLocator {
         data: BoxStream<CsvStream>,
         shared_args: SharedArguments<Unverified>,
         dest_args: DestinationArguments<Unverified>,
-    ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
+    ) -> BoxFuture<BoxStream<BoxFuture<BoxLocator>>> {
         write_local_data_helper(ctx, self.to_owned(), data, shared_args, dest_args)
             .boxed()
     }
@@ -110,7 +110,7 @@ impl Locator for RedshiftLocator {
         shared_args: SharedArguments<Unverified>,
         source_args: SourceArguments<Unverified>,
         dest_args: DestinationArguments<Unverified>,
-    ) -> BoxFuture<()> {
+    ) -> BoxFuture<Vec<BoxLocator>> {
         write_remote_data_helper(
             ctx,
             source,

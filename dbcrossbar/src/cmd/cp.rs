@@ -72,7 +72,7 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
     // local machine?
     let to_locator = opt.to_locator;
     let from_locator = opt.from_locator;
-    if to_locator.supports_write_remote_data(from_locator.as_ref()) {
+    let _dests = if to_locator.supports_write_remote_data(from_locator.as_ref()) {
         // Build a logging context.
         let ctx = ctx.child(o!(
             "from_locator" => from_locator.to_string(),
@@ -107,8 +107,10 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
         // certain degree of parallelism. This is where all the actual work happens,
         // and this what controls how many "input driver" -> "output driver"
         // connections are running at any given time.
-        result_stream.consume_with_parallelism(4).await?;
-    }
+        result_stream.consume_with_parallelism(4).await?
+    };
+
+    // TODO: Decide when and how to display `dests`.
 
     Ok(())
 }

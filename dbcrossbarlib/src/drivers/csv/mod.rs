@@ -21,6 +21,15 @@ pub(crate) struct CsvLocator {
     path: PathOrStdio,
 }
 
+impl CsvLocator {
+    /// Construt a `CsvLocator` from a path.
+    fn from_path<P: Into<PathBuf>>(path: P) -> Self {
+        Self {
+            path: PathOrStdio::Path(path.into()),
+        }
+    }
+}
+
 impl fmt::Display for CsvLocator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.path.fmt_locator_helper(Self::scheme(), f)
@@ -92,7 +101,7 @@ impl Locator for CsvLocator {
         data: BoxStream<CsvStream>,
         shared_args: SharedArguments<Unverified>,
         dest_args: DestinationArguments<Unverified>,
-    ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
+    ) -> BoxFuture<BoxStream<BoxFuture<BoxLocator>>> {
         write_local_data_helper(ctx, self.path.clone(), data, shared_args, dest_args)
             .boxed()
     }
@@ -195,7 +204,7 @@ async fn write_local_data_helper(
     data: BoxStream<CsvStream>,
     shared_args: SharedArguments<Unverified>,
     dest_args: DestinationArguments<Unverified>,
-) -> Result<BoxStream<BoxFuture<()>>> {
+) -> Result<BoxStream<BoxFuture<BoxLocator>>> {
     let _shared_args = shared_args.verify(CsvLocator::features())?;
     let dest_args = dest_args.verify(CsvLocator::features())?;
     let if_exists = dest_args.if_exists().to_owned();
@@ -207,7 +216,10 @@ async fn write_local_data_helper(
                 copy_stream_to_writer(ctx.clone(), stream.data, io::stdout())
                     .await
                     .context("error writing to stdout")?;
-                Ok(())
+                Ok(CsvLocator {
+                    path: PathOrStdio::Stdio,
+                }
+                .boxed())
             };
             Ok(box_stream_once(Ok(fut.boxed())))
         }
@@ -227,12 +239,18 @@ async fn write_local_data_helper(
                             "stream" => stream.name.clone(),
                             "path" => format!("{}", csv_path.display()),
                         ));
-                        write_stream_to_file(ctx, stream.data, csv_path, if_exists)
-                            .await
+                        write_stream_to_file(
+                            ctx,
+                            stream.data,
+                            csv_path.clone(),
+                            if_exists,
+                        )
+                        .await?;
+                        Ok(CsvLocator::from_path(csv_path).boxed())
                     }
                         .boxed()
                 });
-                Ok(Box::new(result_stream) as BoxStream<BoxFuture<()>>)
+                Ok(Box::new(result_stream) as BoxStream<BoxFuture<BoxLocator>>)
             } else {
                 // Write all our streams as a single file.
                 let stream = concatenate_csv_streams(ctx.clone(), data)?;
@@ -241,7 +259,9 @@ async fn write_local_data_helper(
                         "stream" => stream.name.clone(),
                         "path" => format!("{}", path.display()),
                     ));
-                    write_stream_to_file(ctx, stream.data, path, if_exists).await
+                    write_stream_to_file(ctx, stream.data, path.clone(), if_exists)
+                        .await?;
+                    Ok(CsvLocator::from_path(path).boxed())
                 };
                 Ok(box_stream_once(Ok(fut.boxed())))
             }

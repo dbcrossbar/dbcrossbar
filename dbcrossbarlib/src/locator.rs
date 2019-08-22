@@ -104,7 +104,7 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
         _data: BoxStream<CsvStream>,
         _shared_args: SharedArguments<Unverified>,
         _dest_args: DestinationArguments<Unverified>,
-    ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
+    ) -> BoxFuture<BoxStream<BoxFuture<BoxLocator>>> {
         let err = format_err!("cannot write data to {}", self);
         async move { Err(err) }.boxed()
     }
@@ -126,7 +126,7 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
         _shared_args: SharedArguments<Unverified>,
         _source_args: SourceArguments<Unverified>,
         _dest_args: DestinationArguments<Unverified>,
-    ) -> BoxFuture<()> {
+    ) -> BoxFuture<Vec<BoxLocator>> {
         let err = format_err!("cannot write_remote_data from source {}", source);
         async move { Err(err) }.boxed()
     }
@@ -240,6 +240,11 @@ impl fmt::Display for Features {
 /// Extra `Locator` methods that can only be called statically. These cannot
 /// accessed via a `Box<Locator>`.
 pub trait LocatorStatic: Locator + Clone + FromStr<Err = Error> + Sized {
+    /// Convert this locator into a polymorphic `BoxLocator` on the heap.
+    fn boxed(self) -> BoxLocator {
+        Box::new(self)
+    }
+
     /// Return the "scheme" used to format this locator, e.g., `"postgres:"`.
     fn scheme() -> &'static str;
 

@@ -74,7 +74,7 @@ impl Locator for S3Locator {
         data: BoxStream<CsvStream>,
         shared_args: SharedArguments<Unverified>,
         dest_args: DestinationArguments<Unverified>,
-    ) -> BoxFuture<BoxStream<BoxFuture<()>>> {
+    ) -> BoxFuture<BoxStream<BoxFuture<BoxLocator>>> {
         write_local_data_helper(ctx, self.url.clone(), data, shared_args, dest_args)
             .boxed()
     }
@@ -93,7 +93,7 @@ impl Locator for S3Locator {
         shared_args: SharedArguments<Unverified>,
         source_args: SourceArguments<Unverified>,
         dest_args: DestinationArguments<Unverified>,
-    ) -> BoxFuture<()> {
+    ) -> BoxFuture<Vec<BoxLocator>> {
         write_remote_data_helper(
             ctx,
             source,

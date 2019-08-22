@@ -20,7 +20,7 @@ pub(crate) async fn write_remote_data_helper(
     shared_args: SharedArguments<Unverified>,
     source_args: SourceArguments<Unverified>,
     dest_args: DestinationArguments<Unverified>,
-) -> Result<()> {
+) -> Result<Vec<BoxLocator>> {
     // Convert the source locator into `RedshiftLocator`.
     let source = source
         .as_any()
@@ -65,5 +65,5 @@ pub(crate) async fn write_remote_data_helper(
         .compat()
         .await
         .with_context(|_| format!("error copying {} to {}", table_name, dest))?;
-    Ok(())
+    Ok(vec![dest.boxed()])
 }

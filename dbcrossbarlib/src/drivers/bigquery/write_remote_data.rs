@@ -27,7 +27,7 @@ pub(crate) async fn write_remote_data_helper(
     shared_args: SharedArguments<Unverified>,
     source_args: SourceArguments<Unverified>,
     dest_args: DestinationArguments<Unverified>,
-) -> Result<()> {
+) -> Result<Vec<BoxLocator>> {
     // Convert the source locator into the underlying `gs://` URL. This is a bit
     // fiddly because we're downcasting `source` and relying on knowledge about
     // the `GsLocator` type, and Rust doesn't make that especially easy.
@@ -240,5 +240,5 @@ pub(crate) async fn write_remote_data_helper(
         }
     }
 
-    Ok(())
+    Ok(vec![dest.boxed()])
 }

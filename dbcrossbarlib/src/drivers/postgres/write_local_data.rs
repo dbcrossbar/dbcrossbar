@@ -130,12 +130,11 @@ async fn copy_from_async(
 // can use `async`.
 pub(crate) async fn write_local_data_helper(
     ctx: Context,
-    url: Url,
-    table_name: String,
+    dest: PostgresLocator,
     mut data: BoxStream<CsvStream>,
     shared_args: SharedArguments<Unverified>,
     dest_args: DestinationArguments<Unverified>,
-) -> Result<BoxStream<BoxFuture<()>>> {
+) -> Result<BoxStream<BoxFuture<BoxLocator>>> {
     let shared_args = shared_args.verify(PostgresLocator::features())?;
     let dest_args = dest_args.verify(PostgresLocator::features())?;
 
@@ -143,6 +142,8 @@ pub(crate) async fn write_local_data_helper(
     let schema = shared_args.schema();
     let if_exists = dest_args.if_exists();
 
+    let url = dest.url.clone();
+    let table_name = dest.table_name.clone();
     let ctx = ctx.child(o!("table" => schema.name.clone()));
     debug!(
         ctx.log(),
@@ -177,7 +178,7 @@ pub(crate) async fn write_local_data_helper(
                     return Err(err);
                 }
                 Ok((None, _rest_of_stream)) => {
-                    return Ok(());
+                    return Ok(dest.boxed());
                 }
                 Ok((Some(csv_stream), rest_of_stream)) => {
                     data = rest_of_stream;

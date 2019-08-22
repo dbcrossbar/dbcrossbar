@@ -21,7 +21,7 @@ pub(crate) async fn write_remote_data_helper(
     shared_args: SharedArguments<Unverified>,
     source_args: SourceArguments<Unverified>,
     dest_args: DestinationArguments<Unverified>,
-) -> Result<()> {
+) -> Result<Vec<BoxLocator>> {
     // Convert the source locator into the underlying `s3://` URL. This is a bit
     // fiddly because we're downcasting `source` and relying on knowledge about
     // the `S3Locator` type, and Rust doesn't make that especially easy.
@@ -73,7 +73,7 @@ pub(crate) async fn write_remote_data_helper(
         .with_context(|_| {
             format!("error copying {} from {}", pg_create_table.name, source_url)
         })?;
-    Ok(())
+    Ok(vec![dest.boxed()])
 }
 
 /// Extension trait for verifying Redshift compatibility.

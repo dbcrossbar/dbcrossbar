@@ -11,7 +11,7 @@ pub(crate) async fn write_local_data_helper(
     data: BoxStream<CsvStream>,
     shared_args: SharedArguments<Unverified>,
     dest_args: DestinationArguments<Unverified>,
-) -> Result<BoxStream<BoxFuture<()>>> {
+) -> Result<BoxStream<BoxFuture<BoxLocator>>> {
     // Build a temporary location.
     let shared_args_v = shared_args.clone().verify(RedshiftLocator::features())?;
     let s3_temp = find_s3_temp_dir(shared_args_v.temporary_storage())?;
@@ -44,6 +44,6 @@ pub(crate) async fn write_local_data_helper(
 
     // We don't need any parallelism after the Redshift step, so just return
     // a stream containing a single future.
-    let fut = async { Ok(()) }.boxed();
+    let fut = async { Ok(dest.boxed()) }.boxed();
     Ok(box_stream_once(Ok(fut)))
 }

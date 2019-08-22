@@ -20,25 +20,23 @@ pub type BoxFuture<T> = Pin<Box<dyn StdFuture<Output = Result<T>> + Send + 'stat
 pub type BoxStream<T> = Box<dyn Stream<Item = T, Error = Error> + Send + 'static>;
 
 /// Extension for `BoxStream<BoxFuture<()>>`.
-pub trait ConsumeWithParallelism: Sized {
+pub trait ConsumeWithParallelism<T>: Sized {
     /// Consume futures from the stream, running `parallelism` futures at any
     /// given time.
-    fn consume_with_parallelism(self, parallelism: usize) -> BoxFuture<()>;
+    fn consume_with_parallelism(self, parallelism: usize) -> BoxFuture<Vec<T>>;
 }
 
-impl ConsumeWithParallelism for BoxStream<BoxFuture<()>> {
-    fn consume_with_parallelism(self, parallelism: usize) -> BoxFuture<()> {
+impl<T: Send + Sized + 'static> ConsumeWithParallelism<T> for BoxStream<BoxFuture<T>> {
+    fn consume_with_parallelism(self, parallelism: usize) -> BoxFuture<Vec<T>> {
         self
             // This stream contains std futures, but we need tokio futures for
             // `buffered`.
-            .map(|fut: BoxFuture<()>| fut.compat())
+            .map(|fut: BoxFuture<T>| fut.compat())
             // Run up to `parallelism` futures in parallel.
             .buffered(parallelism)
             // Collect our resulting zero-byte `()` values as a zero-byte
             // vector.
             .collect()
-            // Throw away the result of `collect`.
-            .map(|_| ())
             // Convert back to a standard future.
             .compat()
             // This `boxed` is needed to prevent weird lifetime issues from

@@ -14,7 +14,7 @@ pub(crate) async fn write_local_data_helper(
     data: BoxStream<CsvStream>,
     shared_args: SharedArguments<Unverified>,
     dest_args: DestinationArguments<Unverified>,
-) -> Result<BoxStream<BoxFuture<()>>> {
+) -> Result<BoxStream<BoxFuture<BoxLocator>>> {
     let _shared_args = shared_args.verify(S3Locator::features())?;
     let dest_args = dest_args.verify(S3Locator::features())?;
 
@@ -53,7 +53,7 @@ pub(crate) async fn write_local_data_helper(
                 .await
                 .with_context(|_| format!("error finishing upload to {}", url))?;
             if status.success() {
-                Ok(())
+                Ok(S3Locator { url }.boxed())
             } else {
                 Err(format_err!("`aws s3` returned error: {}", status))
             }
@@ -61,5 +61,5 @@ pub(crate) async fn write_local_data_helper(
             .boxed()
     });
 
-    Ok(Box::new(written) as BoxStream<BoxFuture<()>>)
+    Ok(Box::new(written) as BoxStream<BoxFuture<BoxLocator>>)
 }
