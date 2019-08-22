@@ -160,6 +160,9 @@ fn locator_from_str_to_string_roundtrip() {
     let locators = vec![
         "bigquery:my_project:my_dataset.my_table",
         "bigquery-schema:dir/my_table.json",
+        "bigml:dataset/abc123",
+        "bigml:source",
+        "bigml:sources",
         "csv:file.csv",
         "csv:dir/",
         "dbcrossbar-schema:file.json",
