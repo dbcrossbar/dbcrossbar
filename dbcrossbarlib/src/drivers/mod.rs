@@ -21,19 +21,25 @@ pub mod postgres_sql;
 pub mod redshift;
 pub mod s3;
 
+/// A helper which builds a `Box<dyn LocatorDriver>` for a type implementating
+/// `LocatorStatic`.
+fn driver<L: LocatorStatic>() -> Box<dyn LocatorDriver> {
+    Box::new(LocatorDriverWrapper::<L>::new())
+}
+
 lazy_static! {
     /// A list of known drivers, computed the first time we use it and cached.
     static ref KNOWN_DRIVERS: Vec<Box<dyn LocatorDriver>> = vec![
-        Box::new(LocatorDriverWrapper::<bigml::BigMlLocator>::new()),
-        Box::new(LocatorDriverWrapper::<bigquery::BigQueryLocator>::new()),
-        Box::new(LocatorDriverWrapper::<bigquery_schema::BigQuerySchemaLocator>::new()),
-        Box::new(LocatorDriverWrapper::<csv::CsvLocator>::new()),
-        Box::new(LocatorDriverWrapper::<dbcrossbar_schema::DbcrossbarSchemaLocator>::new()),
-        Box::new(LocatorDriverWrapper::<gs::GsLocator>::new()),
-        Box::new(LocatorDriverWrapper::<postgres::PostgresLocator>::new()),
-        Box::new(LocatorDriverWrapper::<postgres_sql::PostgresSqlLocator>::new()),
-        Box::new(LocatorDriverWrapper::<redshift::RedshiftLocator>::new()),
-        Box::new(LocatorDriverWrapper::<s3::S3Locator>::new()),
+        driver::<bigml::BigMlLocator>(),
+        driver::<bigquery::BigQueryLocator>(),
+        driver::<bigquery_schema::BigQuerySchemaLocator>(),
+        driver::<csv::CsvLocator>(),
+        driver::<dbcrossbar_schema::DbcrossbarSchemaLocator>(),
+        driver::<gs::GsLocator>(),
+        driver::<postgres::PostgresLocator>(),
+        driver::<postgres_sql::PostgresSqlLocator>(),
+        driver::<redshift::RedshiftLocator>(),
+        driver::<s3::S3Locator>(),
     ];
 
     /// A hash table of all known drivers, indexed by scheme and computed the
