@@ -155,20 +155,3 @@ impl LocatorStatic for BigQueryLocator {
         }
     }
 }
-
-/// Given a `TemporaryStorage`, extract a unique `gs://` temporary directory,
-/// including a random component.
-pub(crate) fn find_gs_temp_dir(
-    temporary_storage: &TemporaryStorage,
-) -> Result<GsLocator> {
-    let mut temp = temporary_storage
-        .find_scheme(GsLocator::scheme())
-        .ok_or_else(|| format_err!("need `--temporary=gs://...` argument"))?
-        .to_owned();
-    if !temp.ends_with('/') {
-        temp.push_str("/");
-    }
-    temp.push_str(&TemporaryStorage::random_tag());
-    temp.push_str("/");
-    GsLocator::from_str(&temp)
-}

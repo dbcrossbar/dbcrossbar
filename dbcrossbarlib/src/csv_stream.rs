@@ -1,5 +1,9 @@
 //! Our basic data representation.
 
+use bytes::Bytes;
+use reqwest::{self, r#async::Body};
+use std::error::Error as StdError;
+
 use crate::common::*;
 
 /// A stream of CSV data, with a unique name.
@@ -53,6 +57,34 @@ impl CsvStream {
                 }
             }
         }
+    }
+
+    /// Convert an HTTP `Body` into a `CsvStream`.
+    pub(crate) fn from_http_body(name: String, body: Body) -> Result<CsvStream> {
+        let data = body
+            .map(|chunk| BytesMut::from(chunk.as_ref()))
+            .map_err(|err| err.into());
+        Ok(CsvStream {
+            name,
+            data: Box::new(data),
+        })
+    }
+
+    /// Convert this `CsvStream` into a `Stream` that can be used with
+    /// `hyper`, `reqwest`, and possibly other Rust libraries. Returns
+    /// the stream name and the stream.
+    pub(crate) fn into_name_and_portable_stream(
+        self,
+    ) -> (
+        String,
+        impl Stream<Item = Bytes, Error = impl StdError + Send + Sized + Sync + 'static>,
+    ) {
+        (
+            self.name,
+            self.data
+                .map(|bytes| bytes.freeze())
+                .map_err(|err| err.compat()),
+        )
     }
 }
 

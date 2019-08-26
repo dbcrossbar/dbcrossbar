@@ -1,8 +1,7 @@
 //! Implementation of `write_local_data` for BigQuery.
 
-use super::find_gs_temp_dir;
 use crate::common::*;
-use crate::drivers::bigquery::BigQueryLocator;
+use crate::drivers::{bigquery::BigQueryLocator, gs::find_gs_temp_dir};
 use crate::tokio_glue::ConsumeWithParallelism;
 
 /// Implementation of `write_local_data`, but as a real `async` function.

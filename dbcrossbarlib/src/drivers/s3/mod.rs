@@ -7,11 +7,13 @@ use crate::drivers::redshift::RedshiftLocator;
 
 mod local_data;
 mod prepare_as_destination;
+mod signing;
 mod write_local_data;
 mod write_remote_data;
 
 use local_data::local_data_helper;
 pub(crate) use prepare_as_destination::prepare_as_destination_helper;
+pub(crate) use signing::{sign_s3_url, AwsCredentials};
 use write_local_data::write_local_data_helper;
 use write_remote_data::write_remote_data_helper;
 
@@ -121,4 +123,21 @@ impl LocatorStatic for S3Locator {
             _placeholder: (),
         }
     }
+}
+
+/// Given a `TemporaryStorage`, extract a unique `s3://` temporary directory,
+/// including a random component.
+pub(crate) fn find_s3_temp_dir(
+    temporary_storage: &TemporaryStorage,
+) -> Result<S3Locator> {
+    let mut temp = temporary_storage
+        .find_scheme(S3Locator::scheme())
+        .ok_or_else(|| format_err!("need `--temporary=s3://...` argument"))?
+        .to_owned();
+    if !temp.ends_with('/') {
+        temp.push_str("/");
+    }
+    temp.push_str(&TemporaryStorage::random_tag());
+    temp.push_str("/");
+    S3Locator::from_str(&temp)
 }

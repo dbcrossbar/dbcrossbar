@@ -87,7 +87,7 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
     } else {
         // We have to transfer the data via the local machine, so read data from
         // input.
-        debug!(ctx.log(), "performaning local data transfer");
+        debug!(ctx.log(), "performing local data transfer");
 
         let input_ctx = ctx.child(o!("from_locator" => from_locator.to_string()));
         let data = from_locator

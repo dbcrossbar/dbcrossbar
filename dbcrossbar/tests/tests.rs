@@ -673,3 +673,50 @@ fn cp_csv_to_redshift_to_csv() {
     let actual = fs::read_to_string(testdir.path("out.csv")).unwrap();
     assert_diff!(&expected, &actual, ",", 0);
 }
+
+#[test]
+#[ignore]
+fn cp_csv_to_bigml_dataset_to_csv() {
+    let _ = env_logger::try_init();
+    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_bigml_dataset_to_csv");
+    let src = testdir.src_path("fixtures/many_types.csv");
+    let schema = testdir.src_path("fixtures/many_types.sql");
+    let s3_dir = s3_test_dir_url("cp_csv_to_bigml_dataset_to_csv");
+
+    // CSV to BigML.
+    let output = testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--temporary={}", s3_dir),
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            // --to-arg values will be converted into Redshift "credentials"
+            // arguments to COPY and UNLOAD, directly.
+            &format!("csv:{}", src.display()),
+            "bigml:dataset",
+        ])
+        .tee_output()
+        .expect_success();
+    let dataset_locator = output
+        .stdout_str()
+        .trim_matches(|c: char| c.is_ascii_whitespace());
+
+    // BigML to CSV.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            dataset_locator,
+            // Output as a single file to avoid weird naming conventions.
+            "csv:out.csv",
+        ])
+        .tee_output()
+        .expect_success();
+
+    let expected = fs::read_to_string(&src).unwrap();
+    let actual = fs::read_to_string(testdir.path("out.csv")).unwrap();
+    assert_diff!(&expected, &actual, ",", 0);
+}

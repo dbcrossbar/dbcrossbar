@@ -1,29 +1,42 @@
 //! Support for BigML data sets.
 
-use bigml::resource::{Dataset, Id};
+use bigml::resource::{Dataset, Id, Source};
 use std::{fmt, str::FromStr};
 
 use crate::common::*;
 
+mod data_type;
 //mod local_data;
-//mod prepare_as_destination;
-//mod write_local_data;
-//mod write_remote_data;
-//
+mod source;
+mod write_local_data;
+
 //use local_data::local_data_helper;
-//pub(crate) use prepare_as_destination::prepare_as_destination_helper;
-//use write_local_data::write_local_data_helper;
-//use write_remote_data::write_remote_data_helper;
+use write_local_data::write_local_data_helper;
 
 /// Various read and write actions we can take with BigML.
 #[derive(Clone, Debug)]
 enum BigMlAction {
+    /// Create a single `dataset/$ID` resource on BigML, containing all the data.
+    CreateDataset,
+    /// Create one or more `dataset/$ID` resources on BigML.
+    CreateDatasets,
     /// Create a single `source/$ID` resource on BigML, containing all the data.
     CreateSource,
     /// Create one or more `source/$ID` resources on BigML.
     CreateSources,
     /// Read data from the specified dataset.
     ReadDataset(Id<Dataset>),
+    /// This cannot be directly used as a source or destination, but it can be
+    /// printed as output from our driver.
+    OutputSource(Id<Source>),
+}
+
+/// (Internal.) Options for resource creation.
+pub(self) struct CreateOptions {
+    /// Should we concatenate our input CSVs into a single stream?
+    pub(self) concat_csv_streams: bool,
+    /// Should we convert our initial source into a dataset?
+    pub(self) convert_to_dataset: bool,
 }
 
 /// A locator specifying either how to upload data to BigML, or where to
@@ -34,6 +47,22 @@ pub(crate) struct BigMlLocator {
 }
 
 impl BigMlLocator {
+    /// Create a `bigml:dataset` locator, which writes all the data to a single
+    /// BigML "dataset" object.
+    pub fn create_dataset() -> Self {
+        Self {
+            action: BigMlAction::CreateDataset,
+        }
+    }
+
+    /// Create a `bigml:datasets` locator, which writes all the data to one or
+    /// more BigML "dataset" objects.
+    pub fn create_datasets() -> Self {
+        Self {
+            action: BigMlAction::CreateDatasets,
+        }
+    }
+
     /// Create a `bigml:source` locator, which writes all the data to a single
     /// BigML "source" object.
     pub fn create_source() -> Self {
@@ -57,14 +86,48 @@ impl BigMlLocator {
             action: BigMlAction::ReadDataset(id),
         }
     }
+
+    /// (Internal only.) Create a `bigml:source/$ID` locator.
+    pub(self) fn output_source(id: Id<Source>) -> Self {
+        Self {
+            action: BigMlAction::OutputSource(id),
+        }
+    }
+
+    /// Given a `BigMlAction`, convert it into flags specifying how to create
+    /// a resource on BigML. If this is a _source_ locator, return `None`.
+    pub(self) fn to_create_options(&self) -> Option<CreateOptions> {
+        match &self.action {
+            BigMlAction::CreateDataset => Some(CreateOptions {
+                concat_csv_streams: true,
+                convert_to_dataset: true,
+            }),
+            BigMlAction::CreateDatasets => Some(CreateOptions {
+                concat_csv_streams: false,
+                convert_to_dataset: true,
+            }),
+            BigMlAction::CreateSource => Some(CreateOptions {
+                concat_csv_streams: true,
+                convert_to_dataset: false,
+            }),
+            BigMlAction::CreateSources => Some(CreateOptions {
+                concat_csv_streams: false,
+                convert_to_dataset: false,
+            }),
+            BigMlAction::ReadDataset(_) | BigMlAction::OutputSource(_) => None,
+        }
+    }
 }
 
 impl fmt::Display for BigMlLocator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.action {
+            BigMlAction::CreateDataset => write!(f, "bigml:dataset"),
+            BigMlAction::CreateDatasets => write!(f, "bigml:datasets"),
             BigMlAction::CreateSource => write!(f, "bigml:source"),
             BigMlAction::CreateSources => write!(f, "bigml:sources"),
             BigMlAction::ReadDataset(id) => write!(f, "bigml:{}", id),
+            BigMlAction::OutputSource(id) => write!(f, "bigml:{}", id),
         }
     }
 }
@@ -73,7 +136,11 @@ impl FromStr for BigMlLocator {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        if s == "bigml:source" {
+        if s == "bigml:dataset" {
+            Ok(BigMlLocator::create_dataset())
+        } else if s == "bigml:datasets" {
+            Ok(BigMlLocator::create_datasets())
+        } else if s == "bigml:source" {
             Ok(BigMlLocator::create_source())
         } else if s == "bigml:sources" {
             Ok(BigMlLocator::create_sources())
@@ -97,19 +164,19 @@ impl Locator for BigMlLocator {
     //    shared_args: SharedArguments<Unverified>,
     //    source_args: SourceArguments<Unverified>,
     //) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-    //    local_data_helper(ctx, self.url.clone(), shared_args, source_args).boxed()
+    //    local_data_helper(ctx, self.clone(), shared_args, source_args).boxed()
     //}
 
-    //fn write_local_data(
-    //    &self,
-    //    ctx: Context,
-    //    data: BoxStream<CsvStream>,
-    //    shared_args: SharedArguments<Unverified>,
-    //    dest_args: DestinationArguments<Unverified>,
-    //) -> BoxFuture<BoxStream<BoxFuture<()>>> {
-    //    write_local_data_helper(ctx, self.url.clone(), data, shared_args, dest_args)
-    //        .boxed()
-    //}
+    fn write_local_data(
+        &self,
+        ctx: Context,
+        data: BoxStream<CsvStream>,
+        shared_args: SharedArguments<Unverified>,
+        dest_args: DestinationArguments<Unverified>,
+    ) -> BoxFuture<BoxStream<BoxFuture<BoxLocator>>> {
+        write_local_data_helper(ctx, self.clone(), data, shared_args, dest_args)
+            .boxed()
+    }
 }
 
 impl LocatorStatic for BigMlLocator {
@@ -119,7 +186,7 @@ impl LocatorStatic for BigMlLocator {
 
     fn features() -> Features {
         Features {
-            locator: LocatorFeatures::empty(), //LocatorFeatures::LOCAL_DATA | LocatorFeatures::WRITE_LOCAL_DATA,
+            locator: LocatorFeatures::LOCAL_DATA | LocatorFeatures::WRITE_LOCAL_DATA,
             write_schema_if_exists: IfExistsFeatures::empty(),
             source_args: SourceArgumentsFeatures::empty(),
             dest_args: DestinationArgumentsFeatures::empty(),

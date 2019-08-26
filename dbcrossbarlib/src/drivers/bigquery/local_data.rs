@@ -1,8 +1,7 @@
 //! Helper for reading data from BigQuery.
 
-use super::find_gs_temp_dir;
 use crate::common::*;
-use crate::drivers::bigquery::BigQueryLocator;
+use crate::drivers::{bigquery::BigQueryLocator, gs::find_gs_temp_dir};
 
 /// Implementation of `local_data`, but as a real `async` function.
 pub(crate) async fn local_data_helper(

@@ -1,7 +1,8 @@
 //! Implementation of `write_local_data` for Redshift.
 
-use super::{find_s3_temp_dir, RedshiftLocator};
+use super::RedshiftLocator;
 use crate::common::*;
+use crate::drivers::s3::find_s3_temp_dir;
 use crate::tokio_glue::ConsumeWithParallelism;
 
 /// Implementation of `write_local_data`, but as a real `async` function.

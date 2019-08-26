@@ -1,7 +1,8 @@
 //! Helper for reading data from BigQuery.
 
-use super::{find_s3_temp_dir, RedshiftLocator};
+use super::RedshiftLocator;
 use crate::common::*;
+use crate::drivers::s3::find_s3_temp_dir;
 
 /// Implementation of `local_data`, but as a real `async` function.
 pub(crate) async fn local_data_helper(

@@ -143,23 +143,6 @@ impl LocatorStatic for RedshiftLocator {
     }
 }
 
-/// Given a `TemporaryStorage`, extract a unique `s3://` temporary directory,
-/// including a random component.
-pub(crate) fn find_s3_temp_dir(
-    temporary_storage: &TemporaryStorage,
-) -> Result<S3Locator> {
-    let mut temp = temporary_storage
-        .find_scheme(S3Locator::scheme())
-        .ok_or_else(|| format_err!("need `--temporary=s3://...` argument"))?
-        .to_owned();
-    if !temp.ends_with('/') {
-        temp.push_str("/");
-    }
-    temp.push_str(&TemporaryStorage::random_tag());
-    temp.push_str("/");
-    S3Locator::from_str(&temp)
-}
-
 /// Given a `DriverArgs` structure, convert it into Redshift credentials SQL.
 pub(crate) fn credentials_sql(args: &DriverArguments) -> Result<String> {
     let mut out = vec![];
