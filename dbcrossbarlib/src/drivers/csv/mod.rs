@@ -95,6 +95,15 @@ impl Locator for CsvLocator {
         local_data_helper(ctx, self.path.clone(), shared_args, source_args).boxed()
     }
 
+    fn display_output_locators(&self) -> DisplayOutputLocators {
+        match &self.path {
+            // If we write our data to standard output, we don't also want to
+            // print out "csv:-" to the same standard output.
+            PathOrStdio::Stdio => DisplayOutputLocators::Never,
+            _ => DisplayOutputLocators::IfRequested,
+        }
+    }
+
     fn write_local_data(
         &self,
         ctx: Context,

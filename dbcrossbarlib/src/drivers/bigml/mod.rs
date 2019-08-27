@@ -167,6 +167,19 @@ impl Locator for BigMlLocator {
     //    local_data_helper(ctx, self.clone(), shared_args, source_args).boxed()
     //}
 
+    fn display_output_locators(&self) -> DisplayOutputLocators {
+        match &self.action {
+            // Our actual destination locators can't be inferred from what
+            // the user specified, because BigML assigns unique IDs. So we
+            // need to display where we put the data.
+            BigMlAction::CreateDataset
+            | BigMlAction::CreateDatasets
+            | BigMlAction::CreateSource
+            | BigMlAction::CreateSources => DisplayOutputLocators::ByDefault,
+            _ => DisplayOutputLocators::IfRequested,
+        }
+    }
+
     fn write_local_data(
         &self,
         ctx: Context,

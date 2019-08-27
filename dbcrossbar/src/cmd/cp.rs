@@ -3,7 +3,8 @@
 use common_failures::Result;
 use dbcrossbarlib::{
     BoxLocator, ConsumeWithParallelism, Context, DestinationArguments,
-    DriverArguments, IfExists, SharedArguments, SourceArguments, TemporaryStorage,
+    DisplayOutputLocators, DriverArguments, IfExists, SharedArguments,
+    SourceArguments, TemporaryStorage,
 };
 use failure::format_err;
 use slog::{debug, o};
@@ -37,6 +38,10 @@ pub(crate) struct Opt {
     /// SQL where clause specifying rows to use.
     #[structopt(long = "where")]
     where_clause: Option<String>,
+
+    /// Display where we wrote our output data.
+    #[structopt(long = "display-output-locators")]
+    display_output_locators: bool,
 
     /// The input table.
     from_locator: BoxLocator,
@@ -72,7 +77,7 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
     // local machine?
     let to_locator = opt.to_locator;
     let from_locator = opt.from_locator;
-    let _dests = if to_locator.supports_write_remote_data(from_locator.as_ref()) {
+    let dests = if to_locator.supports_write_remote_data(from_locator.as_ref()) {
         // Build a logging context.
         let ctx = ctx.child(o!(
             "from_locator" => from_locator.to_string(),
@@ -110,7 +115,35 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
         result_stream.consume_with_parallelism(4).await?
     };
 
-    // TODO: Decide when and how to display `dests`.
+    // Optionally display `dests`, depending on a combination of
+    // `--display-output-locators` and the defaults for `to_locator`.
+    let display_output_locators = to_locator.display_output_locators();
+    match (opt.display_output_locators, display_output_locators) {
+        // The user passed `--display-output-locators`, but displaying them is
+        // forbidden (probably because we wrote actual data to standard output).
+        (true, DisplayOutputLocators::Never) => Err(format_err!(
+            "cannot use --display-output-locators with {}",
+            to_locator
+        )),
 
-    Ok(())
+        // We want to display our actual output locators.
+        (true, _) | (false, DisplayOutputLocators::ByDefault) => {
+            for dest in dests {
+                let dest_str = dest.to_string();
+                if dest_str.contains('\n') || dest_str.contains('\r') {
+                    // If we write out this locator, it would be split between
+                    // lines, causing an ambiguity for any parsing program.
+                    return Err(format_err!(
+                        "cannot output locator with newline: {:?}",
+                        dest_str
+                    ));
+                }
+                println!("{}", dest);
+            }
+            Ok(())
+        }
+
+        // We don't want to display our output locators.
+        (false, _) => Ok(()),
+    }
 }

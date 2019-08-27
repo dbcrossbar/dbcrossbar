@@ -8,6 +8,18 @@ use std::{fmt, marker::PhantomData, str::FromStr};
 use crate::common::*;
 use crate::drivers::find_driver;
 
+/// When called from the CLI, should we display a list of individual locators
+/// for each data stream?
+pub enum DisplayOutputLocators {
+    /// Never display where we wrote the data. Used if we wrote the data to
+    /// standard output.
+    Never,
+    /// Display where we wrote the data only if asked to do so.
+    IfRequested,
+    /// Display where we wrote the data unless asked otherwise.
+    ByDefault,
+}
+
 /// Specify the the location of data or a schema.
 pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     /// Provide a mechanism for casting a `dyn Locator` back to the underlying,
@@ -76,6 +88,11 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
         // Turn our result into a future.
         async { Ok(None) }.boxed()
+    }
+
+    /// Should we display the individual output locations?
+    fn display_output_locators(&self) -> DisplayOutputLocators {
+        DisplayOutputLocators::IfRequested
     }
 
     /// If this locator can be used as a local data sink, write data to it.

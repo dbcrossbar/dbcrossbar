@@ -49,7 +49,7 @@ pub use context::Context;
 pub use csv_stream::CsvStream;
 pub use driver_args::DriverArguments;
 pub use if_exists::IfExists;
-pub use locator::{BoxLocator, Locator};
+pub use locator::{BoxLocator, DisplayOutputLocators, Locator};
 pub use temporary_storage::TemporaryStorage;
 pub use tokio_glue::{run_futures_with_runtime, ConsumeWithParallelism};
 
@@ -80,7 +80,10 @@ pub(crate) mod common {
         csv_stream::CsvStream,
         driver_args::DriverArguments,
         if_exists::{IfExists, IfExistsFeatures},
-        locator::{BoxLocator, Features, Locator, LocatorFeatures, LocatorStatic},
+        locator::{
+            BoxLocator, DisplayOutputLocators, Features, Locator, LocatorFeatures,
+            LocatorStatic,
+        },
         path_or_stdio::PathOrStdio,
         schema::Table,
         temporary_storage::TemporaryStorage,
