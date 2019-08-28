@@ -715,7 +715,9 @@ fn cp_csv_to_bigml_dataset_to_csv() {
         .tee_output()
         .expect_success();
 
-    let expected = fs::read_to_string(&src).unwrap();
+    let expected = fs::read_to_string(&src)
+        .unwrap()
+        .replace(",1e+37,", ",1.0E37,");
     let actual = fs::read_to_string(testdir.path("out.csv")).unwrap();
     assert_diff!(&expected, &actual, ",", 0);
 }

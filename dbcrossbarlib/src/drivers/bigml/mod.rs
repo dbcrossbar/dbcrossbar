@@ -10,12 +10,12 @@ use crate::common::*;
 use crate::schema::Table;
 
 mod data_type;
-//mod local_data;
+mod local_data;
 mod schema;
 mod source;
 mod write_local_data;
 
-//use local_data::local_data_helper
+use local_data::local_data_helper;
 use schema::schema_helper;
 use write_local_data::write_local_data_helper;
 
@@ -193,14 +193,14 @@ impl Locator for BigMlLocator {
         schema_helper(ctx, self.to_owned()).boxed()
     }
 
-    //fn local_data(
-    //    &self,
-    //    ctx: Context,
-    //    shared_args: SharedArguments<Unverified>,
-    //    source_args: SourceArguments<Unverified>,
-    //) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-    //    local_data_helper(ctx, self.clone(), shared_args, source_args).boxed()
-    //}
+    fn local_data(
+        &self,
+        ctx: Context,
+        shared_args: SharedArguments<Unverified>,
+        source_args: SourceArguments<Unverified>,
+    ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
+        local_data_helper(ctx, self.clone(), shared_args, source_args).boxed()
+    }
 
     fn display_output_locators(&self) -> DisplayOutputLocators {
         match &self.action {
@@ -234,7 +234,9 @@ impl LocatorStatic for BigMlLocator {
 
     fn features() -> Features {
         Features {
-            locator: LocatorFeatures::LOCAL_DATA | LocatorFeatures::WRITE_LOCAL_DATA,
+            locator: LocatorFeatures::SCHEMA
+                | LocatorFeatures::LOCAL_DATA
+                | LocatorFeatures::WRITE_LOCAL_DATA,
             write_schema_if_exists: IfExistsFeatures::empty(),
             source_args: SourceArgumentsFeatures::empty(),
             dest_args: DestinationArgumentsFeatures::empty(),

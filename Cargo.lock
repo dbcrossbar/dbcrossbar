@@ -94,7 +94,7 @@ dependencies = [
 [[package]]
 name = "bigml"
 version = "0.2.0"
-source = "git+https://github.com/faradayio/bigml-rs?branch=async#44ae7a5b16f19cc814d0661eb14c7c1a4943dc11"
+source = "git+https://github.com/faradayio/bigml-rs?branch=async#682ba46422cec3e72cb5ebce058a21f80fe2c3df"
 dependencies = [
  "bigml_derive 0.2.0 (git+https://github.com/faradayio/bigml-rs?branch=async)",
  "bytes 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -117,7 +117,7 @@ dependencies = [
 [[package]]
 name = "bigml_derive"
 version = "0.2.0"
-source = "git+https://github.com/faradayio/bigml-rs?branch=async#44ae7a5b16f19cc814d0661eb14c7c1a4943dc11"
+source = "git+https://github.com/faradayio/bigml-rs?branch=async#682ba46422cec3e72cb5ebce058a21f80fe2c3df"
 dependencies = [
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)",

@@ -1,7 +1,7 @@
 //! Our basic data representation.
 
 use bytes::Bytes;
-use reqwest::{self, r#async::Body};
+use reqwest::{self, r#async::Response};
 use std::error::Error as StdError;
 
 use crate::common::*;
@@ -60,8 +60,12 @@ impl CsvStream {
     }
 
     /// Convert an HTTP `Body` into a `CsvStream`.
-    pub(crate) fn from_http_body(name: String, body: Body) -> Result<CsvStream> {
-        let data = body
+    pub(crate) fn from_http_response(
+        name: String,
+        response: Response,
+    ) -> Result<CsvStream> {
+        let data = response
+            .into_body()
             .map(|chunk| BytesMut::from(chunk.as_ref()))
             .map_err(|err| err.into());
         Ok(CsvStream {

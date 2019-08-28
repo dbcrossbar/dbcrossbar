@@ -149,6 +149,8 @@ pub(crate) async fn write_local_data_helper(
             let update = source.calculate_column_type_fix(&schema)?;
             trace!(ctx.log(), "updating source with {:?}", update);
             client.update(&source.id(), &update).await?;
+            trace!(ctx.log(), "waiting for source to be ready (again)");
+            source = client.wait(source.id()).await?;
 
             // Optionally convert our source to a dataset.
             if !convert_to_dataset {
