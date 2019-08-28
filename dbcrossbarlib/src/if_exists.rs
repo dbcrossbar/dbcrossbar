@@ -2,7 +2,7 @@
 
 use bitflags::bitflags;
 use itertools::Itertools;
-use std::{fmt, fs as std_fs, str::FromStr};
+use std::{fmt, str::FromStr};
 use tokio::fs as tokio_fs;
 
 use crate::common::*;
@@ -76,30 +76,6 @@ impl IfExists {
         &self,
     ) -> Result<tokio_fs::OpenOptions> {
         let mut open_options = tokio_fs::OpenOptions::new();
-        open_options.write(true);
-        match self {
-            IfExists::Error => {
-                open_options.create_new(true);
-            }
-            IfExists::Overwrite => {
-                open_options.create(true).append(true);
-            }
-            IfExists::Append => {
-                return Err(format_err!("appending not supported"));
-            }
-            IfExists::Upsert(_) => {
-                return Err(format_err!("upsert not supported"));
-            }
-        }
-        Ok(open_options)
-    }
-
-    /// Convert to an `std::fs::OpenOptions` value, returning an error for
-    /// `IfExists::Append`.
-    pub(crate) fn to_sync_open_options_no_append(
-        &self,
-    ) -> Result<std_fs::OpenOptions> {
-        let mut open_options = std_fs::OpenOptions::new();
         open_options.write(true);
         match self {
             IfExists::Error => {

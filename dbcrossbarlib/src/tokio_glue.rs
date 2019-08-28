@@ -3,7 +3,7 @@
 //! This is mostly smaller things that happen to recur in our particular
 //! application.
 
-use std::{cmp::min, future::Future as StdFuture, pin::Pin, thread};
+use std::{cmp::min, future::Future as StdFuture, pin::Pin, result, thread};
 use tokio::io;
 
 use crate::common::*;
@@ -399,4 +399,40 @@ pub fn run_futures_with_runtime(
         tokio::runtime::Runtime::new().expect("Unable to create a runtime");
     runtime.block_on(combined_fut.boxed().compat())?;
     Ok(())
+}
+
+/// Read all data from `input` and return it as bytes.
+pub(crate) async fn async_read_to_end<R>(input: R) -> Result<Vec<u8>>
+where
+    R: AsyncRead + Send,
+{
+    let (_input, bytes) = io::read_to_end(input, vec![]).compat().await?;
+    Ok(bytes)
+}
+
+/// Read all data from `input` and return it as a string.
+pub(crate) async fn async_read_to_string<R>(input: R) -> Result<String>
+where
+    R: AsyncRead + Send,
+{
+    let bytes = async_read_to_end(input).await?;
+    Ok(String::from_utf8(bytes)?)
+}
+
+/// Given a function `f`, pass it a sync `Write` implementation, and collect the
+/// data that it writes to `f`. Then write that data asynchronously to the async
+/// `wtr`. This is a convenience function for outputting small amounts of data.
+pub(crate) async fn buffer_sync_write_and_copy_to_async<W, F, E>(
+    wtr: W,
+    f: F,
+) -> Result<W>
+where
+    W: AsyncWrite + Send,
+    F: FnOnce(&mut dyn Write) -> result::Result<(), E>,
+    E: Into<Error>,
+{
+    let mut buffer = vec![];
+    f(&mut buffer).map_err(|e| e.into())?;
+    let (wtr, _buffer) = io::write_all(wtr, buffer).compat().await?;
+    Ok(wtr)
 }

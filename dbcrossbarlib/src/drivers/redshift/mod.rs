@@ -73,7 +73,7 @@ impl Locator for RedshiftLocator {
         self
     }
 
-    fn schema(&self, ctx: &Context) -> Result<Option<Table>> {
+    fn schema(&self, ctx: Context) -> BoxFuture<Option<Table>> {
         self.postgres_locator.schema(ctx)
     }
 

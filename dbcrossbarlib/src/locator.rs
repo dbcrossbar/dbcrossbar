@@ -49,19 +49,20 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     fn as_any(&self) -> &dyn Any;
 
     /// Return a table schema, if available.
-    fn schema(&self, _ctx: &Context) -> Result<Option<Table>> {
-        Ok(None)
+    fn schema(&self, _ctx: Context) -> BoxFuture<Option<Table>> {
+        async { Ok(None) }.boxed()
     }
 
     /// Write a table schema to this locator, if that's the sort of thing that
     /// we can do.
     fn write_schema(
         &self,
-        _ctx: &Context,
-        _schema: &Table,
+        _ctx: Context,
+        _schema: Table,
         _if_exists: IfExists,
-    ) -> Result<()> {
-        Err(format_err!("cannot write schema to {}", self))
+    ) -> BoxFuture<()> {
+        let err = format_err!("cannot write schema to {}", self);
+        async move { Err(err) }.boxed()
     }
 
     /// If this locator can be used as a local data source, return a stream of

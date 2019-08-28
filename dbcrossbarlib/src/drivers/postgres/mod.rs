@@ -156,8 +156,15 @@ impl Locator for PostgresLocator {
         self
     }
 
-    fn schema(&self, _ctx: &Context) -> Result<Option<Table>> {
-        Ok(Some(schema::fetch_from_url(&self.url, &self.table_name)?))
+    fn schema(&self, _ctx: Context) -> BoxFuture<Option<Table>> {
+        let source = self.to_owned();
+        run_sync_fn_in_background("PostgresLocator::schema".to_owned(), move || {
+            Ok(Some(schema::fetch_from_url(
+                &source.url,
+                &source.table_name,
+            )?))
+        })
+        .boxed()
     }
 
     fn local_data(

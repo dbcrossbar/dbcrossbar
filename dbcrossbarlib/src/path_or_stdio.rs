@@ -1,7 +1,7 @@
 //! Support for working with either files or standard I/O.
 
 use std::{
-    fmt, fs as std_fs, io as std_io,
+    fmt,
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -47,8 +47,9 @@ impl PathOrStdio {
     }
 
     /// Open the file (or standard input) for asynchronous reading.
-    #[allow(dead_code)]
-    pub(crate) async fn open_async(&self) -> Result<Box<dyn AsyncRead>> {
+    pub(crate) async fn open_async(
+        &self,
+    ) -> Result<Box<dyn AsyncRead + Send + 'static>> {
         match self {
             PathOrStdio::Path(p) => {
                 let p = p.to_owned();
@@ -56,31 +57,20 @@ impl PathOrStdio {
                     .compat()
                     .await
                     .with_context(|_| format!("error opening {}", p.display()))?;
-                Ok(Box::new(f) as Box<dyn AsyncRead>)
+                Ok(Box::new(f) as Box<dyn AsyncRead + Send + 'static>)
             }
-            PathOrStdio::Stdio => Ok(Box::new(tokio_io::stdin()) as Box<dyn AsyncRead>),
-        }
-    }
-
-    /// Open the file (or standard input) for synchronous reading.
-    pub(crate) fn open_sync(&self) -> Result<Box<dyn Read>> {
-        match self {
-            PathOrStdio::Path(p) => {
-                let f = std_fs::File::open(p)
-                    .with_context(|_| format!("error opening {}", p.display()))?;
-                Ok(Box::new(f) as Box<dyn Read>)
+            PathOrStdio::Stdio => {
+                Ok(Box::new(tokio_io::stdin()) as Box<dyn AsyncRead + Send + 'static>)
             }
-            PathOrStdio::Stdio => Ok(Box::new(std_io::stdin()) as Box<dyn Read>),
         }
     }
 
     /// Open the file (or standard output) for asynchronous writing.
-    #[allow(dead_code)]
     pub(crate) async fn create_async(
         &self,
         ctx: Context,
         if_exists: IfExists,
-    ) -> Result<Box<dyn AsyncWrite>> {
+    ) -> Result<Box<dyn AsyncWrite + Send + 'static>> {
         match self {
             PathOrStdio::Path(p) => {
                 let p = p.to_owned();
@@ -90,32 +80,12 @@ impl PathOrStdio {
                     .compat()
                     .await
                     .with_context(|_| format!("error opening {}", p.display()))?;
-                Ok(Box::new(f) as Box<dyn AsyncWrite>)
+                Ok(Box::new(f) as Box<dyn AsyncWrite + Send + 'static>)
             }
             PathOrStdio::Stdio => {
                 if_exists.warn_if_not_default_for_stdout(&ctx);
-                Ok(Box::new(tokio_io::stdout()) as Box<dyn AsyncWrite>)
-            }
-        }
-    }
-
-    /// Open the file (or standard output) for synchronous writing.
-    pub(crate) fn create_sync(
-        &self,
-        ctx: &Context,
-        if_exists: &IfExists,
-    ) -> Result<Box<dyn Write>> {
-        match self {
-            PathOrStdio::Path(p) => {
-                let f = if_exists
-                    .to_sync_open_options_no_append()?
-                    .open(p)
-                    .with_context(|_| format!("error opening {}", p.display()))?;
-                Ok(Box::new(f) as Box<dyn Write>)
-            }
-            PathOrStdio::Stdio => {
-                if_exists.warn_if_not_default_for_stdout(ctx);
-                Ok(Box::new(std_io::stdout()) as Box<dyn Write>)
+                Ok(Box::new(tokio_io::stdout())
+                    as Box<dyn AsyncWrite + Send + 'static>)
             }
         }
     }

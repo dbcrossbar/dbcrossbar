@@ -31,47 +31,17 @@ impl Locator for BigQuerySchemaLocator {
         self
     }
 
-    fn schema(&self, _ctx: &Context) -> Result<Option<Table>> {
-        // Read our input.
-        let mut input = self.path.open_sync()?;
-        let mut data = String::new();
-        input
-            .read_to_string(&mut data)
-            .with_context(|_| format!("error reading {}", self.path))?;
-
-        // Parse our input as a list of columns.
-        let columns: Vec<BqColumn> = serde_json::from_str(&data)
-            .with_context(|_| format!("error parsing {}", self.path))?;
-
-        // Build a `BqTable`, convert it, and set a placeholder name.
-        let arbitrary_name = TableName::from_str(&"unused:unused.unused")?;
-        let bq_table = BqTable {
-            name: arbitrary_name,
-            columns,
-        };
-        let mut table = bq_table.to_table()?;
-        table.name = "unnamed".to_owned();
-        Ok(Some(table))
+    fn schema(&self, ctx: Context) -> BoxFuture<Option<Table>> {
+        schema_helper(ctx, self.to_owned()).boxed()
     }
 
     fn write_schema(
         &self,
-        ctx: &Context,
-        table: &Table,
+        ctx: Context,
+        table: Table,
         if_exists: IfExists,
-    ) -> Result<()> {
-        // The BigQuery table name doesn't matter here, because BigQuery won't
-        // use it.
-        let arbitrary_name = TableName::from_str(&"unused:unused.unused")?;
-
-        // Generate our JSON.
-        let mut f = self.path.create_sync(ctx, &if_exists)?;
-        let bq_table = BqTable::for_table_name_and_columns(
-            arbitrary_name,
-            &table.columns,
-            Usage::FinalTable,
-        )?;
-        bq_table.write_json_schema(&mut f)
+    ) -> BoxFuture<()> {
+        write_schema_helper(ctx, self.to_owned(), table, if_exists).boxed()
     }
 }
 
@@ -90,4 +60,58 @@ impl LocatorStatic for BigQuerySchemaLocator {
             _placeholder: (),
         }
     }
+}
+
+/// Implementation of `schema`, but as a real `async` function.
+async fn schema_helper(
+    _ctx: Context,
+    source: BigQuerySchemaLocator,
+) -> Result<Option<Table>> {
+    // Read our input.
+    let input = source.path.open_async().await?;
+    let data = async_read_to_end(input)
+        .await
+        .with_context(|_| format!("error reading {}", source.path))?;
+
+    // Parse our input as a list of columns.
+    let columns: Vec<BqColumn> = serde_json::from_slice(&data)
+        .with_context(|_| format!("error parsing {}", source.path))?;
+
+    // Build a `BqTable`, convert it, and set a placeholder name.
+    let arbitrary_name = TableName::from_str(&"unused:unused.unused")?;
+    let bq_table = BqTable {
+        name: arbitrary_name,
+        columns,
+    };
+    let mut table = bq_table.to_table()?;
+    table.name = "unnamed".to_owned();
+    Ok(Some(table))
+}
+
+/// Implementation of `write_schema`, but as a real `async` function.
+async fn write_schema_helper(
+    ctx: Context,
+    dest: BigQuerySchemaLocator,
+    table: Table,
+    if_exists: IfExists,
+) -> Result<()> {
+    // The BigQuery table name doesn't matter here, because our BigQuery schema
+    // won't use it. We could convert `table.name` into a valid BigQuery table
+    // name, but because BigQuery table names obey fairly strict restrictions,
+    // it's not worth doing the work if we're just going throw it away.
+    let arbitrary_name = TableName::from_str(&"unused:unused.unused")?;
+
+    // Convert our schema to a BigQuery table.
+    let bq_table = BqTable::for_table_name_and_columns(
+        arbitrary_name,
+        &table.columns,
+        Usage::FinalTable,
+    )?;
+
+    // Output our schema to our destination.
+    let f = dest.path.create_async(ctx, if_exists).await?;
+    buffer_sync_write_and_copy_to_async(f, |buff| bq_table.write_json_schema(buff))
+        .await
+        .with_context(|_| format!("error writing to {}", dest.path))?;
+    Ok(())
 }

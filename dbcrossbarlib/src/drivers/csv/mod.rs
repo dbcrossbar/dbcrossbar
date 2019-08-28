@@ -50,40 +50,47 @@ impl Locator for CsvLocator {
         self
     }
 
-    fn schema(&self, _ctx: &Context) -> Result<Option<Table>> {
-        match &self.path {
-            PathOrStdio::Stdio => {
-                // This is actually fairly tricky, because we may need to first
-                // read the columns from stdin, _then_ start re-reading from the
-                // beginning to read the data when `local_data` is called.
-                Err(format_err!("cannot yet read CSV schema from stdin"))
-            }
-            PathOrStdio::Path(path) => {
-                // Build our columns.
-                let mut rdr = csv::Reader::from_path(path)
-                    .with_context(|_| format!("error opening {}", path.display()))?;
-                let mut columns = vec![];
-                let headers = rdr
-                    .headers()
-                    .with_context(|_| format!("error reading {}", path.display()))?;
-                for col_name in headers {
-                    columns.push(Column {
-                        name: col_name.to_owned(),
-                        is_nullable: true,
-                        data_type: DataType::Text,
-                        comment: None,
-                    })
+    fn schema(&self, _ctx: Context) -> BoxFuture<Option<Table>> {
+        // We're going to use a helper thread to do this, because `csv` is a
+        // purely synchrnous library.
+        let source = self.to_owned();
+        run_sync_fn_in_background("csv::schema".to_owned(), move || {
+            match &source.path {
+                PathOrStdio::Stdio => {
+                    // This is actually fairly tricky, because we may need to first
+                    // read the columns from stdin, _then_ start re-reading from the
+                    // beginning to read the data when `local_data` is called.
+                    Err(format_err!("cannot yet read CSV schema from stdin"))
                 }
+                PathOrStdio::Path(path) => {
+                    // Build our columns.
+                    let mut rdr = csv::Reader::from_path(path).with_context(|_| {
+                        format!("error opening {}", path.display())
+                    })?;
+                    let mut columns = vec![];
+                    let headers = rdr.headers().with_context(|_| {
+                        format!("error reading {}", path.display())
+                    })?;
+                    for col_name in headers {
+                        columns.push(Column {
+                            name: col_name.to_owned(),
+                            is_nullable: true,
+                            data_type: DataType::Text,
+                            comment: None,
+                        })
+                    }
 
-                // Build our table.
-                let name = path
-                    .file_stem()
-                    .unwrap_or_else(|| OsStr::new("data"))
-                    .to_string_lossy()
-                    .into_owned();
-                Ok(Some(Table { name, columns }))
+                    // Build our table.
+                    let name = path
+                        .file_stem()
+                        .unwrap_or_else(|| OsStr::new("data"))
+                        .to_string_lossy()
+                        .into_owned();
+                    Ok(Some(Table { name, columns }))
+                }
             }
-        }
+        })
+        .boxed()
     }
 
     fn local_data(

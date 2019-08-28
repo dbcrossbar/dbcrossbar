@@ -708,7 +708,6 @@ fn cp_csv_to_bigml_dataset_to_csv() {
         .args(&[
             "cp",
             "--if-exists=overwrite",
-            &format!("--schema=postgres-sql:{}", schema.display()),
             dataset_locator,
             // Output as a single file to avoid weird naming conventions.
             "csv:out.csv",

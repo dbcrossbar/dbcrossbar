@@ -88,7 +88,9 @@ pub(crate) mod common {
         schema::Table,
         temporary_storage::TemporaryStorage,
         tokio_glue::{
-            box_stream_once, run_futures_with_runtime, BoxFuture, BoxStream,
+            async_read_to_end, async_read_to_string, box_stream_once,
+            buffer_sync_write_and_copy_to_async, run_futures_with_runtime,
+            run_sync_fn_in_background, BoxFuture, BoxStream,
         },
         Error, Result, BUFFER_SIZE,
     };

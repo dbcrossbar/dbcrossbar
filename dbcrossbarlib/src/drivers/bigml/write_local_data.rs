@@ -5,9 +5,8 @@ use bigml::{
     resource::{dataset, source, Resource, Source},
 };
 use chrono::{Duration, Utc};
-use std::env;
 
-use super::{source::SourceExt, BigMlLocator, CreateOptions};
+use super::{source::SourceExt, BigMlCredentials, BigMlLocator, CreateOptions};
 use crate::common::*;
 use crate::concat::concatenate_csv_streams;
 use crate::drivers::s3::{find_s3_temp_dir, sign_s3_url, AwsCredentials};
@@ -29,10 +28,7 @@ pub(crate) async fn write_local_data_helper(
     // Get our BigML credentials. We fetch these from environment variables
     // for now, but maybe there's a better, more consistent way to handle
     // credentials?
-    let username = env::var("BIGML_USERNAME")
-        .map_err(|_| format_err!("must specify BIGML_USERNAME"))?;
-    let api_key = env::var("BIGML_API_KEY")
-        .map_err(|_| format_err!("must specify BIGML_API_KEY"))?;
+    let creds = BigMlCredentials::try_default()?;
 
     // Extract some more options from our destination locator.
     let CreateOptions {
@@ -65,12 +61,10 @@ pub(crate) async fn write_local_data_helper(
 
             // Convert our S3 locators into BigML `Source` objects.
             let ctx = ctx.clone();
-            let username = username.clone();
-            let api_key = api_key.clone();
+            let creds = creds.clone();
             let bigml_source_stream = s3_locator_stream.map(move |locator_fut| {
                 let ctx = ctx.clone();
-                let username = username.to_owned();
-                let api_key = api_key.to_owned();
+                let creds = creds.clone();
                 let fut = async move {
                     // Get our S3 URL back.
                     let locator = locator_fut.await?.to_string();
@@ -101,7 +95,7 @@ pub(crate) async fn write_local_data_helper(
                     // Create the source.
                     let mut args = source::Args::new(signed_url.into_string());
                     args.disable_datetime = Some(true);
-                    let client = bigml::Client::new(username, api_key)?;
+                    let client = creds.client()?;
                     let source = client.create(&args).await?;
 
                     let ctx = ctx.child(o!("bigml_source" => source.id().to_string()));
@@ -117,19 +111,17 @@ pub(crate) async fn write_local_data_helper(
             eprintln!("WARNING: You must pass --temporary=s3://... for BigML");
 
             let ctx = ctx.clone();
-            let username = username.clone();
-            let api_key = api_key.clone();
+            let creds = creds.clone();
             #[allow(deprecated)]
             Box::new(data.map(move |stream| {
                 let ctx = ctx.clone();
-                let username = username.to_owned();
-                let api_key = api_key.to_owned();
+                let creds = creds.clone();
                 let fut = async move {
                     let ctx = ctx.child(o!("stream" => stream.name.clone()));
                     debug!(ctx.log(), "uploading CSV stream to BigML");
 
                     let (name, data) = stream.into_name_and_portable_stream();
-                    let client = bigml::Client::new(username, api_key)?;
+                    let client = creds.client()?;
                     let source = client.create_source_from_stream(&name, data).await?;
 
                     let ctx = ctx.child(o!("bigml_source" => source.id().to_string()));
@@ -143,15 +135,14 @@ pub(crate) async fn write_local_data_helper(
     // Finish setting up our source objects, and optionally convert them to
     // datasets.
     let written = sources.map(move |ctx_source_fut| {
-        let username = username.clone();
-        let api_key = api_key.clone();
+        let creds = creds.clone();
         let schema = schema.clone(); // Expensive.
         let fut = async move {
             let (ctx, mut source) = ctx_source_fut.await?;
 
             // Wait for our `source` to finish being created.
             trace!(ctx.log(), "waiting for source to be ready");
-            let client = bigml::Client::new(username, api_key)?;
+            let client = creds.client()?;
             source = client.wait(source.id()).await?;
 
             // Fix data types.

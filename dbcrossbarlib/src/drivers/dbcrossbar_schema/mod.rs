@@ -30,31 +30,17 @@ impl Locator for DbcrossbarSchemaLocator {
         self
     }
 
-    fn schema(&self, _ctx: &Context) -> Result<Option<Table>> {
-        // Read our input.
-        let mut input = self.path.open_sync()?;
-        let mut data = String::new();
-        input
-            .read_to_string(&mut data)
-            .with_context(|_| format!("error reading {}", self.path))?;
-
-        // Parse our input as table JSON.
-        let table: Table = serde_json::from_str(&data)
-            .with_context(|_| format!("error parsing {}", self.path))?;
-        Ok(Some(table))
+    fn schema(&self, ctx: Context) -> BoxFuture<Option<Table>> {
+        schema_helper(ctx, self.to_owned()).boxed()
     }
 
     fn write_schema(
         &self,
-        ctx: &Context,
-        table: &Table,
+        ctx: Context,
+        table: Table,
         if_exists: IfExists,
-    ) -> Result<()> {
-        // Generate our JSON.
-        let mut f = self.path.create_sync(ctx, &if_exists)?;
-        serde_json::to_writer_pretty(&mut f, table)
-            .with_context(|_| format!("error writing {}", self.path))?;
-        Ok(())
+    ) -> BoxFuture<()> {
+        write_schema_helper(ctx, self.to_owned(), table, if_exists).boxed()
     }
 }
 
@@ -73,4 +59,38 @@ impl LocatorStatic for DbcrossbarSchemaLocator {
             _placeholder: (),
         }
     }
+}
+
+/// Implementation of `schema`, but as a real `async` function.
+async fn schema_helper(
+    _ctx: Context,
+    source: DbcrossbarSchemaLocator,
+) -> Result<Option<Table>> {
+    // Read our input.
+    let input = source.path.open_async().await?;
+    let data = async_read_to_end(input)
+        .await
+        .with_context(|_| format!("error reading {}", source.path))?;
+
+    // Parse our input as table JSON.
+    let table: Table = serde_json::from_slice(&data)
+        .with_context(|_| format!("error parsing {}", source.path))?;
+    Ok(Some(table))
+}
+
+/// Implementation of `write_schema`, but as a real `async` function.
+async fn write_schema_helper(
+    ctx: Context,
+    dest: DbcrossbarSchemaLocator,
+    table: Table,
+    if_exists: IfExists,
+) -> Result<()> {
+    // Generate our JSON.
+    let f = dest.path.create_async(ctx, if_exists).await?;
+    buffer_sync_write_and_copy_to_async(f, |buff| {
+        serde_json::to_writer_pretty(buff, &table)
+    })
+    .await
+    .with_context(|_| format!("error writing to {}", dest.path))?;
+    Ok(())
 }

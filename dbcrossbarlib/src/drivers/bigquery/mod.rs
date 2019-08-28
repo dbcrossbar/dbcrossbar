@@ -1,22 +1,17 @@
 //! Driver for working with BigQuery.
 
-use std::{
-    fmt,
-    process::{Command, Stdio},
-    str::FromStr,
-};
+use std::{fmt, str::FromStr};
 
 use crate::common::*;
-use crate::drivers::{
-    bigquery_shared::{BqColumn, BqTable, TableName},
-    gs::GsLocator,
-};
+use crate::drivers::{bigquery_shared::TableName, gs::GsLocator};
 
 mod local_data;
+mod schema;
 mod write_local_data;
 mod write_remote_data;
 
 use self::local_data::local_data_helper;
+use self::schema::schema_helper;
 use self::write_local_data::write_local_data_helper;
 use self::write_remote_data::write_remote_data_helper;
 
@@ -57,36 +52,8 @@ impl Locator for BigQueryLocator {
         self
     }
 
-    fn schema(&self, ctx: &Context) -> Result<Option<Table>> {
-        let output = Command::new("bq")
-            .args(&[
-                "show",
-                "--headless",
-                "--schema",
-                "--format=json",
-                &self.table_name.to_string(),
-            ])
-            .stderr(Stdio::inherit())
-            .output()
-            .context("error running `bq show --schema`")?;
-        if !output.status.success() {
-            return Err(format_err!(
-                "`bq show --schema` failed with {}",
-                output.status,
-            ));
-        }
-        debug!(
-            ctx.log(),
-            "BigQuery schema: {}",
-            String::from_utf8_lossy(&output.stdout)
-        );
-        let columns: Vec<BqColumn> = serde_json::from_slice(&output.stdout)
-            .context("error parsing BigQuery schema")?;
-        let table = BqTable {
-            name: self.table_name.clone(),
-            columns,
-        };
-        Ok(Some(table.to_table()?))
+    fn schema(&self, ctx: Context) -> BoxFuture<Option<Table>> {
+        schema_helper(ctx, self.to_owned()).boxed()
     }
 
     fn local_data(

@@ -55,7 +55,7 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
     // Figure out what table schema to use.
     let schema = {
         let schema_locator = opt.schema.as_ref().unwrap_or(&opt.from_locator);
-        schema_locator.schema(&ctx)?.ok_or_else(|| {
+        schema_locator.schema(ctx.clone()).await?.ok_or_else(|| {
             format_err!("don't know how to read schema from {}", opt.from_locator)
         })
     }?;

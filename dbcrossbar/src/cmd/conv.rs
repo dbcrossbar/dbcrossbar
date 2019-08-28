@@ -21,9 +21,11 @@ pub(crate) struct Opt {
 
 /// Perform our schema conversion.
 pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
-    let schema = opt.from_locator.schema(&ctx)?.ok_or_else(|| {
+    let schema = opt.from_locator.schema(ctx.clone()).await?.ok_or_else(|| {
         format_err!("don't know how to read schema from {}", opt.from_locator)
     })?;
-    opt.to_locator.write_schema(&ctx, &schema, opt.if_exists)?;
+    opt.to_locator
+        .write_schema(ctx, schema, opt.if_exists)
+        .await?;
     Ok(())
 }

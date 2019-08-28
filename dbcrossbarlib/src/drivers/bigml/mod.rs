@@ -1,17 +1,48 @@
 //! Support for BigML data sets.
 
-use bigml::resource::{Dataset, Id, Source};
-use std::{fmt, str::FromStr};
+use bigml::{
+    resource::{Dataset, Id, Source},
+    Client,
+};
+use std::{env, fmt, str::FromStr};
 
 use crate::common::*;
+use crate::schema::Table;
 
 mod data_type;
 //mod local_data;
+mod schema;
 mod source;
 mod write_local_data;
 
-//use local_data::local_data_helper;
+//use local_data::local_data_helper
+use schema::schema_helper;
 use write_local_data::write_local_data_helper;
+
+/// Credentials for accessing BigML.
+#[derive(Clone)]
+pub(self) struct BigMlCredentials {
+    username: String,
+    api_key: String,
+}
+
+impl BigMlCredentials {
+    /// Get our BigML credentials. We fetch these from environment variables
+    /// for now, but maybe there's a better, more consistent way to handle
+    /// credentials?
+    pub(self) fn try_default() -> Result<BigMlCredentials> {
+        let username = env::var("BIGML_USERNAME")
+            .map_err(|_| format_err!("must specify BIGML_USERNAME"))?;
+        let api_key = env::var("BIGML_API_KEY")
+            .map_err(|_| format_err!("must specify BIGML_API_KEY"))?;
+        Ok(BigMlCredentials { username, api_key })
+    }
+
+    /// Create a BigML client from these credentials.
+    pub(self) fn client(&self) -> Result<Client> {
+        Ok(Client::new(&self.username, &self.api_key)?)
+    }
+}
 
 /// Various read and write actions we can take with BigML.
 #[derive(Clone, Debug)]
@@ -156,6 +187,10 @@ impl FromStr for BigMlLocator {
 impl Locator for BigMlLocator {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn schema(&self, ctx: Context) -> BoxFuture<Option<Table>> {
+        schema_helper(ctx, self.to_owned()).boxed()
     }
 
     //fn local_data(
