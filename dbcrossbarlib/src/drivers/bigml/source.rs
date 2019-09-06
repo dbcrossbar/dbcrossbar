@@ -13,16 +13,27 @@ pub(crate) trait SourceExt {
     /// Given a portable `Table` schema describing the data contained in this
     /// source, generate a `SourceUpdate` which will override the inferred
     /// column types with the correct ones.
-    fn calculate_column_type_fix(&self, schema: &Table) -> Result<SourceUpdate>;
+    fn calculate_column_type_fix(
+        &self,
+        schema: &Table,
+        optype_for_text: Optype,
+    ) -> Result<SourceUpdate>;
 }
 
 impl SourceExt for Source {
-    fn calculate_column_type_fix(&self, schema: &Table) -> Result<SourceUpdate> {
+    fn calculate_column_type_fix(
+        &self,
+        schema: &Table,
+        optype_for_text: Optype,
+    ) -> Result<SourceUpdate> {
         // Map column names to optypes.
         let mut field_optypes = HashMap::<&str, Optype>::new();
         for col in &schema.columns {
             // TODO: We may need to sanitize names for BigML compatibility here.
-            field_optypes.insert(&col.name, Optype::for_data_type(&col.data_type)?);
+            field_optypes.insert(
+                &col.name,
+                Optype::for_data_type(&col.data_type, optype_for_text)?,
+            );
         }
 
         // Iterate over the fields in the BigML source, mapping them to the

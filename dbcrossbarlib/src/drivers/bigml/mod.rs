@@ -239,7 +239,7 @@ impl LocatorStatic for BigMlLocator {
                 | LocatorFeatures::WRITE_LOCAL_DATA,
             write_schema_if_exists: IfExistsFeatures::empty(),
             source_args: SourceArgumentsFeatures::empty(),
-            dest_args: DestinationArgumentsFeatures::empty(),
+            dest_args: DestinationArgumentsFeatures::DRIVER_ARGS,
             // We allow all `--if-exists` features because we always generate a
             // unique destination name.
             dest_if_exists: IfExistsFeatures::all(),

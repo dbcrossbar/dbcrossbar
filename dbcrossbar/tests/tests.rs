@@ -691,8 +691,8 @@ fn cp_csv_to_bigml_dataset_to_csv() {
             "--if-exists=overwrite",
             &format!("--temporary={}", s3_dir),
             &format!("--schema=postgres-sql:{}", schema.display()),
-            // --to-arg values will be converted into Redshift "credentials"
-            // arguments to COPY and UNLOAD, directly.
+            "--to-arg=name=dbcrossbar test",
+            "--to-arg=optype_for_text=categorical",
             &format!("csv:{}", src.display()),
             "bigml:dataset",
         ])

@@ -2,14 +2,26 @@
 
 use bigml::{
     self,
-    resource::{dataset, source, Resource, Source},
+    resource::{dataset, source, source::Optype, Resource, Source},
 };
 use chrono::{Duration, Utc};
+use serde::Deserialize;
 
 use super::{source::SourceExt, BigMlCredentials, BigMlLocator, CreateOptions};
 use crate::common::*;
 use crate::concat::concatenate_csv_streams;
 use crate::drivers::s3::{find_s3_temp_dir, sign_s3_url, AwsCredentials};
+
+/// Parsed version of `--to-arg` values.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BigMlDestinationArguments {
+    /// The name of the source or dataset to create.
+    name: Option<String>,
+
+    /// The default optype to use for text fields.
+    optype_for_text: Option<Optype>,
+}
 
 /// Implementation of `write_local_data`, but as a real `async` function.
 pub(crate) async fn write_local_data_helper(
@@ -20,10 +32,16 @@ pub(crate) async fn write_local_data_helper(
     dest_args: DestinationArguments<Unverified>,
 ) -> Result<BoxStream<BoxFuture<BoxLocator>>> {
     let shared_args_v = shared_args.clone().verify(BigMlLocator::features())?;
-    let _dest_args = dest_args.verify(BigMlLocator::features())?;
+    let dest_args = dest_args.verify(BigMlLocator::features())?;
 
     // Get our portable schema.
     let schema = shared_args_v.schema().to_owned();
+
+    // Get our BigML-specific destination arguments.
+    let bigml_dest_args = dest_args
+        .driver_args()
+        .deserialize::<BigMlDestinationArguments>()
+        .context("could not parse --to-arg")?;
 
     // Get our BigML credentials. We fetch these from environment variables
     // for now, but maybe there's a better, more consistent way to handle
@@ -62,9 +80,11 @@ pub(crate) async fn write_local_data_helper(
             // Convert our S3 locators into BigML `Source` objects.
             let ctx = ctx.clone();
             let creds = creds.clone();
+            let bigml_dest_args = bigml_dest_args.clone();
             let bigml_source_stream = s3_locator_stream.map(move |locator_fut| {
                 let ctx = ctx.clone();
                 let creds = creds.clone();
+                let bigml_dest_args = bigml_dest_args.clone();
                 let fut = async move {
                     // Get our S3 URL back.
                     let locator = locator_fut.await?.to_string();
@@ -93,8 +113,11 @@ pub(crate) async fn write_local_data_helper(
                     }
 
                     // Create the source.
-                    let mut args = source::Args::new(signed_url.into_string());
+                    let mut args = source::Args::remote(signed_url.into_string());
                     args.disable_datetime = Some(true);
+                    if let Some(name) = &bigml_dest_args.name {
+                        args.name = Some(name.to_owned());
+                    }
                     let client = creds.client()?;
                     let source = client.create(&args).await?;
 
@@ -123,6 +146,7 @@ pub(crate) async fn write_local_data_helper(
                     let (name, data) = stream.into_name_and_portable_stream();
                     let client = creds.client()?;
                     let source = client.create_source_from_stream(&name, data).await?;
+                    // TODO: Handle args.name if this ever works for real.
 
                     let ctx = ctx.child(o!("bigml_source" => source.id().to_string()));
                     debug!(ctx.log(), "uploaded CSV stream to BigML");
@@ -137,6 +161,7 @@ pub(crate) async fn write_local_data_helper(
     let written = sources.map(move |ctx_source_fut| {
         let creds = creds.clone();
         let schema = schema.clone(); // Expensive.
+        let bigml_dest_args = bigml_dest_args.clone();
         let fut = async move {
             let (ctx, mut source) = ctx_source_fut.await?;
 
@@ -146,7 +171,9 @@ pub(crate) async fn write_local_data_helper(
             source = client.wait(source.id()).await?;
 
             // Fix data types.
-            let update = source.calculate_column_type_fix(&schema)?;
+            let optype_for_text =
+                bigml_dest_args.optype_for_text.unwrap_or(Optype::Text);
+            let update = source.calculate_column_type_fix(&schema, optype_for_text)?;
             trace!(ctx.log(), "updating source with {:?}", update);
             client.update(&source.id(), &update).await?;
             trace!(ctx.log(), "waiting for source to be ready (again)");
@@ -159,7 +186,10 @@ pub(crate) async fn write_local_data_helper(
             } else {
                 // Convert source to dataset.
                 trace!(ctx.log(), "converting to dataset");
-                let args = dataset::Args::from_source(source.id().to_owned());
+                let mut args = dataset::Args::from_source(source.id().to_owned());
+                if let Some(name) = &bigml_dest_args.name {
+                    args.name = Some(name.to_owned());
+                }
                 let dataset = client.create_and_wait(&args).await?;
                 debug!(ctx.log(), "converted to {}", dataset.id().to_owned());
                 Ok(BigMlLocator::read_dataset(dataset.id().to_owned()).boxed())
