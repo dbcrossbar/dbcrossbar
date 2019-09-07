@@ -20,10 +20,14 @@ pub(crate) async fn schema_helper(
             ));
         }
 
+        // We need to sort the fields by their BigML field ID, but then
+        // use the human-readable name.
         let mut columns = vec![];
-        for (name, field) in fields {
+        let mut fields = fields.iter().collect::<Vec<_>>();
+        fields.sort_by(|&(id1, _), &(id2, _)| id1.cmp(id2));
+        for (_field_id, field) in fields {
             columns.push(Column {
-                name: name.to_owned(),
+                name: field.name.clone(),
                 is_nullable: true,
                 data_type: field.optype.to_data_type()?,
                 comment: None,

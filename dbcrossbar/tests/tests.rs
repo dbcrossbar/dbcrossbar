@@ -720,4 +720,12 @@ fn cp_csv_to_bigml_dataset_to_csv() {
         .replace(",1e+37,", ",1.0E37,");
     let actual = fs::read_to_string(testdir.path("out.csv")).unwrap();
     assert_diff!(&expected, &actual, ",", 0);
+
+    // Verify SQL schema output contains correct column names, too.
+    let output = testdir
+        .cmd()
+        .args(&["conv", dataset_locator, "postgres-sql:-"])
+        .expect_success();
+    assert!(output.stdout_str().contains("CREATE TABLE"));
+    assert!(output.stdout_str().contains("test_null"));
 }
