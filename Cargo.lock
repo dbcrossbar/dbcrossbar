@@ -93,7 +93,7 @@ dependencies = [
 
 [[package]]
 name = "bigml"
-version = "0.4.0-alpha.2"
+version = "0.4.0-alpha.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bigml_derive 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -467,7 +467,7 @@ name = "dbcrossbarlib"
 version = "0.2.0"
 dependencies = [
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "bigml 0.4.0-alpha.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bigml 0.4.0-alpha.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitflags 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "bytes 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2590,7 +2590,7 @@ dependencies = [
 "checksum backtrace 0.3.35 (registry+https://github.com/rust-lang/crates.io-index)" = "1371048253fa3bac6704bfd6bbfc922ee9bdcee8881330d40f308b81cc5adc55"
 "checksum backtrace-sys 0.1.31 (registry+https://github.com/rust-lang/crates.io-index)" = "82a830b4ef2d1124a711c71d263c5abdc710ef8e907bd508c88be475cebc422b"
 "checksum base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)" = "0b25d992356d2eb0ed82172f5248873db5560c4721f564b13cb5193bda5e668e"
-"checksum bigml 0.4.0-alpha.2 (registry+https://github.com/rust-lang/crates.io-index)" = "935826bd3514d1ff49f726ccd7184efc8635f0ffc0c693b508954a1e6c16240e"
+"checksum bigml 0.4.0-alpha.3 (registry+https://github.com/rust-lang/crates.io-index)" = "c2089e9201c31736698f3ebb712c15c9cb2fd3a025d670476797fbb94ff9e825"
 "checksum bigml_derive 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "5629b0b1e2d44a155d7b315820e94d99e8de998ed392f7e405dd239182a65155"
 "checksum bitflags 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3d155346769a6855b86399e9bc3814ab343cd3d62c7e985113d46a0ec3c281fd"
 "checksum blake2b_simd 0.5.7 (registry+https://github.com/rust-lang/crates.io-index)" = "bf775a81bb2d464e20ff170ac20316c7b08a43d11dbc72f0f82e8e8d3d6d0499"
