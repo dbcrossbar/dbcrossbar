@@ -33,7 +33,7 @@ impl<T: Send + Sized + 'static> ConsumeWithParallelism<T> for BoxStream<BoxFutur
             // `buffered`.
             .map(|fut: BoxFuture<T>| fut.compat())
             // Run up to `parallelism` futures in parallel.
-            .buffered(parallelism)
+            .buffer_unordered(parallelism)
             // Collect our resulting zero-byte `()` values as a zero-byte
             // vector.
             .collect()
