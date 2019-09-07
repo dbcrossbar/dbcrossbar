@@ -2,13 +2,19 @@
 
 use common_failures::Result;
 use dbcrossbarlib::{
-    BoxLocator, ConsumeWithParallelism, Context, DestinationArguments,
-    DisplayOutputLocators, DriverArguments, IfExists, SharedArguments,
-    SourceArguments, TemporaryStorage,
+    tokio_glue::{BoxFuture, BoxStream},
+    BoxLocator, Context, DestinationArguments, DisplayOutputLocators, DriverArguments,
+    IfExists, SharedArguments, SourceArguments, TemporaryStorage,
 };
 use failure::format_err;
+use futures::{compat::Future01CompatExt, FutureExt, TryFutureExt};
 use slog::{debug, o};
 use structopt::{self, StructOpt};
+use tokio::{
+    codec::{FramedWrite, LinesCodec},
+    io,
+    prelude::{stream, Stream},
+};
 
 /// Schema conversion arguments.
 #[derive(Debug, StructOpt)]
@@ -86,9 +92,12 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
 
         // Perform a remote transfer.
         debug!(ctx.log(), "performing remote data transfer");
-        to_locator
+        let dests = to_locator
             .write_remote_data(ctx, from_locator, shared_args, source_args, dest_args)
-            .await?
+            .await?;
+
+        // Convert our list of output locators into a stream.
+        Box::new(stream::iter_ok(dests)) as BoxStream<BoxLocator>
     } else {
         // We have to transfer the data via the local machine, so read data from
         // input.
@@ -112,38 +121,67 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
         // certain degree of parallelism. This is where all the actual work happens,
         // and this what controls how many "input driver" -> "output driver"
         // connections are running at any given time.
-        result_stream.consume_with_parallelism(4).await?
+        Box::new(
+            result_stream
+                // This stream contains std futures, but we need tokio futures for
+                // `buffered`.
+                .map(|fut: BoxFuture<BoxLocator>| fut.compat())
+                // Run up to `parallelism` futures in parallel.
+                .buffer_unordered(4),
+        ) as BoxStream<BoxLocator>
     };
 
     // Optionally display `dests`, depending on a combination of
     // `--display-output-locators` and the defaults for `to_locator`.
-    let display_output_locators = to_locator.display_output_locators();
-    match (opt.display_output_locators, display_output_locators) {
+    let display_output_locators = match (
+        opt.display_output_locators,
+        to_locator.display_output_locators(),
+    ) {
         // The user passed `--display-output-locators`, but displaying them is
         // forbidden (probably because we wrote actual data to standard output).
-        (true, DisplayOutputLocators::Never) => Err(format_err!(
-            "cannot use --display-output-locators with {}",
-            to_locator
-        )),
+        (true, DisplayOutputLocators::Never) => {
+            return Err(format_err!(
+                "cannot use --display-output-locators with {}",
+                to_locator
+            ))
+        }
 
         // We want to display our actual output locators.
-        (true, _) | (false, DisplayOutputLocators::ByDefault) => {
-            for dest in dests {
+        (true, _) | (false, DisplayOutputLocators::ByDefault) => true,
+
+        // We don't want to display our output locators.
+        (false, _) => false,
+    };
+
+    // Print our destination
+    if display_output_locators {
+        // Display our output locators incrementally on standard output using
+        // `LinesCodec` to insert newlines.
+        let stdout_sink = FramedWrite::new(io::stdout(), LinesCodec::new());
+        let (_dests, _stdout_sink) = dests
+            .and_then(|dest| {
                 let dest_str = dest.to_string();
                 if dest_str.contains('\n') || dest_str.contains('\r') {
                     // If we write out this locator, it would be split between
                     // lines, causing an ambiguity for any parsing program.
-                    return Err(format_err!(
+                    Err(format_err!(
                         "cannot output locator with newline: {:?}",
                         dest_str
-                    ));
+                    ))
+                } else {
+                    Ok(dest_str)
                 }
-                println!("{}", dest);
-            }
-            Ok(())
-        }
-
-        // We don't want to display our output locators.
-        (false, _) => Ok(()),
+            })
+            .forward(stdout_sink)
+            .compat()
+            // Needed to work around
+            // https://users.rust-lang.org/t/solved-one-type-is-more-general-than-the-other-but-they-are-exactly-the-same/25194
+            .boxed()
+            .await?;
+    } else {
+        // Just collect our results and ignore
+        let dests = dests.collect().compat().boxed().await?;
+        debug!(ctx.log(), "destination locators: {:?}", dests);
     }
+    Ok(())
 }
