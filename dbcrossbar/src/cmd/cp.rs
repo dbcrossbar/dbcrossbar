@@ -13,7 +13,7 @@ use structopt::{self, StructOpt};
 /// Schema conversion arguments.
 #[derive(Debug, StructOpt)]
 pub(crate) struct Opt {
-    /// One of `error`, `overrwrite` or `append`.
+    /// One of `error`, `overwrite` or `append`.
     #[structopt(long = "if-exists", default_value = "error")]
     if_exists: IfExists,
 

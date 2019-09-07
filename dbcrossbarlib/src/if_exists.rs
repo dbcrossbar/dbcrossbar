@@ -53,7 +53,7 @@ pub enum IfExists {
     Error,
     /// If the destination exists, try to append the new data.
     Append,
-    /// If the destination exists, overrwrite the existing data.
+    /// If the destination exists, overwrite the existing data.
     Overwrite,
     /// If the destination exists, either update or insert using the specified
     /// columns as the key. The list of keys must be non-empty, but we currently
