@@ -3,7 +3,6 @@
 //! At the moment, the most interesting type here is the [`schema`](./schema/)
 //! module, which defines a portable SQL schema.
 
-#![feature(async_await)]
 #![warn(missing_docs, unused_extern_crates, clippy::all)]
 // Work around clippy false positives.
 #![allow(clippy::redundant_closure, clippy::needless_lifetimes)]
