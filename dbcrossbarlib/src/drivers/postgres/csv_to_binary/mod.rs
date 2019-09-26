@@ -29,7 +29,7 @@ use crate::from_json_value::FromJsonValue;
 
 mod write_binary;
 
-use self::write_binary::{GeometryWithSrid, RawJsonb, RawJson, WriteBinary};
+use self::write_binary::{GeometryWithSrid, RawJson, RawJsonb, WriteBinary};
 
 /// A buffered writer. Here, we know the concrete type of the outer `BufWriter`,
 /// so we can make lots of small writes efficiently. But we don't know the type of
@@ -219,7 +219,7 @@ fn json_to_binary<W: Write>(
         PgScalarDataType::Json => {
             let serialized = serde_json::to_string(json)?;
             RawJson(&serialized).write_binary(wtr)
-        },
+        }
         PgScalarDataType::Jsonb => {
             let serialized = serde_json::to_string(json)?;
             RawJsonb(&serialized).write_binary(wtr)
@@ -293,7 +293,7 @@ fn scalar_to_binary(
         PgScalarDataType::Json => {
             let value = RawJson(cell);
             value.write_binary(wtr)
-        },
+        }
         PgScalarDataType::Jsonb => {
             let value = RawJsonb(cell);
             value.write_binary(wtr)
