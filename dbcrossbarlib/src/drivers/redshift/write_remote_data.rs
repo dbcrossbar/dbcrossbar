@@ -117,6 +117,7 @@ impl VerifyRedshiftCanImportFromCsv for DataType {
             | DataType::Decimal
             | DataType::GeoJson(_)
             | DataType::Json
+            | DataType::OldPgJson
             | DataType::Other(_)
             | DataType::Uuid => Err(format_err!(
                 "Redshift driver does not support data type {:?}",

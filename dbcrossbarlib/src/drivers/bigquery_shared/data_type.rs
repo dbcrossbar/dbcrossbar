@@ -197,6 +197,7 @@ impl BqNonArrayDataType {
             DataType::Int32 => Ok(BqNonArrayDataType::Int64),
             DataType::Int64 => Ok(BqNonArrayDataType::Int64),
             DataType::Json => Ok(BqNonArrayDataType::String),
+            DataType::OldPgJson => Ok(BqNonArrayDataType::String),
             // Unknown types will become strings.
             DataType::Other(_unknown_type) => Ok(BqNonArrayDataType::String),
             DataType::Text => Ok(BqNonArrayDataType::String),
