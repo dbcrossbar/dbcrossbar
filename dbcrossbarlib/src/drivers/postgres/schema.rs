@@ -228,7 +228,7 @@ fn parsing_pg_data_type() {
             DataType::Float64,
         ),
         (("integer", "pg_catalog", "int4"), DataType::Int32),
-        (("json", "pg_catalog", "json"), DataType::Json),
+        (("json", "pg_catalog", "json"), DataType::OldPgJson),
         (("jsonb", "pg_catalog", "jsonb"), DataType::Json),
         (("real", "pg_catalog", "float4"), DataType::Float32),
         (("smallint", "pg_catalog", "int2"), DataType::Int16),
