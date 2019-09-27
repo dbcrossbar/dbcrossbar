@@ -53,18 +53,23 @@ pub fn rechunk_csvs(
             csv_stream: Option<CsvStream>,
         }
 
+        // What chunk number are we on? Used to give unique names to
+        // `CsvStream`s.
+        let mut chunk_id: usize = 0;
+
         // Construct a new `CsvStream`, send to our ultimate consumer, and
         // return a synchronous `csv::Writer` which can be used to write data to
         // it.
-        let new_chunk = || -> Result<Chunk<_>> {
-            trace!(worker_ctx.log(), "starting new CSV chunk");
+        let mut new_chunk = || -> Result<Chunk<_>> {
+            chunk_id = chunk_id.checked_add(1).expect("too many chunks");
+            trace!(worker_ctx.log(), "starting new CSV chunk {}", chunk_id);
 
             // Build a `CsvStream` that we can write to synchronously using
             // `wtr`. Here, `wtr` is a synchronous `Write` implementation,
             // and `data` is an `impl Stream<Item = BytesMut, ..>`.
             let (wtr, data) = SyncStreamWriter::pipe(worker_ctx.clone());
             let csv_stream = CsvStream {
-                name: "chunked".to_owned(), // TODO: Add index.
+                name: format!("chunk_{:04}", chunk_id),
                 data: Box::new(data),
             };
 
