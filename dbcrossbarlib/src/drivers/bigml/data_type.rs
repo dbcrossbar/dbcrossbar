@@ -28,6 +28,7 @@ impl OptypeExt for Optype {
             DataType::Int32 => Ok(Optype::Numeric),
             DataType::Int64 => Ok(Optype::Numeric),
             DataType::Json => Ok(Optype::Text),
+            DataType::OldPgJson => Ok(Optype::Text),
             DataType::Other(_) => Ok(Optype::Text),
             DataType::Text => Ok(optype_for_text),
             DataType::TimestampWithoutTimeZone => Ok(Optype::DateTime),

@@ -126,9 +126,10 @@ pub enum DataType {
     Int32,
     /// 8-byte integer.
     Int64,
-    /// JSON data. This includes both Postgres `json` and `jsonb` types, the
-    /// differences between which don't usually matter when converting schemas.
+    /// JSON data. This includes Postgre's modern JSONB type, which is always preferred.
     Json,
+    /// JSON in Postgres's old format.
+    OldPgJson,
     /// A data type which isn't in this list.
     Other(String),
     /// A text type.
