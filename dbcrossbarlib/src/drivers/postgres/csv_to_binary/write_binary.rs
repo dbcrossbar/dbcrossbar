@@ -14,10 +14,6 @@ use crate::schema::Srid;
 /// A JSON string that we want to serialize as `jsonb` format 1.
 pub(crate) struct RawJsonb<'a>(pub(crate) &'a str);
 
-/// A JSON string that we want to serialize as `json` format 1.
-/// Technically obsolete and deprecated
-pub(crate) struct RawJson<'a>(pub(crate) &'a str);
-
 /// A geometry with an attached [`SRID`].
 pub(crate) struct GeometryWithSrid<'a> {
     /// Our geometry.
@@ -115,14 +111,6 @@ impl<'a> WriteBinary for RawJsonb<'a> {
     fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         wtr.write_len(1 + self.0.len())?;
         wtr.write_u8(1)?; // jsonb format tag.
-        wtr.write_all(self.0.as_bytes())?;
-        Ok(())
-    }
-}
-
-impl<'a> WriteBinary for RawJson<'a> {
-    fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
-        wtr.write_len(self.0.len())?;
         wtr.write_all(self.0.as_bytes())?;
         Ok(())
     }
