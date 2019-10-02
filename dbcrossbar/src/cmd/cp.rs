@@ -122,7 +122,7 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
                 format_err!("don't know how to read data from {}", from_locator)
             })?;
 
-        // Honor --chunck-size if passed.
+        // Honor --stream-size if passed.
         if let Some(stream_size) = opt.stream_size {
             let stream_size = stream_size.size();
             data = rechunk_csvs(ctx.clone(), stream_size, data)?;
