@@ -64,8 +64,6 @@ pub(crate) fn concatenate_csv_streams(
 
 #[test]
 fn concatenate_csv_streams_strips_all_but_first_header() {
-    use tokio::sync::mpsc;
-
     let input_1 = b"a,b\n1,2\n";
     let input_2 = b"a,b\n3,4\n";
     let expected = b"a,b\n1,2\n3,4\n";
@@ -73,7 +71,7 @@ fn concatenate_csv_streams_strips_all_but_first_header() {
     let (ctx, worker_fut) = Context::create_for_test("concatenate_csv_streams");
 
     let cmd_fut = async move {
-        debug!(ctx.log(), "testing");
+        debug!(ctx.log(), "testing concatenate_csv_streams");
 
         // Build our `BoxStream<CsvStream>`.
         let (mut sender, receiver) = mpsc::channel(2);

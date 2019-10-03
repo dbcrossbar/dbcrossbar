@@ -20,6 +20,7 @@ common_failures = "0.1.1"
 env_logger = "0.6"
 failure = "0.1.2"
 futures-preview = { version = "0.3.0-alpha.17", features = ["compat"] }
+humanize-rs = "0.1.5"
 log = "0.4.5"
 openssl = "0.10.16" # Needed to prevent link errors.
 openssl-probe = "0.1.2"

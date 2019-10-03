@@ -2,12 +2,14 @@
 
 use common_failures::Result;
 use dbcrossbarlib::{
+    rechunk::rechunk_csvs,
     tokio_glue::{BoxFuture, BoxStream},
     BoxLocator, Context, DestinationArguments, DisplayOutputLocators, DriverArguments,
     IfExists, SharedArguments, SourceArguments, TemporaryStorage,
 };
 use failure::format_err;
 use futures::{compat::Future01CompatExt, FutureExt, TryFutureExt};
+use humanize_rs::bytes::Bytes as HumanizedBytes;
 use slog::{debug, o};
 use structopt::{self, StructOpt};
 use tokio::{
@@ -31,6 +33,13 @@ pub(crate) struct Opt {
     /// transfer (can be repeated).
     #[structopt(long = "temporary")]
     temporaries: Vec<String>,
+
+    /// Specify the approximate size of the CSV streams manipulated by
+    /// `dbcrossbar`. This can be used to split a large input into multiple
+    /// smaller outputs. Actual data streams may be bigger or smaller depending
+    /// on a number of factors. Examples: "100000", "1Gb".
+    #[structopt(long = "stream-size")]
+    stream_size: Option<HumanizedBytes>, // usize
 
     /// Pass an extra argument of the form `key=value` to the source driver.
     #[structopt(long = "from-arg")]
@@ -83,7 +92,9 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
     // local machine?
     let to_locator = opt.to_locator;
     let from_locator = opt.from_locator;
-    let dests = if to_locator.supports_write_remote_data(from_locator.as_ref()) {
+    let should_use_remote = opt.stream_size.is_none()
+        && to_locator.supports_write_remote_data(from_locator.as_ref());
+    let dests = if should_use_remote {
         // Build a logging context.
         let ctx = ctx.child(o!(
             "from_locator" => from_locator.to_string(),
@@ -104,12 +115,18 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
         debug!(ctx.log(), "performing local data transfer");
 
         let input_ctx = ctx.child(o!("from_locator" => from_locator.to_string()));
-        let data = from_locator
+        let mut data = from_locator
             .local_data(input_ctx, shared_args.clone(), source_args)
             .await?
             .ok_or_else(|| {
                 format_err!("don't know how to read data from {}", from_locator)
             })?;
+
+        // Honor --stream-size if passed.
+        if let Some(stream_size) = opt.stream_size {
+            let stream_size = stream_size.size();
+            data = rechunk_csvs(ctx.clone(), stream_size, data)?;
+        }
 
         // Write data to output.
         let output_ctx = ctx.child(o!("to_locator" => to_locator.to_string()));
