@@ -40,7 +40,8 @@ pub fn rechunk_csvs(
             .context("cannot read chunk header")?
             .to_owned();
 
-        /// A single output chunk. The state we need to generate a single `CsvStream`.
+        /// A single output chunk. The state we need to generate a single
+        /// `CsvStream`.
         struct Chunk<W: Write> {
             /// Write to this to add data to the chunk.
             wtr: csv::Writer<W>,
@@ -57,9 +58,8 @@ pub fn rechunk_csvs(
         // `CsvStream`s.
         let mut chunk_id: usize = 0;
 
-        // Construct a new `CsvStream`, and
-        // return a `Chunk` with a `csv::Writer` which can be used to write data to
-        // it.
+        // Construct a new `CsvStream`, and return a `Chunk` with a
+        // `csv::Writer` which can be used to write data to it.
         let mut new_chunk = || -> Result<Chunk<_>> {
             chunk_id = chunk_id.checked_add(1).expect("too many chunks");
             trace!(worker_ctx.log(), "starting new CSV chunk {}", chunk_id);
