@@ -47,7 +47,7 @@ impl BqColumn {
     /// Given a portable `Column`, and an intended usage, return a corresponding
     /// `BqColumn`.
     ///
-    /// Note that dashes are replaced with underscores to satisfy BigQuery naming rules.
+    /// Note that dashes and spaces are replaced with underscores to satisfy BigQuery naming rules.
     pub(crate) fn for_column(col: &Column, usage: Usage) -> Result<BqColumn> {
         let bq_data_type = BqDataType::for_data_type(&col.data_type, usage)?;
         let (ty, mode): (BqNonArrayDataType, Mode) = match bq_data_type {
@@ -58,7 +58,11 @@ impl BqColumn {
             BqDataType::NonArray(ty) => (ty, Mode::Required),
         };
         Ok(BqColumn {
-            name: col.name.replace('-', &'_'.to_string()).to_owned(),
+            name: col
+                .name
+                .replace('-', &'_'.to_string())
+                .replace(' ', &'_'.to_string())
+                .to_owned(),
             description: None,
             ty,
             mode,
