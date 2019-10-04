@@ -1,5 +1,6 @@
 //! BigQuery columns.
 
+use regex::Regex;
 use serde_derive::{Deserialize, Serialize};
 use std::{fmt, io::Write};
 
@@ -57,12 +58,10 @@ impl BqColumn {
             }
             BqDataType::NonArray(ty) => (ty, Mode::Required),
         };
+        let spaces_and_dashes_re = Regex::new(r"[^a-zA-Z0-9_]").unwrap();
+        let new_column_name = spaces_and_dashes_re.replace_all(&col.name, "_");
         Ok(BqColumn {
-            name: col
-                .name
-                .replace('-', &'_'.to_string())
-                .replace(' ', &'_'.to_string())
-                .to_owned(),
+            name: new_column_name.to_string(),
             description: None,
             ty,
             mode,
