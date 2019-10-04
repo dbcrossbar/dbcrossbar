@@ -58,7 +58,7 @@ impl BqColumn {
             }
             BqDataType::NonArray(ty) => (ty, Mode::Required),
         };
-        let spaces_and_dashes_re = Regex::new(r"[-\s]").unwrap();
+        let spaces_and_dashes_re = Regex::new(r"[^a-zA-Z0-9_]").unwrap();
         let new_column_name = spaces_and_dashes_re.replace_all(&col.name, "_");
         Ok(BqColumn {
             name: new_column_name.to_string(),
