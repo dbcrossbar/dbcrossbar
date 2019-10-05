@@ -359,7 +359,7 @@ fn cp_csv_to_bq_to_postgres_to_csv() {
     let gs_dir_2 = gs_test_dir_url("cp_csv_to_bq_to_postgres_to_csv_2");
     let pg_table_2 = post_test_table_url("cp_csv_to_bq_to_postgres_to_csv_2");
 
-    // CSV to Postgres.
+    // CSV to BigQuery.
     testdir
         .cmd()
         .args(&[
@@ -367,46 +367,12 @@ fn cp_csv_to_bq_to_postgres_to_csv() {
             "--if-exists=overwrite",
             &format!("--schema=postgres-sql:{}", schema.display()),
             &format!("csv:{}", src.display()),
-            &pg_table,
-        ])
-        .tee_output()
-        .expect_success();
-
-    // (Check PostgreSQL schema extraction now, so we know that we aren't
-    // messing up later tests.)
-    testdir
-        .cmd()
-        .args(&["conv", &pg_table, "postgres-sql:pg.sql"])
-        .stdout(Stdio::piped())
-        .tee_output()
-        .expect_success();
-    let postgres_sql = fs::read_to_string(&expected_schema).unwrap().replace(
-        "\"tricky_column_names\"",
-        "\"testme1\".\"cp_csv_to_bq_to_postgres_to_csv\"",
-    );
-    testdir.expect_file_contents("pg.sql", &postgres_sql);
-
-    // Postgres to gs://.
-    testdir
-        .cmd()
-        .args(&["cp", "--if-exists=overwrite", &pg_table, &gs_dir])
-        .tee_output()
-        .expect_success();
-
-    // gs:// to BigQuery.
-    testdir
-        .cmd()
-        .args(&[
-            "cp",
-            "--if-exists=overwrite",
-            &format!("--schema=postgres-sql:{}", schema.display()),
-            &gs_dir,
             &bq_table,
         ])
         .tee_output()
         .expect_success();
 
-    // BigQuery to gs://.
+    // BigQuery to Postgres.
     testdir
         .cmd()
         .args(&[
@@ -414,20 +380,6 @@ fn cp_csv_to_bq_to_postgres_to_csv() {
             "--if-exists=overwrite",
             &format!("--schema=postgres-sql:{}", schema.display()),
             &bq_table,
-            &gs_dir_2,
-        ])
-        .tee_output()
-        .expect_success();
-
-    // gs:// back to PostgreSQL. (Mostly because we'll need a PostgreSQL-generated
-    // CSV file for the final comparison below.)
-    testdir
-        .cmd()
-        .args(&[
-            "cp",
-            "--if-exists=overwrite",
-            &format!("--schema=postgres-sql:{}", schema.display()),
-            &gs_dir_2,
             &pg_table_2,
         ])
         .tee_output()
