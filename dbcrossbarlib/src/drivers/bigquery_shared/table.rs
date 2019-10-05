@@ -10,6 +10,7 @@ use std::{
 use super::{BqColumn, ColumnBigQueryExt, Ident, TableName, Usage};
 use crate::common::*;
 use crate::schema::{Column, Table};
+use crate::uniquifier::Uniquifier;
 
 /// Extensions to `Column` (the portable version) to handle BigQuery-query
 /// specific stuff.
@@ -50,9 +51,10 @@ impl BqTable {
         columns: &[Column],
         usage: Usage,
     ) -> Result<BqTable> {
+        let mut uniquifier = Uniquifier::default();
         let columns = columns
             .iter()
-            .map(|c| BqColumn::for_column(c, usage))
+            .map(move |c| BqColumn::for_column(c, usage, &mut uniquifier))
             .collect::<Result<Vec<BqColumn>>>()?;
         Ok(BqTable { name, columns })
     }

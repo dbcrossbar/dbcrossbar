@@ -30,6 +30,7 @@ pub(crate) mod separator;
 mod temporary_storage;
 pub mod tokio_glue;
 pub(crate) mod transform;
+pub(crate) mod uniquifier;
 
 /// Standard error type for this library.
 pub use failure::Error;

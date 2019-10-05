@@ -1,12 +1,12 @@
 //! BigQuery columns.
 
-use regex::Regex;
 use serde_derive::{Deserialize, Serialize};
 use std::{fmt, io::Write};
 
 use super::{BqDataType, BqNonArrayDataType, DataTypeBigQueryExt, Usage};
 use crate::common::*;
 use crate::schema::Column;
+use crate::uniquifier::Uniquifier;
 
 /// Extensions to `Column` (the portable version) to handle BigQuery-query
 /// specific stuff.
@@ -49,7 +49,11 @@ impl BqColumn {
     /// `BqColumn`.
     ///
     /// Note that dashes and spaces are replaced with underscores to satisfy BigQuery naming rules.
-    pub(crate) fn for_column(col: &Column, usage: Usage) -> Result<BqColumn> {
+    pub(crate) fn for_column(
+        col: &Column,
+        usage: Usage,
+        uniquifier: &mut Uniquifier,
+    ) -> Result<BqColumn> {
         let bq_data_type = BqDataType::for_data_type(&col.data_type, usage)?;
         let (ty, mode): (BqNonArrayDataType, Mode) = match bq_data_type {
             BqDataType::Array(ty) => (ty, Mode::Repeated),
@@ -58,10 +62,8 @@ impl BqColumn {
             }
             BqDataType::NonArray(ty) => (ty, Mode::Required),
         };
-        let spaces_and_dashes_re = Regex::new(r"[^a-zA-Z0-9_]").unwrap();
-        let new_column_name = spaces_and_dashes_re.replace_all(&col.name, "_");
         Ok(BqColumn {
-            name: new_column_name.to_string(),
+            name: uniquifier.unique_id_for(&col.name)?.to_owned(),
             description: None,
             ty,
             mode,
