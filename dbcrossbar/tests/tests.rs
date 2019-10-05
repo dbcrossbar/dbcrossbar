@@ -391,7 +391,7 @@ fn cp_tricky_column_names() {
         .cmd()
         .args(&[
             "cp",
-            "--if-exists=upsert-on:person__Delivery_Zone_4_14",
+            "--if-exists=upsert-on:person__Delivery Zone 4.14",
             &format!("--schema=postgres-sql:{}", schema.display()),
             &format!("--temporary={}", gs_temp_dir),
             &format!("--temporary={}", bq_temp_ds),
@@ -416,9 +416,7 @@ fn cp_tricky_column_names() {
         .expect_success();
 
     let expected = fs::read_to_string(&expected).unwrap();
-    let actual =
-        fs::read_to_string(testdir.path("out.csv"))
-            .unwrap();
+    let actual = fs::read_to_string(testdir.path("out.csv")).unwrap();
     assert_diff!(&expected, &actual, ",", 0);
 }
 

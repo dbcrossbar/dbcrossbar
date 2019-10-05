@@ -32,6 +32,11 @@ pub(crate) struct BqColumn {
     /// The name of the BigQuery column.
     pub name: String,
 
+    /// The original name of this field in our portable schema, if any. Used
+    /// internally.
+    #[serde(skip)]
+    pub(crate) external_name: Option<String>,
+
     /// The type of the BigQuery column.
     #[serde(rename = "type")]
     ty: BqNonArrayDataType,
@@ -64,6 +69,7 @@ impl BqColumn {
         };
         Ok(BqColumn {
             name: uniquifier.unique_id_for(&col.name)?.to_owned(),
+            external_name: Some(col.name.clone()),
             description: None,
             ty,
             mode,
