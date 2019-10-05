@@ -347,19 +347,18 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
 
 #[test]
 #[ignore]
-fn cp_csv_to_bq_to_postgres_to_csv() {
+fn cp_tricky_column_names() {
     let _ = env_logger::try_init();
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_bq_to_postgres_to_csv");
+    let testdir = TestDir::new("dbcrossbar", "cp_tricky_column_names");
     let src = testdir.src_path("fixtures/tricky_column_names.csv");
+    let expected = testdir.src_path("fixtures/tricky_column_names_expected.csv");
     let schema = testdir.src_path("fixtures/tricky_column_names.sql");
-    let expected_schema = testdir.src_path("fixtures/tricky_column_names_expected.sql");
-    let pg_table = post_test_table_url("testme1.cp_csv_to_bq_to_postgres_to_csv");
-    let gs_dir = gs_test_dir_url("cp_csv_to_bq_to_postgres_to_csv");
-    let bq_table = bq_test_table("cp_csv_to_bq_to_postgres_to_csv");
-    let gs_dir_2 = gs_test_dir_url("cp_csv_to_bq_to_postgres_to_csv_2");
-    let pg_table_2 = post_test_table_url("cp_csv_to_bq_to_postgres_to_csv_2");
+    let pg_table = post_test_table_url("testme1.cp_tricky_column_names");
+    let bq_table = bq_test_table("cp_tricky_column_names");
+    let gs_temp_dir = gs_test_dir_url("cp_from_bigquery_with_where");
+    let bq_temp_ds = bq_temp_dataset();
 
-    // CSV to BigQuery.
+    // CSV to Postgres.
     testdir
         .cmd()
         .args(&[
@@ -367,39 +366,58 @@ fn cp_csv_to_bq_to_postgres_to_csv() {
             "--if-exists=overwrite",
             &format!("--schema=postgres-sql:{}", schema.display()),
             &format!("csv:{}", src.display()),
-            &bq_table,
+            &pg_table,
         ])
         .tee_output()
         .expect_success();
 
-    // BigQuery to Postgres.
+    // Postgres to BigQuery.
     testdir
         .cmd()
         .args(&[
             "cp",
             "--if-exists=overwrite",
             &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("--temporary={}", gs_temp_dir),
+            &format!("--temporary={}", bq_temp_ds),
+            &pg_table,
             &bq_table,
-            &pg_table_2,
         ])
         .tee_output()
         .expect_success();
 
-    // PostgreSQL back to CSV for the final comparison below.
+    // Postgres to BigQuery.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=upsert-on:person__Delivery_Zone_4_14",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("--temporary={}", gs_temp_dir),
+            &format!("--temporary={}", bq_temp_ds),
+            &pg_table,
+            &bq_table,
+        ])
+        .tee_output()
+        .expect_success();
+
+    // BigQuery back to CSV for the final comparison below.
     testdir
         .cmd()
         .args(&[
             "cp",
             &format!("--schema=postgres-sql:{}", schema.display()),
-            &pg_table_2,
-            "csv:out/",
+            &format!("--temporary={}", gs_temp_dir),
+            &format!("--temporary={}", bq_temp_ds),
+            &bq_table,
+            "csv:out.csv",
         ])
         .tee_output()
         .expect_success();
 
-    let expected = fs::read_to_string(&src).unwrap();
+    let expected = fs::read_to_string(&expected).unwrap();
     let actual =
-        fs::read_to_string(testdir.path("out/cp_csv_to_bq_to_postgres_to_csv_2.csv"))
+        fs::read_to_string(testdir.path("out.csv"))
             .unwrap();
     assert_diff!(&expected, &actual, ",", 0);
 }
