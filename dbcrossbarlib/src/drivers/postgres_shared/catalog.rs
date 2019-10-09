@@ -13,8 +13,9 @@ use diesel::{
 };
 use std::collections::HashMap;
 
+use super::{PgColumn, PgCreateTable, PgDataType, PgScalarDataType};
 use crate::common::*;
-use crate::schema::{Column, DataType, Srid, Table};
+use crate::schema::Srid;
 
 sql_function! {
     /// Given the PostgreSQL schema name, table name and column name of a
@@ -40,7 +41,7 @@ table! {
 
 #[derive(Queryable, Insertable)]
 #[table_name = "columns"]
-struct PgColumn {
+struct PgColumnSchema {
     table_catalog: String,
     table_schema: String,
     table_name: String,
@@ -52,9 +53,9 @@ struct PgColumn {
     udt_name: String,
 }
 
-impl PgColumn {
+impl PgColumnSchema {
     /// Get the data type for a column.
-    fn data_type(&self) -> Result<DataType> {
+    fn data_type(&self) -> Result<PgDataType> {
         pg_data_type(&self.data_type, &self.udt_schema, &self.udt_name)
     }
 }
@@ -63,7 +64,7 @@ impl PgColumn {
 pub(crate) fn fetch_from_url(
     database_url: &Url,
     full_table_name: &str,
-) -> Result<Table> {
+) -> Result<PgCreateTable> {
     let conn = PgConnection::establish(database_url.as_str())
         .context("error connecting to PostgreSQL")?;
     let (table_schema, table_name) = parse_full_table_name(full_table_name);
@@ -73,7 +74,7 @@ pub(crate) fn fetch_from_url(
         .filter(columns::table_schema.eq(table_schema))
         .filter(columns::table_name.eq(table_name))
         .order(columns::ordinal_position)
-        .load::<PgColumn>(&conn)?;
+        .load::<PgColumnSchema>(&conn)?;
 
     // Do we have any PostGIS geometry columns?
     let need_srids = pg_columns
@@ -113,13 +114,13 @@ pub(crate) fn fetch_from_url(
     for pg_col in pg_columns {
         // Get the data type for our column.
         let data_type = if let Some(srid) = srid_map.get(&pg_col.column_name) {
-            DataType::GeoJson(*srid)
+            PgDataType::Scalar(PgScalarDataType::Geometry(*srid))
         } else {
             pg_col.data_type()?
         };
 
         // Build our column.
-        columns.push(Column {
+        columns.push(PgColumn {
             name: pg_col.column_name,
             data_type,
             is_nullable: match pg_col.is_nullable.as_str() {
@@ -132,13 +133,14 @@ pub(crate) fn fetch_from_url(
                     ));
                 }
             },
-            comment: None,
         })
     }
 
-    Ok(Table {
+    Ok(PgCreateTable {
         name: table_name.to_owned(),
         columns,
+        temporary: false,
+        if_not_exists: false,
     })
 }
 
@@ -163,26 +165,30 @@ fn pg_data_type(
     data_type: &str,
     _udt_schema: &str,
     udt_name: &str,
-) -> Result<DataType> {
+) -> Result<PgDataType> {
     if data_type == "ARRAY" {
         // Array element types have their own naming convention, which appears
         // to be "_" followed by the internal udt_name version of PostgreSQL's
         // base types.
         let element_type = match udt_name {
-            "_bool" => DataType::Bool,
-            "_date" => DataType::Date,
-            "_float4" => DataType::Float32,
-            "_float8" => DataType::Float64,
-            "_int2" => DataType::Int16,
-            "_int4" => DataType::Int32,
-            "_int8" => DataType::Int64,
-            "_text" => DataType::Text,
-            "_timestamp" => DataType::TimestampWithoutTimeZone,
-            "_timestamptz" => DataType::TimestampWithTimeZone,
-            "_uuid" => DataType::Uuid,
+            "_bool" => PgScalarDataType::Boolean,
+            "_date" => PgScalarDataType::Date,
+            "_float4" => PgScalarDataType::Real,
+            "_float8" => PgScalarDataType::DoublePrecision,
+            "_int2" => PgScalarDataType::Smallint,
+            "_int4" => PgScalarDataType::Int,
+            "_int8" => PgScalarDataType::Bigint,
+            "_text" => PgScalarDataType::Text,
+            "_timestamp" => PgScalarDataType::TimestampWithoutTimeZone,
+            "_timestamptz" => PgScalarDataType::TimestampWithTimeZone,
+            "_uuid" => PgScalarDataType::Uuid,
             _ => return Err(format_err!("unknown array element {:?}", udt_name)),
         };
-        Ok(DataType::Array(Box::new(element_type)))
+        Ok(PgDataType::Array {
+            // TODO: Do we actually check the `dimension_count`?
+            dimension_count: 1,
+            ty: element_type,
+        })
     } else if data_type == "USER-DEFINED" {
         match udt_name {
             "geometry" => Err(format_err!(
@@ -191,95 +197,130 @@ fn pg_data_type(
             other => Err(format_err!("unknown user-defined data type {:?}", other)),
         }
     } else {
-        match data_type {
-            "bigint" => Ok(DataType::Int64),
-            "boolean" => Ok(DataType::Bool),
-            "character varying" => Ok(DataType::Text),
-            "date" => Ok(DataType::Date),
-            "double precision" => Ok(DataType::Float64),
-            "integer" => Ok(DataType::Int32),
-            "json" | "jsonb" => Ok(DataType::Json),
-            "numeric" => Ok(DataType::Decimal),
-            "real" => Ok(DataType::Float32),
-            "smallint" => Ok(DataType::Int16),
-            "text" => Ok(DataType::Text),
-            "timestamp with time zone" => Ok(DataType::TimestampWithTimeZone),
-            "timestamp without time zone" => Ok(DataType::TimestampWithoutTimeZone),
-            "uuid" => Ok(DataType::Uuid),
+        let ty = match data_type {
+            "bigint" => Ok(PgScalarDataType::Bigint),
+            "boolean" => Ok(PgScalarDataType::Boolean),
+            "character varying" => Ok(PgScalarDataType::Text),
+            "date" => Ok(PgScalarDataType::Date),
+            "double precision" => Ok(PgScalarDataType::DoublePrecision),
+            "integer" => Ok(PgScalarDataType::Int),
+            "json" => Ok(PgScalarDataType::Json),
+            "jsonb" => Ok(PgScalarDataType::Jsonb),
+            "numeric" => Ok(PgScalarDataType::Numeric),
+            "real" => Ok(PgScalarDataType::Real),
+            "smallint" => Ok(PgScalarDataType::Smallint),
+            "text" => Ok(PgScalarDataType::Text),
+            "timestamp with time zone" => Ok(PgScalarDataType::TimestampWithTimeZone),
+            "timestamp without time zone" => {
+                Ok(PgScalarDataType::TimestampWithoutTimeZone)
+            }
+            "uuid" => Ok(PgScalarDataType::Uuid),
             other => Err(format_err!("unknown data type {:?}", other)),
-        }
+        }?;
+        Ok(PgDataType::Scalar(ty))
     }
 }
 
 #[test]
 fn parsing_pg_data_type() {
+    let array = |ty| PgDataType::Array {
+        dimension_count: 1,
+        ty,
+    };
     let examples = &[
         // Basic types.
-        (("bigint", "pg_catalog", "int8"), DataType::Int64),
-        (("boolean", "pg_catalog", "bool"), DataType::Bool),
+        (
+            ("bigint", "pg_catalog", "int8"),
+            PgDataType::Scalar(PgScalarDataType::Bigint),
+        ),
+        (
+            ("boolean", "pg_catalog", "bool"),
+            PgDataType::Scalar(PgScalarDataType::Boolean),
+        ),
         (
             ("character varying", "pg_catalog", "varchar"),
-            DataType::Text,
+            PgDataType::Scalar(PgScalarDataType::Text),
         ),
-        (("date", "pg_catalog", "date"), DataType::Date),
+        (
+            ("date", "pg_catalog", "date"),
+            PgDataType::Scalar(PgScalarDataType::Date),
+        ),
         (
             ("double precision", "pg_catalog", "float8"),
-            DataType::Float64,
+            PgDataType::Scalar(PgScalarDataType::DoublePrecision),
         ),
-        (("integer", "pg_catalog", "int4"), DataType::Int32),
-        (("json", "pg_catalog", "json"), DataType::Json),
-        (("jsonb", "pg_catalog", "jsonb"), DataType::Json),
-        (("real", "pg_catalog", "float4"), DataType::Float32),
-        (("smallint", "pg_catalog", "int2"), DataType::Int16),
-        (("text", "pg_catalog", "text"), DataType::Text),
+        (
+            ("integer", "pg_catalog", "int4"),
+            PgDataType::Scalar(PgScalarDataType::Int),
+        ),
+        (
+            ("json", "pg_catalog", "json"),
+            PgDataType::Scalar(PgScalarDataType::Json),
+        ),
+        (
+            ("jsonb", "pg_catalog", "jsonb"),
+            PgDataType::Scalar(PgScalarDataType::Jsonb),
+        ),
+        (
+            ("real", "pg_catalog", "float4"),
+            PgDataType::Scalar(PgScalarDataType::Real),
+        ),
+        (
+            ("smallint", "pg_catalog", "int2"),
+            PgDataType::Scalar(PgScalarDataType::Smallint),
+        ),
+        (
+            ("text", "pg_catalog", "text"),
+            PgDataType::Scalar(PgScalarDataType::Text),
+        ),
         (
             ("timestamp without time zone", "pg_catalog", "timestamp"),
-            DataType::TimestampWithoutTimeZone,
+            PgDataType::Scalar(PgScalarDataType::TimestampWithoutTimeZone),
         ),
         // Array types.
         (
             ("ARRAY", "pg_catalog", "_bool"),
-            DataType::Array(Box::new(DataType::Bool)),
+            array(PgScalarDataType::Boolean),
         ),
         (
             ("ARRAY", "pg_catalog", "_date"),
-            DataType::Array(Box::new(DataType::Date)),
+            array(PgScalarDataType::Date),
         ),
         (
             ("ARRAY", "pg_catalog", "_float4"),
-            DataType::Array(Box::new(DataType::Float32)),
+            array(PgScalarDataType::Real),
         ),
         (
             ("ARRAY", "pg_catalog", "_float8"),
-            DataType::Array(Box::new(DataType::Float64)),
+            array(PgScalarDataType::DoublePrecision),
         ),
         (
             ("ARRAY", "pg_catalog", "_int2"),
-            DataType::Array(Box::new(DataType::Int16)),
+            array(PgScalarDataType::Smallint),
         ),
         (
             ("ARRAY", "pg_catalog", "_int4"),
-            DataType::Array(Box::new(DataType::Int32)),
+            array(PgScalarDataType::Int),
         ),
         (
             ("ARRAY", "pg_catalog", "_int8"),
-            DataType::Array(Box::new(DataType::Int64)),
+            array(PgScalarDataType::Bigint),
         ),
         (
             ("ARRAY", "pg_catalog", "_text"),
-            DataType::Array(Box::new(DataType::Text)),
+            array(PgScalarDataType::Text),
         ),
         (
             ("ARRAY", "pg_catalog", "_timestamp"),
-            DataType::Array(Box::new(DataType::TimestampWithoutTimeZone)),
+            array(PgScalarDataType::TimestampWithoutTimeZone),
         ),
         (
             ("ARRAY", "pg_catalog", "_timestamptz"),
-            DataType::Array(Box::new(DataType::TimestampWithTimeZone)),
+            array(PgScalarDataType::TimestampWithTimeZone),
         ),
         (
             ("ARRAY", "pg_catalog", "_uuid"),
-            DataType::Array(Box::new(DataType::Uuid)),
+            array(PgScalarDataType::Uuid),
         ),
     ];
     for ((data_type, udt_schema, udt_name), expected) in examples {

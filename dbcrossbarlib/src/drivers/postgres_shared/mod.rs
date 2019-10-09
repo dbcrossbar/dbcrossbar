@@ -4,6 +4,7 @@ use std::fmt;
 
 use crate::common::*;
 
+mod catalog;
 mod column;
 mod data_type;
 mod table;

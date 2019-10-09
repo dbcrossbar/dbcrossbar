@@ -2,7 +2,7 @@
 
 use std::{fmt, str::FromStr};
 
-use super::{PgColumn, TableName};
+use super::{catalog, PgColumn, TableName};
 use crate::common::*;
 use crate::schema::Column;
 use crate::separator::Separator;
@@ -51,6 +51,15 @@ impl PgCreateTable {
             if_not_exists: false,
             temporary: false,
         })
+    }
+
+    /// Look up `full_table_name` in the database, and return a new
+    /// `PgCreateTable` based on what we find in `pg_catalog`.
+    pub(crate) fn from_pg_catalog(
+        database_url: &Url,
+        full_table_name: &str,
+    ) -> Result<PgCreateTable> {
+        catalog::fetch_from_url(database_url, full_table_name)
     }
 
     /// Given a `PgCreateTable`, convert it to a portable `Table`.
