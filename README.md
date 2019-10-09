@@ -134,6 +134,7 @@ export REDSHIFT_TEST_REGIION=$MY_AWS_REGION
 
 # Needed for BigML. Does not work with AWS_SESSION_TOKEN.
 export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=...
+export BIGML_USERNAME=... BIGML_API_KEY=...
 
 # Run the integration tests.
 env RUST_BACKTRACE=1 RUST_LOG=warn,dbcrossbarlib=debug,dbcrossbar=debug \

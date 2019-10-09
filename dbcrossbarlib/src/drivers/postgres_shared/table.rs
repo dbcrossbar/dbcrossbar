@@ -22,6 +22,8 @@ pub struct PgCreateTable {
     pub(crate) columns: Vec<PgColumn>,
     /// Only create the table if it doesn't already exist.
     pub(crate) if_not_exists: bool,
+    /// Create a temporary table local to a specific client session.
+    pub(crate) temporary: bool,
 }
 
 impl PgCreateTable {
@@ -47,6 +49,7 @@ impl PgCreateTable {
             name,
             columns: pg_columns,
             if_not_exists: false,
+            temporary: false,
         })
     }
 
@@ -100,7 +103,11 @@ impl PgCreateTable {
 
 impl fmt::Display for PgCreateTable {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "CREATE TABLE")?;
+        write!(f, "CREATE")?;
+        if self.temporary {
+            write!(f, " TEMPORARY")?;
+        }
+        write!(f, " TABLE")?;
         if self.if_not_exists {
             write!(f, " IF NOT EXISTS")?;
         }

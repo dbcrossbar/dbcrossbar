@@ -210,7 +210,8 @@ impl LocatorStatic for PostgresLocator {
             dest_args: DestinationArgumentsFeatures::empty(),
             dest_if_exists: IfExistsFeatures::OVERWRITE
                 | IfExistsFeatures::APPEND
-                | IfExistsFeatures::ERROR,
+                | IfExistsFeatures::ERROR
+                | IfExistsFeatures::UPSERT,
             _placeholder: (),
         }
     }

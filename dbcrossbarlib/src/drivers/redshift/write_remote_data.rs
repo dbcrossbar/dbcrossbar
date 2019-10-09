@@ -50,13 +50,7 @@ pub(crate) async fn write_remote_data_helper(
 
     // Connect to Redshift and prepare our table.
     let mut client = connect(ctx.clone(), dest.url().to_owned()).await?;
-    prepare_table(
-        ctx.clone(),
-        &mut client,
-        pg_create_table.clone(),
-        if_exists.clone(),
-    )
-    .await?;
+    prepare_table(&ctx, &mut client, pg_create_table.clone(), &if_exists).await?;
 
     // Ask RedShift to import from S3.
     let copy_sql = format!(
