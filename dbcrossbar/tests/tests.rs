@@ -1,7 +1,11 @@
 use cli_test_dir::*;
 use difference::assert_diff;
 use env_logger;
-use std::{env, fs, path::Path, process::Stdio};
+use std::{
+    env, fs,
+    path::Path,
+    process::{Command, Stdio},
+};
 
 /// An example Postgres SQL `CREATE TABLE` declaration.
 const EXAMPLE_SQL: &str = include_str!("../fixtures/example.sql");
@@ -527,12 +531,19 @@ fn bigquery_upsert() {
     let bq_table = bq_test_table("bigquery_upsert");
 
     // CSVes to BigQuery.
+    let mut first = false;
     for src in srcs {
+        let if_exists = if first {
+            first = false;
+            "--if-exists=overwrite"
+        } else {
+            "--if-exists=upsert-on:key1,key2"
+        };
         testdir
             .cmd()
             .args(&[
                 "cp",
-                "--if-exists=upsert-on:key1,key2",
+                if_exists,
                 &format!("--temporary={}", gs_temp_dir),
                 &format!("--temporary={}", bq_temp_ds),
                 &format!("--schema=postgres-sql:{}", schema.display()),
@@ -567,6 +578,71 @@ fn bigquery_upsert() {
     };
     let expected = normalize_csv(&expected);
     let actual = normalize_csv(&testdir.path("out/000000000000.csv"));
+    assert_diff!(&expected, &actual, ",", 0);
+}
+
+#[test]
+#[ignore]
+fn postgres_upsert() {
+    let _ = env_logger::try_init();
+    let testdir = TestDir::new("dbcrossbar", "postgres_upsert");
+    let srcs = &[
+        testdir.src_path("fixtures/upsert_1.csv"),
+        testdir.src_path("fixtures/upsert_2.csv"),
+    ];
+    let expected = testdir.src_path("fixtures/upsert_result.csv");
+    let schema = testdir.src_path("fixtures/upsert.sql");
+    let pg_table = post_test_table_url("postgres_upsert");
+
+    // CSVes to Postgres.
+    let mut first = true;
+    for src in srcs {
+        let if_exists = if first {
+            first = false;
+            "--if-exists=overwrite"
+        } else {
+            // Make sure we have a unique index on key1,key2 first.
+            Command::new("psql")
+                .arg(postgres_test_url())
+                .args(&[
+                    "--command",
+                    "CREATE UNIQUE INDEX ON postgres_upsert (key1, key2)",
+                ])
+                .expect_success();
+
+            // Our `--if-exists` argument.
+            "--if-exists=upsert-on:key1,key2"
+        };
+        testdir
+            .cmd()
+            .args(&[
+                "cp",
+                if_exists,
+                &format!("--schema=postgres-sql:{}", schema.display()),
+                &format!("csv:{}", src.display()),
+                &pg_table,
+            ])
+            .tee_output()
+            .expect_success();
+    }
+
+    // Postgres to CSV.
+    testdir
+        .cmd()
+        .args(&["cp", "--if-exists=overwrite", &pg_table, "csv:out.csv"])
+        .tee_output()
+        .expect_success();
+
+    // We sort the lines of the CSVs because BigQuery outputs in any order.
+    // This has the side effect of putting the headers at the end.
+    let normalize_csv = |path: &Path| -> String {
+        let text = fs::read_to_string(&path).unwrap();
+        let mut lines = text.lines().collect::<Vec<_>>();
+        lines.sort();
+        lines.join("\n")
+    };
+    let expected = normalize_csv(&expected);
+    let actual = normalize_csv(&testdir.path("out.csv"));
     assert_diff!(&expected, &actual, ",", 0);
 }
 

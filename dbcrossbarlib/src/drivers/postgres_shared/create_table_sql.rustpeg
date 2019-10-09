@@ -19,7 +19,14 @@ pub create_table -> PgCreateTable
         ws? columns:(column ** (ws? "," ws?)) ws?
       ")" ws? (";" ws?)?
     {
-        PgCreateTable { name, columns, if_not_exists: false }
+        PgCreateTable {
+            name,
+            columns,
+            if_not_exists: false,
+            // We don't worry about trying to parse this, which we only use
+            // internally at the moment.
+            temporary: false,
+        }
     }
 
 /// A column expression of the form "name type".

@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+use crate::common::*;
+
 mod column;
 mod data_type;
 mod table;
@@ -58,13 +60,33 @@ impl<'a> fmt::Display for Ident<'a> {
 /// formatted with correct quotes.
 pub(crate) struct TableName<'a>(pub(crate) &'a str);
 
+impl<'a> TableName<'a> {
+    /// Split this `TableName` into an optional namespace and an actual table
+    /// name.
+    pub(crate) fn split(&self) -> Result<(Option<&str>, &str)> {
+        let components = self.0.splitn(2, '.').collect::<Vec<_>>();
+        match components.len() {
+            1 => Ok((None, components[0])),
+            2 => Ok((Some(components[0]), components[1])),
+            _ => Err(format_err!("cannot parse table name {:?}", self.0)),
+        }
+    }
+}
+
 impl<'a> fmt::Display for TableName<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for (idx, component) in self.0.splitn(2, '.').enumerate() {
-            if idx != 0 {
-                write!(f, ".")?;
+        let components = self.split().map_err(|err| {
+            // TODO: This should use a log, but we can't get access to our
+            // logger here without switching away from `slog` or jumping through
+            // tons of hoops.
+            eprintln!("{}", err);
+            fmt::Error
+        })?;
+        match components {
+            (Some(namespace), table) => {
+                write!(f, "{}.{}", Ident(namespace), Ident(table))?
             }
-            write!(f, "{}", Ident(component))?;
+            (None, table) => write!(f, "{}", Ident(table))?,
         }
         Ok(())
     }
