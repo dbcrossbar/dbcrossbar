@@ -1,6 +1,6 @@
 //! A PostgreSQL `CREATE TABLE` declaration.
 
-use std::{fmt, str::FromStr};
+use std::{collections::HashMap, fmt, iter::FromIterator, str::FromStr};
 
 use super::{catalog, PgColumn, TableName};
 use crate::common::*;
@@ -72,6 +72,41 @@ impl PgCreateTable {
         Ok(Table {
             name: self.name.clone(),
             columns,
+        })
+    }
+
+    /// Create a new table based on this table, but with columns matching the
+    /// the names and order of the columns in `other_table`. This is useful if
+    /// we want to insert from `other_table` into `self`.
+    ///
+    /// Hypothetically, we could also check for compatibility between column
+    /// types in the two tables, but for now, we're happy to let the database
+    /// verify all that for us.
+    pub(crate) fn aligned_with(
+        &self,
+        other_table: &PgCreateTable,
+    ) -> Result<PgCreateTable> {
+        let column_map = HashMap::<&str, &PgColumn>::from_iter(
+            self.columns.iter().map(|c| (&c.name[..], c)),
+        );
+        Ok(PgCreateTable {
+            name: self.name.clone(),
+            columns: other_table
+                .columns
+                .iter()
+                .map(|c| {
+                    if let Some(&col) = column_map.get(&c.name[..]) {
+                        Ok(col.to_owned())
+                    } else {
+                        Err(format_err!(
+                            "could not find column {} in destination table",
+                            c.name
+                        ))
+                    }
+                })
+                .collect::<Result<Vec<_>>>()?,
+            if_not_exists: self.if_not_exists,
+            temporary: self.temporary,
         })
     }
 

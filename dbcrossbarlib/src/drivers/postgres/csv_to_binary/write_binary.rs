@@ -11,6 +11,9 @@ use super::WriteExt;
 use crate::common::*;
 use crate::schema::Srid;
 
+/// A JSON string that we want to serialize as `json`.
+pub(crate) struct RawJson<'a>(pub(crate) &'a str);
+
 /// A JSON string that we want to serialize as `jsonb` format 1.
 pub(crate) struct RawJsonb<'a>(pub(crate) &'a str);
 
@@ -103,6 +106,15 @@ impl WriteBinary for i64 {
     fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         wtr.write_len(size_of_val(self))?;
         wtr.write_i64::<NE>(*self)?;
+        Ok(())
+    }
+}
+
+impl<'a> WriteBinary for RawJson<'a> {
+    fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
+        // Apparently we can just write these as string data and all is good?
+        wtr.write_len(self.0.len())?;
+        wtr.write_all(self.0.as_bytes())?;
         Ok(())
     }
 }
