@@ -40,15 +40,6 @@ pub(crate) struct Ident<'a>(pub(crate) &'a str);
 
 impl<'a> fmt::Display for Ident<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.0.contains('.') {
-            // Unfortunately, we have no good way to report a more detailed
-            // error from here. But we do not way to see "." in names until
-            // we're sure that `TableName` is used everywhere it should be.
-            //
-            // We could take this out later, if we're sure we trust people to
-            // always use `TableName` when required.
-            return Err(fmt::Error);
-        }
         write!(f, "\"")?;
         write!(f, "{}", self.0.replace('"', "\"\""))?;
         write!(f, "\"")?;
