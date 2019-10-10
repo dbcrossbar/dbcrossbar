@@ -723,6 +723,57 @@ fn postgres_upsert() {
 
 #[test]
 #[ignore]
+fn cp_pg_append_legacy_json() {
+    let testdir = TestDir::new("dbcrossbar", "cp_from_postgres_with_where");
+    let src = testdir.src_path("fixtures/legacy_json.csv");
+    let schema = testdir.src_path("fixtures/legacy_json.sql");
+    let pg_table = post_test_table_url("legacy_json");
+
+    // Create a database table manually, forcing the use of `json` instead of
+    // `jsonb`. `dbcrossbar` silently upgrades `json` to `jsonb` under normal
+    // circumstances, because it always translates column types into portable
+    // types like `DataType::Json`.
+    Command::new("psql")
+        .arg(postgres_test_url())
+        .args(&["--command", "DROP TABLE IF EXISTS legacy_json;"])
+        .expect_success();
+    Command::new("psql")
+        .arg(postgres_test_url())
+        .args(&["--command", include_str!("../fixtures/legacy_json.sql")])
+        .expect_success();
+
+    // CSV to PostgreSQL.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=append",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("csv:{}", src.display()),
+            &pg_table,
+        ])
+        .tee_output()
+        .expect_success();
+
+    // PostgreSQL to CSV.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &pg_table,
+            "csv:out.csv",
+        ])
+        .tee_output()
+        .expect_success();
+
+    let expected = fs::read_to_string(&src).unwrap();
+    let actual = fs::read_to_string(testdir.path("out.csv")).unwrap();
+    assert_diff!(&expected, &actual, ",", 0);
+}
+
+#[test]
+#[ignore]
 fn cp_csv_to_s3_to_csv() {
     let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "cp_csv_to_s3_to_csv");

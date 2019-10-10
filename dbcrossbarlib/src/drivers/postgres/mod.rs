@@ -14,11 +14,11 @@ use tokio_postgres::Config;
 use tokio_postgres_native_tls::MakeTlsConnector;
 
 use crate::common::*;
+use crate::drivers::postgres_shared::PgCreateTable;
 
 pub mod citus;
 mod csv_to_binary;
 mod local_data;
-mod schema;
 mod write_local_data;
 
 use self::local_data::local_data_helper;
@@ -159,10 +159,9 @@ impl Locator for PostgresLocator {
     fn schema(&self, _ctx: Context) -> BoxFuture<Option<Table>> {
         let source = self.to_owned();
         run_sync_fn_in_background("PostgresLocator::schema".to_owned(), move || {
-            Ok(Some(schema::fetch_from_url(
-                &source.url,
-                &source.table_name,
-            )?))
+            let table =
+                PgCreateTable::from_pg_catalog(&source.url, &source.table_name)?;
+            Ok(Some(table.to_table()?))
         })
         .boxed()
     }

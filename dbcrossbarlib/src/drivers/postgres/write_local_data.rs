@@ -248,6 +248,12 @@ pub(crate) async fn write_local_data_helper(
     let mut client = connect(ctx.clone(), url.clone()).await?;
     prepare_table(&ctx, &mut client, dest_table.clone(), &if_exists).await?;
 
+    // Look up our actual destination table, which has either existed all along,
+    // or which we just created.
+    let mut real_dest_table =
+        PgCreateTable::from_pg_catalog(dest.url(), dest.table_name())?;
+    real_dest_table = real_dest_table.aligned_with(&dest_table)?;
+
     // Insert data streams one at a time, because parallel insertion _probably_
     // won't gain much with Postgres (but we haven't measured).
     let fut = async move {
@@ -263,7 +269,7 @@ pub(crate) async fn write_local_data_helper(
                     let ctx = ctx.child(o!("stream" => csv_stream.name.clone()));
 
                     // Convert our CSV stream into a PostgreSQL `BINARY` stream.
-                    let transform_table = dest_table.clone();
+                    let transform_table = real_dest_table.clone();
                     let binary_stream = spawn_sync_transform(
                         ctx.clone(),
                         "copy_csv_to_pg_binary".to_owned(),

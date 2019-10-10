@@ -29,7 +29,7 @@ use crate::from_json_value::FromJsonValue;
 
 mod write_binary;
 
-use self::write_binary::{GeometryWithSrid, RawJsonb, WriteBinary};
+use self::write_binary::{GeometryWithSrid, RawJson, RawJsonb, WriteBinary};
 
 /// A buffered writer. Here, we know the concrete type of the outer `BufWriter`,
 /// so we can make lots of small writes efficiently. But we don't know the type of
@@ -289,9 +289,10 @@ fn scalar_to_binary(
         PgScalarDataType::Smallint => write_cell_as_binary::<i16>(wtr, cell),
         PgScalarDataType::Int => write_cell_as_binary::<i32>(wtr, cell),
         PgScalarDataType::Bigint => write_cell_as_binary::<i64>(wtr, cell),
-        PgScalarDataType::Json => Err(format_err!(
-            "PostgreSQL json columns not supported (try jsonb)",
-        )),
+        PgScalarDataType::Json => {
+            let value = RawJson(cell);
+            value.write_binary(wtr)
+        }
         PgScalarDataType::Jsonb => {
             let value = RawJsonb(cell);
             value.write_binary(wtr)
