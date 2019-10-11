@@ -7,7 +7,7 @@ use dbcrossbarlib::{
     BoxLocator, Context, DestinationArguments, DisplayOutputLocators, DriverArguments,
     IfExists, SharedArguments, SourceArguments, TemporaryStorage,
 };
-use failure::format_err;
+use failure::{format_err, ResultExt};
 use futures::{compat::Future01CompatExt, FutureExt, TryFutureExt};
 use humanize_rs::bytes::Bytes as HumanizedBytes;
 use slog::{debug, o};
@@ -70,9 +70,15 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
     // Figure out what table schema to use.
     let schema = {
         let schema_locator = opt.schema.as_ref().unwrap_or(&opt.from_locator);
-        schema_locator.schema(ctx.clone()).await?.ok_or_else(|| {
-            format_err!("don't know how to read schema from {}", opt.from_locator)
-        })
+        schema_locator
+            .schema(ctx.clone())
+            .await
+            .with_context(|_| {
+                format!("error reading schema from {}", opt.from_locator)
+            })?
+            .ok_or_else(|| {
+                format_err!("don't know how to read schema from {}", opt.from_locator)
+            })
     }?;
 
     // Build our shared arguments.
