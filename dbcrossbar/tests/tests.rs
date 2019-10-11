@@ -592,6 +592,41 @@ fn cp_csv_to_bigquery_to_csv() {
 
 #[test]
 #[ignore]
+fn bigquery_create_table_with_not_null() {
+    let _ = env_logger::try_init();
+    let testdir = TestDir::new("dbcrossbar", "bigquery_create_table_with_not_null");
+    let src = testdir.src_path("fixtures/bigquery_not_null.csv");
+    let schema = testdir.src_path("fixtures/bigquery_not_null.sql");
+    let bq_temp_ds = bq_temp_dataset();
+    let gs_temp_dir = gs_test_dir_url("bigquery_create_table_with_not_null");
+    let bq_table = bq_test_table("bigquery_create_table_with_not_null");
+
+    // CSV to BigQuery.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--temporary={}", gs_temp_dir),
+            &format!("--temporary={}", bq_temp_ds),
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("csv:{}", src.display()),
+            &bq_table,
+        ])
+        .tee_output()
+        .expect_success();
+
+    // Extract BigQuery schema and check it.
+    let output = testdir
+        .cmd()
+        .args(&["conv", &bq_table, "postgres-sql:-"])
+        .tee_output()
+        .expect_success();
+    assert!(output.stdout_str().contains("\"id\" bigint NOT NULL"));
+}
+
+#[test]
+#[ignore]
 fn bigquery_upsert() {
     let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "bigquery_upsert");
