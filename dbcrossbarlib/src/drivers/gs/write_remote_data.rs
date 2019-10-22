@@ -66,6 +66,8 @@ pub(crate) async fn write_remote_data_helper(
     let mut query_child = Command::new("bq")
         // We'll pass the query on `stdin`.
         .stdin(Stdio::piped())
+        // Throw away std output because it's spammy.
+        .stdout(Stdio::null())
         // Run query with no output.
         .args(&[
             "query",
@@ -99,7 +101,7 @@ pub(crate) async fn write_remote_data_helper(
 
     // Build and run a `bq extract` command.
     debug!(ctx.log(), "running `bq extract`");
-    let load_child = Command::new("bq")
+    let extract_child = Command::new("bq")
         // These arguments can all be represented as UTF-8 `&str`.
         .args(&[
             "extract",
@@ -108,20 +110,24 @@ pub(crate) async fn write_remote_data_helper(
             &temp_table_name.to_string(),
             &format!("{}/*.csv", dest),
         ])
+        // Throw away std output because it's spammy.
+        .stdout(Stdio::null())
         .spawn_async()
-        .context("error starting `bq load`")?;
-    let status = load_child
+        .context("error starting `bq extract`")?;
+    let status = extract_child
         .compat()
         .await
-        .context("error running `bq load`")?;
+        .context("error running `bq extract`")?;
     if !status.success() {
-        return Err(format_err!("`bq load` failed with {}", status));
+        return Err(format_err!("`bq extract` failed with {}", status));
     }
 
     // Delete temp table.
     debug!(ctx.log(), "deleting export temp table: {}", temp_table_name);
     let rm_child = Command::new("bq")
         .args(&["rm", "--headless", "-f", "-t", &temp_table_name.to_string()])
+        // Throw away std output because it's spammy.
+        .stdout(Stdio::null())
         .spawn_async()
         .context("error starting `bq rm`")?;
     let status = rm_child.compat().await.context("error running `bq rm`")?;

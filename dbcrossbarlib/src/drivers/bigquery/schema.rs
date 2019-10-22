@@ -35,7 +35,7 @@ pub(crate) async fn schema_helper(
     debug!(
         ctx.log(),
         "BigQuery schema: {}",
-        String::from_utf8_lossy(&output.stdout)
+        String::from_utf8_lossy(&output.stdout).trim_end()
     );
     let columns: Vec<BqColumn> = serde_json::from_slice(&output.stdout)
         .context("error parsing BigQuery schema")?;
