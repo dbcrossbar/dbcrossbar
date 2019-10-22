@@ -7,7 +7,7 @@ use std::{
     io::Write,
 };
 
-use super::{BqColumn, ColumnBigQueryExt, Ident, Mode, TableName, Usage};
+use super::{BqColumn, ColumnBigQueryExt, Ident, TableName, Usage};
 use crate::common::*;
 use crate::schema::{Column, Table};
 use crate::uniquifier::Uniquifier;
