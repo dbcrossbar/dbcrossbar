@@ -135,18 +135,6 @@ impl BqTable {
             })
             .collect::<Result<Vec<&BqColumn>>>()?;
 
-        // As discussed at https://github.com/faradayio/dbcrossbar/issues/43,
-        // it's not obvious how to `MERGE` on columns that might be `NULL`.
-        // Until we have a solution that we like, fail with an error.
-        for merge_key in &merge_keys {
-            if merge_key.mode != Mode::Required {
-                return Err(format_err!(
-                    "BigQuery cannot upsert on {:?} because it is not REQUIRED (aka NOT NULL)",
-                    merge_key.name,
-                ));
-            }
-        }
-
         // Build a table when we can check for merge keys by name.
         let merge_key_table = merge_keys
             .iter()
