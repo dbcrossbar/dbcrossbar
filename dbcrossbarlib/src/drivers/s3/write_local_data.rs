@@ -38,6 +38,8 @@ pub(crate) async fn write_local_data_helper(
             let mut child = Command::new("aws")
                 .args(&["s3", "cp", "-", url.as_str()])
                 .stdin(Stdio::piped())
+                // Throw away stdout so it doesn't corrupt our output.
+                .stdout(Stdio::null())
                 .spawn_async()
                 .context("error running `aws s3`")?;
             let child_stdin = child.stdin().take().expect("child should have stdin");

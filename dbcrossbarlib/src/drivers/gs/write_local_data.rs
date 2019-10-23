@@ -36,6 +36,8 @@ pub(crate) async fn write_local_data_helper(
             let mut child = Command::new("gsutil")
                 .args(&["cp", "-", url.as_str()])
                 .stdin(Stdio::piped())
+                // Throw away stdout so it doesn't corrupt our output.
+                .stdout(Stdio::null())
                 .spawn_async()
                 .context("error running gsutil")?;
             let child_stdin = child.stdin().take().expect("child should have stdin");

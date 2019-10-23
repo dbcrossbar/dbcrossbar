@@ -1,6 +1,6 @@
 //! Preparing bucket directories as output destinations.
 
-use std::process::Command;
+use std::process::{Command, Stdio};
 use tokio_process::CommandExt;
 
 use crate::common::*;
@@ -25,6 +25,8 @@ pub(crate) async fn prepare_as_destination_helper(
         let delete_url = gs_url.join("**")?;
         let status = Command::new("gsutil")
             .args(&["rm", "-f", delete_url.as_str()])
+            // Throw away stdout so it doesn't corrupt our output.
+            .stdout(Stdio::null())
             .status_async()
             .context("error running gsutil")?;
         if !status.compat().await?.success() {

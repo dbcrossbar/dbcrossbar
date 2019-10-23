@@ -120,6 +120,8 @@ pub(crate) async fn write_remote_data_helper(
             &initial_table.name().to_string(),
             source_url.as_str(),
         ])
+        // Throw away stdout so it doesn't corrupt our output.
+        .stdout(Stdio::null())
         // This argument is a path, and so it might contain non-UTF-8
         // characters. We pass it separately because Rust won't allow us to
         // create an array of mixed strings and paths.
@@ -161,6 +163,8 @@ pub(crate) async fn write_remote_data_helper(
                 // Pass separately, because paths may not be UTF-8.
                 .arg(&dest_schema_path)
                 .arg(&dest_table.name().to_string())
+        // Throw away stdout so it doesn't corrupt our output.
+                .stdout(Stdio::null())
                 .spawn_async()
                 .context("error starting `bq mk`")?;
             let status = mk_child.compat().await.context("error running `bq mk`")?;
@@ -188,6 +192,8 @@ pub(crate) async fn write_remote_data_helper(
         query_command
             // We'll pass the query on `stdin`.
             .stdin(Stdio::piped())
+            // Throw away stdout so it doesn't corrupt our output.
+            .stdout(Stdio::null())
             // Run query with no output.
             .args(&[
                 "query",
@@ -232,6 +238,8 @@ pub(crate) async fn write_remote_data_helper(
                 "-t",
                 &initial_table.name().to_string(),
             ])
+            // Throw away stdout so it doesn't corrupt our output.
+            .stdout(Stdio::null())
             .spawn_async()
             .context("error starting `bq rm`")?;
         let status = rm_child.compat().await.context("error running `bq rm`")?;
