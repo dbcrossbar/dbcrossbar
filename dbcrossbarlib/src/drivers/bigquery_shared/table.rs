@@ -162,7 +162,7 @@ MERGE INTO {dest_table} AS dest
 USING (
   SELECT
     *
-  FROM {temp_table}
+  FROM {temp_table} AS temp
   WHERE
     {key_not_null_constaints}
 ) AS temp
