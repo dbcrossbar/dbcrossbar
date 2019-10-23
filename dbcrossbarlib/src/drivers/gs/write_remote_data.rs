@@ -66,7 +66,7 @@ pub(crate) async fn write_remote_data_helper(
     let mut query_child = Command::new("bq")
         // We'll pass the query on `stdin`.
         .stdin(Stdio::piped())
-        // Throw away std output because it's spammy.
+        // Throw away stdout so it doesn't corrupt our output.
         .stdout(Stdio::null())
         // Run query with no output.
         .args(&[
@@ -110,7 +110,7 @@ pub(crate) async fn write_remote_data_helper(
             &temp_table_name.to_string(),
             &format!("{}/*.csv", dest),
         ])
-        // Throw away std output because it's spammy.
+        // Throw away stdout so it doesn't corrupt our output.
         .stdout(Stdio::null())
         .spawn_async()
         .context("error starting `bq extract`")?;
