@@ -159,7 +159,13 @@ impl BqTable {
             f,
             r#"
 MERGE INTO {dest_table} AS dest
-USING {temp_table} AS temp
+USING (
+  SELECT
+    *
+  FROM {temp_table}
+  WHERE
+    {key_not_null_constaints}
+) AS temp
 ON
     {key_comparisons}
 WHEN MATCHED THEN UPDATE SET
@@ -171,6 +177,14 @@ WHEN NOT MATCHED THEN INSERT (
 )"#,
             dest_table = Ident(&self.name().dotted().to_string()),
             temp_table = Ident(&source_table_name.dotted().to_string()),
+            key_not_null_constaints = merge_keys
+                .iter()
+                .enumerate()
+                .map(|(idx, c)| format!(
+                    "{expr} IS NOT NULL",
+                    expr = col_import_expr(c, idx),
+                ))
+                .join(" AND\n    "),
             key_comparisons = merge_keys
                 .iter()
                 .enumerate()
