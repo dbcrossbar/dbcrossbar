@@ -126,7 +126,7 @@ pub(crate) async fn write_remote_data_helper(
     debug!(ctx.log(), "deleting export temp table: {}", temp_table_name);
     let rm_child = Command::new("bq")
         .args(&["rm", "--headless", "-f", "-t", &temp_table_name.to_string()])
-        // Throw away std output because it's spammy.
+        // Throw away stdout so it doesn't corrupt our output.
         .stdout(Stdio::null())
         .spawn_async()
         .context("error starting `bq rm`")?;
