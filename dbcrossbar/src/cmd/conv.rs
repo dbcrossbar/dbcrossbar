@@ -1,4 +1,4 @@
-//! The `schema` subcommand.
+//! The `conv` subcommand.
 
 use common_failures::Result;
 use dbcrossbarlib::{BoxLocator, Context, IfExists};

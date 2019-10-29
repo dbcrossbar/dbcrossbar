@@ -82,7 +82,7 @@ pub(crate) async fn write_remote_data_helper(
     let child_stdin = query_child
         .stdin()
         .take()
-        .expect("don't have stdio that we requested");
+        .expect("don't have stdin that we requested");
     io::write_all(child_stdin, export_sql)
         .compat()
         .await

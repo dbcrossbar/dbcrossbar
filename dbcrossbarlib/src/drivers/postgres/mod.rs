@@ -17,10 +17,12 @@ use crate::common::*;
 use crate::drivers::postgres_shared::PgCreateTable;
 
 pub mod citus;
+mod count;
 mod csv_to_binary;
 mod local_data;
 mod write_local_data;
 
+use self::count::count_helper;
 use self::local_data::local_data_helper;
 use self::write_local_data::write_local_data_helper;
 
@@ -166,6 +168,15 @@ impl Locator for PostgresLocator {
         .boxed()
     }
 
+    fn count(
+        &self,
+        ctx: Context,
+        shared_args: SharedArguments<Unverified>,
+        source_args: SourceArguments<Unverified>,
+    ) -> BoxFuture<usize> {
+        count_helper(ctx, self.to_owned(), shared_args, source_args).boxed()
+    }
+
     fn local_data(
         &self,
         ctx: Context,
@@ -203,7 +214,8 @@ impl LocatorStatic for PostgresLocator {
         Features {
             locator: LocatorFeatures::Schema
                 | LocatorFeatures::LocalData
-                | LocatorFeatures::WriteLocalData,
+                | LocatorFeatures::WriteLocalData
+                | LocatorFeatures::Count,
             write_schema_if_exists: EnumSet::empty(),
             source_args: SourceArgumentsFeatures::WhereClause.into(),
             dest_args: EnumSet::empty(),

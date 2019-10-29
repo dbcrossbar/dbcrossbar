@@ -65,6 +65,17 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
         async move { Err(err) }.boxed()
     }
 
+    /// Count the records specified by this locator.
+    fn count(
+        &self,
+        _ctx: Context,
+        _shared_args: SharedArguments<Unverified>,
+        _source_args: SourceArguments<Unverified>,
+    ) -> BoxFuture<usize> {
+        let err = format_err!("cannot count records at {}", self);
+        async move { Err(err) }.boxed()
+    }
+
     /// If this locator can be used as a local data source, return a stream of
     /// CSV streams. This function type is bit hairy:
     ///
@@ -204,6 +215,7 @@ pub enum LocatorFeatures {
     WriteSchema,
     LocalData,
     WriteLocalData,
+    Count,
 }
 
 /// A collection of all the features supported by a given driver. This is
@@ -241,6 +253,12 @@ impl fmt::Display for Features {
         if self.locator.contains(LocatorFeatures::WriteSchema) {
             writeln!(f, "- conv TO:")?;
             writeln!(f, "  {}", self.write_schema_if_exists.display())?;
+        }
+        if self.locator.contains(LocatorFeatures::Count) {
+            writeln!(f, "- count")?;
+            if !self.source_args.is_empty() {
+                writeln!(f, "  {}", self.source_args.display())?;
+            }
         }
         if self.locator.contains(LocatorFeatures::LocalData) {
             writeln!(f, "- cp FROM:")?;
