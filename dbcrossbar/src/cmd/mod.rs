@@ -8,6 +8,7 @@ use structopt_derive::StructOpt;
 use crate::logging::LogFormat;
 
 pub(crate) mod conv;
+pub(crate) mod count;
 pub(crate) mod cp;
 pub(crate) mod features;
 
@@ -46,6 +47,17 @@ pub(crate) enum Command {
         command: conv::Opt,
     },
 
+    /// Count records.
+    #[structopt(name = "count")]
+    #[structopt(after_help = r#"EXAMPLE LOCATORS:
+    postgres://localhost:5432/db#table
+    bigquery:project:dataset.table
+"#)]
+    Count {
+        #[structopt(flatten)]
+        command: count::Opt,
+    },
+
     /// Copy tables from one location to another.
     #[structopt(name = "cp")]
     #[structopt(after_help = r#"EXAMPLE LOCATORS:
@@ -68,6 +80,7 @@ pub(crate) enum Command {
 pub(crate) fn run(ctx: Context, opt: Opt) -> BoxFuture<()> {
     match opt.cmd {
         Command::Conv { command } => conv::run(ctx, command).boxed(),
+        Command::Count { command } => count::run(ctx, command).boxed(),
         Command::Cp { command } => cp::run(ctx, command).boxed(),
         Command::Features { command } => features::run(ctx, command).boxed(),
     }

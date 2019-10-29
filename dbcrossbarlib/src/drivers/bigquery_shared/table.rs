@@ -237,4 +237,18 @@ WHEN NOT MATCHED THEN INSERT (
         }
         Ok(())
     }
+
+    pub(crate) fn write_count_sql(
+        &self,
+        source_args: &SourceArguments<Verified>,
+        f: &mut dyn Write,
+    ) -> Result<()> {
+        write!(f, "SELECT COUNT(*) AS `count`")?;
+        write!(f, " FROM {}", Ident(&self.name.dotted().to_string()))?;
+        if let Some(where_clause) = source_args.where_clause() {
+            write!(f, " WHERE ({})", where_clause)?;
+        }
+
+        Ok(())
+    }
 }

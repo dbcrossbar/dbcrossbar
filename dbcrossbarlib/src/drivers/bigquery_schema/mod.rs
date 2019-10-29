@@ -52,11 +52,11 @@ impl LocatorStatic for BigQuerySchemaLocator {
 
     fn features() -> Features {
         Features {
-            locator: LocatorFeatures::SCHEMA | LocatorFeatures::WRITE_SCHEMA,
+            locator: LocatorFeatures::Schema | LocatorFeatures::WriteSchema,
             write_schema_if_exists: IfExistsFeatures::no_append(),
-            source_args: SourceArgumentsFeatures::empty(),
-            dest_args: DestinationArgumentsFeatures::empty(),
-            dest_if_exists: IfExistsFeatures::empty(),
+            source_args: EnumSet::empty(),
+            dest_args: EnumSet::empty(),
+            dest_if_exists: EnumSet::empty(),
             _placeholder: (),
         }
     }

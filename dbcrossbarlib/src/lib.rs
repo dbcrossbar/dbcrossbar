@@ -61,6 +61,7 @@ pub use tokio_glue::{run_futures_with_runtime, ConsumeWithParallelism};
 #[allow(unused_imports)]
 pub(crate) mod common {
     pub(crate) use bytes::BytesMut;
+    pub(crate) use enumset::{EnumSet, EnumSetType};
     pub(crate) use failure::{format_err, ResultExt};
     pub(crate) use futures::{
         compat::{Compat01As03, Future01CompatExt},

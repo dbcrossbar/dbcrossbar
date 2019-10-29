@@ -5,11 +5,13 @@ use std::{fmt, str::FromStr};
 use crate::common::*;
 use crate::drivers::{bigquery_shared::TableName, gs::GsLocator};
 
+mod count;
 mod local_data;
 mod schema;
 mod write_local_data;
 mod write_remote_data;
 
+use self::count::count_helper;
 use self::local_data::local_data_helper;
 use self::schema::schema_helper;
 use self::write_local_data::write_local_data_helper;
@@ -54,6 +56,15 @@ impl Locator for BigQueryLocator {
 
     fn schema(&self, ctx: Context) -> BoxFuture<Option<Table>> {
         schema_helper(ctx, self.to_owned()).boxed()
+    }
+
+    fn count(
+        &self,
+        ctx: Context,
+        shared_args: SharedArguments<Unverified>,
+        source_args: SourceArguments<Unverified>,
+    ) -> BoxFuture<usize> {
+        count_helper(ctx, self.to_owned(), shared_args, source_args).boxed()
     }
 
     fn local_data(
@@ -109,15 +120,16 @@ impl LocatorStatic for BigQueryLocator {
 
     fn features() -> Features {
         Features {
-            locator: LocatorFeatures::SCHEMA
-                | LocatorFeatures::LOCAL_DATA
-                | LocatorFeatures::WRITE_LOCAL_DATA,
-            write_schema_if_exists: IfExistsFeatures::empty(),
-            source_args: SourceArgumentsFeatures::WHERE_CLAUSE,
-            dest_args: DestinationArgumentsFeatures::empty(),
-            dest_if_exists: IfExistsFeatures::OVERWRITE
-                | IfExistsFeatures::APPEND
-                | IfExistsFeatures::UPSERT,
+            locator: LocatorFeatures::Schema
+                | LocatorFeatures::LocalData
+                | LocatorFeatures::WriteLocalData
+                | LocatorFeatures::Count,
+            write_schema_if_exists: EnumSet::empty(),
+            source_args: SourceArgumentsFeatures::WhereClause.into(),
+            dest_args: EnumSet::empty(),
+            dest_if_exists: IfExistsFeatures::Overwrite
+                | IfExistsFeatures::Append
+                | IfExistsFeatures::Upsert,
             _placeholder: (),
         }
     }

@@ -143,6 +143,20 @@ impl PgCreateTable {
         }
         Ok(())
     }
+
+    /// Write a `SELECT COUNT(*) ...` statement for this table.
+    pub(crate) fn write_count_sql(
+        &self,
+        f: &mut dyn Write,
+        source_args: &SourceArguments<Verified>,
+    ) -> Result<()> {
+        writeln!(f, "SELECT COUNT(*)")?;
+        writeln!(f, " FROM {}", TableName(&self.name))?;
+        if let Some(where_clause) = source_args.where_clause() {
+            writeln!(f, " WHERE ({})", where_clause)?;
+        }
+        Ok(())
+    }
 }
 
 impl fmt::Display for PgCreateTable {
