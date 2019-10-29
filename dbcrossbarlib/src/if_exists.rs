@@ -1,45 +1,44 @@
 //! What to do if the destination already exists.
 
-use bitflags::bitflags;
 use itertools::Itertools;
 use std::{fmt, str::FromStr};
 use tokio::fs as tokio_fs;
 
+use crate::args::DisplayEnumSet;
 use crate::common::*;
 use crate::separator::Separator;
 
-bitflags! {
-    /// Which `IfExists` features are supported by a given driver or API?
-    pub struct IfExistsFeatures: u8 {
-        const ERROR = 0b0000_0001;
-        const APPEND = 0b0000_0010;
-        const OVERWRITE = 0b0000_0100;
-        const UPSERT = 0b0000_1000;
-    }
+/// Which `IfExists` features are supported by a given driver or API?
+#[derive(Debug, EnumSetType)]
+pub enum IfExistsFeatures {
+    Error,
+    Append,
+    Overwrite,
+    Upsert,
 }
 
 impl IfExistsFeatures {
     /// Returns the features supported for `to_async_open_options_no_append` and
     /// `to_sync_open_options_no_append`.
-    pub(crate) fn no_append() -> Self {
-        IfExistsFeatures::ERROR | IfExistsFeatures::OVERWRITE
+    pub(crate) fn no_append() -> EnumSet<Self> {
+        IfExistsFeatures::Error | IfExistsFeatures::Overwrite
     }
 }
 
-impl fmt::Display for IfExistsFeatures {
+impl fmt::Display for DisplayEnumSet<IfExistsFeatures> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut sep = Separator::new(" ");
         let mut write_flag = |flag, value| -> fmt::Result {
-            if self.contains(flag) {
+            if self.0.contains(flag) {
                 write!(f, "{}--if-exists={}", sep.display(), value)?;
             }
             Ok(())
         };
-        write_flag(IfExistsFeatures::ERROR, IfExists::Error)?;
-        write_flag(IfExistsFeatures::APPEND, IfExists::Append)?;
-        write_flag(IfExistsFeatures::OVERWRITE, IfExists::Overwrite)?;
+        write_flag(IfExistsFeatures::Error, IfExists::Error)?;
+        write_flag(IfExistsFeatures::Append, IfExists::Append)?;
+        write_flag(IfExistsFeatures::Overwrite, IfExists::Overwrite)?;
         write_flag(
-            IfExistsFeatures::UPSERT,
+            IfExistsFeatures::Upsert,
             IfExists::Upsert(vec!["col".to_owned()]),
         )?;
         Ok(())
@@ -102,20 +101,20 @@ impl IfExists {
 
     /// Verify that this `if_exists` is one of the possibilities allowed by
     /// `features`.
-    pub(crate) fn verify(&self, features: IfExistsFeatures) -> Result<()> {
+    pub(crate) fn verify(&self, features: EnumSet<IfExistsFeatures>) -> Result<()> {
         match self {
-            IfExists::Error if !features.contains(IfExistsFeatures::ERROR) => Err(
+            IfExists::Error if !features.contains(IfExistsFeatures::Error) => Err(
                 format_err!("this driver does not support --if-exists=error"),
             ),
-            IfExists::Overwrite if !features.contains(IfExistsFeatures::OVERWRITE) => {
+            IfExists::Overwrite if !features.contains(IfExistsFeatures::Overwrite) => {
                 Err(format_err!(
                     "this driver does not support --if-exists=overwrite"
                 ))
             }
-            IfExists::Append if !features.contains(IfExistsFeatures::APPEND) => Err(
+            IfExists::Append if !features.contains(IfExistsFeatures::Append) => Err(
                 format_err!("this driver does not support --if-exists=append"),
             ),
-            IfExists::Upsert(_) if !features.contains(IfExistsFeatures::UPSERT) => {
+            IfExists::Upsert(_) if !features.contains(IfExistsFeatures::Upsert) => {
                 Err(format_err!(
                     "this driver does not support --if-exists=upsert-on:..."
                 ))

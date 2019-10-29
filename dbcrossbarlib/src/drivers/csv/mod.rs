@@ -322,12 +322,12 @@ impl LocatorStatic for CsvLocator {
 
     fn features() -> Features {
         Features {
-            locator: LocatorFeatures::SCHEMA
-                | LocatorFeatures::LOCAL_DATA
-                | LocatorFeatures::WRITE_LOCAL_DATA,
-            write_schema_if_exists: IfExistsFeatures::empty(),
-            source_args: SourceArgumentsFeatures::empty(),
-            dest_args: DestinationArgumentsFeatures::empty(),
+            locator: LocatorFeatures::Schema
+                | LocatorFeatures::LocalData
+                | LocatorFeatures::WriteLocalData,
+            write_schema_if_exists: EnumSet::empty(),
+            source_args: EnumSet::empty(),
+            dest_args: EnumSet::empty(),
             dest_if_exists: IfExistsFeatures::no_append(),
             _placeholder: (),
         }

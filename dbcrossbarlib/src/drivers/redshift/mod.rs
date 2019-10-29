@@ -130,14 +130,14 @@ impl LocatorStatic for RedshiftLocator {
 
     fn features() -> Features {
         Features {
-            locator: LocatorFeatures::SCHEMA
-                | LocatorFeatures::LOCAL_DATA
-                | LocatorFeatures::WRITE_LOCAL_DATA,
-            write_schema_if_exists: IfExistsFeatures::empty(),
-            source_args: SourceArgumentsFeatures::DRIVER_ARGS
-                | SourceArgumentsFeatures::WHERE_CLAUSE,
-            dest_args: DestinationArgumentsFeatures::DRIVER_ARGS,
-            dest_if_exists: IfExistsFeatures::OVERWRITE | IfExistsFeatures::APPEND,
+            locator: LocatorFeatures::Schema
+                | LocatorFeatures::LocalData
+                | LocatorFeatures::WriteLocalData,
+            write_schema_if_exists: EnumSet::empty(),
+            source_args: SourceArgumentsFeatures::DriverArgs
+                | SourceArgumentsFeatures::WhereClause,
+            dest_args: DestinationArgumentsFeatures::DriverArgs.into(),
+            dest_if_exists: IfExistsFeatures::Overwrite | IfExistsFeatures::Append,
             _placeholder: (),
         }
     }

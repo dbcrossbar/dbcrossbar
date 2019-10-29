@@ -163,7 +163,7 @@ pub(crate) async fn write_remote_data_helper(
                 // Pass separately, because paths may not be UTF-8.
                 .arg(&dest_schema_path)
                 .arg(&dest_table.name().to_string())
-        // Throw away stdout so it doesn't corrupt our output.
+                // Throw away stdout so it doesn't corrupt our output.
                 .stdout(Stdio::null())
                 .spawn_async()
                 .context("error starting `bq mk`")?;

@@ -234,15 +234,15 @@ impl LocatorStatic for BigMlLocator {
 
     fn features() -> Features {
         Features {
-            locator: LocatorFeatures::SCHEMA
-                | LocatorFeatures::LOCAL_DATA
-                | LocatorFeatures::WRITE_LOCAL_DATA,
-            write_schema_if_exists: IfExistsFeatures::empty(),
-            source_args: SourceArgumentsFeatures::empty(),
-            dest_args: DestinationArgumentsFeatures::DRIVER_ARGS,
+            locator: LocatorFeatures::Schema
+                | LocatorFeatures::LocalData
+                | LocatorFeatures::WriteLocalData,
+            write_schema_if_exists: EnumSet::empty(),
+            source_args: EnumSet::empty(),
+            dest_args: DestinationArgumentsFeatures::DriverArgs.into(),
             // We allow all `--if-exists` features because we always generate a
             // unique destination name.
-            dest_if_exists: IfExistsFeatures::all(),
+            dest_if_exists: EnumSet::all(),
             _placeholder: (),
         }
     }

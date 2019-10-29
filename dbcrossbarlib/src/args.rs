@@ -1,10 +1,27 @@
 //! Arguments passed to various operations.
 
-use bitflags::bitflags;
 use std::{fmt, marker::PhantomData};
 
 use crate::common::*;
 use crate::separator::Separator;
+
+/// Trait used to add new methods to `EnumSet`.
+pub(crate) trait EnumSetExt<T: EnumSetType> {
+    /// Display this `EnumSet` using custom pretty-printing. This requires a
+    /// wrapper type because we can't define [`fmt::Display`] directly on
+    /// `EnumSet`, because it was defined in a different crate.
+    fn display(self) -> DisplayEnumSet<T>;
+}
+
+impl<T: EnumSetType> EnumSetExt<T> for EnumSet<T> {
+    fn display(self) -> DisplayEnumSet<T> {
+        DisplayEnumSet(self)
+    }
+}
+
+/// A wrapper which allows us to perform custom pretty-printing of an `EnumSet`
+/// subtype. Created using [`EnumSetExt::display`].
+pub(crate) struct DisplayEnumSet<T: EnumSetType>(pub EnumSet<T>);
 
 /// This is a marker trait used by `SharedArguments`, `SourceArguments` and
 /// `DestinationArguments`. We use it to keep track whether or not the arguments
@@ -87,21 +104,20 @@ impl SharedArguments<Verified> {
     }
 }
 
-bitflags! {
-    /// What `SourceArguments` features are supported by a given driver?
-    pub struct SourceArgumentsFeatures: u8 {
-        const DRIVER_ARGS = 0b0000_0001;
-        const WHERE_CLAUSE = 0b0000_0010;
-    }
+/// What `SourceArguments` features are supported by a given driver?
+#[derive(Debug, EnumSetType)]
+pub enum SourceArgumentsFeatures {
+    DriverArgs,
+    WhereClause,
 }
 
-impl fmt::Display for SourceArgumentsFeatures {
+impl fmt::Display for DisplayEnumSet<SourceArgumentsFeatures> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut sep = Separator::new(" ");
-        if self.contains(SourceArgumentsFeatures::DRIVER_ARGS) {
+        if self.0.contains(SourceArgumentsFeatures::DriverArgs) {
             write!(f, "{}--from-arg=$NAME=$VALUE", sep.display())?;
         }
-        if self.contains(SourceArgumentsFeatures::WHERE_CLAUSE) {
+        if self.0.contains(SourceArgumentsFeatures::WhereClause) {
             write!(f, "{}--where=$SQL_EXPR", sep.display())?;
         }
         Ok(())
@@ -147,14 +163,14 @@ impl SourceArguments<Unverified> {
     pub fn verify(self, features: Features) -> Result<SourceArguments<Verified>> {
         if !features
             .source_args
-            .contains(SourceArgumentsFeatures::DRIVER_ARGS)
+            .contains(SourceArgumentsFeatures::DriverArgs)
             && !self.driver_args.is_empty()
         {
             return Err(format_err!("this data source does not support --from-args"));
         }
         if !features
             .source_args
-            .contains(SourceArgumentsFeatures::WHERE_CLAUSE)
+            .contains(SourceArgumentsFeatures::WhereClause)
             && self.where_clause.is_some()
         {
             return Err(format_err!("this data source does not support --where"));
@@ -180,17 +196,16 @@ impl SourceArguments<Verified> {
     }
 }
 
-bitflags! {
-    /// What `DestinationArguments` features are supported by a given driver?
-    pub struct DestinationArgumentsFeatures: u8 {
-        const DRIVER_ARGS = 0b0000_0001;
-    }
+/// What `DestinationArguments` features are supported by a given driver?
+#[derive(Debug, EnumSetType)]
+pub enum DestinationArgumentsFeatures {
+    DriverArgs,
 }
 
-impl fmt::Display for DestinationArgumentsFeatures {
+impl fmt::Display for DisplayEnumSet<DestinationArgumentsFeatures> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut sep = Separator::new(" ");
-        if self.contains(DestinationArgumentsFeatures::DRIVER_ARGS) {
+        if self.0.contains(DestinationArgumentsFeatures::DriverArgs) {
             write!(f, "{}--to-arg=$NAME=$VALUE", sep.display())?;
         }
         Ok(())
@@ -235,7 +250,7 @@ impl DestinationArguments<Unverified> {
     pub fn verify(self, features: Features) -> Result<DestinationArguments<Verified>> {
         if !features
             .dest_args
-            .contains(DestinationArgumentsFeatures::DRIVER_ARGS)
+            .contains(DestinationArgumentsFeatures::DriverArgs)
             && !self.driver_args.is_empty()
         {
             return Err(format_err!(

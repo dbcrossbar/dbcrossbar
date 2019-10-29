@@ -112,11 +112,11 @@ impl LocatorStatic for GsLocator {
 
     fn features() -> Features {
         Features {
-            locator: LocatorFeatures::LOCAL_DATA | LocatorFeatures::WRITE_LOCAL_DATA,
-            write_schema_if_exists: IfExistsFeatures::empty(),
-            source_args: SourceArgumentsFeatures::empty(),
-            dest_args: DestinationArgumentsFeatures::empty(),
-            dest_if_exists: IfExistsFeatures::OVERWRITE,
+            locator: LocatorFeatures::LocalData | LocatorFeatures::WriteLocalData,
+            write_schema_if_exists: EnumSet::empty(),
+            source_args: EnumSet::empty(),
+            dest_args: EnumSet::empty(),
+            dest_if_exists: IfExistsFeatures::Overwrite.into(),
             _placeholder: (),
         }
     }

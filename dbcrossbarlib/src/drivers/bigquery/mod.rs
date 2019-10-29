@@ -109,15 +109,15 @@ impl LocatorStatic for BigQueryLocator {
 
     fn features() -> Features {
         Features {
-            locator: LocatorFeatures::SCHEMA
-                | LocatorFeatures::LOCAL_DATA
-                | LocatorFeatures::WRITE_LOCAL_DATA,
-            write_schema_if_exists: IfExistsFeatures::empty(),
-            source_args: SourceArgumentsFeatures::WHERE_CLAUSE,
-            dest_args: DestinationArgumentsFeatures::empty(),
-            dest_if_exists: IfExistsFeatures::OVERWRITE
-                | IfExistsFeatures::APPEND
-                | IfExistsFeatures::UPSERT,
+            locator: LocatorFeatures::Schema
+                | LocatorFeatures::LocalData
+                | LocatorFeatures::WriteLocalData,
+            write_schema_if_exists: EnumSet::empty(),
+            source_args: SourceArgumentsFeatures::WhereClause.into(),
+            dest_args: EnumSet::empty(),
+            dest_if_exists: IfExistsFeatures::Overwrite
+                | IfExistsFeatures::Append
+                | IfExistsFeatures::Upsert,
             _placeholder: (),
         }
     }

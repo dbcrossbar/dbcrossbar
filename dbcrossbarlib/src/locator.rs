@@ -1,10 +1,10 @@
 //! Specify the location of data or a schema.
 
-use bitflags::bitflags;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::{fmt, marker::PhantomData, str::FromStr};
 
+use crate::args::EnumSetExt;
 use crate::common::*;
 use crate::drivers::find_driver;
 
@@ -197,14 +197,13 @@ fn locator_from_str_to_string_roundtrip() {
     }
 }
 
-bitflags! {
-    /// What `Locator` features are supported by a given driver?
-    pub struct LocatorFeatures: u8 {
-        const SCHEMA = 0b0000_0001;
-        const WRITE_SCHEMA = 0b0000_0010;
-        const LOCAL_DATA = 0b0000_0100;
-        const WRITE_LOCAL_DATA = 0b0000_1000;
-    }
+#[derive(Debug, EnumSetType)]
+/// What `Locator` features are supported by a given driver?
+pub enum LocatorFeatures {
+    Schema,
+    WriteSchema,
+    LocalData,
+    WriteLocalData,
 }
 
 /// A collection of all the features supported by a given driver. This is
@@ -212,11 +211,11 @@ bitflags! {
 /// are actually supported.
 #[derive(Debug, Copy, Clone)]
 pub struct Features {
-    pub locator: LocatorFeatures,
-    pub write_schema_if_exists: IfExistsFeatures,
-    pub source_args: SourceArgumentsFeatures,
-    pub dest_args: DestinationArgumentsFeatures,
-    pub dest_if_exists: IfExistsFeatures,
+    pub locator: EnumSet<LocatorFeatures>,
+    pub write_schema_if_exists: EnumSet<IfExistsFeatures>,
+    pub source_args: EnumSet<SourceArgumentsFeatures>,
+    pub dest_args: EnumSet<DestinationArgumentsFeatures>,
+    pub dest_if_exists: EnumSet<IfExistsFeatures>,
     pub(crate) _placeholder: (),
 }
 
@@ -224,11 +223,11 @@ impl Features {
     /// Return the empty set of features.
     pub(crate) fn empty() -> Self {
         Features {
-            locator: LocatorFeatures::empty(),
-            write_schema_if_exists: IfExistsFeatures::empty(),
-            source_args: SourceArgumentsFeatures::empty(),
-            dest_args: DestinationArgumentsFeatures::empty(),
-            dest_if_exists: IfExistsFeatures::empty(),
+            locator: EnumSet::empty(),
+            write_schema_if_exists: EnumSet::empty(),
+            source_args: EnumSet::empty(),
+            dest_args: EnumSet::empty(),
+            dest_if_exists: EnumSet::empty(),
             _placeholder: (),
         }
     }
@@ -236,25 +235,25 @@ impl Features {
 
 impl fmt::Display for Features {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.locator.contains(LocatorFeatures::SCHEMA) {
+        if self.locator.contains(LocatorFeatures::Schema) {
             writeln!(f, "- conv FROM")?;
         }
-        if self.locator.contains(LocatorFeatures::WRITE_SCHEMA) {
+        if self.locator.contains(LocatorFeatures::WriteSchema) {
             writeln!(f, "- conv TO:")?;
-            writeln!(f, "  {}", self.write_schema_if_exists)?;
+            writeln!(f, "  {}", self.write_schema_if_exists.display())?;
         }
-        if self.locator.contains(LocatorFeatures::LOCAL_DATA) {
+        if self.locator.contains(LocatorFeatures::LocalData) {
             writeln!(f, "- cp FROM:")?;
             if !self.source_args.is_empty() {
-                writeln!(f, "  {}", self.source_args)?;
+                writeln!(f, "  {}", self.source_args.display())?;
             }
         }
-        if self.locator.contains(LocatorFeatures::WRITE_LOCAL_DATA) {
+        if self.locator.contains(LocatorFeatures::WriteLocalData) {
             writeln!(f, "- cp TO:")?;
             if !self.dest_args.is_empty() {
-                writeln!(f, "  {}", self.dest_args)?;
+                writeln!(f, "  {}", self.dest_args.display())?;
             }
-            writeln!(f, "  {}", self.dest_if_exists)?;
+            writeln!(f, "  {}", self.dest_if_exists.display())?;
         }
         Ok(())
     }
