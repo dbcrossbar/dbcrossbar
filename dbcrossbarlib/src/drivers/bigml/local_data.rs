@@ -1,5 +1,7 @@
 //! Helper for reading data from BigML.
 
+use bigml::resource::{Id, Resource};
+
 use super::{BigMlAction, BigMlCredentials, BigMlLocator};
 use crate::common::*;
 
@@ -22,7 +24,22 @@ pub(crate) async fn local_data_helper(
     let creds = BigMlCredentials::try_default()?;
     let client = creds.client()?;
     let response = client.download(&id).await?;
-    let csv_stream = CsvStream::from_http_response(id.to_string(), response)?;
+    let csv_stream =
+        CsvStream::from_http_response(strip_id_prefix(&id).to_owned(), response)?;
 
     Ok(Some(box_stream_once(Ok(csv_stream))))
+}
+
+/// Remove the "dataset/" prefix from `id`.
+fn strip_id_prefix<R: Resource>(id: &Id<R>) -> &str {
+    // For any given `Resource` type `R`, we know the actual ID prefix, so we
+    // can strip it like this.
+    &id.as_str()[R::id_prefix().len()..]
+}
+
+#[test]
+fn strips_id_prefix() {
+    use bigml::resource::Dataset;
+    let id = "dataset/abc123".parse::<Id<Dataset>>().unwrap();
+    assert_eq!(strip_id_prefix(&id), "abc123");
 }
