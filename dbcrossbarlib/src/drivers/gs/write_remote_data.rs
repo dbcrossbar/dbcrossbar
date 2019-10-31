@@ -27,12 +27,11 @@ pub(crate) async fn write_remote_data_helper(
     // Convert the source locator into the underlying `TableName. This is a bit
     // fiddly because we're downcasting `source` and relying on knowledge about
     // the `GsLocator` type, and Rust doesn't make that especially easy.
-    let source_table_name = source
+    let source = source
         .as_any()
         .downcast_ref::<BigQueryLocator>()
-        .ok_or_else(|| format_err!("not a bigquery locator: {}", source))?
-        .as_table_name()
-        .to_owned();
+        .ok_or_else(|| format_err!("not a bigquery locator: {}", source))?;
+    let source_table_name = source.as_table_name().to_owned();
 
     // Verify our arguments.
     let shared_args = shared_args.verify(GsLocator::features())?;
@@ -76,6 +75,7 @@ pub(crate) async fn write_remote_data_helper(
             &format!("--destination_table={}", temp_table_name),
             if_exists_to_bq_load_arg(&IfExists::Overwrite)?,
             "--nouse_legacy_sql",
+            &format!("--project_id={}", source.project()),
         ])
         .spawn_async()
         .context("error starting `bq query`")?;
@@ -107,6 +107,7 @@ pub(crate) async fn write_remote_data_helper(
             "extract",
             "--headless",
             "--destination_format=CSV",
+            &format!("--project_id={}", source.project()),
             &temp_table_name.to_string(),
             &format!("{}/*.csv", dest),
         ])
@@ -125,7 +126,14 @@ pub(crate) async fn write_remote_data_helper(
     // Delete temp table.
     debug!(ctx.log(), "deleting export temp table: {}", temp_table_name);
     let rm_child = Command::new("bq")
-        .args(&["rm", "--headless", "-f", "-t", &temp_table_name.to_string()])
+        .args(&[
+            "rm",
+            "--headless",
+            "-f",
+            "-t",
+            &format!("--project_id={}", source.project()),
+            &temp_table_name.to_string(),
+        ])
         // Throw away stdout so it doesn't corrupt our output.
         .stdout(Stdio::null())
         .spawn_async()

@@ -19,6 +19,11 @@ pub(crate) struct TableName {
 }
 
 impl TableName {
+    /// Return the name of this project.
+    pub(crate) fn project(&self) -> &str {
+        &self.project
+    }
+
     /// Return a value which will be formatted as `"project.dataset.table"`.
     ///
     /// This form of the name is used in BigQuery "standard SQL".

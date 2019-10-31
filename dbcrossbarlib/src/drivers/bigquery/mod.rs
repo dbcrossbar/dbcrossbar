@@ -29,6 +29,11 @@ impl BigQueryLocator {
     pub(crate) fn as_table_name(&self) -> &TableName {
         &self.table_name
     }
+
+    /// This locator's BigQuery project.
+    pub(crate) fn project(&self) -> &str {
+        self.table_name.project()
+    }
 }
 
 impl fmt::Display for BigQueryLocator {

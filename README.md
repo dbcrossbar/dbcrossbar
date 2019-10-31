@@ -127,6 +127,10 @@ export GS_TEST_URL=gs://$MY_GS_TEST_BUCKET/dbcrossbar/
 export BQ_TEST_DATASET=$MY_BQ_ROOT:test
 export S3_TEST_URL=s3://$MT_S3_TEST_BUCKET/dbcrossbar/
 
+# This helps to ensure that we're not depending on our users to have set
+# a default gcloud project anywhere.
+gcloud config unset project
+
 # These can be omitted if you don't want to test Redshift.
 export REDSHIFT_TEST_URL=redshift://user:pass@server:port/db
 export REDSHIFT_TEST_IAM_ROLE=$MY_IAM_ROLE

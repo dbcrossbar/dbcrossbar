@@ -116,6 +116,7 @@ pub(crate) async fn write_remote_data_helper(
             "load",
             "--headless",
             "--skip_leading_rows=1",
+            &format!("--project_id={}", dest.project()),
             initial_table_replace,
             &initial_table.name().to_string(),
             source_url.as_str(),
@@ -159,7 +160,13 @@ pub(crate) async fn write_remote_data_helper(
             dest_table.write_json_schema(&mut dest_schema_file)?;
             let mk_child = Command::new("bq")
                 // Use `--force` to ignore existing tables.
-                .args(&["mk", "--headless", "--force", "--schema"])
+                .args(&[
+                    "mk",
+                    "--headless",
+                    "--force",
+                    "--schema",
+                    // --project_id actually makes this fail for some reason.
+                ])
                 // Pass separately, because paths may not be UTF-8.
                 .arg(&dest_schema_path)
                 .arg(&dest_table.name().to_string())
@@ -201,6 +208,7 @@ pub(crate) async fn write_remote_data_helper(
                 "--format=none",
                 if_exists_to_bq_load_arg(&if_exists)?,
                 "--nouse_legacy_sql",
+                &format!("--project_id={}", dest.project()),
             ]);
         if !if_exists.is_upsert() {
             query_command.arg(&format!("--destination_table={}", dest_table.name()));
@@ -236,6 +244,7 @@ pub(crate) async fn write_remote_data_helper(
                 "--headless",
                 "-f",
                 "-t",
+                &format!("--project_id={}", dest.project()),
                 &initial_table.name().to_string(),
             ])
             // Throw away stdout so it doesn't corrupt our output.

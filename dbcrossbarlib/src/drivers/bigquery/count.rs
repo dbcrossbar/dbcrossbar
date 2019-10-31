@@ -47,6 +47,7 @@ pub(crate) async fn count_helper(
         .stdout(Stdio::piped())
         // Run query with no output.
         .args(&["query", "--headless", "--format=json", "--nouse_legacy_sql"])
+        .arg(format!("--project_id={}", locator.project()))
         .spawn_async()
         .context("error starting `bq query`")?;
     let child_stdin = query_child

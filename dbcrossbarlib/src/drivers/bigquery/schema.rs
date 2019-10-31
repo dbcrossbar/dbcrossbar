@@ -19,6 +19,7 @@ pub(crate) async fn schema_helper(
             "--headless",
             "--schema",
             "--format=json",
+            &format!("--project_id={}", source.project()),
             &source.table_name.to_string(),
         ])
         .stderr(Stdio::inherit())
