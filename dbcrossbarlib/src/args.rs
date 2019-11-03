@@ -60,18 +60,36 @@ pub struct SharedArguments<S: ArgumentState> {
     /// the transfer.
     temporary_storage: TemporaryStorage,
 
+    /// How many streams should we process at once?
+    max_streams: usize,
+
     /// We need to include a reference to `ArgumentState` somewhere, so use a
     /// 0-byte phantom value.
     _phantom: PhantomData<S>,
 }
 
+impl<S: ArgumentState> SharedArguments<S> {
+    /// How many concurrent data streams should we attempt to process at once?
+    ///
+    /// This is available even for unvalidated arguments because it's used by
+    /// our top-level code as well as some of the individual drivers.
+    pub fn max_streams(&self) -> usize {
+        self.max_streams
+    }
+}
+
 // These methods are only available in the `Unverified` state.
 impl SharedArguments<Unverified> {
     /// Create a new `SharedArguments` structure.
-    pub fn new(schema: Table, temporary_storage: TemporaryStorage) -> Self {
+    pub fn new(
+        schema: Table,
+        temporary_storage: TemporaryStorage,
+        max_streams: usize,
+    ) -> Self {
         Self {
             schema,
             temporary_storage,
+            max_streams,
             _phantom: PhantomData,
         }
     }
@@ -86,6 +104,7 @@ impl SharedArguments<Unverified> {
         Ok(SharedArguments {
             schema: self.schema,
             temporary_storage: self.temporary_storage,
+            max_streams: self.max_streams,
             _phantom: PhantomData,
         })
     }

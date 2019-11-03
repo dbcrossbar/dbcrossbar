@@ -262,6 +262,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
         .args(&[
             "cp",
             "--if-exists=overwrite",
+            "--max-streams=8",
             &format!("--schema=postgres-sql:{}", schema.display()),
             &format!("csv:{}", src.display()),
             &pg_table,

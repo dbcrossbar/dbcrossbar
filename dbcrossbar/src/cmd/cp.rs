@@ -54,6 +54,10 @@ pub(crate) struct Opt {
     #[structopt(long = "where")]
     where_clause: Option<String>,
 
+    /// How many data streams should we attempt to copy in parallel?
+    #[structopt(long = "max-streams", short = "J", default_value = "4")]
+    max_streams: usize,
+
     /// Display where we wrote our output data.
     #[structopt(long = "display-output-locators")]
     display_output_locators: bool,
@@ -83,7 +87,7 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
 
     // Build our shared arguments.
     let temporary_storage = TemporaryStorage::new(opt.temporaries.clone());
-    let shared_args = SharedArguments::new(schema, temporary_storage);
+    let shared_args = SharedArguments::new(schema, temporary_storage, opt.max_streams);
 
     // Build our source arguments.
     let from_args = DriverArguments::from_cli_args(&opt.from_args)?;
@@ -137,7 +141,7 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
         // Write data to output.
         let output_ctx = ctx.child(o!("to_locator" => to_locator.to_string()));
         let result_stream = to_locator
-            .write_local_data(output_ctx, data, shared_args, dest_args)
+            .write_local_data(output_ctx, data, shared_args.clone(), dest_args)
             .await?;
 
         // Consume the stream of futures produced by `write_local_data`, allowing a
@@ -150,7 +154,7 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
                 // `buffered`.
                 .map(|fut: BoxFuture<BoxLocator>| fut.compat())
                 // Run up to `parallelism` futures in parallel.
-                .buffer_unordered(4),
+                .buffer_unordered(shared_args.max_streams()),
         ) as BoxStream<BoxLocator>
     };
 
