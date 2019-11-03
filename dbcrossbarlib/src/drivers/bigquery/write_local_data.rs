@@ -29,7 +29,9 @@ pub(crate) async fn write_local_data_helper(
     // TODO: This duplicates our top-level `cp` code and we need to implement
     // the same rules for picking a good argument to `consume_with_parallelism`
     // and not just hard code our parallelism.
-    result_stream.consume_with_parallelism(shared_args_v.max_streams()).await?;
+    result_stream
+        .consume_with_parallelism(shared_args_v.max_streams())
+        .await?;
 
     // Load from gs:// to BigQuery.
     let from_temp_ctx = ctx.child(o!("from_temp" => gs_temp.to_string()));
