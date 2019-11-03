@@ -46,9 +46,10 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
             })
     }?;
 
-    // Build our shared arguments.
+    // Build our shared arguments. Specify 1 for `max_streams` until we actually
+    // implement local counting.
     let temporary_storage = TemporaryStorage::new(opt.temporaries.clone());
-    let shared_args = SharedArguments::new(schema, temporary_storage);
+    let shared_args = SharedArguments::new(schema, temporary_storage, 1);
 
     // Build our source arguments.
     let from_args = DriverArguments::from_cli_args(&opt.from_args)?;
