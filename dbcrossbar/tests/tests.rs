@@ -775,6 +775,56 @@ fn cp_pg_append_legacy_json() {
 
 #[test]
 #[ignore]
+fn cp_pg_tricky_column_types() {
+    let testdir = TestDir::new("dbcrossbar", "cp_pg_tricky_column_types");
+    let src = testdir.src_path("fixtures/more_pg_types.csv");
+    let schema = testdir.src_path("fixtures/more_pg_types.sql");
+    let pg_table = post_test_table_url("more_pg_types");
+
+    // Create a database table manually, forcing the use of the actual Postgres
+    // types we want to test, and not the nearest `dbcrossbar` portable
+    // equivalents.
+    Command::new("psql")
+        .arg(postgres_test_url())
+        .args(&["--command", "DROP TABLE IF EXISTS more_pg_types;"])
+        .expect_success();
+    Command::new("psql")
+        .arg(postgres_test_url())
+        .args(&["--command", include_str!("../fixtures/more_pg_types.sql")])
+        .expect_success();
+
+    // CSV to PostgreSQL.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=append",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("csv:{}", src.display()),
+            &pg_table,
+        ])
+        .tee_output()
+        .expect_success();
+
+    // PostgreSQL to CSV.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &pg_table,
+            "csv:out.csv",
+        ])
+        .tee_output()
+        .expect_success();
+
+    let expected = fs::read_to_string(&src).unwrap();
+    let actual = fs::read_to_string(testdir.path("out.csv")).unwrap();
+    assert_diff!(&expected, &actual, ",", 0);
+}
+
+#[test]
+#[ignore]
 fn cp_csv_to_s3_to_csv() {
     let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "cp_csv_to_s3_to_csv");
