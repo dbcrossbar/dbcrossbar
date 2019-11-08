@@ -200,6 +200,7 @@ fn pg_data_type(
         let ty = match data_type {
             "bigint" => Ok(PgScalarDataType::Bigint),
             "boolean" => Ok(PgScalarDataType::Boolean),
+            "character" => Ok(PgScalarDataType::Text),
             "character varying" => Ok(PgScalarDataType::Text),
             "date" => Ok(PgScalarDataType::Date),
             "double precision" => Ok(PgScalarDataType::DoublePrecision),

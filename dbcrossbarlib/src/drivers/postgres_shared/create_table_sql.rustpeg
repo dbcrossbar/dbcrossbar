@@ -65,6 +65,7 @@ data_type -> PgDataType
 scalar_data_type -> PgScalarDataType
     = "bigint"i { PgScalarDataType::Bigint }
     / "boolean"i { PgScalarDataType::Boolean }
+    / "character"i ( ws? "(" ws? [0-9]+ ws? ")" )? { PgScalarDataType::Text }
     / "date"i { PgScalarDataType::Date }
     / "double"i ws "precision"i { PgScalarDataType::DoublePrecision }
     / "float"i { PgScalarDataType::DoublePrecision }
