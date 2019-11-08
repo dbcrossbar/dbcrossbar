@@ -124,11 +124,8 @@ fn strip_csv_header(
                 }
                 Ok((None, _rest_of_stream)) => {
                     trace!(worker_ctx.log(), "end of stream");
-                    return send_err(
-                        sender,
-                        format_err!("end of CSV file while reading headers"),
-                    )
-                    .await;
+                    let err = format_err!("end of CSV file while reading headers");
+                    return send_err(sender, err).await;
                 }
                 Ok((Some(bytes), rest_of_stream)) => {
                     stream = rest_of_stream;
