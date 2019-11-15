@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use std::{fmt, str::FromStr};
 
+use super::Ident;
 use crate::common::*;
 use crate::drivers::bigquery::BigQueryLocator;
 
@@ -24,10 +25,11 @@ impl TableName {
         &self.project
     }
 
-    /// Return a value which will be formatted as `"project.dataset.table"`.
+    /// Return a value which will be formatted as
+    /// `"\`project\`.\`dataset\`.\`table\`"`, with "backtick" quoting.
     ///
     /// This form of the name is used in BigQuery "standard SQL".
-    pub(crate) fn dotted(&self) -> DottedTableName {
+    pub(crate) fn dotted_and_quoted(&self) -> DottedTableName {
         DottedTableName(self)
     }
 
@@ -116,13 +118,19 @@ impl FromStr for TableName {
 }
 
 /// A short-lived wrapped type which displays a BigQuery table name as
-/// `"project.dataset.table"`.
+/// `"\`project\`.\`dataset\`.\`table\`"`, with "backtick" quoting.
 ///
 /// This form of the name is used in BigQuery "standard SQL".
 pub(crate) struct DottedTableName<'a>(&'a TableName);
 
 impl<'a> fmt::Display for DottedTableName<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}.{}.{}", self.0.project, self.0.dataset, self.0.table)
+        write!(
+            f,
+            "{}.{}.{}",
+            Ident(&self.0.project),
+            Ident(&self.0.dataset),
+            Ident(&self.0.table),
+        )
     }
 }
