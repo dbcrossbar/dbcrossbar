@@ -120,6 +120,7 @@ docker run --name postgres -e POSTGRES_PASSWORD= -p 5432:5432 -d mdillon/postgis
 createdb -h localhost -U postgres -w dbcrossbar_test
 export POSTGRES_TEST_URL=postgres://postgres:@localhost:5432/dbcrossbar_test
 echo "create extension if not exists postgis;" | psql $POSTGRES_TEST_URL
+echo "create extension if not exists citext;" | psql $POSTGRES_TEST_URL
 echo "create schema if not exists testme1;" | psql $POSTGRES_TEST_URL
 
 # Point to test databases and test buckets.
