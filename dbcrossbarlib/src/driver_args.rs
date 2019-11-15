@@ -67,7 +67,30 @@ impl DriverArguments {
                     },
                 };
             }
-            m.insert(path[path.len() - 1].to_owned(), Value::String(v.to_owned()));
+            let mut last_segment = path[path.len() - 1];
+            if last_segment.ends_with("[]") {
+                last_segment = &last_segment[..last_segment.len() - 2];
+                let arr = match m.entry(last_segment) {
+                    Entry::Vacant(vacant) => vacant
+                        .insert(Value::Array(vec![]))
+                        .as_array_mut()
+                        .expect("inserted Value::Array but didn't get it back"),
+                    Entry::Occupied(occupied) => match occupied.into_mut() {
+                        Value::Array(arr) => arr,
+                        value => {
+                            return Err(format_err!(
+                                "argument {:?} conflicts with existing {:?} value {}",
+                                k,
+                                last_segment,
+                                value,
+                            ));
+                        }
+                    },
+                };
+                arr.push(Value::String(v.to_owned()));
+            } else {
+                m.insert(last_segment.to_owned(), Value::String(v.to_owned()));
+            }
         }
         Ok(Value::Object(map))
     }
@@ -82,17 +105,22 @@ impl DriverArguments {
 #[test]
 fn to_json_handles_nested_keys() {
     use serde_json::json;
-    let raw_args = &[("a", "b"), ("c.d", "x"), ("c.e", "y")];
+    let raw_args = &[("a", "b"), ("c.d", "x"), ("c.e[]", "y"), ("c.e[]", "z")];
     let args = DriverArguments::from_iter(raw_args.iter().cloned());
     assert_eq!(
         args.to_json().unwrap(),
-        json!({"a": "b", "c": { "d": "x", "e": "y" } }),
+        json!({"a": "b", "c": { "d": "x", "e": ["y", "z"] } }),
     );
 
     let raw_conflicting_args = &[("a", "x"), ("a.b", "y")];
     let conflicting_args =
         DriverArguments::from_iter(raw_conflicting_args.iter().cloned());
-    assert!(conflicting_args.to_json().is_err())
+    assert!(conflicting_args.to_json().is_err());
+
+    let raw_conflicting_args_2 = &[("a", "x"), ("a[]", "y")];
+    let conflicting_args_2 =
+        DriverArguments::from_iter(raw_conflicting_args_2.iter().cloned());
+    assert!(conflicting_args_2.to_json().is_err());
 }
 
 impl<K, V> FromIterator<(K, V)> for DriverArguments
