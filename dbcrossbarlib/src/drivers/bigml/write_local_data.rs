@@ -195,8 +195,7 @@ pub(crate) async fn write_local_data_helper(
                 if let Some(name) = &bigml_dest_args.name {
                     args.name = Some(name.to_owned());
                 }
-                // TODO: Ah, we need dataset tags, too.
-                //args.tags = bigml_dest_args.tags.clone();
+                args.tags = bigml_dest_args.tags.clone();
                 let dataset = client.create_and_wait(&args).await?;
                 debug!(ctx.log(), "converted to {}", dataset.id().to_owned());
                 Ok(BigMlLocator::read_dataset(dataset.id().to_owned()).boxed())
