@@ -21,6 +21,10 @@ struct BigMlDestinationArguments {
 
     /// The default optype to use for text fields.
     optype_for_text: Option<Optype>,
+
+    /// Tags to apply to the resources we create.
+    #[serde(default)]
+    tags: Vec<String>,
 }
 
 /// Implementation of `write_local_data`, but as a real `async` function.
@@ -118,6 +122,7 @@ pub(crate) async fn write_local_data_helper(
                     if let Some(name) = &bigml_dest_args.name {
                         args.name = Some(name.to_owned());
                     }
+                    args.tags = bigml_dest_args.tags.clone();
                     let client = creds.client()?;
                     let source = client.create(&args).await?;
 
@@ -190,6 +195,7 @@ pub(crate) async fn write_local_data_helper(
                 if let Some(name) = &bigml_dest_args.name {
                     args.name = Some(name.to_owned());
                 }
+                args.tags = bigml_dest_args.tags.clone();
                 let dataset = client.create_and_wait(&args).await?;
                 debug!(ctx.log(), "converted to {}", dataset.id().to_owned());
                 Ok(BigMlLocator::read_dataset(dataset.id().to_owned()).boxed())

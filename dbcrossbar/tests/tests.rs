@@ -946,6 +946,8 @@ fn cp_csv_to_bigml_dataset_to_csv() {
             &format!("--schema=postgres-sql:{}", schema.display()),
             "--to-arg=name=dbcrossbar test",
             "--to-arg=optype_for_text=categorical",
+            "--to-arg=tags[]=dbcrossbar-test",
+            "--to-arg=tags[]=dbcrossbar-temporary",
             &format!("csv:{}", src.display()),
             "bigml:dataset",
         ])

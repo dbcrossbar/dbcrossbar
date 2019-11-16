@@ -102,11 +102,7 @@ impl BqTable {
             }
             col.write_import_select_expr(f, i)?;
         }
-        write!(
-            f,
-            " FROM {}",
-            Ident(&source_table_name.dotted().to_string())
-        )?;
+        write!(f, " FROM {}", source_table_name.dotted_and_quoted())?;
         Ok(())
     }
 
@@ -181,8 +177,8 @@ WHEN NOT MATCHED THEN INSERT (
 ) VALUES (
     {values}
 )"#,
-            dest_table = Ident(&self.name().dotted().to_string()),
-            temp_table = Ident(&source_table_name.dotted().to_string()),
+            dest_table = self.name().dotted_and_quoted(),
+            temp_table = source_table_name.dotted_and_quoted(),
             key_comparisons = merge_keys
                 .iter()
                 .enumerate()
@@ -231,7 +227,7 @@ WHEN NOT MATCHED THEN INSERT (
             }
             col.write_export_select_expr(f)?;
         }
-        write!(f, " FROM {}", Ident(&self.name.dotted().to_string()))?;
+        write!(f, " FROM {}", self.name.dotted_and_quoted())?;
         if let Some(where_clause) = source_args.where_clause() {
             write!(f, " WHERE ({})", where_clause)?;
         }
@@ -244,7 +240,7 @@ WHEN NOT MATCHED THEN INSERT (
         f: &mut dyn Write,
     ) -> Result<()> {
         write!(f, "SELECT COUNT(*) AS `count`")?;
-        write!(f, " FROM {}", Ident(&self.name.dotted().to_string()))?;
+        write!(f, " FROM {}", self.name.dotted_and_quoted())?;
         if let Some(where_clause) = source_args.where_clause() {
             write!(f, " WHERE ({})", where_clause)?;
         }

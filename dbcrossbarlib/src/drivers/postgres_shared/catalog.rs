@@ -191,6 +191,7 @@ fn pg_data_type(
         })
     } else if data_type == "USER-DEFINED" {
         match udt_name {
+            "citext" => Ok(PgDataType::Scalar(PgScalarDataType::Text)),
             "geometry" => Err(format_err!(
                 "cannot extract SRID for geometry columns without database connection"
             )),
