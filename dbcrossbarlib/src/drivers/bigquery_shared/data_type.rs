@@ -1,7 +1,7 @@
 //! Data types supported BigQuery.
 
 use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize, Serializer};
-use std::{borrow::Cow, fmt, result};
+use std::{borrow::Cow, collections::HashSet, fmt, result};
 
 use super::column::{BqColumn, Mode};
 use crate::common::*;
@@ -112,6 +112,14 @@ impl BqDataType {
         match self {
             BqDataType::Array(_) => true,
             _ => false,
+        }
+    }
+
+    /// Can this type be safely represented as a JSON value?
+    pub(crate) fn is_json_safe(&self) -> bool {
+        match self {
+            BqDataType::Array(ty) => ty.is_json_safe(),
+            BqDataType::NonArray(ty) => ty.is_json_safe(),
         }
     }
 }
@@ -324,6 +332,31 @@ impl BqNonArrayDataType {
                 "cannot convert {} to portable type (yet)",
                 self,
             )),
+        }
+    }
+
+    /// Can this type be safely represented as a JSON value?
+    pub(crate) fn is_json_safe(&self) -> bool {
+        match self {
+            BqNonArrayDataType::Struct(fields) => {
+                for field in fields {
+                    // Only allow serializing structs with (1) named fields, not
+                    // positional fields, and (2) unique names. This limit
+                    // exists because `TO_JSON_STRING` will output JSON objects
+                    // with key names of `""` or duplicate key names if these
+                    // constraints aren't met.
+                    let mut names = HashSet::new();
+                    if let Some(name) = &field.name {
+                        if !names.insert(name) || !field.ty.is_json_safe() {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+                true
+            }
+            _ => true,
         }
     }
 }

@@ -378,9 +378,12 @@ return "#,
                 write!(f, "ST_ASGEOJSON({ident}) AS {ident}", ident = ident)?;
             }
 
-            BqNonArrayDataType::Struct(_) => {
-                // TODO: Check struct for duplicate or unnamed keys.
-                write!(f, "TO_JSON_STRING({ident}) AS {ident}", ident = ident)?;
+            struct_ty @ BqNonArrayDataType::Struct(_) => {
+                if struct_ty.is_json_safe() {
+                    write!(f, "TO_JSON_STRING({ident}) AS {ident}", ident = ident)?;
+                } else {
+                    return Err(format_err!("cannot serialize {} as JSON", struct_ty));
+                }
             }
 
             BqNonArrayDataType::Timestamp => {
