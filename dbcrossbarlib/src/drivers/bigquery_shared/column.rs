@@ -3,7 +3,10 @@
 use serde_derive::{Deserialize, Serialize};
 use std::{fmt, io::Write};
 
-use super::{BqDataType, BqNonArrayDataType, DataTypeBigQueryExt, Usage};
+use super::{
+    BqDataType, BqNonArrayDataType, BqRecordOrNonArrayDataType, BqStructField,
+    DataTypeBigQueryExt, Usage,
+};
 use crate::common::*;
 use crate::schema::Column;
 use crate::uniquifier::Uniquifier;
@@ -39,14 +42,22 @@ pub(crate) struct BqColumn {
 
     /// The type of the BigQuery column.
     #[serde(rename = "type")]
-    ty: BqNonArrayDataType,
+    ty: BqRecordOrNonArrayDataType,
 
     /// The mode of the column: Is it nullable?
     ///
     /// This can be omitted in certain output from `bq show --schema`, in which
     /// case it appears to correspond to `NULLABLE`.
     #[serde(default)]
-    pub(crate) mode: Mode,
+    mode: Mode,
+
+    /// If `ty` is `BqRecordOrNonArrayDataType::Record`, this will contain the fields
+    /// we need to construct a struct.
+    ///
+    /// TODO: We don't even attempt to handle anonymous fields yet, because they
+    /// can't be exported as valid JSON in any case.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    fields: Vec<BqColumn>,
 }
 
 impl BqColumn {
@@ -71,15 +82,17 @@ impl BqColumn {
             name: uniquifier.unique_id_for(&col.name)?.to_owned(),
             external_name: Some(col.name.clone()),
             description: None,
-            ty,
+            ty: BqRecordOrNonArrayDataType::DataType(ty),
             mode,
+            fields: vec![],
         })
     }
+
     /// Given a `BqColumn`, construct a portable `Column`.
     pub(crate) fn to_column(&self) -> Result<Column> {
         Ok(Column {
             name: self.name.clone(),
-            data_type: self.ty.to_data_type(self.mode)?,
+            data_type: self.bq_data_type()?.to_data_type()?,
             is_nullable: match self.mode {
                 // I'm not actually sure about how to best map `Repeated`, so
                 // let's make it nullable for now.
@@ -90,6 +103,29 @@ impl BqColumn {
         })
     }
 
+    /// Can we MERGE on this column? True is this column is `NOT NULL`.
+    pub(crate) fn can_be_merged_on(&self) -> bool {
+        match self.mode {
+            Mode::Required => true,
+            Mode::Repeated | Mode::Nullable => false,
+        }
+    }
+
+    /// Get the BigQuery data type for this column, taking into account
+    /// shenanigans like `RECORD` and `REPEATED`.
+    pub(crate) fn bq_data_type(&self) -> Result<BqDataType> {
+        self.ty.to_bq_data_type(self.mode, &self.fields)
+    }
+
+    /// Convert this column into a struct field. We use this to implement
+    /// `RECORD` column parsing.
+    pub(crate) fn to_struct_field(&self) -> Result<BqStructField> {
+        Ok(BqStructField {
+            name: Some(self.name.clone()),
+            ty: self.bq_data_type()?,
+        })
+    }
+
     /// Output JavaScript UDF for importing a column (if necessary). This can be
     /// used to patch up types that can't be loaded directly from a CSV.
     pub(crate) fn write_import_udf(
@@ -97,14 +133,13 @@ impl BqColumn {
         f: &mut dyn Write,
         idx: usize,
     ) -> Result<()> {
-        if self.mode == Mode::Repeated {
-            match &self.ty {
-                // JavaScript UDFs can't return `DATETIME` yet, so we need a fairly
-                // elaborate workaround.
-                BqNonArrayDataType::Datetime => {
-                    writeln!(
-                        f,
-                        r#"CREATE TEMP FUNCTION ImportJsonHelper_{idx}(input STRING)
+        match self.bq_data_type()? {
+            // JavaScript UDFs can't return `DATETIME` yet, so we need a fairly
+            // elaborate workaround.
+            BqDataType::Array(elem_ty @ BqNonArrayDataType::Datetime) => {
+                writeln!(
+                    f,
+                    r#"CREATE TEMP FUNCTION ImportJsonHelper_{idx}(input STRING)
 RETURNS ARRAY<STRING>
 LANGUAGE js AS """
 return JSON.parse(input);
@@ -122,33 +157,35 @@ AS ((
     FROM UNNEST(ImportJsonHelper_{idx}(input)) AS e
 ));
 "#,
-                        idx = idx,
-                        bq_type = self.ty,
-                    )?;
-                }
+                    idx = idx,
+                    bq_type = elem_ty,
+                )?;
+            }
 
-                // Most kinds of arrays can be handled with JavaScript. But some
-                // of these might be faster as SQL UDFs.
-                elem_ty => {
-                    write!(
-                        f,
-                        r#"CREATE TEMP FUNCTION ImportJson_{idx}(input STRING)
+            // Most kinds of arrays can be handled with JavaScript. But some
+            // of these might be faster as SQL UDFs.
+            BqDataType::Array(elem_ty) => {
+                write!(
+                    f,
+                    r#"CREATE TEMP FUNCTION ImportJson_{idx}(input STRING)
 RETURNS ARRAY<{bq_type}>
 LANGUAGE js AS """
 return "#,
-                        idx = idx,
-                        bq_type = self.ty,
-                    )?;
-                    self.write_import_udf_body_for_array(f, elem_ty)?;
-                    writeln!(
-                        f,
-                        r#";
+                    idx = idx,
+                    bq_type = elem_ty,
+                )?;
+                self.write_import_udf_body_for_array(f, &elem_ty)?;
+                writeln!(
+                    f,
+                    r#";
 """;
 
 "#
-                    )?;
-                }
+                )?;
             }
+
+            // No special import required for any of these types yet.
+            BqDataType::NonArray(_) => {}
         }
         Ok(())
     }
@@ -254,10 +291,10 @@ return "#,
     /// Output the SQL expression used in the `SELECT` clause of our table
     /// export statement.
     pub(crate) fn write_export_select_expr(&self, f: &mut dyn Write) -> Result<()> {
-        match self.mode {
-            Mode::Repeated => self.write_export_select_expr_for_array(&self.ty, f),
-            Mode::Required | Mode::Nullable => {
-                self.write_export_select_expr_for_non_array(&self.ty, f)
+        match self.bq_data_type()? {
+            BqDataType::Array(ty) => self.write_export_select_expr_for_array(&ty, f),
+            BqDataType::NonArray(ty) => {
+                self.write_export_select_expr_for_non_array(&ty, f)
             }
         }
     }
@@ -298,7 +335,10 @@ return "#,
             BqNonArrayDataType::Bytes
             | BqNonArrayDataType::Struct(_)
             | BqNonArrayDataType::Time => {
-                return Err(format_err!("can't output {} columns yet", self.ty));
+                return Err(format_err!(
+                    "can't output {} columns yet",
+                    self.bq_data_type()?,
+                ));
             }
         }
         write!(f, "), '[]') AS {ident}", ident = ident)?;
@@ -349,7 +389,10 @@ return "#,
             BqNonArrayDataType::Bytes
             | BqNonArrayDataType::Struct(_)
             | BqNonArrayDataType::Time => {
-                return Err(format_err!("can't output {} columns yet", self.ty));
+                return Err(format_err!(
+                    "can't output {} columns yet",
+                    self.bq_data_type()?,
+                ));
             }
         }
         Ok(())

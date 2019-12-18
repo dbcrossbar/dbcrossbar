@@ -7,7 +7,7 @@ use std::{
     io::Write,
 };
 
-use super::{BqColumn, ColumnBigQueryExt, Ident, Mode, TableName, Usage};
+use super::{BqColumn, ColumnBigQueryExt, Ident, TableName, Usage};
 use crate::common::*;
 use crate::schema::{Column, Table};
 use crate::uniquifier::Uniquifier;
@@ -135,7 +135,7 @@ impl BqTable {
         // it's not obvious how to `MERGE` on columns that might be `NULL`.
         // Until we have a solution that we like, fail with an error.
         for merge_key in &merge_keys {
-            if merge_key.mode != Mode::Required {
+            if !merge_key.can_be_merged_on() {
                 return Err(format_err!(
                     "BigQuery cannot upsert on {:?} because it is not REQUIRED (aka NOT NULL)",
                     merge_key.name,

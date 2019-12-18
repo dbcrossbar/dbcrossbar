@@ -1,6 +1,6 @@
 CREATE TABLE "unnamed" (
     "test_null" text,
-    "test_not_null" text,
+    "test_not_null" text NOT NULL,
     "test_bool" boolean,
     "test_bool_array" boolean[],
     "test_date" date,
@@ -25,5 +25,7 @@ CREATE TABLE "unnamed" (
     "test_timestamp_with_time_zone" timestamp with time zone,
     "test_timestamp_with_time_zone_array" timestamp with time zone[],
     "test_uuid" text,
-    "test_uuid_array" text[]
+    "test_uuid_array" text[],
+    "record" jsonb,
+    "records" jsonb
 );

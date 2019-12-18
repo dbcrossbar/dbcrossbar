@@ -7,7 +7,7 @@
   {
     "name": "test_not_null",
     "type": "STRING",
-    "mode": "NULLABLE"
+    "mode": "REQUIRED"
   },
   {
     "name": "test_bool",
@@ -133,5 +133,36 @@
     "name": "test_uuid_array",
     "type": "STRING",
     "mode": "REPEATED"
+  },
+  {
+    "name": "record",
+    "type": "RECORD",
+    "mode": "NULLABLE",
+    "fields": [
+      {
+        "name": "nested",
+        "type": "RECORD",
+        "mode": "REQUIRED",
+        "fields": [
+          {
+            "name": "i1",
+            "type": "INT64",
+            "mode": "NULLABLE"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "records",
+    "type": "RECORD",
+    "mode": "REPEATED",
+    "fields": [
+      {
+        "name": "i2",
+        "type": "INT64",
+        "mode": "NULLABLE"
+      }
+    ]
   }
 ]

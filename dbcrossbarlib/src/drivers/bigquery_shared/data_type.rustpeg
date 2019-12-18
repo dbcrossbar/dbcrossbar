@@ -5,7 +5,7 @@
 //!
 //! [peg]: https://github.com/kevinmehall/rust-peg
 
-use super::{BqDataType, BqNonArrayDataType, BqStructField};
+use super::{BqDataType, BqNonArrayDataType, BqRecordOrNonArrayDataType, BqStructField};
 
 pub data_type -> BqDataType
     = array_data_type
@@ -13,6 +13,10 @@ pub data_type -> BqDataType
 
 array_data_type -> BqDataType
     = "ARRAY<" ty:non_array_data_type ">" { BqDataType::Array(ty) }
+
+pub record_or_non_array_data_type -> BqRecordOrNonArrayDataType
+    = "RECORD" { BqRecordOrNonArrayDataType::Record }
+    / ty:non_array_data_type { BqRecordOrNonArrayDataType::DataType(ty) }
 
 pub non_array_data_type -> BqNonArrayDataType
     // BOOLEAN, FLOAT and INTEGER are undocumented but seen in `bq show --schema`
