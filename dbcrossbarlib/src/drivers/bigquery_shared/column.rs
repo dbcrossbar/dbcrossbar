@@ -26,7 +26,7 @@ impl ColumnBigQueryExt for Column {
 }
 
 /// A BigQuery column declaration.
-#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(crate) struct BqColumn {
     /// An optional description of the BigQuery column.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -292,10 +292,12 @@ return "#,
     /// export statement.
     pub(crate) fn write_export_select_expr(&self, f: &mut dyn Write) -> Result<()> {
         match self.bq_data_type()? {
-            BqDataType::Array(ty) => self.write_export_select_expr_for_array(&ty, f),
-            BqDataType::NonArray(ty) => {
+            // We export arrays of structs as JSON arrays of objects.
+            BqDataType::NonArray(ty)
+            | BqDataType::Array(ty @ BqNonArrayDataType::Struct(_)) => {
                 self.write_export_select_expr_for_non_array(&ty, f)
             }
+            BqDataType::Array(ty) => self.write_export_select_expr_for_array(&ty, f),
         }
     }
 
@@ -376,6 +378,11 @@ return "#,
                 write!(f, "ST_ASGEOJSON({ident}) AS {ident}", ident = ident)?;
             }
 
+            BqNonArrayDataType::Struct(_) => {
+                // TODO: Check struct for duplicate or unnamed keys.
+                write!(f, "TO_JSON_STRING({ident}) AS {ident}", ident = ident)?;
+            }
+
             BqNonArrayDataType::Timestamp => {
                 write!(
                     f,
@@ -386,9 +393,7 @@ return "#,
 
             // These we don't know how to output at all. (We don't have a
             // portable type for most of these.)
-            BqNonArrayDataType::Bytes
-            | BqNonArrayDataType::Struct(_)
-            | BqNonArrayDataType::Time => {
+            BqNonArrayDataType::Bytes | BqNonArrayDataType::Time => {
                 return Err(format_err!(
                     "can't output {} columns yet",
                     self.bq_data_type()?,

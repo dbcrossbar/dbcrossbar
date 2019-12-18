@@ -5,7 +5,10 @@ use serde_json;
 use std::{
     collections::{HashMap, HashSet},
     io::Write,
+    iter::FromIterator,
+    process::{Command, Stdio},
 };
+use tokio_process::CommandExt;
 
 use super::{BqColumn, ColumnBigQueryExt, Ident, TableName, Usage};
 use crate::common::*;
@@ -57,6 +60,76 @@ impl BqTable {
             .map(move |c| BqColumn::for_column(c, usage, &mut uniquifier))
             .collect::<Result<Vec<BqColumn>>>()?;
         Ok(BqTable { name, columns })
+    }
+
+    /// Given a table name, look up the schema and return a `BqTable`.
+    pub(crate) async fn read_from_table(
+        ctx: &Context,
+        name: &TableName,
+    ) -> Result<BqTable> {
+        let output = Command::new("bq")
+            .args(&[
+                "show",
+                "--headless",
+                "--schema",
+                "--format=json",
+                &format!("--project_id={}", name.project()),
+                &name.to_string(),
+            ])
+            .stderr(Stdio::inherit())
+            .output_async()
+            .compat()
+            .await
+            .context("error running `bq show --schema`")?;
+        if !output.status.success() {
+            return Err(format_err!(
+                "`bq show --schema` failed with {}",
+                output.status,
+            ));
+        }
+        debug!(
+            ctx.log(),
+            "BigQuery schema: {}",
+            String::from_utf8_lossy(&output.stdout).trim(),
+        );
+        let columns: Vec<BqColumn> = serde_json::from_slice(&output.stdout)
+            .context("error parsing BigQuery schema")?;
+        Ok(BqTable {
+            name: name.to_owned(),
+            columns,
+        })
+    }
+
+    /// Create a new table based on this table, but with columns matching the
+    /// the names and order of the columns in `other_table`. This is useful if
+    /// we want to insert from `other_table` into `self`, or export `self` using
+    /// schema of `other_table`.
+    ///
+    /// Hypothetically, we could also check for compatibility between column
+    /// types in the two tables, but for now, we're happy to let the database
+    /// verify all that for us.
+    pub(crate) fn aligned_with(&self, other_table: &BqTable) -> Result<BqTable> {
+        let column_map = HashMap::<&str, &BqColumn>::from_iter(
+            self.columns.iter().map(|c| (&c.name[..], c)),
+        );
+        Ok(BqTable {
+            name: self.name.clone(),
+            columns: other_table
+                .columns
+                .iter()
+                .map(|c| -> Result<BqColumn> {
+                    if let Some(&col) = column_map.get(&c.name[..]) {
+                        Ok(col.to_owned())
+                    } else {
+                        Err(format_err!(
+                            "could not find column {} in BigQuery table {}",
+                            c.name,
+                            self.name,
+                        ))
+                    }
+                })
+                .collect::<Result<Vec<_>>>()?,
+        })
     }
 
     /// Given a `BqTable`, convert it to a portable `Table`.
