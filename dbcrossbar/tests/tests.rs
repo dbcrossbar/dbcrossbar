@@ -1,4 +1,5 @@
 use cli_test_dir::*;
+use dbcrossbarlib::TemporaryStorage;
 use difference::assert_diff;
 use env_logger;
 use std::{
@@ -49,10 +50,21 @@ fn gs_test_dir_url(dir_name: &str) -> String {
     url
 }
 
+/// A BigQuery table name to use for a test, including the project.
+fn bq_temp_dataset_name() -> String {
+    env::var("BQ_TEST_DATASET").expect("BQ_TEST_DATASET must be set")
+}
+
+/// Get our BigQuery test project name.
+fn bq_project_id() -> String {
+    let ds_name = bq_temp_dataset_name();
+    let end = ds_name.find(':').expect("BQ_TEST_DATASET should contain :");
+    ds_name[..end].to_owned()
+}
+
 /// A BigQuery table to use for a test.
 fn bq_temp_dataset() -> String {
-    let dataset = env::var("BQ_TEST_DATASET").expect("BQ_TEST_DATASET must be set");
-    format!("bigquery:{}", dataset)
+    format!("bigquery:{}", bq_temp_dataset_name())
 }
 
 /// A BigQuery table to use for a test.
@@ -589,6 +601,70 @@ fn cp_csv_to_bigquery_to_csv() {
         ])
         .tee_output()
         .expect_success();
+}
+
+#[test]
+#[ignore]
+fn bigquery_record_columns() {
+    let testdir = TestDir::new("dbcrossbar", "bigquery_record_columns");
+    let bq_temp_ds = bq_temp_dataset();
+    let gs_temp_dir = gs_test_dir_url("bigquery_record_columns_to_json");
+
+    let dataset_name = bq_temp_dataset_name();
+    let bare_dataset_name =
+        &dataset_name[dataset_name.find(':').expect("no colon") + 1..];
+    let table_name = format!("record_cols_{}", TemporaryStorage::random_tag());
+    let locator = format!("bigquery:{}.{}", dataset_name, table_name);
+
+    // Create a BigQuery table containing record columns.
+    let sql = format!(
+        "
+create table {dataset_name}.{table_name} AS (
+  select
+    struct(1 as a) AS record,
+    array(select struct(2 as b) union all select(struct(3 as b))) AS records
+);",
+        dataset_name = bare_dataset_name,
+        table_name = table_name,
+    );
+
+    // Create a table with record columns.
+    Command::new("bq")
+        .args(&[
+            "query",
+            "--nouse_legacy_sql",
+            "--project_id",
+            &bq_project_id(),
+        ])
+        .arg(&sql)
+        .expect_success();
+
+    // Try exporting the schema.
+    let output = testdir
+        .cmd()
+        .args(&["conv", &locator, "postgres-sql:out.sql"])
+        .tee_output()
+        .expect_success();
+    output.stdout_str().contains(r#""record" jsonb"#);
+    output.stdout_str().contains(r#""records" jsonb"#);
+
+    // BigQuery to CSV.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--temporary={}", gs_temp_dir),
+            &format!("--temporary={}", bq_temp_ds),
+            &locator,
+            "csv:out.csv",
+        ])
+        .expect_success();
+
+    let expected = r#"record,records
+"{""a"":1}","[{""b"":2},{""b"":3}]"
+"#;
+    testdir.expect_file_contents("out.csv", expected);
 }
 
 #[test]

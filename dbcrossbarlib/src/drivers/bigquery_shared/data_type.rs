@@ -1,9 +1,9 @@
 //! Data types supported BigQuery.
 
 use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize, Serializer};
-use std::{fmt, result};
+use std::{borrow::Cow, collections::HashSet, fmt, result};
 
-use super::column::Mode;
+use super::column::{BqColumn, Mode};
 use crate::common::*;
 use crate::schema::{DataType, Srid};
 use crate::separator::Separator;
@@ -86,11 +86,40 @@ impl BqDataType {
         }
     }
 
+    /// Convert this `BqDataType` to `DataType`.
+    pub(crate) fn to_data_type(&self) -> Result<DataType> {
+        match self {
+            // This is controversial philosophical decision, but Seamus argues
+            // strongly that nobody ever wants to see `jsonb[]` or
+            // `ARRAY<STRING>` where the `STRING` contains serialized JSON. So
+            // we turn arrays of JSON values into JSON array values, yielding
+            // `jsonb` or a `STRING` containing a serialized JSON array value.
+            //
+            // We special-case this _here_ because BigQuery uses this pattern a
+            // lot. Other database drivers should probably to something similar
+            // when converting native types to portable types, but it's really
+            // rare to see `jsonb[]` in a real-world PostgreSQL database. Or I
+            // suppose we could apply this simplification directly on the
+            // portable `DataType` at some point.
+            BqDataType::Array(BqNonArrayDataType::Struct(_)) => Ok(DataType::Json),
+            BqDataType::Array(ty) => Ok(DataType::Array(Box::new(ty.to_data_type()?))),
+            BqDataType::NonArray(ty) => ty.to_data_type(),
+        }
+    }
+
     /// Can BigQuery import this type from a CSV file?
     pub(crate) fn bigquery_can_import_from_csv(&self) -> bool {
         match self {
             BqDataType::Array(_) => true,
             _ => false,
+        }
+    }
+
+    /// Can this type be safely represented as a JSON value?
+    pub(crate) fn is_json_safe(&self) -> bool {
+        match self {
+            BqDataType::Array(ty) => ty.is_json_safe(),
+            BqDataType::NonArray(ty) => ty.is_json_safe(),
         }
     }
 }
@@ -130,6 +159,83 @@ impl Serialize for BqDataType {
     }
 }
 
+/// Either a regular BigQuery non-array data type or `"RECORD"`, which appears
+/// as a placeholder in BigQuery schema files, but it really a placeholder
+/// telling us to construct a `STRUCT` type using the column's `"fields"`.
+///
+/// This is marked `pub` instead of `pub(crate)` because of limitations in
+/// `rust-peg`.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum BqRecordOrNonArrayDataType {
+    Record,
+    DataType(BqNonArrayDataType),
+}
+
+impl BqRecordOrNonArrayDataType {
+    pub(crate) fn to_bq_data_type(
+        &self,
+        mode: Mode,
+        fields: &[BqColumn],
+    ) -> Result<BqDataType> {
+        let ty = self.to_bq_non_array_data_type(fields)?.into_owned();
+        match mode {
+            Mode::Repeated => Ok(BqDataType::Array(ty)),
+            Mode::Nullable | Mode::Required => Ok(BqDataType::NonArray(ty)),
+        }
+    }
+
+    /// Convert this to BigQuery `BqNonArrayDataType`.
+    pub(crate) fn to_bq_non_array_data_type(
+        &self,
+        fields: &[BqColumn],
+    ) -> Result<Cow<BqNonArrayDataType>> {
+        match self {
+            BqRecordOrNonArrayDataType::Record => {
+                let fields = fields
+                    .iter()
+                    .map(|f| f.to_struct_field())
+                    .collect::<Result<Vec<_>>>()?;
+                Ok(Cow::Owned(BqNonArrayDataType::Struct(fields)))
+            }
+            BqRecordOrNonArrayDataType::DataType(ty) => Ok(Cow::Borrowed(ty)),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for BqRecordOrNonArrayDataType {
+    fn deserialize<D>(deserializer: D) -> result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let raw = String::deserialize(deserializer)?;
+        let parsed = grammar::record_or_non_array_data_type(&raw).map_err(|err| {
+            D::Error::custom(format!(
+                "error parsing BigQuery data type {:?}: {}",
+                raw, err
+            ))
+        })?;
+        Ok(parsed)
+    }
+}
+
+impl fmt::Display for BqRecordOrNonArrayDataType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BqRecordOrNonArrayDataType::Record => write!(f, "RECORD"),
+            BqRecordOrNonArrayDataType::DataType(ty) => write!(f, "{}", ty),
+        }
+    }
+}
+
+impl Serialize for BqRecordOrNonArrayDataType {
+    fn serialize<S>(&self, serializer: S) -> result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // Convert to a string and serialize that.
+        format!("{}", self).serialize(serializer)
+    }
+}
 /// Any type except `ARRAY` (which cannot be nested in another `ARRAY`).
 ///
 /// This should really be `pub(crate)`, see [BqDataType].
@@ -210,30 +316,47 @@ impl BqNonArrayDataType {
     }
 
     /// Convert this `BqNonArrayDataType` to a portable `DataType`.
-    pub(crate) fn to_data_type(&self, mode: Mode) -> Result<DataType> {
-        if mode == Mode::Repeated {
-            // I _think_ all values in arrays are always nullable.
-            Ok(DataType::Array(Box::new(
-                self.to_data_type(Mode::Nullable)?,
-            )))
-        } else {
-            match self {
-                BqNonArrayDataType::Bool => Ok(DataType::Bool),
-                BqNonArrayDataType::Date => Ok(DataType::Date),
-                BqNonArrayDataType::Numeric => Ok(DataType::Decimal),
-                BqNonArrayDataType::Float64 => Ok(DataType::Float64),
-                BqNonArrayDataType::Geography => Ok(DataType::GeoJson(Srid::wgs84())),
-                BqNonArrayDataType::Int64 => Ok(DataType::Int64),
-                BqNonArrayDataType::String => Ok(DataType::Text),
-                BqNonArrayDataType::Datetime => Ok(DataType::TimestampWithoutTimeZone),
-                BqNonArrayDataType::Timestamp => Ok(DataType::TimestampWithTimeZone),
-                BqNonArrayDataType::Bytes
-                | BqNonArrayDataType::Struct(_)
-                | BqNonArrayDataType::Time => Err(format_err!(
-                    "cannot convert {} to portable type (yet)",
-                    self
-                )),
+    pub(crate) fn to_data_type(&self) -> Result<DataType> {
+        match self {
+            BqNonArrayDataType::Bool => Ok(DataType::Bool),
+            BqNonArrayDataType::Date => Ok(DataType::Date),
+            BqNonArrayDataType::Numeric => Ok(DataType::Decimal),
+            BqNonArrayDataType::Float64 => Ok(DataType::Float64),
+            BqNonArrayDataType::Geography => Ok(DataType::GeoJson(Srid::wgs84())),
+            BqNonArrayDataType::Int64 => Ok(DataType::Int64),
+            BqNonArrayDataType::String => Ok(DataType::Text),
+            BqNonArrayDataType::Datetime => Ok(DataType::TimestampWithoutTimeZone),
+            BqNonArrayDataType::Struct(_) => Ok(DataType::Json),
+            BqNonArrayDataType::Timestamp => Ok(DataType::TimestampWithTimeZone),
+            BqNonArrayDataType::Bytes | BqNonArrayDataType::Time => Err(format_err!(
+                "cannot convert {} to portable type (yet)",
+                self,
+            )),
+        }
+    }
+
+    /// Can this type be safely represented as a JSON value?
+    pub(crate) fn is_json_safe(&self) -> bool {
+        match self {
+            BqNonArrayDataType::Struct(fields) => {
+                for field in fields {
+                    // Only allow serializing structs with (1) named fields, not
+                    // positional fields, and (2) unique names. This limit
+                    // exists because `TO_JSON_STRING` will output JSON objects
+                    // with key names of `""` or duplicate key names if these
+                    // constraints aren't met.
+                    let mut names = HashSet::new();
+                    if let Some(name) = &field.name {
+                        if !names.insert(name) || !field.ty.is_json_safe() {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+                true
             }
+            _ => true,
         }
     }
 }
@@ -297,9 +420,9 @@ impl Serialize for BqNonArrayDataType {
 pub struct BqStructField {
     /// An optional field name. BigQuery `STRUCT`s are basically tuples, but
     /// with optional names for each position in the tuple.
-    name: Option<String>,
+    pub(crate) name: Option<String>,
     /// The field type.
-    ty: BqDataType,
+    pub(crate) ty: BqDataType,
 }
 
 impl fmt::Display for BqStructField {
