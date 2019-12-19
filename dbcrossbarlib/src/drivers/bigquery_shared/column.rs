@@ -315,13 +315,20 @@ return "#,
 
         match data_type {
             // We trust BigQuery to output these directly.
-            BqNonArrayDataType::Bool
-            | BqNonArrayDataType::Date
+            BqNonArrayDataType::Date
             | BqNonArrayDataType::Float64
             | BqNonArrayDataType::Int64
             | BqNonArrayDataType::Numeric
             | BqNonArrayDataType::String => {
                 write!(f, "{}", ident)?;
+            }
+
+            // BigQuery outputs "true" and "false" by default, but let's make it
+            // look like PostgreSQL, so that CSV import drivers don't get too
+            // confused. This particularly affects BigML CSV import, because it
+            // treats booleans as string values.
+            BqNonArrayDataType::Bool => {
+                write!(f, "IF({ident}, \"t\", \"f\") AS {ident}", ident = ident)?;
             }
 
             BqNonArrayDataType::Datetime => {
