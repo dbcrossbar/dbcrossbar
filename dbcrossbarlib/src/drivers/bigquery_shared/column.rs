@@ -329,7 +329,7 @@ return "#,
             }
 
             BqNonArrayDataType::Timestamp => {
-                write!(f, "(SELECT ARRAY_AGG(FORMAT_TIMESTAMP(\"%Y-%m-%dT%H:%M:%E*S%Ez\", {ident})) FROM UNNEST({ident}) AS {ident})", ident = ident,)?;
+                write!(f, "(SELECT ARRAY_AGG(FORMAT_TIMESTAMP(\"%Y-%m-%dT%H:%M:%E*SZ\", {ident}, \"+0\")) FROM UNNEST({ident}) AS {ident})", ident = ident,)?;
             }
 
             // These we don't know how to output at all. (We don't have a
@@ -396,7 +396,7 @@ return "#,
             BqNonArrayDataType::Timestamp => {
                 write!(
                     f,
-                    "FORMAT_TIMESTAMP(\"%Y-%m-%dT%H:%M:%E*S%Ez\", {ident}) AS {ident}",
+                    "FORMAT_TIMESTAMP(\"%Y-%m-%dT%H:%M:%E*SZ\", {ident}, \"+0\") AS {ident}",
                     ident = ident
                 )?;
             }

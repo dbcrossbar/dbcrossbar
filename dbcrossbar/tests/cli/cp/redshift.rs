@@ -6,6 +6,10 @@ use std::fs;
 
 use super::*;
 
+// We don't test Redshift for exact output, because it's missing support for
+// some of our "exact" data types, including UUIDs. And it requires special
+// --to-args and --from-args just to run.
+
 #[test]
 #[ignore]
 fn cp_csv_to_redshift_to_csv() {

@@ -8,6 +8,13 @@ use super::*;
 
 #[test]
 #[ignore]
+fn cp_from_postgres_to_exact_csv() {
+    let pg_table = post_test_table_url("cp_from_postgres_to_exact_csv");
+    assert_cp_to_exact_csv("cp_from_postgres_to_exact_csv", &pg_table);
+}
+
+#[test]
+#[ignore]
 fn cp_csv_to_postgres_append() {
     let testdir = TestDir::new("dbcrossbar", "cp_csv_to_postgres_append");
     let src = testdir.src_path("fixtures/many_types.csv");

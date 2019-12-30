@@ -54,7 +54,7 @@ pub(crate) async fn write_remote_data_helper(
 
     // Ask RedShift to import from S3.
     let copy_sql = format!(
-        "COPY {dest} FROM {source}\n{credentials}FORMAT CSV\nIGNOREHEADER 1",
+        "COPY {dest} FROM {source}\n{credentials}FORMAT CSV\nIGNOREHEADER 1\nDATEFORMAT 'auto'\nTIMEFORMAT 'auto'",
         dest = TableName(table_name),
         source = pg_quote(source_url.as_str()), // `$1` doesn't work here.
         credentials = credentials_sql(to_args)?,

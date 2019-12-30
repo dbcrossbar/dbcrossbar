@@ -8,6 +8,12 @@ use super::*;
 
 #[test]
 #[ignore]
+fn cp_from_bigml_to_exact_csv() {
+    assert_cp_to_exact_csv("cp_from_bigml_to_exact_csv", "bigml:dataset");
+}
+
+#[test]
+#[ignore]
 fn cp_csv_to_bigml_dataset_to_csv() {
     let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "cp_csv_to_bigml_dataset_to_csv");

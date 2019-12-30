@@ -1,2 +1,2 @@
 test_null,test_not_null,test_bool,test_date,test_float32,test_float64,test_int16,test_int32,test_int64,test_text,test_timestamp_without_time_zone,test_timestamp_with_time_zone
-,hi,t,1969-07-20,32.5,64.5,16,32,64,hello,1969-07-20 20:17:39.50,1969-07-20 20:17:39.50+00
+,hi,t,1969-07-20,32.5,64.5,16,32,64,hello,1969-07-20T20:17:39.5,1969-07-20T20:17:39.5Z
