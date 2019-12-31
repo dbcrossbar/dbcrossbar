@@ -158,7 +158,7 @@ fn postgres_upsert() {
 
 #[test]
 #[ignore]
-fn cp_pg_append_legacy_json() {
+fn cp_pg_append_upsert_legacy_json() {
     let testdir = TestDir::new("dbcrossbar", "cp_from_postgres_with_where");
     let src = testdir.src_path("fixtures/legacy_json.csv");
     let schema = testdir.src_path("fixtures/legacy_json.sql");
@@ -180,12 +180,25 @@ fn cp_pg_append_legacy_json() {
         ])
         .expect_success();
 
-    // CSV to PostgreSQL.
+    // CSV to PostgreSQL (append).
     testdir
         .cmd()
         .args(&[
             "cp",
             "--if-exists=append",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("csv:{}", src.display()),
+            &pg_table,
+        ])
+        .tee_output()
+        .expect_success();
+
+    // CSV to PostgreSQL (upsert).
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=upsert-on:id",
             &format!("--schema=postgres-sql:{}", schema.display()),
             &format!("csv:{}", src.display()),
             &pg_table,

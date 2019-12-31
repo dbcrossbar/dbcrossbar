@@ -5,7 +5,7 @@ use failure::Fail;
 
 use super::{connect, PostgresLocator};
 use crate::common::*;
-use crate::drivers::postgres_shared::PgCreateTable;
+use crate::drivers::postgres_shared::{CheckCatalog, PgCreateTable};
 
 /// Copy the specified table from the database, returning a `CsvStream`.
 pub(crate) async fn local_data_helper(
@@ -26,9 +26,14 @@ pub(crate) async fn local_data_helper(
         ctx.child(o!("stream" => table_name.clone(), "table" => table_name.clone()));
     debug!(ctx.log(), "reading data from {} table {}", url, table_name);
 
-    // Convert our schema to a native PostgreSQL schema.
-    let pg_create_table =
-        PgCreateTable::from_name_and_columns(table_name.clone(), &schema.columns)?;
+    // Try to look up our table schema in the database.
+    let pg_create_table = PgCreateTable::from_pg_catalog_or_default(
+        CheckCatalog::Yes,
+        &url,
+        &table_name,
+        schema,
+    )
+    .await?;
 
     // Generate SQL for query.
     let mut sql_bytes: Vec<u8> = vec![];

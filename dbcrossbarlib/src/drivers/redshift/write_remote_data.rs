@@ -4,7 +4,7 @@ use super::{credentials_sql, RedshiftLocator};
 use crate::common::*;
 use crate::drivers::{
     postgres::{connect, prepare_table},
-    postgres_shared::{pg_quote, PgCreateTable, TableName},
+    postgres_shared::{pg_quote, CheckCatalog, PgCreateTable, TableName},
     s3::S3Locator,
 };
 use crate::schema::{Column, DataType};
@@ -42,11 +42,16 @@ pub(crate) async fn write_remote_data_helper(
     let to_args = dest_args.driver_args();
     let if_exists = dest_args.if_exists().to_owned();
 
-    // Convert our `schema` to a `PgCreateTable`.
+    // Try to look up our table schema in the database.
     schema.verify_redshift_can_import_from_csv()?;
     let table_name = dest.table_name();
-    let pg_create_table =
-        PgCreateTable::from_name_and_columns(table_name.to_owned(), &schema.columns)?;
+    let pg_create_table = PgCreateTable::from_pg_catalog_or_default(
+        CheckCatalog::from(&if_exists),
+        dest.url(),
+        &table_name,
+        schema,
+    )
+    .await?;
 
     // Connect to Redshift and prepare our table.
     let mut client = connect(ctx.clone(), dest.url().to_owned()).await?;

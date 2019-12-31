@@ -7,6 +7,27 @@ use crate::common::*;
 use crate::schema::Column;
 use crate::separator::Separator;
 
+/// Should we check the PostgreSQL catalog for a schema, or just use the one we
+/// were given?
+///
+/// This is basically a fancy boolean that exists in order to make the related
+/// logic clear at a glance, and easy to verify.
+pub(crate) enum CheckCatalog {
+    /// Check the PostgreSQL catalog for an existing schema.
+    Yes,
+    /// Always use the schema given by the user.
+    No,
+}
+
+impl From<&IfExists> for CheckCatalog {
+    fn from(if_exists: &IfExists) -> CheckCatalog {
+        match if_exists {
+            IfExists::Error | IfExists::Overwrite => CheckCatalog::No,
+            IfExists::Append | IfExists::Upsert(_) => CheckCatalog::Yes,
+        }
+    }
+}
+
 /// A PostgreSQL table declaration.
 ///
 /// This is marked as `pub` and not `pub(crate)` because of a limitation of the
@@ -55,11 +76,56 @@ impl PgCreateTable {
 
     /// Look up `full_table_name` in the database, and return a new
     /// `PgCreateTable` based on what we find in `pg_catalog`.
-    pub(crate) fn from_pg_catalog(
+    ///
+    /// Returns `None` if no matching table exists.
+    pub(crate) async fn from_pg_catalog(
         database_url: &Url,
         full_table_name: &str,
+    ) -> Result<Option<PgCreateTable>> {
+        let database_url = database_url.to_owned();
+        let full_table_name = full_table_name.to_owned();
+        run_sync_fn_in_background(
+            "PgCreateTable::from_pg_catalog".to_owned(),
+            move || catalog::fetch_from_url(&database_url, &full_table_name),
+        )
+        .await
+    }
+
+    /// Look up `full_table_name` in the database, and return a new
+    /// `PgCreateTable` based on what we find in `pg_catalog`.
+    ///
+    /// If this fails, use `full_table_name` and `default` to construct a new
+    /// table.
+    pub(crate) async fn from_pg_catalog_or_default(
+        check_catalog: CheckCatalog,
+        database_url: &Url,
+        full_table_name: &str,
+        default: &Table,
     ) -> Result<PgCreateTable> {
-        catalog::fetch_from_url(database_url, full_table_name)
+        // If we can't find a catalog in the database, use this one.
+        let default_dest_table = PgCreateTable::from_name_and_columns(
+            full_table_name.to_owned(),
+            &default.columns,
+        )?;
+
+        // Should we check the catalog to see if the table schema exists?
+        match check_catalog {
+            // Nope, we just want to use the default.
+            CheckCatalog::No => Ok(default_dest_table),
+
+            // See if the table is listed in the catalog.
+            CheckCatalog::Yes => {
+                let opt_dest_table =
+                    PgCreateTable::from_pg_catalog(database_url, full_table_name)
+                        .await?;
+                Ok(match opt_dest_table {
+                    Some(dest_table) => {
+                        dest_table.aligned_with(&default_dest_table)?
+                    }
+                    None => default_dest_table,
+                })
+            }
+        }
     }
 
     /// Given a `PgCreateTable`, convert it to a portable `Table`.

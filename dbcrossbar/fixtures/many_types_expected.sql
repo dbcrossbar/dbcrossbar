@@ -1,4 +1,4 @@
-CREATE TABLE "cp_csv_to_postgres_to_gs_to_csv" (
+CREATE TABLE "testme1"."cp_csv_to_postgres_to_gs_to_csv" (
     "test_null" text,
     "test_not_null" text NOT NULL,
     "test_bool" boolean,
