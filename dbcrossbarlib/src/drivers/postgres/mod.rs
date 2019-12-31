@@ -160,12 +160,14 @@ impl Locator for PostgresLocator {
 
     fn schema(&self, _ctx: Context) -> BoxFuture<Option<Table>> {
         let source = self.to_owned();
-        run_sync_fn_in_background("PostgresLocator::schema".to_owned(), move || {
+        async move {
             let table =
-                PgCreateTable::from_pg_catalog(&source.url, &source.table_name)?;
+                PgCreateTable::from_pg_catalog(&source.url, &source.table_name)
+                    .await?
+                    .ok_or_else(|| format_err!("no such table {}", source))?;
             Ok(Some(table.to_table()?))
-        })
-        .boxed()
+        }
+            .boxed()
     }
 
     fn count(

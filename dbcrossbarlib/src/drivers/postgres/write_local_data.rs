@@ -5,7 +5,7 @@ use std::{collections::HashSet, io::prelude::*, iter::FromIterator, str};
 
 use super::{connect, csv_to_binary::copy_csv_to_pg_binary, Client, PostgresLocator};
 use crate::common::*;
-use crate::drivers::postgres_shared::{Ident, PgCreateTable, TableName};
+use crate::drivers::postgres_shared::{CheckCatalog, Ident, PgCreateTable, TableName};
 use crate::transform::spawn_sync_transform;
 
 /// If `table_name` exists, `DROP` it.
@@ -240,19 +240,18 @@ pub(crate) async fn write_local_data_helper(
         "writing data streams to {} table {}", url, table_name,
     );
 
-    // Convert our `schema` to a `PgCreateTable`.
-    let dest_table =
-        PgCreateTable::from_name_and_columns(table_name.clone(), &schema.columns)?;
+    // Try to look up our destination table schema in the database.
+    let dest_table = PgCreateTable::from_pg_catalog_or_default(
+        CheckCatalog::from(&if_exists),
+        dest.url(),
+        dest.table_name(),
+        schema,
+    )
+    .await?;
 
     // Connect to PostgreSQL and prepare our destination table.
     let mut client = connect(ctx.clone(), url.clone()).await?;
     prepare_table(&ctx, &mut client, dest_table.clone(), &if_exists).await?;
-
-    // Look up our actual destination table, which has either existed all along,
-    // or which we just created.
-    let mut real_dest_table =
-        PgCreateTable::from_pg_catalog(dest.url(), dest.table_name())?;
-    real_dest_table = real_dest_table.aligned_with(&dest_table)?;
 
     // Insert data streams one at a time, because parallel insertion _probably_
     // won't gain much with Postgres (but we haven't measured).
@@ -269,7 +268,7 @@ pub(crate) async fn write_local_data_helper(
                     let ctx = ctx.child(o!("stream" => csv_stream.name.clone()));
 
                     // Convert our CSV stream into a PostgreSQL `BINARY` stream.
-                    let transform_table = real_dest_table.clone();
+                    let transform_table = dest_table.clone();
                     let binary_stream = spawn_sync_transform(
                         ctx.clone(),
                         "copy_csv_to_pg_binary".to_owned(),

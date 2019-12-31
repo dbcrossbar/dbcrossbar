@@ -11,7 +11,7 @@ mod table;
 
 pub(crate) use self::column::PgColumn;
 pub(crate) use self::data_type::{PgDataType, PgScalarDataType};
-pub(crate) use self::table::PgCreateTable;
+pub(crate) use self::table::{CheckCatalog, PgCreateTable};
 
 /// Escape and quote a PostgreSQL string literal. See the [docs][]. We need this
 /// because PostgreSQL doesn't accept `$1`-style escapes in certain places in

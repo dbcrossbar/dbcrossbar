@@ -6,6 +6,7 @@
 //! changes.
 
 use diesel::{
+    dsl::count_star,
     pg::PgConnection,
     prelude::*,
     sql_function,
@@ -25,6 +26,15 @@ sql_function! {
 }
 
 table! {
+    // https://www.postgresql.org/docs/10/infoschema-tables.html
+    information_schema.tables (table_catalog, table_schema, table_name) {
+        table_catalog -> VarChar,
+        table_schema -> VarChar,
+        table_name -> VarChar,
+    }
+}
+
+table! {
     // https://www.postgresql.org/docs/10/static/infoschema-columns.html
     information_schema.columns (table_catalog, table_schema, table_name, column_name) {
         table_catalog -> VarChar,
@@ -39,8 +49,8 @@ table! {
     }
 }
 
-#[derive(Queryable, Insertable)]
-#[table_name = "columns"]
+#[derive(Queryable)]
+#[allow(dead_code)]
 struct PgColumnSchema {
     table_catalog: String,
     table_schema: String,
@@ -61,13 +71,25 @@ impl PgColumnSchema {
 }
 
 /// Fetch information about a table from the database.
+///
+/// Returns `None` if no matching table exists.
 pub(crate) fn fetch_from_url(
     database_url: &Url,
     full_table_name: &str,
-) -> Result<PgCreateTable> {
+) -> Result<Option<PgCreateTable>> {
     let conn = PgConnection::establish(database_url.as_str())
         .context("error connecting to PostgreSQL")?;
     let (table_schema, table_name) = parse_full_table_name(full_table_name);
+
+    // Check to see if we have a table with this name.
+    let table_count = tables::table
+        .select(count_star())
+        .filter(tables::table_schema.eq(table_schema))
+        .filter(tables::table_name.eq(table_name))
+        .first::<i64>(&conn)?;
+    if table_count == 0 {
+        return Ok(None);
+    }
 
     // Look up column information.
     let pg_columns = columns::table
@@ -136,12 +158,12 @@ pub(crate) fn fetch_from_url(
         })
     }
 
-    Ok(PgCreateTable {
-        name: table_name.to_owned(),
+    Ok(Some(PgCreateTable {
+        name: full_table_name.to_owned(),
         columns,
         temporary: false,
         if_not_exists: false,
-    })
+    }))
 }
 
 /// Given a name of the form `mytable` or `myschema.mytable`, split it into
