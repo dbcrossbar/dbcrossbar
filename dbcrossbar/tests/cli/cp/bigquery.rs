@@ -9,6 +9,13 @@ use super::*;
 
 #[test]
 #[ignore]
+fn cp_from_bigquery_to_exact_csv() {
+    let pg_table = bq_test_table("cp_from_bigquery_to_exact_csv");
+    assert_cp_to_exact_csv("cp_from_bigquery_to_exact_csv", &pg_table);
+}
+
+#[test]
+#[ignore]
 fn cp_from_bigquery_with_where() {
     let testdir = TestDir::new("dbcrossbar", "cp_from_bigquery_with_where");
     let src = testdir.src_path("fixtures/posts.csv");

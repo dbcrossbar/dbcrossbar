@@ -8,6 +8,13 @@ use super::*;
 
 #[test]
 #[ignore]
+fn cp_from_s3_to_exact_csv() {
+    let s3_dir = s3_test_dir_url("cp_from_s3_to_exact_csv");
+    assert_cp_to_exact_csv("cp_from_s3_to_exact_csv", &s3_dir);
+}
+
+#[test]
+#[ignore]
 fn cp_csv_to_s3_to_csv() {
     let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "cp_csv_to_s3_to_csv");

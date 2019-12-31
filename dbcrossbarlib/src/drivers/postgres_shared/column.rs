@@ -41,6 +41,17 @@ impl PgColumn {
     /// Write a `SELECT` expression for this column.
     pub(crate) fn write_export_select_expr(&self, f: &mut dyn Write) -> Result<()> {
         let name = Ident(&self.name);
+        let check_dimension = |dimension_count: i32| -> Result<()> {
+            if dimension_count == 1 {
+                Ok(())
+            } else {
+                Err(format_err!(
+                    "cannot output column {:} because it has dimension {}",
+                    self.name,
+                    dimension_count,
+                ))
+            }
+        };
         match &self.data_type {
             // `bigint[]` needs to be converted to a `text[]`, or
             // PostgreSQL will lose precision by writing `bigint` values as
@@ -49,14 +60,33 @@ impl PgColumn {
                 dimension_count,
                 ty: PgScalarDataType::Bigint,
             } => {
-                if *dimension_count != 1 {
-                    return Err(format_err!(
-                        "cannot output bigint[] columns with dimension > 1"
-                    ));
-                }
+                check_dimension(*dimension_count)?;
                 write!(
                     f,
                     r#"(SELECT array_to_json(array_agg((elem))) FROM (SELECT elem::text FROM unnest({name}) AS elem) AS elems) AS {name}"#,
+                    name = name,
+                )?;
+            }
+            // Format timestamps as ISO 8601 instead of Postgres's format.
+            PgDataType::Array {
+                dimension_count,
+                ty: PgScalarDataType::TimestampWithoutTimeZone,
+            } => {
+                check_dimension(*dimension_count)?;
+                write!(
+                    f,
+                    r#"(SELECT array_to_json(array_agg((elem))) FROM (SELECT TRIM(TRAILING '.' FROM TRIM(TRAILING '0' FROM to_char(elem, 'YYYY-MM-DD"T"HH24:MI:SS.US'))) AS elem FROM unnest({name}) AS elem) AS elems) AS {name}"#,
+                    name = name,
+                )?;
+            }
+            PgDataType::Array {
+                dimension_count,
+                ty: PgScalarDataType::TimestampWithTimeZone,
+            } => {
+                check_dimension(*dimension_count)?;
+                write!(
+                    f,
+                    r#"(SELECT array_to_json(array_agg((elem))) FROM (SELECT TRIM(TRAILING '.' FROM TRIM(TRAILING '0' FROM to_char(elem AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'))) || 'Z' AS elem FROM unnest({name}) AS elem) AS elems) AS {name}"#,
                     name = name,
                 )?;
             }
@@ -68,6 +98,20 @@ impl PgColumn {
                 // TODO: This will preserve the current SRID of the column, so
                 // let's hope `_srid` matches the database's if we make it this far.
                 write!(f, "ST_AsGeoJSON({name}) AS {name}", name = name)?;
+            }
+            PgDataType::Scalar(PgScalarDataType::TimestampWithoutTimeZone) => {
+                write!(
+                    f,
+                    r#"TRIM(TRAILING '.' FROM TRIM(TRAILING '0' FROM to_char({name}, 'YYYY-MM-DD"T"HH24:MI:SS.US'))) AS {name}"#,
+                    name = name,
+                )?;
+            }
+            PgDataType::Scalar(PgScalarDataType::TimestampWithTimeZone) => {
+                write!(
+                    f,
+                    r#"TRIM(TRAILING '.' FROM TRIM(TRAILING '0' FROM to_char({name} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'))) || 'Z' AS {name}"#,
+                    name = name,
+                )?;
             }
             _ => {
                 write!(f, "{}", name)?;

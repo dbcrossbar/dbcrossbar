@@ -1,12 +1,14 @@
 //! Tests for the `cp` subcommand.
 
 use cli_test_dir::*;
-use std::env;
+use difference::assert_diff;
+use std::{env, fs};
 
 mod bigml;
 mod bigquery;
 mod combined;
 mod csv;
+mod gs;
 mod postgres;
 mod redshift;
 mod s3;
@@ -93,4 +95,80 @@ fn cp_help_flag() {
     let testdir = TestDir::new("dbcrossbar", "cp_help_flag");
     let output = testdir.cmd().args(&["cp", "--help"]).expect_success();
     assert!(output.stdout_str().contains("EXAMPLE LOCATORS:"));
+}
+
+/// Given a string containing CSV data, sort all lines except the header
+/// alphabetically.
+pub(crate) fn normalize_csv_data(csv_data: &str) -> String {
+    let mut iter = csv_data.lines();
+    let header = iter.next().expect("no CSV headers").to_owned();
+    let mut lines = iter.collect::<Vec<_>>();
+    lines.sort();
+    format!("{}\n{}\n", header, lines.join("\n"))
+}
+
+/// Copy to and from the specified locator, making sure that certain scalar
+/// types always produce byte-identical output.
+///
+/// This is especially important when copying from `locator` to a BigML data
+/// set, because BigML has a much more fragile parser than a real database, and
+/// it treats `f` and `false` as completely different values. (And it has a
+/// somewhat limited date parser.)
+///
+/// Note that we don't demand exact output for more complex types. Floating
+/// point numbers, arrays, GeoJSON, etc., may all be output in multiple ways,
+/// depending on the driver. We only try to standardize common types that may
+/// cause problems. But we can always standardize more types later.
+pub(crate) fn assert_cp_to_exact_csv(test_name: &str, locator: &str) {
+    let testdir = TestDir::new("dbcrossbar", test_name);
+    let src = testdir.src_path("fixtures/exact_output.csv");
+    let schema = testdir.src_path("fixtures/exact_output.sql");
+    let gs_temp_dir = gs_test_dir_url(test_name);
+    let bq_temp_ds = bq_temp_dataset();
+    let s3_temp_dir = s3_test_dir_url("cp_csv_to_bigml_dataset_to_csv");
+
+    // CSV to locator.
+    let output = testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--display-output-locators",
+            "--if-exists=overwrite",
+            &format!("--temporary={}", gs_temp_dir),
+            &format!("--temporary={}", bq_temp_ds),
+            &format!("--temporary={}", s3_temp_dir),
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("csv:{}", src.display()),
+            locator,
+        ])
+        .tee_output()
+        .expect_success();
+
+    // HACK: For drivers which can't read from single files, preserve `locator`,
+    // otherwise use the actual destination locator output by dbcrossbar.
+    let actual_locator = if locator.starts_with("s3:") || locator.starts_with("gs:") {
+        locator
+    } else {
+        output.stdout_str().trim()
+    };
+
+    // Locator to CSV.
+    let output = testdir
+        .cmd()
+        .args(&[
+            "cp",
+            &format!("--temporary={}", gs_temp_dir),
+            &format!("--temporary={}", bq_temp_ds),
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &actual_locator,
+            "csv:-",
+        ])
+        .tee_output()
+        .expect_success();
+    let actual = normalize_csv_data(&output.stdout_str());
+
+    let expected = normalize_csv_data(
+        &fs::read_to_string(&src).expect("could not read expected output"),
+    );
+    assert_diff!(&expected, &actual, ",", 0);
 }
