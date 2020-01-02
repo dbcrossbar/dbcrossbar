@@ -1,15 +1,15 @@
 //! Implementation of `count`, but as a real `async` function.
 
 use serde::Deserialize;
-use std::process::{Command, Stdio};
-use tokio::io;
-use tokio_process::CommandExt;
+use std::process::Stdio;
+use tokio::process::Command;
 
 use crate::common::*;
 use crate::drivers::{
     bigquery::BigQueryLocator,
     bigquery_shared::{BqTable, Usage},
 };
+use crate::tokio_glue::write_to_stdin;
 
 /// Implementation of `count`, but as a real `async` function.
 pub(crate) async fn count_helper(
@@ -48,32 +48,22 @@ pub(crate) async fn count_helper(
         // Run query with no output.
         .args(&["query", "--headless", "--format=json", "--nouse_legacy_sql"])
         .arg(format!("--project_id={}", locator.project()))
-        .spawn_async()
+        .spawn()
         .context("error starting `bq query`")?;
-    let child_stdin = query_child
-        .stdin()
-        .take()
-        .expect("don't have stdin that we requested");
-    io::write_all(child_stdin, count_sql)
-        .compat()
-        .await
-        .context("error piping query to `bq query`")?;
-    let child_stdout = query_child
+    write_to_stdin("bq query", &mut query_child, count_sql.as_bytes()).await?;
+    let mut child_stdout = query_child
         .stdout()
         .take()
         .expect("don't have stdout that we requested");
-    let output = vec![];
-    let (_child_stdout, output) = io::read_to_end(child_stdout, output)
-        .compat()
+    let mut output = vec![];
+    child_stdout
+        .read_to_end(&mut output)
         .await
         .context("error reading output from `bq query`")?;
     let output = String::from_utf8(output)?;
     debug!(ctx.log(), "bq count output: {}", output.trim());
 
-    let status = query_child
-        .compat()
-        .await
-        .context("error running `bq query`")?;
+    let status = query_child.await.context("error running `bq query`")?;
     if !status.success() {
         return Err(format_err!("`bq query` failed with {}", status));
     }

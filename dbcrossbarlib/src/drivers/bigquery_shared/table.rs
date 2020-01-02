@@ -4,11 +4,10 @@ use itertools::Itertools;
 use serde_json;
 use std::{
     collections::{HashMap, HashSet},
-    io::Write,
     iter::FromIterator,
-    process::{Command, Stdio},
+    process::Stdio,
 };
-use tokio_process::CommandExt;
+use tokio::process::Command;
 
 use super::{BqColumn, ColumnBigQueryExt, Ident, TableName, Usage};
 use crate::common::*;
@@ -67,18 +66,18 @@ impl BqTable {
         ctx: &Context,
         name: &TableName,
     ) -> Result<BqTable> {
+        let project_id = format!("--project_id={}", name.project());
         let output = Command::new("bq")
             .args(&[
                 "show",
                 "--headless",
                 "--schema",
                 "--format=json",
-                &format!("--project_id={}", name.project()),
+                &project_id,
                 &name.to_string(),
             ])
             .stderr(Stdio::inherit())
-            .output_async()
-            .compat()
+            .output()
             .await
             .context("error running `bq show --schema`")?;
         if !output.status.success() {

@@ -37,7 +37,7 @@ pub(crate) mod uniquifier;
 pub use failure::Error;
 
 /// Standard result type for this library.
-pub type Result<T> = result::Result<T, Error>;
+pub type Result<T, E = Error> = result::Result<T, E>;
 
 /// The buffer size to use by default when buffering I/O.
 pub(crate) const BUFFER_SIZE: usize = 64 * 1024;
@@ -64,11 +64,14 @@ pub(crate) mod common {
     pub(crate) use enumset::{EnumSet, EnumSetType};
     pub(crate) use failure::{format_err, ResultExt};
     pub(crate) use futures::{
-        compat::{Compat01As03, Future01CompatExt},
-        FutureExt, TryFutureExt,
+        join, stream, try_join, Future, FutureExt, Stream, StreamExt, TryFutureExt,
+        TryStreamExt,
     };
     pub(crate) use slog::{debug, error, info, o, trace, warn, Logger};
-    pub(crate) use std::any::Any;
+    pub(crate) use std::{
+        any::Any,
+        io::{Read, Write},
+    };
     pub(crate) use tokio::{prelude::*, sync::mpsc};
     pub(crate) use url::Url;
 
@@ -92,7 +95,7 @@ pub(crate) mod common {
         tokio_glue::{
             async_read_to_end, async_read_to_string, box_stream_once,
             buffer_sync_write_and_copy_to_async, run_futures_with_runtime,
-            run_sync_fn_in_background, BoxFuture, BoxStream,
+            run_sync_fn_in_background, BoxFuture, BoxStream, SendResultExt,
         },
         Error, Result, BUFFER_SIZE,
     };

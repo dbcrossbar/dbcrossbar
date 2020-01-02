@@ -86,11 +86,12 @@ async fn write_schema_helper(
     if_exists: IfExists,
 ) -> Result<()> {
     // Generate our JSON.
-    let f = dest.path.create_async(ctx, if_exists).await?;
-    buffer_sync_write_and_copy_to_async(f, |buff| {
+    let mut f = dest.path.create_async(ctx, if_exists).await?;
+    buffer_sync_write_and_copy_to_async(&mut f, |buff| {
         serde_json::to_writer_pretty(buff, &table)
     })
     .await
     .with_context(|_| format!("error writing to {}", dest.path))?;
+    f.flush().await?;
     Ok(())
 }

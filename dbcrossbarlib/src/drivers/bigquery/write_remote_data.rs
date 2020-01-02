@@ -1,12 +1,8 @@
 //! Implementation of `BigQueryLocator::write_remote_data`.
 
-use std::{
-    fs::File,
-    process::{Command, Stdio},
-};
+use std::{fs::File, process::Stdio};
 use tempdir::TempDir;
-use tokio::io;
-use tokio_process::CommandExt;
+use tokio::process::Command;
 
 use super::BigQueryLocator;
 use crate::common::*;
@@ -14,6 +10,7 @@ use crate::drivers::{
     bigquery_shared::{if_exists_to_bq_load_arg, BqTable, TableBigQueryExt, Usage},
     gs::GsLocator,
 };
+use crate::tokio_glue::write_to_stdin;
 
 /// Copy `source` to `dest` using `schema`.
 ///
@@ -127,12 +124,9 @@ pub(crate) async fn write_remote_data_helper(
         // characters. We pass it separately because Rust won't allow us to
         // create an array of mixed strings and paths.
         .arg(&initial_schema_path)
-        .spawn_async()
+        .spawn()
         .context("error starting `bq load`")?;
-    let status = load_child
-        .compat()
-        .await
-        .context("error running `bq load`")?;
+    let status = load_child.await.context("error running `bq load`")?;
     if !status.success() {
         return Err(format_err!("`bq load` failed with {}", status));
     }
@@ -172,9 +166,9 @@ pub(crate) async fn write_remote_data_helper(
                 .arg(&dest_table.name().to_string())
                 // Throw away stdout so it doesn't corrupt our output.
                 .stdout(Stdio::null())
-                .spawn_async()
+                .spawn()
                 .context("error starting `bq mk`")?;
-            let status = mk_child.compat().await.context("error running `bq mk`")?;
+            let status = mk_child.await.context("error running `bq mk`")?;
             if !status.success() {
                 return Err(format_err!("`bq mk` failed with {}", status));
             }
@@ -213,21 +207,10 @@ pub(crate) async fn write_remote_data_helper(
         if !if_exists.is_upsert() {
             query_command.arg(&format!("--destination_table={}", dest_table.name()));
         }
-        let mut query_child = query_command
-            .spawn_async()
-            .context("error starting `bq query`")?;
-        let child_stdin = query_child
-            .stdin()
-            .take()
-            .expect("don't have stdio that we requested");
-        io::write_all(child_stdin, query)
-            .compat()
-            .await
-            .context("error piping query to `bq query`")?;
-        let status = query_child
-            .compat()
-            .await
-            .context("error running `bq query`")?;
+        let mut query_child =
+            query_command.spawn().context("error starting `bq query`")?;
+        write_to_stdin("bq query", &mut query_child, &query).await?;
+        let status = query_child.await.context("error running `bq query`")?;
         if !status.success() {
             return Err(format_err!("`bq query` failed with {}", status));
         }
@@ -249,9 +232,9 @@ pub(crate) async fn write_remote_data_helper(
             ])
             // Throw away stdout so it doesn't corrupt our output.
             .stdout(Stdio::null())
-            .spawn_async()
+            .spawn()
             .context("error starting `bq rm`")?;
-        let status = rm_child.compat().await.context("error running `bq rm`")?;
+        let status = rm_child.await.context("error running `bq rm`")?;
         if !status.success() {
             return Err(format_err!("`bq rm` failed with {}", status));
         }

@@ -49,19 +49,17 @@ impl PathOrStdio {
     /// Open the file (or standard input) for asynchronous reading.
     pub(crate) async fn open_async(
         &self,
-    ) -> Result<Box<dyn AsyncRead + Send + 'static>> {
+    ) -> Result<Box<dyn AsyncRead + Send + Unpin + 'static>> {
         match self {
             PathOrStdio::Path(p) => {
                 let p = p.to_owned();
                 let f = tokio_fs::File::open(p.clone())
-                    .compat()
                     .await
                     .with_context(|_| format!("error opening {}", p.display()))?;
-                Ok(Box::new(f) as Box<dyn AsyncRead + Send + 'static>)
+                Ok(Box::new(f) as Box<dyn AsyncRead + Send + Unpin + 'static>)
             }
-            PathOrStdio::Stdio => {
-                Ok(Box::new(tokio_io::stdin()) as Box<dyn AsyncRead + Send + 'static>)
-            }
+            PathOrStdio::Stdio => Ok(Box::new(tokio_io::stdin())
+                as Box<dyn AsyncRead + Send + Unpin + 'static>),
         }
     }
 
@@ -70,22 +68,21 @@ impl PathOrStdio {
         &self,
         ctx: Context,
         if_exists: IfExists,
-    ) -> Result<Box<dyn AsyncWrite + Send + 'static>> {
+    ) -> Result<Box<dyn AsyncWrite + Send + Unpin + 'static>> {
         match self {
             PathOrStdio::Path(p) => {
                 let p = p.to_owned();
                 let f = if_exists
                     .to_async_open_options_no_append()?
                     .open(p.clone())
-                    .compat()
                     .await
                     .with_context(|_| format!("error opening {}", p.display()))?;
-                Ok(Box::new(f) as Box<dyn AsyncWrite + Send + 'static>)
+                Ok(Box::new(f) as Box<dyn AsyncWrite + Send + Unpin + 'static>)
             }
             PathOrStdio::Stdio => {
                 if_exists.warn_if_not_default_for_stdout(&ctx);
                 Ok(Box::new(tokio_io::stdout())
-                    as Box<dyn AsyncWrite + Send + 'static>)
+                    as Box<dyn AsyncWrite + Send + Unpin + 'static>)
             }
         }
     }

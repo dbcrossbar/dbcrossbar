@@ -1,6 +1,7 @@
 //! Given a stream of streams CSV data, rechunk the stream sizes.
 
 use csv;
+use futures::executor::block_on;
 use std::{cell::Cell, cmp::min, io, rc::Rc};
 use tokio::sync::mpsc;
 
@@ -70,7 +71,7 @@ pub fn rechunk_csvs(
             let (wtr, data) = SyncStreamWriter::pipe(worker_ctx.clone());
             let csv_stream = CsvStream {
                 name: format!("chunk_{:04}", chunk_id),
-                data: Box::new(data),
+                data: data.boxed(),
             };
 
             // Keep rough track of how many bytes we've written.
@@ -99,7 +100,7 @@ pub fn rechunk_csvs(
             // somebody hooks up a consumer and prevents `chunk.wtr` from
             // blocking forever.
             if let Some(csv_stream) = chunk.csv_stream.take() {
-                csv_stream_sender = csv_stream_sender.send(Ok(csv_stream)).wait()?;
+                block_on(csv_stream_sender.send(Ok(csv_stream))).map_send_err()?;
 
                 // Now that we potentially have a consumer, we can safely write our
                 // headers.
@@ -124,17 +125,9 @@ pub fn rechunk_csvs(
         trace!(worker_ctx.log(), "finished rechunking CSV data");
         Ok(())
     });
-    ctx.spawn_worker(worker_fut.boxed().compat());
+    ctx.spawn_worker(worker_fut.boxed());
 
-    // Fix up our `csv_stream_receiver`'s type so it's what what we want.
-    let csv_stream_receiver = csv_stream_receiver
-        // Change `Error` from `mpsc::Error` to our standard `Error`.
-        .map_err(|_| format_err!("stream read error"))
-        // Change `Item` from `Result<CsvStream>` to `CsvStream`, pushing
-        // the error into the stream's `Error` channel instead.
-        .and_then(|result| result);
-
-    let csv_streams = Box::new(csv_stream_receiver) as BoxStream<CsvStream>;
+    let csv_streams = csv_stream_receiver.boxed();
     Ok(csv_streams)
 }
 
@@ -152,37 +145,45 @@ fn rechunk_csvs_honors_chunk_size() {
         debug!(ctx.log(), "testing rechunk_csvs");
 
         // Build our `BoxStream<CsvStream>`.
-        let (mut sender, receiver) = mpsc::channel(2);
+        let (mut sender, receiver) = mpsc::channel::<Result<CsvStream>>(2);
         for &input in inputs {
-            sender = sender
-                .send(CsvStream::from_bytes(input).await)
-                .compat()
+            sender
+                .send(Ok(CsvStream::from_bytes(input).await))
                 .await
-                .unwrap();
+                .map_send_err()
+                .expect("could not write to stream");
         }
         drop(sender);
-        let csv_streams =
-            Box::new(receiver.map_err(|e| e.into())) as BoxStream<CsvStream>;
+        let csv_streams = receiver.boxed();
 
         let rechunked_csv_streams = rechunk_csvs(ctx.clone(), 7, csv_streams).unwrap();
 
         let outputs = rechunked_csv_streams
-            .map(move |csv_stream| {
-                let ctx = ctx.clone();
-                let fut = async move {
-                    let bytes = csv_stream.into_bytes(ctx.clone()).await.unwrap();
-                    trace!(
-                        ctx.log(),
-                        "collected CSV stream: {:?}",
-                        str::from_utf8(&bytes).unwrap()
-                    );
-                    Ok(bytes)
-                };
-                fut.boxed().compat()
+            // We need to use `map` here (and handle both `Ok` and `Err`)
+            // instead of using `map_ok`, because we're going to call
+            // `buffered`, and there's no `try_buffered`. In real code, we'd be
+            // using `try_buffer_unordered`, which would allow use to use `map`.
+            .map(move |csv_stream_result| -> BoxFuture<_> {
+                match csv_stream_result {
+                    Ok(csv_stream) => {
+                        let ctx = ctx.clone();
+                        async move {
+                            let bytes =
+                                csv_stream.into_bytes(ctx.clone()).await.unwrap();
+                            trace!(
+                                ctx.log(),
+                                "collected CSV stream: {:?}",
+                                str::from_utf8(&bytes[..]).unwrap()
+                            );
+                            Ok(bytes)
+                        }
+                        .boxed()
+                    }
+                    Err(err) => async { Err(err) }.boxed(),
+                }
             })
             .buffered(4)
-            .collect()
-            .compat()
+            .try_collect::<Vec<_>>()
             .await
             .unwrap();
 

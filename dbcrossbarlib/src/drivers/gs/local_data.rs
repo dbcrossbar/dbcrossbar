@@ -1,11 +1,7 @@
 //! Reading data from Google Cloud Storage.
 
-use std::{
-    io::BufReader,
-    process::{Command, Stdio},
-};
-use tokio::io;
-use tokio_process::CommandExt;
+use std::process::Stdio;
+use tokio::{io::BufReader, process::Command};
 
 use super::GsLocator;
 use crate::common::*;
@@ -37,14 +33,15 @@ pub(crate) async fn local_data_helper(
     let mut child = Command::new("gsutil")
         .args(&["ls", url.as_str()])
         .stdout(Stdio::piped())
-        .spawn_async()
+        .spawn()
         .context("error running gsutil")?;
     let child_stdout = child.stdout().take().expect("child should have stdout");
     ctx.spawn_process(format!("gsutil ls {}", url), child);
 
     // Parse `ls` output into lines, and convert into `CsvStream` values lazily
     // in case there are a lot of CSV files we need to read.
-    let file_urls = io::lines(BufReader::with_capacity(BUFFER_SIZE, child_stdout))
+    let file_urls = BufReader::with_capacity(BUFFER_SIZE, child_stdout)
+        .lines()
         .map_err(|e| format_err!("error reading gsutil output: {}", e));
     let csv_streams = file_urls.and_then(move |file_url| {
         let ctx = ctx.clone();
@@ -58,7 +55,7 @@ pub(crate) async fn local_data_helper(
             let mut child = Command::new("gsutil")
                 .args(&["cp", file_url.as_str(), "-"])
                 .stdout(Stdio::piped())
-                .spawn_async()
+                .spawn()
                 .context("error running gsutil")?;
             let child_stdout =
                 child.stdout().take().expect("child should have stdout");
@@ -69,12 +66,11 @@ pub(crate) async fn local_data_helper(
             // Assemble everything into a CSV stream.
             Ok(CsvStream {
                 name: name.to_owned(),
-                data: Box::new(data),
+                data: data.boxed(),
             })
         }
-            .boxed()
-            .compat()
+        .boxed()
     });
 
-    Ok(Some(Box::new(csv_streams) as BoxStream<CsvStream>))
+    Ok(Some(csv_streams.boxed()))
 }
