@@ -2,10 +2,11 @@
 
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, Utc};
 use geo_types::Geometry;
-use geojson::{conversion::TryInto, GeoJson};
+use geojson::GeoJson;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde_json;
+use std::convert::TryInto;
 use uuid::Uuid;
 
 use crate::common::*;

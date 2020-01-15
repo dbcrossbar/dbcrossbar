@@ -32,10 +32,7 @@ enumset = "0.4.4"
 failure = "0.1.2"
 futures = "0.3.1"
 geo-types = "0.4"
-# We use 0.15 instead of 0.16, because 0.16 requires features that are only
-# available in nightly Rust, and we don't want to rely on nightly Rust for
-# anything but `#![features(async_await)]`.
-geojson = "0.15.0"
+geojson = { version = "0.17.0", features = ["geo-types"] }
 hex = "0.4.0"
 hmac = "0.7.1"
 itertools = "0.8.0"

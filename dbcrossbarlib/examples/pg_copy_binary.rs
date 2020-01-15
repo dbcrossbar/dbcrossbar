@@ -17,8 +17,9 @@
 use byteorder::{LittleEndian, NetworkEndian, WriteBytesExt};
 use chrono::{TimeZone, Utc};
 use geo_types::Geometry;
-use geojson::{conversion::TryInto, GeoJson};
+use geojson::GeoJson;
 use std::{
+    convert::TryInto,
     error::Error,
     io::{self, prelude::*},
     mem::size_of,
