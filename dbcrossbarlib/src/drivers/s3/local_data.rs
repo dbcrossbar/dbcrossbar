@@ -29,7 +29,7 @@ pub(crate) async fn local_data_helper(
         .stdout(Stdio::piped())
         .spawn()
         .context("error running `aws s3 ls`")?;
-    let child_stdout = child.stdout().take().expect("child should have stdout");
+    let child_stdout = child.stdout.take().expect("child should have stdout");
     ctx.spawn_process(format!("aws s3 ls {}", url), child);
 
     // Parse `ls` output into lines, and convert into `CsvStream` values lazily
@@ -61,8 +61,7 @@ pub(crate) async fn local_data_helper(
                 .stdout(Stdio::piped())
                 .spawn()
                 .context("error running `aws s3 cp`")?;
-            let child_stdout =
-                child.stdout().take().expect("child should have stdout");
+            let child_stdout = child.stdout.take().expect("child should have stdout");
             let child_stdout = BufReader::with_capacity(BUFFER_SIZE, child_stdout);
             let data = copy_reader_to_stream(ctx.clone(), child_stdout)?;
             ctx.spawn_process(format!("aws s3 cp {} -", file_url), child);

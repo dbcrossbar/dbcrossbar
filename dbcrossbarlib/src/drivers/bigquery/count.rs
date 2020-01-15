@@ -52,7 +52,7 @@ pub(crate) async fn count_helper(
         .context("error starting `bq query`")?;
     write_to_stdin("bq query", &mut query_child, count_sql.as_bytes()).await?;
     let mut child_stdout = query_child
-        .stdout()
+        .stdout
         .take()
         .expect("don't have stdout that we requested");
     let mut output = vec![];

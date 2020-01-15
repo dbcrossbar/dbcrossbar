@@ -436,7 +436,7 @@ pub(crate) async fn write_to_stdin(
     data: &[u8],
 ) -> Result<()> {
     let mut child_stdin = child
-        .stdin()
+        .stdin
         .take()
         .ok_or_else(|| format_err!("`{}` doesn't have a stdin handle", child_name))?;
     child_stdin

@@ -42,7 +42,7 @@ pub(crate) async fn write_local_data_helper(
                 .stdout(Stdio::null())
                 .spawn()
                 .context("error running `aws s3`")?;
-            let child_stdin = child.stdin().take().expect("child should have stdin");
+            let child_stdin = child.stdin.take().expect("child should have stdin");
 
             // Copy data to our child process.
             copy_stream_to_writer(ctx.clone(), stream.data, child_stdin)
