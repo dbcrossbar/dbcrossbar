@@ -133,7 +133,7 @@ impl ToPostgis for gt::Polygon<f64> {
     fn to_postgis(&self) -> Self::PostgisType {
         let mut rings = Vec::with_capacity(1 + self.interiors().len());
         rings.push(self.exterior().to_postgis());
-        rings.extend(self.interiors().into_iter().map(|i| i.to_postgis()));
+        rings.extend(self.interiors().iter().map(|i| i.to_postgis()));
         ewkb::Polygon { rings, srid: None }
     }
 }
