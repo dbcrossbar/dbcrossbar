@@ -194,11 +194,6 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
         });
         pin_mut!(dest_strings);
         try_forward(&ctx, dest_strings, stdout_sink).await?;
-    // .forward(stdout_sink)
-    // // Needed to work around
-    // // https://users.rust-lang.org/t/solved-one-type-is-more-general-than-the-other-but-they-are-exactly-the-same/25194
-    // .boxed()
-    // .await?;
     } else {
         // Just collect our results and ignore
         let dests = dests.try_collect::<Vec<_>>().boxed().await?;
