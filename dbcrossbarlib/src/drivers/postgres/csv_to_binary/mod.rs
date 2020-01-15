@@ -27,6 +27,7 @@ use crate::drivers::postgres_shared::{
 use crate::from_csv_cell::FromCsvCell;
 use crate::from_json_value::FromJsonValue;
 
+mod to_postgis;
 mod write_binary;
 
 use self::write_binary::{GeometryWithSrid, RawJson, RawJsonb, WriteBinary};

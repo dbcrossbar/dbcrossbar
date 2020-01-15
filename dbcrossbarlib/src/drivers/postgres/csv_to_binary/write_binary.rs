@@ -1,11 +1,11 @@
 //! Write data values in PostgreSQL `BINARY` format.
 
-use byteorder::{LittleEndian, NetworkEndian as NE, WriteBytesExt};
+use byteorder::{NetworkEndian as NE, WriteBytesExt};
 use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use geo_types::Geometry;
+use postgis::ewkb::{AsEwkbGeometry, EwkbWrite};
 use std::mem::{size_of, size_of_val};
 use uuid::Uuid;
-use wkb::geom_to_wkb;
 
 use super::WriteExt;
 use crate::common::*;
@@ -70,18 +70,14 @@ impl WriteBinary for f64 {
 
 impl<'a> WriteBinary for GeometryWithSrid<'a> {
     fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
-        // Serialize our geometry in `wkb` format. Unfortunately,
-        // this allocates.
-        let wkb = geom_to_wkb(&self.geometry);
+        // Convert our geometry and SRID into a serializable type.
+        let ewkb = self.try_to_postgis()?;
+        let mut buffer = vec![];
+        ewkb.as_ewkb().write_ewkb(&mut buffer)?;
 
-        // Patch up our `wkb` value to use EWKB format with a SRID, which PostGIS
-        // requires. See
-        // http://trac.osgeo.org/postgis/browser/trunk/doc/ZMSgeoms.txt for details.
-        wtr.write_len(wkb.len() + 4)?;
-        wtr.write_all(&wkb[0..4])?; // These header bytes are OK.
-        wtr.write_u8(wkb[4] | 0x20)?; // Set SRID present flag.
-        wtr.write_u32::<LittleEndian>(self.srid.to_u32())?; // Splice in our SRID.
-        wtr.write_all(&wkb[5..])?; // And write the rest.
+        // Serialize our buffer.
+        wtr.write_len(buffer.len())?;
+        wtr.write_all(&buffer)?;
         Ok(())
     }
 }
