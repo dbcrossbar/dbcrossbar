@@ -1,7 +1,7 @@
 //! Logging and error-handling context.
 
 use slog::{OwnedKV, SendSyncRefUnwindSafeKV};
-use tokio_process::Child;
+use tokio::process::Child;
 
 use crate::common::*;
 
@@ -20,20 +20,15 @@ impl Context {
     /// returning `()` if they all succeed, or an `Error` as soon as one of them
     /// fails.
     pub fn create(log: Logger) -> (Self, BoxFuture<()>) {
-        let (error_sender, receiver) = mpsc::channel(1);
+        let (error_sender, mut receiver) = mpsc::channel(1);
         let context = Context { log, error_sender };
         let worker_future = async move {
-            match receiver.into_future().compat().await {
-                // An error occurred in the low-level mechanisms of our `mpsc`
-                // channel.
-                Err((_err, _rcvr)) => {
-                    Err(format_err!("background task reporting failed"))
-                }
+            match receiver.next().await {
                 // All senders have shut down correctly.
-                Ok((None, _rcvr)) => Ok(()),
+                None => Ok(()),
                 // We received an error from a background worker, so report that
                 // as the result for all our background workers.
-                Ok((Some(err), _rcvr)) => Err(err),
+                Some(err) => Err(err),
             }
         };
         (context, worker_future.boxed())
@@ -79,22 +74,20 @@ impl Context {
     /// future returned by `create`.
     pub fn spawn_worker<W>(&self, worker: W)
     where
-        W: Future<Item = (), Error = Error> + Send + 'static,
+        W: Future<Output = Result<()>> + Send + 'static,
     {
         let log = self.log.clone();
-        let error_sender = self.error_sender.clone();
+        let mut error_sender = self.error_sender.clone();
         tokio::spawn(
             async move {
-                if let Err(err) = worker.compat().await {
+                if let Err(err) = worker.await {
                     debug!(log, "reporting background worker error: {}", err);
-                    if let Err(_err) = error_sender.send(err).compat().await {
+                    if let Err(_err) = error_sender.send(err).await {
                         debug!(log, "broken pipe reporting background worker error");
                     }
                 }
-                Ok(())
             }
-                .boxed()
-                .compat(),
+            .boxed(),
         );
     }
 
@@ -102,12 +95,12 @@ impl Context {
     /// exit codes that occur.
     pub fn spawn_process(&self, name: String, child: Child) {
         let worker = async move {
-            match child.compat().await {
+            match child.await {
                 Ok(ref status) if status.success() => Ok(()),
                 Ok(status) => Err(format_err!("{} failed with {}", name, status)),
                 Err(err) => Err(format_err!("{} failed with error: {}", name, err)),
             }
         };
-        self.spawn_worker(worker.boxed().compat());
+        self.spawn_worker(worker.boxed());
     }
 }

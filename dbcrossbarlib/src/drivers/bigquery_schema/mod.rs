@@ -109,9 +109,12 @@ async fn write_schema_helper(
     )?;
 
     // Output our schema to our destination.
-    let f = dest.path.create_async(ctx, if_exists).await?;
-    buffer_sync_write_and_copy_to_async(f, |buff| bq_table.write_json_schema(buff))
-        .await
-        .with_context(|_| format!("error writing to {}", dest.path))?;
+    let mut f = dest.path.create_async(ctx, if_exists).await?;
+    buffer_sync_write_and_copy_to_async(&mut f, |buff| {
+        bq_table.write_json_schema(buff)
+    })
+    .await
+    .with_context(|_| format!("error writing to {}", dest.path))?;
+    f.flush().await?;
     Ok(())
 }

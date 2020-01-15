@@ -1,7 +1,7 @@
 //! Writing data to Google Cloud Storage.
 
-use std::process::{Command, Stdio};
-use tokio_process::CommandExt;
+use std::process::Stdio;
+use tokio::process::Command;
 
 use super::{prepare_as_destination_helper, GsLocator};
 use crate::common::*;
@@ -23,7 +23,7 @@ pub(crate) async fn write_local_data_helper(
     prepare_as_destination_helper(ctx.clone(), url.clone(), if_exists).await?;
 
     // Spawn our uploader processes.
-    let written = data.map(move |stream| {
+    let written = data.map_ok(move |stream| {
         let url = url.clone();
         let ctx = ctx.clone();
         async move {
@@ -38,7 +38,7 @@ pub(crate) async fn write_local_data_helper(
                 .stdin(Stdio::piped())
                 // Throw away stdout so it doesn't corrupt our output.
                 .stdout(Stdio::null())
-                .spawn_async()
+                .spawn()
                 .context("error running gsutil")?;
             let child_stdin = child.stdin().take().expect("child should have stdin");
 
@@ -49,7 +49,6 @@ pub(crate) async fn write_local_data_helper(
 
             // Wait for `gsutil` to finish.
             let status = child
-                .compat()
                 .await
                 .with_context(|_| format!("error finishing upload to {}", url))?;
             if status.success() {
@@ -58,8 +57,8 @@ pub(crate) async fn write_local_data_helper(
                 Err(format_err!("gsutil returned error: {}", status))
             }
         }
-            .boxed()
+        .boxed()
     });
 
-    Ok(Box::new(written) as BoxStream<BoxFuture<BoxLocator>>)
+    Ok(written.boxed())
 }

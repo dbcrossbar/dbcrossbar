@@ -1,7 +1,7 @@
 //! Preparing bucket directories as output destinations.
 
-use std::process::{Command, Stdio};
-use tokio_process::CommandExt;
+use std::process::Stdio;
+use tokio::process::Command;
 
 use crate::common::*;
 
@@ -25,9 +25,10 @@ pub(crate) async fn prepare_as_destination_helper(
             .args(&["s3", "rm", "--recursive", s3_url.as_str()])
             // Throw away stdout so it doesn't corrupt our output.
             .stdout(Stdio::null())
-            .status_async()
+            .status()
+            .await
             .context("error running `aws s3`")?;
-        if !status.compat().await?.success() {
+        if !status.success() {
             warn!(
                 ctx.log(),
                 "can't delete contents of {}, possibly because it doesn't exist",

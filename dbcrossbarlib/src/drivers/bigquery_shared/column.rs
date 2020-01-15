@@ -1,7 +1,7 @@
 //! BigQuery columns.
 
 use serde_derive::{Deserialize, Serialize};
-use std::{fmt, io::Write};
+use std::fmt;
 
 use super::{
     BqDataType, BqNonArrayDataType, BqRecordOrNonArrayDataType, BqStructField,

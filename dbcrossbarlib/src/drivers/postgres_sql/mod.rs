@@ -97,11 +97,12 @@ async fn write_schema_helper(
     // database with a very different naming scheme.
     let pg_create_table =
         PgCreateTable::from_name_and_columns(table.name.clone(), &table.columns)?;
-    let out = dest.path.create_async(ctx, if_exists).await?;
-    buffer_sync_write_and_copy_to_async(out, |buff| {
+    let mut out = dest.path.create_async(ctx, if_exists).await?;
+    buffer_sync_write_and_copy_to_async(&mut out, |buff| {
         write!(buff, "{}", pg_create_table)
     })
     .await
     .with_context(|_| format!("error writing {}", dest.path))?;
+    out.flush().await?;
     Ok(())
 }

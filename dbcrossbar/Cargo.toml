@@ -19,7 +19,7 @@ clap = { version = "2.32.0", features = ["wrap_help"] }
 common_failures = "0.1.1"
 env_logger = "0.7.1"
 failure = "0.1.2"
-futures-preview = { version = "0.3.0-alpha.17", features = ["compat"] }
+futures = "0.3.1"
 humanize-rs = "0.1.5"
 log = "0.4.5"
 openssl = "0.10.16" # Needed to prevent link errors.
@@ -34,5 +34,6 @@ slog-json = "2.3.0"
 slog-term = "2.4.0"
 structopt = "0.3.1"
 structopt-derive = "0.4"
-tokio = "0.1.22"
+tokio = { version = "0.2.6", features = ["fs", "io-std", "io-util", "process", "stream", "sync"] }
+tokio-util = { version = "0.2.0", features = ["codec"] }
 url = "2.1.0"

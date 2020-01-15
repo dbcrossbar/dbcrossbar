@@ -1,10 +1,12 @@
 //! Our basic data representation.
 
 use bytes::Bytes;
-use reqwest::{self, r#async::Response};
-use std::error::Error as StdError;
+use failure::Compat;
+use reqwest::{self, Response};
+use std::pin::Pin;
 
 use crate::common::*;
+use crate::tokio_glue::try_forward_to_sender;
 
 /// A stream of CSV data, with a unique name.
 pub struct CsvStream {
@@ -22,15 +24,14 @@ impl CsvStream {
         B: Into<BytesMut>,
     {
         use crate::tokio_glue::bytes_channel;
-        let (sender, receiver) = bytes_channel(1);
+        let (mut sender, receiver) = bytes_channel(1);
         sender
             .send(Ok(bytes.into()))
-            .compat()
             .await
             .expect("could not send bytes to channel");
         CsvStream {
             name: "bytes".to_owned(),
-            data: Box::new(receiver),
+            data: receiver.boxed(),
         }
     }
 
@@ -40,23 +41,20 @@ impl CsvStream {
         let ctx = ctx.child(o!("fn" => "into_bytes"));
         let mut stream = self.data;
         let mut bytes = BytesMut::new();
-        loop {
-            match stream.into_future().compat().await {
-                Err((err, _rest_of_stream)) => {
+        while let Some(result) = stream.next().await {
+            match result {
+                Err(err) => {
                     error!(ctx.log(), "error reading stream: {}", err);
                     return Err(err);
                 }
-                Ok((None, _rest_of_stream)) => {
-                    trace!(ctx.log(), "end of stream");
-                    return Ok(bytes);
-                }
-                Ok((Some(new_bytes), rest_of_stream)) => {
+                Ok(new_bytes) => {
                     trace!(ctx.log(), "received {} bytes", new_bytes.len());
-                    stream = rest_of_stream;
                     bytes.extend_from_slice(&new_bytes);
                 }
             }
         }
+        trace!(ctx.log(), "end of stream");
+        return Ok(bytes);
     }
 
     /// Convert an HTTP `Body` into a `CsvStream`.
@@ -65,30 +63,44 @@ impl CsvStream {
         response: Response,
     ) -> Result<CsvStream> {
         let data = response
-            .into_body()
-            .map(|chunk| BytesMut::from(chunk.as_ref()))
+            .bytes_stream()
+            // Convert `Bytes` to `BytesMut` by copying, which is slightly
+            // expensive.
+            .map_ok(|chunk| BytesMut::from(chunk.as_ref()))
             .map_err(|err| err.into());
         Ok(CsvStream {
             name,
-            data: Box::new(data),
+            data: data.boxed(),
         })
     }
 
     /// Convert this `CsvStream` into a `Stream` that can be used with
     /// `hyper`, `reqwest`, and possibly other Rust libraries. Returns
     /// the stream name and the stream.
+    #[allow(clippy::type_complexity)]
     pub(crate) fn into_name_and_portable_stream(
         self,
+        ctx: &Context,
     ) -> (
         String,
-        impl Stream<Item = Bytes, Error = impl StdError + Send + Sized + Sync + 'static>,
+        Pin<Box<dyn Stream<Item = Result<Bytes, Compat<Error>>> + Send + Sync>>,
     ) {
-        (
-            self.name,
-            self.data
-                .map(|bytes| bytes.freeze())
-                .map_err(|err| err.compat()),
-        )
+        // Adjust our payload type.
+        let to_forward = self.data.map_ok(|bytes| bytes.freeze());
+
+        // `self.data` is a `BoxStream`, so we can't assume that it's `Sync`.
+        // But our return type needs to be `Sync`, so we need to take fairly
+        // drastic measures, and forward our stream through a channel.
+        let (mut sender, receiver) = mpsc::channel::<Result<Bytes, Error>>(1);
+        let forwarder_ctx = ctx.to_owned();
+        let forwarder: BoxFuture<()> = async move {
+            try_forward_to_sender(&forwarder_ctx, to_forward, &mut sender).await
+        }
+        .boxed();
+        ctx.spawn_worker(forwarder);
+
+        let stream = receiver.map_err(|err| err.compat());
+        (self.name, Box::pin(stream))
     }
 }
 

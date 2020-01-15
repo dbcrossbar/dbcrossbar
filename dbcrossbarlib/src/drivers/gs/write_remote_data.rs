@@ -1,8 +1,7 @@
 //! Implementation of `GsLocator::write_remote_data`.
 
-use std::process::{Command, Stdio};
-use tokio::io;
-use tokio_process::CommandExt;
+use std::process::Stdio;
+use tokio::process::Command;
 
 use super::{prepare_as_destination_helper, GsLocator};
 use crate::common::*;
@@ -10,6 +9,7 @@ use crate::drivers::{
     bigquery::BigQueryLocator,
     bigquery_shared::{if_exists_to_bq_load_arg, BqTable, Usage},
 };
+use crate::tokio_glue::write_to_stdin;
 
 /// Copy `source` to `dest` using `schema`.
 ///
@@ -84,20 +84,10 @@ pub(crate) async fn write_remote_data_helper(
             "--nouse_legacy_sql",
             &format!("--project_id={}", source.project()),
         ])
-        .spawn_async()
+        .spawn()
         .context("error starting `bq query`")?;
-    let child_stdin = query_child
-        .stdin()
-        .take()
-        .expect("don't have stdin that we requested");
-    io::write_all(child_stdin, export_sql)
-        .compat()
-        .await
-        .context("error piping query to `bq query`")?;
-    let status = query_child
-        .compat()
-        .await
-        .context("error running `bq query`")?;
+    write_to_stdin("bq query", &mut query_child, export_sql.as_bytes()).await?;
+    let status = query_child.await.context("error running `bq query`")?;
     if !status.success() {
         return Err(format_err!("`bq query` failed with {}", status));
     }
@@ -120,12 +110,9 @@ pub(crate) async fn write_remote_data_helper(
         ])
         // Throw away stdout so it doesn't corrupt our output.
         .stdout(Stdio::null())
-        .spawn_async()
+        .spawn()
         .context("error starting `bq extract`")?;
-    let status = extract_child
-        .compat()
-        .await
-        .context("error running `bq extract`")?;
+    let status = extract_child.await.context("error running `bq extract`")?;
     if !status.success() {
         return Err(format_err!("`bq extract` failed with {}", status));
     }
@@ -143,9 +130,9 @@ pub(crate) async fn write_remote_data_helper(
         ])
         // Throw away stdout so it doesn't corrupt our output.
         .stdout(Stdio::null())
-        .spawn_async()
+        .spawn()
         .context("error starting `bq rm`")?;
-    let status = rm_child.compat().await.context("error running `bq rm`")?;
+    let status = rm_child.await.context("error running `bq rm`")?;
     if !status.success() {
         return Err(format_err!("`bq rm` failed with {}", status));
     }

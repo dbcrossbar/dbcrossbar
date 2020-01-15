@@ -64,14 +64,10 @@ pub(crate) async fn write_remote_data_helper(
         source = pg_quote(source_url.as_str()), // `$1` doesn't work here.
         credentials = credentials_sql(to_args)?,
     );
-    let copy_stmt = client.prepare(&copy_sql).compat().await?;
-    client
-        .execute(&copy_stmt, &[])
-        .compat()
-        .await
-        .with_context(|_| {
-            format!("error copying {} from {}", pg_create_table.name, source_url)
-        })?;
+    let copy_stmt = client.prepare(&copy_sql).await?;
+    client.execute(&copy_stmt, &[]).await.with_context(|_| {
+        format!("error copying {} from {}", pg_create_table.name, source_url)
+    })?;
     Ok(vec![dest.boxed()])
 }
 

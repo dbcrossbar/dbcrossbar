@@ -85,7 +85,7 @@ pub(crate) async fn write_local_data_helper(
             let ctx = ctx.clone();
             let creds = creds.clone();
             let bigml_dest_args = bigml_dest_args.clone();
-            let bigml_source_stream = s3_locator_stream.map(move |locator_fut| {
+            let bigml_source_stream = s3_locator_stream.map_ok(move |locator_fut| {
                 let ctx = ctx.clone();
                 let creds = creds.clone();
                 let bigml_dest_args = bigml_dest_args.clone();
@@ -132,7 +132,7 @@ pub(crate) async fn write_local_data_helper(
                 };
                 fut.boxed()
             });
-            Box::new(bigml_source_stream)
+            bigml_source_stream.boxed()
         } else {
             // We don't have S3 storage, so attempt a direct upload. This doesn't
             // work yet, so warn, and try anyway.
@@ -141,14 +141,14 @@ pub(crate) async fn write_local_data_helper(
             let ctx = ctx.clone();
             let creds = creds.clone();
             #[allow(deprecated)]
-            Box::new(data.map(move |stream| {
+            data.map_ok(move |stream| {
                 let ctx = ctx.clone();
                 let creds = creds.clone();
                 let fut = async move {
                     let ctx = ctx.child(o!("stream" => stream.name.clone()));
                     debug!(ctx.log(), "uploading CSV stream to BigML");
 
-                    let (name, data) = stream.into_name_and_portable_stream();
+                    let (name, data) = stream.into_name_and_portable_stream(&ctx);
                     let client = creds.client()?;
                     let source = client.create_source_from_stream(&name, data).await?;
                     // TODO: Handle args.name if this ever works for real.
@@ -158,12 +158,13 @@ pub(crate) async fn write_local_data_helper(
                     Ok((ctx, source))
                 };
                 fut.boxed()
-            }))
+            })
+            .boxed()
         };
 
     // Finish setting up our source objects, and optionally convert them to
     // datasets.
-    let written = sources.map(move |ctx_source_fut| {
+    let written = sources.map_ok(move |ctx_source_fut| {
         let creds = creds.clone();
         let schema = schema.clone(); // Expensive.
         let bigml_dest_args = bigml_dest_args.clone();
@@ -203,5 +204,5 @@ pub(crate) async fn write_local_data_helper(
         };
         fut.boxed()
     });
-    Ok(Box::new(written) as BoxStream<_>)
+    Ok(written.boxed())
 }

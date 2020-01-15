@@ -42,22 +42,27 @@ pub(crate) async fn local_data_helper(
     debug!(ctx.log(), "export SQL: {}", sql);
 
     // Copy the data out of PostgreSQL as a CSV stream.
-    let mut conn = connect(ctx.clone(), url).await?;
-    let stmt = conn.prepare(&sql).compat().await?;
+    let conn = connect(ctx.clone(), url).await?;
+    let stmt = conn.prepare(&sql).await?;
     let rdr = conn
-        .copy_out(&stmt, &[])
+        .copy_out(&stmt)
+        .await
+        // See if the query itself fails.
+        .map_err(|err| -> Error {
+            err.context("error querying PostgreSQL for data").into()
+        })?
         // Convert data representation to match `dbcrossbar` conventions.
-        .map(move |bytes: Bytes| -> BytesMut {
+        .map_ok(move |bytes: Bytes| -> BytesMut {
             trace!(ctx.log(), "read {} bytes", bytes.len());
-            bytes.into()
+            bytes.as_ref().into()
         })
         // Convert errors to our standard error type.
         .map_err(|err| err.context("error reading data from PostgreSQL").into());
 
     let csv_stream = CsvStream {
         name: table_name.clone(),
-        data: Box::new(rdr),
+        data: rdr.boxed(),
     };
-    let box_stream: BoxStream<CsvStream> = Box::new(stream::once(Ok(csv_stream)));
+    let box_stream = stream::once(async { Ok(csv_stream) }).boxed();
     Ok(Some(box_stream))
 }

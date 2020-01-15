@@ -1,8 +1,11 @@
 //! Driver for working with CSV files.
 
 use csv;
-use std::{ffi::OsStr, fmt, io::BufReader, path::PathBuf, str::FromStr};
-use tokio::{fs, io};
+use std::{ffi::OsStr, fmt, path::PathBuf, str::FromStr};
+use tokio::{
+    fs,
+    io::{self, BufReader},
+};
 use walkdir::WalkDir;
 
 use crate::common::*;
@@ -137,9 +140,9 @@ async fn local_data_helper(
             let stream = copy_reader_to_stream(ctx, data)?;
             let csv_stream = CsvStream {
                 name: "data".to_owned(),
-                data: Box::new(
-                    stream.map_err(move |e| format_err!("cannot read stdin: {}", e)),
-                ),
+                data: stream
+                    .map_err(move |e| format_err!("cannot read stdin: {}", e))
+                    .boxed(),
             };
             Ok(Some(box_stream_once(Ok(csv_stream))))
         }
@@ -173,7 +176,7 @@ async fn local_data_helper(
                 }
             }
 
-            let csv_streams = stream::iter_ok(paths).and_then(move |file_path| {
+            let csv_streams = stream::iter(paths).map(Ok).and_then(move |file_path| {
                 let ctx = ctx.clone();
                 let base_path = base_path.clone();
                 async move {
@@ -189,27 +192,29 @@ async fn local_data_helper(
                     ));
 
                     // Open our file.
-                    let data = fs::File::open(file_path.clone())
-                        .compat()
-                        .await
-                        .with_context(|_| {
-                            format!("cannot open {}", file_path.display())
-                        })?;
+                    let data = fs::File::open(file_path.clone()).await.with_context(
+                        |_| format!("cannot open {}", file_path.display()),
+                    )?;
                     let data = BufReader::with_capacity(BUFFER_SIZE, data);
                     let stream = copy_reader_to_stream(ctx, data)?;
 
                     Ok(CsvStream {
                         name,
-                        data: Box::new(stream.map_err(move |e| {
-                            format_err!("cannot read {}: {}", file_path.display(), e)
-                        })),
+                        data: stream
+                            .map_err(move |e| {
+                                format_err!(
+                                    "cannot read {}: {}",
+                                    file_path.display(),
+                                    e
+                                )
+                            })
+                            .boxed(),
                     })
                 }
-                    .boxed()
-                    .compat()
+                .boxed()
             });
 
-            Ok(Some(Box::new(csv_streams) as BoxStream<CsvStream>))
+            Ok(Some(csv_streams.boxed()))
         }
     }
 }
@@ -242,7 +247,7 @@ async fn write_local_data_helper(
         PathOrStdio::Path(path) => {
             if path.to_string_lossy().ends_with('/') {
                 // Write streams to our directory as multiple files.
-                let result_stream = data.map(move |stream| {
+                let result_stream = data.map_ok(move |stream| {
                     let path = path.clone();
                     let ctx = ctx.clone();
                     let if_exists = if_exists.clone();
@@ -264,9 +269,9 @@ async fn write_local_data_helper(
                         .await?;
                         Ok(CsvLocator::from_path(csv_path).boxed())
                     }
-                        .boxed()
+                    .boxed()
                 });
-                Ok(Box::new(result_stream) as BoxStream<BoxFuture<BoxLocator>>)
+                Ok(result_stream.boxed())
             } else {
                 // Write all our streams as a single file.
                 let stream = concatenate_csv_streams(ctx.clone(), data)?;
@@ -297,7 +302,6 @@ async fn write_stream_to_file(
         .parent()
         .ok_or_else(|| format_err!("cannot find parent dir for {}", dest.display()))?;
     fs::create_dir_all(dir)
-        .compat()
         .await
         .with_context(|_| format!("unable to create directory {}", dir.display()))?;
 
@@ -306,7 +310,6 @@ async fn write_stream_to_file(
     let wtr = if_exists
         .to_async_open_options_no_append()?
         .open(dest.clone())
-        .compat()
         .await
         .with_context(|_| format!("cannot open {}", dest.display()))?;
     copy_stream_to_writer(ctx.clone(), data, wtr)

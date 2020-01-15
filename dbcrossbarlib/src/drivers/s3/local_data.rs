@@ -2,12 +2,8 @@
 
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::{
-    io::BufReader,
-    process::{Command, Stdio},
-};
-use tokio::io;
-use tokio_process::CommandExt;
+use std::process::Stdio;
+use tokio::{io::BufReader, process::Command};
 
 use super::S3Locator;
 use crate::common::*;
@@ -31,7 +27,7 @@ pub(crate) async fn local_data_helper(
     let mut child = Command::new("aws")
         .args(&["s3", "ls", "--recursive", url.as_str()])
         .stdout(Stdio::piped())
-        .spawn_async()
+        .spawn()
         .context("error running `aws s3 ls`")?;
     let child_stdout = child.stdout().take().expect("child should have stdout");
     ctx.spawn_process(format!("aws s3 ls {}", url), child);
@@ -42,7 +38,8 @@ pub(crate) async fn local_data_helper(
     // XXX - This will fail (either silently or noisily, I'm not sure) if there
     // are 1000+ files in the S3 directory, and we can't fix this without
     // switching from `aws s3` to native S3 API calls from Rust.
-    let lines = io::lines(BufReader::with_capacity(BUFFER_SIZE, child_stdout))
+    let lines = BufReader::with_capacity(BUFFER_SIZE, child_stdout)
+        .lines()
         .map_err(|e| format_err!("error reading `aws s3 ls` output: {}", e));
     let csv_streams = lines.and_then(move |line| {
         let ctx = ctx.clone();
@@ -62,7 +59,7 @@ pub(crate) async fn local_data_helper(
             let mut child = Command::new("aws")
                 .args(&["s3", "cp", file_url.as_str(), "-"])
                 .stdout(Stdio::piped())
-                .spawn_async()
+                .spawn()
                 .context("error running `aws s3 cp`")?;
             let child_stdout =
                 child.stdout().take().expect("child should have stdout");
@@ -73,14 +70,13 @@ pub(crate) async fn local_data_helper(
             // Assemble everything into a CSV stream.
             Ok(CsvStream {
                 name: name.to_owned(),
-                data: Box::new(data),
+                data: data.boxed(),
             })
         }
-            .boxed()
-            .compat()
+        .boxed()
     });
 
-    Ok(Some(Box::new(csv_streams) as BoxStream<CsvStream>))
+    Ok(Some(csv_streams.boxed()))
 }
 
 /// Given an S3 URL, get the URL for just the bucket itself.

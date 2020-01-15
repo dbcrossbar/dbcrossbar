@@ -38,12 +38,10 @@ pub(crate) async fn count_helper(
     debug!(ctx.log(), "count SQL: {}", sql);
 
     // Run our query.
-    let mut conn = connect(ctx.clone(), url).await?;
-    let stmt = conn.prepare(&sql).compat().await?;
+    let conn = connect(ctx.clone(), url).await?;
+    let stmt = conn.prepare(&sql).await?;
     let rows = conn
         .query(&stmt, &[])
-        .collect()
-        .compat()
         .await
         .context("error running count query")?;
     if rows.len() != 1 {

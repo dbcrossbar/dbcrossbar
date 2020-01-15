@@ -3,7 +3,7 @@
 use tokio::sync::mpsc::Sender;
 
 use crate::common::*;
-use crate::tokio_glue::bytes_channel;
+use crate::tokio_glue::{bytes_channel, try_forward_to_sender};
 
 /// Given a stream of CSV streams, merge them into a single CSV stream, removing
 /// the headers from every CSV stream except the first.
@@ -19,21 +19,16 @@ pub(crate) fn concatenate_csv_streams(
     let worker_ctx = ctx.child(o!("streams_transform" => "concatenate_csv_streams"));
     let worker = async move {
         let mut first = true;
-        loop {
-            match csv_streams.into_future().compat().await {
-                Err((err, _rest_of_csv_streams)) => {
+        while let Some(result) = csv_streams.next().await {
+            match result {
+                Err(err) => {
                     error!(
                         worker_ctx.log(),
                         "error reading stream of streams: {}", err,
                     );
                     return send_err(sender, err).await;
                 }
-                Ok((None, _rest_of_csv_streams)) => {
-                    trace!(worker_ctx.log(), "end of CSV streams");
-                    return Ok(());
-                }
-                Ok((Some(csv_stream), rest_of_csv_streams)) => {
-                    csv_streams = rest_of_csv_streams;
+                Ok(csv_stream) => {
                     debug!(worker_ctx.log(), "concatenating {}", csv_stream.name);
                     let mut data = csv_stream.data;
 
@@ -45,20 +40,22 @@ pub(crate) fn concatenate_csv_streams(
                     }
 
                     // Forward the rest of the stream.
-                    sender = forward_stream(worker_ctx.clone(), data, sender).await?;
+                    try_forward_to_sender(&worker_ctx, data, &mut sender).await?;
                 }
             }
         }
+        trace!(worker_ctx.log(), "end of CSV streams");
+        Ok(())
     };
 
     // Build our combined `CsvStream`.
     let new_csv_stream = CsvStream {
         name: "combined".to_owned(),
-        data: Box::new(receiver) as BoxStream<BytesMut>,
+        data: receiver.boxed(),
     };
 
     // Run the worker in the background, and return our combined stream.
-    ctx.spawn_worker(worker.boxed().compat());
+    ctx.spawn_worker(worker.boxed());
     Ok(new_csv_stream)
 }
 
@@ -74,19 +71,21 @@ fn concatenate_csv_streams_strips_all_but_first_header() {
         debug!(ctx.log(), "testing concatenate_csv_streams");
 
         // Build our `BoxStream<CsvStream>`.
-        let (mut sender, receiver) = mpsc::channel(2);
-        sender = sender
-            .send(CsvStream::from_bytes(&input_1[..]).await)
-            .compat()
+        let (mut sender, receiver) = mpsc::channel::<Result<CsvStream>>(2);
+        sender
+            .send(Ok(CsvStream::from_bytes(&input_1[..]).await))
             .await
+            .map_send_err()
             .unwrap();
         sender
-            .send(CsvStream::from_bytes(&input_2[..]).await)
-            .compat()
+            .send(Ok(CsvStream::from_bytes(&input_2[..]).await))
             .await
+            .map_send_err()
             .unwrap();
-        let csv_streams =
-            Box::new(receiver.map_err(|e| e.into())) as BoxStream<CsvStream>;
+        let csv_streams = receiver.boxed();
+
+        // Close our sender so that our receiver knows we're done.
+        drop(sender);
 
         // Test concatenation.
         let combined = concatenate_csv_streams(ctx.clone(), csv_streams)
@@ -116,19 +115,13 @@ fn strip_csv_header(
         let mut buffer: Option<BytesMut> = None;
 
         // Look for a full CSV header.
-        loop {
-            match stream.into_future().compat().await {
-                Err((err, _rest_of_stream)) => {
+        while let Some(result) = stream.next().await {
+            match result {
+                Err(err) => {
                     error!(worker_ctx.log(), "error reading stream: {}", err);
                     return send_err(sender, err).await;
                 }
-                Ok((None, _rest_of_stream)) => {
-                    trace!(worker_ctx.log(), "end of stream");
-                    let err = format_err!("end of CSV file while reading headers");
-                    return send_err(sender, err).await;
-                }
-                Ok((Some(bytes), rest_of_stream)) => {
-                    stream = rest_of_stream;
+                Ok(bytes) => {
                     trace!(worker_ctx.log(), "received {} bytes", bytes.len());
                     let mut new_buffer = if let Some(mut buffer) = buffer.take() {
                         buffer.extend_from_slice(&bytes);
@@ -144,12 +137,13 @@ fn strip_csv_header(
                                 header_len
                             );
                             let _headers = new_buffer.split_to(header_len);
-                            sender = sender
+                            sender
                                 .send(Ok(new_buffer))
-                                .compat()
                                 .await
                                 .context("broken pipe prevented sending data")?;
-                            break;
+                            try_forward_to_sender(&worker_ctx, stream, &mut sender)
+                                .await?;
+                            return Ok(());
                         }
                         Ok(None) => {
                             // Save our buffer and keep looking for the end of
@@ -168,43 +162,20 @@ fn strip_csv_header(
                 }
             }
         }
-        let _sender = forward_stream(worker_ctx.clone(), stream, sender).await?;
-        Ok(())
+        trace!(worker_ctx.log(), "end of stream");
+        let err = format_err!("end of CSV file while reading headers");
+        send_err(sender, err).await
     };
 
     // Run the worker in the background, and return our receiver.
-    ctx.spawn_worker(worker.boxed().compat());
-    Ok(Box::new(receiver) as BoxStream<BytesMut>)
-}
-
-/// Forward `stream` to `sender`, and return `sender`. If an error occurs while
-/// forwarding, it will be forwarded to `sender` (if possible), and this
-/// function will return an error.
-async fn forward_stream(
-    ctx: Context,
-    stream: BoxStream<BytesMut>,
-    sender: Sender<Result<BytesMut>>,
-) -> Result<Sender<Result<BytesMut>>> {
-    trace!(ctx.log(), "forwarding byte stream");
-    let err_sender = sender.clone();
-    match stream.map(Ok).forward(sender).compat().await {
-        // We successfully consumed `stream`, so just return `sender`.
-        Ok((_stream, sender)) => Ok(sender),
-        // We failed while forwarding data.
-        Err(err) => {
-            error!(ctx.log(), "error while forwarding byte stream: {}", err);
-            let local_err = format_err!("error forwarding stream");
-            send_err(err_sender, err).await?;
-            Err(local_err)
-        }
-    }
+    ctx.spawn_worker(worker.boxed());
+    Ok(receiver.boxed())
 }
 
 // Send `err` using `sender`.
-async fn send_err(sender: Sender<Result<BytesMut>>, err: Error) -> Result<()> {
+async fn send_err(mut sender: Sender<Result<BytesMut>>, err: Error) -> Result<()> {
     sender
         .send(Err(err))
-        .compat()
         .await
         .context("broken pipe prevented sending error")?;
     Ok(())

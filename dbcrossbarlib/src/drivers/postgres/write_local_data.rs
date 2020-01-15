@@ -1,11 +1,13 @@
 //! Support for writing local data to Postgres.
 
+use futures::pin_mut;
 use itertools::Itertools;
 use std::{collections::HashSet, io::prelude::*, iter::FromIterator, str};
 
 use super::{connect, csv_to_binary::copy_csv_to_pg_binary, Client, PostgresLocator};
 use crate::common::*;
 use crate::drivers::postgres_shared::{CheckCatalog, Ident, PgCreateTable, TableName};
+use crate::tokio_glue::try_forward;
 use crate::transform::spawn_sync_transform;
 
 /// If `table_name` exists, `DROP` it.
@@ -16,10 +18,9 @@ async fn drop_table_if_exists(
 ) -> Result<()> {
     debug!(ctx.log(), "deleting table {} if exists", table.name);
     let drop_sql = format!("DROP TABLE IF EXISTS {}", TableName(&table.name));
-    let drop_stmt = client.prepare(&drop_sql).compat().await?;
+    let drop_stmt = client.prepare(&drop_sql).await?;
     client
         .execute(&drop_stmt, &[])
-        .compat()
         .await
         .with_context(|_| format!("error deleting existing {}", table.name))?;
     Ok(())
@@ -34,10 +35,9 @@ async fn create_table(
     debug!(ctx.log(), "create table {}", table.name);
     let create_sql = format!("{}", table);
     debug!(ctx.log(), "CREATE TABLE SQL: {}", create_sql);
-    let create_stmt = client.prepare(&create_sql).compat().await?;
+    let create_stmt = client.prepare(&create_sql).await?;
     client
         .execute(&create_stmt, &[])
-        .compat()
         .await
         .with_context(|_| format!("error creating {}", &table.name))?;
     Ok(())
@@ -135,12 +135,16 @@ async fn copy_from_stream<'a>(
 ) -> Result<()> {
     debug!(ctx.log(), "copying data into {:?}", dest.name);
     let copy_from_sql = copy_from_sql(&dest, "BINARY")?;
-    let stmt = client.prepare(&copy_from_sql).compat().await?;
-    client
-        .copy_in(&stmt, &[], stream)
-        .compat()
+    let stmt = client.prepare(&copy_from_sql).await?;
+    let sink = client
+        .copy_in::<_, BytesMut>(&stmt)
         .await
         .with_context(|_| format!("error copying data into {}", dest.name))?;
+
+    // `CopyInSink` is a weird sink, and we have to "pin" it directly into our
+    // stack in order to forward data to it.
+    pin_mut!(sink);
+    try_forward(ctx, stream, sink).await?;
     Ok(())
 }
 
@@ -202,17 +206,13 @@ pub(crate) async fn upsert_from(
         ctx.log(),
         "upserting from {} to {} with {}", src_table.name, dest_table.name, sql,
     );
-    let stmt = client.prepare(&sql).compat().await?;
-    client
-        .execute(&stmt, &[])
-        .compat()
-        .await
-        .with_context(|_| {
-            format!(
-                "error upserting from {} to {}",
-                src_table.name, dest_table.name,
-            )
-        })?;
+    let stmt = client.prepare(&sql).await?;
+    client.execute(&stmt, &[]).await.with_context(|_| {
+        format!(
+            "error upserting from {} to {}",
+            src_table.name, dest_table.name,
+        )
+    })?;
     Ok(())
 }
 
@@ -256,15 +256,13 @@ pub(crate) async fn write_local_data_helper(
     // Insert data streams one at a time, because parallel insertion _probably_
     // won't gain much with Postgres (but we haven't measured).
     let fut = async move {
-        loop {
-            match data.into_future().compat().await {
-                Err((err, _rest_of_stream)) => {
+        while let Some(result) = data.next().await {
+            match result {
+                Err(err) => {
                     debug!(ctx.log(), "error reading stream of streams: {}", err);
                     return Err(err);
                 }
-                Ok((Some(csv_stream), rest_of_stream)) => {
-                    data = rest_of_stream;
-
+                Ok(csv_stream) => {
                     let ctx = ctx.child(o!("stream" => csv_stream.name.clone()));
 
                     // Convert our CSV stream into a PostgreSQL `BINARY` stream.
@@ -318,11 +316,9 @@ pub(crate) async fn write_local_data_helper(
                         .await?;
                     }
                 }
-                Ok((None, _rest_of_stream)) => {
-                    return Ok(dest.boxed());
-                }
             }
         }
+        Ok(dest.boxed())
     };
     Ok(box_stream_once(Ok(fut.boxed())))
 }

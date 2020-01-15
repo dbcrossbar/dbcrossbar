@@ -5,13 +5,13 @@
 
 use failure::Fail;
 use native_tls::TlsConnector;
+use postgres_native_tls::MakeTlsConnector;
 use std::{
     fmt,
     str::{self, FromStr},
 };
 pub use tokio_postgres::Client;
 use tokio_postgres::Config;
-use tokio_postgres_native_tls::MakeTlsConnector;
 
 use crate::common::*;
 use crate::drivers::postgres_shared::PgCreateTable;
@@ -42,7 +42,6 @@ pub(crate) async fn connect(ctx: Context, url: Url) -> Result<Client> {
         .context("could not build PostgreSQL TLS connector")?;
     let (client, connection) = config
         .connect(MakeTlsConnector::new(tls_connector))
-        .compat()
         .await
         .context("could not connect to PostgreSQL")?;
 
@@ -167,7 +166,7 @@ impl Locator for PostgresLocator {
                     .ok_or_else(|| format_err!("no such table {}", source))?;
             Ok(Some(table.to_table()?))
         }
-            .boxed()
+        .boxed()
     }
 
     fn count(

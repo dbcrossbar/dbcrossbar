@@ -158,27 +158,27 @@ fn array_to_binary(
     let mut buffer = vec![];
     wtr.write_value(&mut buffer, |wtr| {
         // The number of dimensions in our array.
-        wtr.write_i32::<NE>(dimension_count)?;
+        WriteBytesExt::write_i32::<NE>(wtr, dimension_count)?;
 
         // Has NULL? (I'm not sure what this does, but I figure it's safer
         // to assume we might have NULLs than otherwise.)
-        wtr.write_i32::<NE>(1)?;
+        WriteBytesExt::write_i32::<NE>(wtr, 1)?;
 
         // The OID for our `data_type`, so PostgreSQL knows how to parse this.
-        wtr.write_i32::<NE>(data_type.oid()?)?;
+        WriteBytesExt::write_i32::<NE>(wtr, data_type.oid()?)?;
 
         // Array dimension 1 of 1: Size.
-        wtr.write_i32::<NE>(cast::i32(json_array.len())?)?;
+        WriteBytesExt::write_i32::<NE>(wtr, cast::i32(json_array.len())?)?;
 
         // Array dimension 1 of 1: Lower bound. We want 1-based, because that's the default
         // in PostgreSQL.
-        wtr.write_i32::<NE>(1)?;
+        WriteBytesExt::write_i32::<NE>(wtr, 1)?;
 
         // Elements.
         for elem in &json_array {
             match elem {
                 Value::Null => {
-                    wtr.write_i32::<NE>(-1)?;
+                    WriteBytesExt::write_i32::<NE>(wtr, -1)?;
                 }
                 other => {
                     json_to_binary(wtr, data_type, other)?;
