@@ -145,3 +145,20 @@ export BIGML_USERNAME=... BIGML_API_KEY=...
 env RUST_BACKTRACE=1 RUST_LOG=warn,dbcrossbarlib=debug,dbcrossbar=debug \
     cargo test --all -- --ignored --nocapture
 ```
+
+## License
+
+Licensed under either of:
+
+- Apache License, Version 2.0, ([LICENSE-APACHE.txt](./LICENSE-APACHE.txt) or [on the web](http://www.apache.org/licenses/LICENSE-2.0))
+- MIT license ([LICENSE-MIT.txt](./LICENSE-MIT.txt) or [on the web](http://opensource.org/licenses/MIT))
+
+...at your option.
+
+### Contributions
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above without any additional terms or conditions.
+
+### Third-party libraries
+
+`dbcrossbar` depends on a variety of third-party libraries, each with their own copyright and license. We have configured a [`deny.toml` file](./deny.toml) that currently attempts to restrict our dependencies to MIT, Apache-2.0, BSD-3-Clause, BSD-2-Clause, CC0-1.0 and ISC licenses, with a single MPL-2.0 dependency. But please verify the `deny.toml` file (and individual dependencies) to be certain, because details may change in the future. Each of these licenses imposes certain obligations on redistribution.
