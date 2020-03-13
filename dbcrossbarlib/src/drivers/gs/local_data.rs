@@ -55,9 +55,9 @@ pub(crate) async fn local_data_helper(
             let mut child = Command::new("gsutil")
                 .args(&[
                     "-o",
-                    "GSUtil:parallel_process_count=1",
+                    "GSUtil:parallel_process_count=2",
                     "-o",
-                    "GSUtil:parallel_thread_count=1",
+                    "GSUtil:parallel_thread_count=2",
                     "cp",
                     file_url.as_str(),
                     "-",
