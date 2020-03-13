@@ -440,12 +440,12 @@ dependencies = [
 
 [[package]]
 name = "dbcrossbar"
-version = "0.3.0-beta.3"
+version = "0.3.0-seamus.1"
 dependencies = [
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cli_test_dir 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "common_failures 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "dbcrossbarlib 0.3.0-beta.3",
+ "dbcrossbarlib 0.3.0-seamus.1",
  "difference 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -470,7 +470,7 @@ dependencies = [
 
 [[package]]
 name = "dbcrossbarlib"
-version = "0.3.0-beta.3"
+version = "0.3.0-seamus.1"
 dependencies = [
  "base64 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bigml 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",

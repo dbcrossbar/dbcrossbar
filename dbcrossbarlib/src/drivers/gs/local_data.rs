@@ -53,7 +53,15 @@ pub(crate) async fn local_data_helper(
                 ctx.child(o!("stream" => name.to_owned(), "url" => file_url.clone()));
             debug!(ctx.log(), "streaming from {} using `gsutil cp`", file_url);
             let mut child = Command::new("gsutil")
-                .args(&["cp", file_url.as_str(), "-"])
+                .args(&[
+                    "cp",
+                    "-o",
+                    "GSUtil:parallel_process_count=1",
+                    "-o",
+                    "GSUtil:parallel_thread_count=1",
+                    file_url.as_str(),
+                    "-",
+                ])
                 .stdout(Stdio::piped())
                 .spawn()
                 .context("error running gsutil")?;
