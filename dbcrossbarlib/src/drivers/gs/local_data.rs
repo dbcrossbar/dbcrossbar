@@ -54,11 +54,11 @@ pub(crate) async fn local_data_helper(
             debug!(ctx.log(), "streaming from {} using `gsutil cp`", file_url);
             let mut child = Command::new("gsutil")
                 .args(&[
-                    "cp",
                     "-o",
                     "GSUtil:parallel_process_count=1",
                     "-o",
                     "GSUtil:parallel_thread_count=1",
+                    "cp",
                     file_url.as_str(),
                     "-",
                 ])
