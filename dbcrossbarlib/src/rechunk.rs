@@ -91,9 +91,8 @@ pub fn rechunk_csvs(
         };
         let mut chunk = new_chunk()?;
 
-        for row in rdr.byte_records() {
-            let row = row.context("cannot read row")?;
-
+        let mut row = csv::ByteRecord::new();
+        while rdr.read_byte_record(&mut row).context("cannot read row")? {
             // If this is the first row we've seen, we can safely send our
             // `CsvStream` to our `csv_stream_sender: BoxStream<CsvStream>`. We
             // do this before writing any data, including the headers, so that
