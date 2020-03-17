@@ -15,6 +15,7 @@ extern crate diesel;
 use std::result;
 
 pub(crate) mod args;
+pub(crate) mod clouds;
 pub(crate) mod concat;
 pub(crate) mod context;
 pub(crate) mod csv_stream;
