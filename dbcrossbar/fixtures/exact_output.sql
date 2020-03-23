@@ -1,6 +1,5 @@
 CREATE TABLE exact_output (
     id int,
-    test_null text,
     test_bool boolean,
     test_date date,
     test_int16 smallint,

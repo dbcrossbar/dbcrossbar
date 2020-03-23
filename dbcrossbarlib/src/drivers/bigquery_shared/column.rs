@@ -370,7 +370,12 @@ return "#,
             // confused. This particularly affects BigML CSV import, because it
             // treats booleans as string values.
             BqNonArrayDataType::Bool => {
-                write!(f, "IF({ident}, \"t\", \"f\") AS {ident}", ident = ident)?;
+                // `IF` treats NULL as false, so use `CASE`.
+                write!(
+                    f,
+                    "(CASE {ident} WHEN TRUE THEN \"t\" WHEN FALSE THEN \"f\" ELSE NULL END) AS {ident}",
+                    ident = ident,
+                )?;
             }
 
             BqNonArrayDataType::Datetime => {
