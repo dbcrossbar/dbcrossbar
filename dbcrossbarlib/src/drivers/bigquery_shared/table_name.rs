@@ -4,7 +4,6 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use std::{fmt, str::FromStr};
 
-use super::Ident;
 use crate::common::*;
 use crate::drivers::bigquery::BigQueryLocator;
 
@@ -132,5 +131,19 @@ impl<'a> fmt::Display for DottedTableName<'a> {
             Ident(&self.0.dataset),
             Ident(&self.0.table),
         )
+    }
+}
+
+/// A BigQuery identifier, for formatting purposes.
+pub(crate) struct Ident<'a>(pub(crate) &'a str);
+
+impl<'a> fmt::Display for Ident<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.0.contains('`') {
+            // We can't output identifiers containing backticks.
+            Err(fmt::Error)
+        } else {
+            write!(f, "`{}`", self.0)
+        }
     }
 }

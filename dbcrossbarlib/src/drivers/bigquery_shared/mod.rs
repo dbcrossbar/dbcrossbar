@@ -13,11 +13,13 @@
 use crate::common::*;
 
 mod column;
+mod column_name;
 mod data_type;
 mod table;
 mod table_name;
 
 pub(crate) use self::column::*;
+pub(crate) use self::column_name::*;
 pub(crate) use self::data_type::*;
 pub(crate) use self::table::*;
 pub(crate) use self::table_name::*;

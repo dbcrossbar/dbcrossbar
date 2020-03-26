@@ -5,7 +5,7 @@
 //!
 //! [peg]: https://github.com/kevinmehall/rust-peg
 
-use super::{BqDataType, BqNonArrayDataType, BqRecordOrNonArrayDataType, BqStructField};
+use super::{ColumnName, BqDataType, BqNonArrayDataType, BqRecordOrNonArrayDataType, BqStructField};
 
 pub data_type -> BqDataType
     = array_data_type
@@ -51,9 +51,11 @@ field -> BqStructField
 
 // I can't find a syntax for field names in the docs, so let's assume
 // unquoted C identifiers for now.
-field_name -> String
+field_name -> ColumnName
     // Use `#quiet` and `#expected` to give nicer parse error messages.
-    = #quiet< name:$([A-Za-z_] [A-Za-z_0-9]*) { name.to_owned() } >
+    = #quiet< name:$([A-Za-z_] [A-Za-z_0-9]*) {
+        name.parse::<ColumnName>().expect("field name should already be valid")
+    } >
     / #expected("struct field name")
 
 // One or more characters of whitespace.
