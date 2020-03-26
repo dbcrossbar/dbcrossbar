@@ -1,15 +1,13 @@
 //! BigQuery columns.
 
 use serde_derive::{Deserialize, Serialize};
-use std::fmt;
 
 use super::{
     BqDataType, BqNonArrayDataType, BqRecordOrNonArrayDataType, BqStructField,
-    DataTypeBigQueryExt, Usage,
+    ColumnName, DataTypeBigQueryExt, Usage,
 };
 use crate::common::*;
 use crate::schema::Column;
-use crate::uniquifier::Uniquifier;
 
 /// Extensions to `Column` (the portable version) to handle BigQuery-query
 /// specific stuff.
@@ -33,12 +31,7 @@ pub(crate) struct BqColumn {
     description: Option<String>,
 
     /// The name of the BigQuery column.
-    pub name: String,
-
-    /// The original name of this field in our portable schema, if any. Used
-    /// internally.
-    #[serde(skip)]
-    pub(crate) external_name: Option<String>,
+    pub name: ColumnName,
 
     /// The type of the BigQuery column.
     #[serde(rename = "type")]
@@ -66,9 +59,9 @@ impl BqColumn {
     ///
     /// Note that dashes and spaces are replaced with underscores to satisfy BigQuery naming rules.
     pub(crate) fn for_column(
+        name: ColumnName,
         col: &Column,
         usage: Usage,
-        uniquifier: &mut Uniquifier,
     ) -> Result<BqColumn> {
         let bq_data_type = BqDataType::for_data_type(&col.data_type, usage)?;
         let (ty, mode): (BqNonArrayDataType, Mode) = match bq_data_type {
@@ -79,8 +72,7 @@ impl BqColumn {
             BqDataType::NonArray(ty) => (ty, Mode::Required),
         };
         Ok(BqColumn {
-            name: uniquifier.unique_id_for(&col.name)?.to_owned(),
-            external_name: Some(col.name.clone()),
+            name,
             description: None,
             ty: BqRecordOrNonArrayDataType::DataType(ty),
             mode,
@@ -91,7 +83,7 @@ impl BqColumn {
     /// Given a `BqColumn`, construct a portable `Column`.
     pub(crate) fn to_column(&self) -> Result<Column> {
         Ok(Column {
-            name: self.name.clone(),
+            name: self.name.to_string(),
             data_type: self.bq_data_type()?.to_data_type()?,
             is_nullable: match self.mode {
                 // I'm not actually sure about how to best map `Repeated`, so
@@ -255,21 +247,20 @@ return "#,
     ) -> Result<()> {
         let table_prefix = table_prefix.unwrap_or("");
         assert!(table_prefix == "" || table_prefix.ends_with('.'));
-        let ident = Ident(&self.name);
         if self.mode == Mode::Repeated {
             write!(
                 f,
-                "ImportJson_{idx}({table_prefix}{ident})",
+                "ImportJson_{idx}({table_prefix}{name})",
                 idx = idx,
                 table_prefix = table_prefix,
-                ident = ident,
+                name = self.name,
             )?;
         } else {
             write!(
                 f,
-                "{table_prefix}{ident}",
+                "{table_prefix}{name}",
                 table_prefix = table_prefix,
-                ident = ident
+                name = self.name,
             )?;
         }
         Ok(())
@@ -283,8 +274,7 @@ return "#,
         idx: usize,
     ) -> Result<()> {
         self.write_import_expr(f, idx, None)?;
-        let ident = Ident(&self.name);
-        write!(f, " AS {ident}", ident = ident)?;
+        write!(f, " AS {name}", name = self.name)?;
         Ok(())
     }
 
@@ -307,7 +297,6 @@ return "#,
         data_type: &BqNonArrayDataType,
         f: &mut dyn Write,
     ) -> Result<()> {
-        let ident = Ident(&self.name);
         write!(f, "NULLIF(TO_JSON_STRING(")?;
         match data_type {
             // We can safely convert arrays of these types directly to JSON.
@@ -317,19 +306,19 @@ return "#,
             | BqNonArrayDataType::Int64
             | BqNonArrayDataType::Numeric
             | BqNonArrayDataType::String => {
-                write!(f, "{}", ident)?;
+                write!(f, "{}", self.name)?;
             }
 
             BqNonArrayDataType::Datetime => {
-                write!(f, "(SELECT ARRAY_AGG(FORMAT_DATETIME(\"%Y-%m-%dT%H:%M:%E*S\", {ident})) FROM UNNEST({ident}) AS {ident})", ident = ident)?;
+                write!(f, "(SELECT ARRAY_AGG(FORMAT_DATETIME(\"%Y-%m-%dT%H:%M:%E*S\", {name})) FROM UNNEST({name}) AS {name})", name = self.name)?;
             }
 
             BqNonArrayDataType::Geography => {
-                write!(f, "(SELECT ARRAY_AGG(ST_ASGEOJSON({ident})) FROM UNNEST({ident}) AS {ident})", ident = ident,)?;
+                write!(f, "(SELECT ARRAY_AGG(ST_ASGEOJSON({name})) FROM UNNEST({name}) AS {name})", name = self.name)?;
             }
 
             BqNonArrayDataType::Timestamp => {
-                write!(f, "(SELECT ARRAY_AGG(FORMAT_TIMESTAMP(\"%Y-%m-%dT%H:%M:%E*SZ\", {ident}, \"+0\")) FROM UNNEST({ident}) AS {ident})", ident = ident,)?;
+                write!(f, "(SELECT ARRAY_AGG(FORMAT_TIMESTAMP(\"%Y-%m-%dT%H:%M:%E*SZ\", {name}, \"+0\")) FROM UNNEST({name}) AS {name})", name = self.name)?;
             }
 
             // These we don't know how to output at all. (We don't have a
@@ -343,7 +332,7 @@ return "#,
                 ));
             }
         }
-        write!(f, "), '[]') AS {ident}", ident = ident)?;
+        write!(f, "), '[]') AS {name}", name = self.name)?;
         Ok(())
     }
 
@@ -353,8 +342,6 @@ return "#,
         data_type: &BqNonArrayDataType,
         f: &mut dyn Write,
     ) -> Result<()> {
-        let ident = Ident(&self.name);
-
         match data_type {
             // We trust BigQuery to output these directly.
             BqNonArrayDataType::Date
@@ -362,7 +349,7 @@ return "#,
             | BqNonArrayDataType::Int64
             | BqNonArrayDataType::Numeric
             | BqNonArrayDataType::String => {
-                write!(f, "{}", ident)?;
+                write!(f, "{}", self.name)?;
             }
 
             // BigQuery outputs "true" and "false" by default, but let's make it
@@ -370,24 +357,29 @@ return "#,
             // confused. This particularly affects BigML CSV import, because it
             // treats booleans as string values.
             BqNonArrayDataType::Bool => {
-                write!(f, "IF({ident}, \"t\", \"f\") AS {ident}", ident = ident)?;
+                // `IF` treats NULL as false, so use `CASE`.
+                write!(
+                    f,
+                    "(CASE {name} WHEN TRUE THEN \"t\" WHEN FALSE THEN \"f\" ELSE NULL END) AS {name}",
+                    name = self.name,
+                )?;
             }
 
             BqNonArrayDataType::Datetime => {
                 write!(
                     f,
-                    "FORMAT_DATETIME(\"%Y-%m-%dT%H:%M:%E*S\", {ident}) AS {ident}",
-                    ident = ident
+                    "FORMAT_DATETIME(\"%Y-%m-%dT%H:%M:%E*S\", {name}) AS {name}",
+                    name = self.name
                 )?;
             }
 
             BqNonArrayDataType::Geography => {
-                write!(f, "ST_ASGEOJSON({ident}) AS {ident}", ident = ident)?;
+                write!(f, "ST_ASGEOJSON({name}) AS {name}", name = self.name)?;
             }
 
             struct_ty @ BqNonArrayDataType::Struct(_) => {
                 if struct_ty.is_json_safe() {
-                    write!(f, "TO_JSON_STRING({ident}) AS {ident}", ident = ident)?;
+                    write!(f, "TO_JSON_STRING({name}) AS {name}", name = self.name)?;
                 } else {
                     return Err(format_err!("cannot serialize {} as JSON", struct_ty));
                 }
@@ -396,8 +388,8 @@ return "#,
             BqNonArrayDataType::Timestamp => {
                 write!(
                     f,
-                    "FORMAT_TIMESTAMP(\"%Y-%m-%dT%H:%M:%E*SZ\", {ident}, \"+0\") AS {ident}",
-                    ident = ident
+                    "FORMAT_TIMESTAMP(\"%Y-%m-%dT%H:%M:%E*SZ\", {name}, \"+0\") AS {name}",
+                    name = self.name
                 )?;
             }
 
@@ -442,19 +434,5 @@ impl Default for Mode {
     /// output, so use that as our default.
     fn default() -> Self {
         Mode::Nullable
-    }
-}
-
-/// A BigQuery identifier, for formatting purposes.
-pub(crate) struct Ident<'a>(pub(crate) &'a str);
-
-impl<'a> fmt::Display for Ident<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.0.contains('`') {
-            // We can't output identifiers containing backticks.
-            Err(fmt::Error)
-        } else {
-            write!(f, "`{}`", self.0)
-        }
     }
 }

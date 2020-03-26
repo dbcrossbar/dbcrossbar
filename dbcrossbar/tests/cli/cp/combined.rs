@@ -116,11 +116,10 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
 
 #[test]
 #[ignore]
-fn cp_tricky_column_names() {
+fn cp_tricky_column_names_fails() {
     let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "cp_tricky_column_names");
     let src = testdir.src_path("fixtures/tricky_column_names.csv");
-    let expected = testdir.src_path("fixtures/tricky_column_names_expected.csv");
     let schema = testdir.src_path("fixtures/tricky_column_names.sql");
     let pg_table = post_test_table_url("testme1.cp_tricky_column_names");
     let bq_table = bq_test_table("cp_tricky_column_names");
@@ -141,6 +140,10 @@ fn cp_tricky_column_names() {
         .expect_success();
 
     // Postgres to BigQuery.
+    //
+    // This is now expected to fail, because editing column names automagically
+    // ends in tears and policy is now firmly against it. Instead, copy to a
+    // local machine and run `scrubcsv --clean-column-names`.
     testdir
         .cmd()
         .args(&[
@@ -153,38 +156,5 @@ fn cp_tricky_column_names() {
             &bq_table,
         ])
         .tee_output()
-        .expect_success();
-
-    // Postgres to BigQuery.
-    testdir
-        .cmd()
-        .args(&[
-            "cp",
-            "--if-exists=upsert-on:person__Delivery Zone 4.14",
-            &format!("--schema=postgres-sql:{}", schema.display()),
-            &format!("--temporary={}", gs_temp_dir),
-            &format!("--temporary={}", bq_temp_ds),
-            &pg_table,
-            &bq_table,
-        ])
-        .tee_output()
-        .expect_success();
-
-    // BigQuery back to CSV for the final comparison below.
-    testdir
-        .cmd()
-        .args(&[
-            "cp",
-            &format!("--schema=postgres-sql:{}", schema.display()),
-            &format!("--temporary={}", gs_temp_dir),
-            &format!("--temporary={}", bq_temp_ds),
-            &bq_table,
-            "csv:out.csv",
-        ])
-        .tee_output()
-        .expect_success();
-
-    let expected = fs::read_to_string(&expected).unwrap();
-    let actual = fs::read_to_string(testdir.path("out.csv")).unwrap();
-    assert_diff!(&expected, &actual, ",", 0);
+        .expect_failure();
 }

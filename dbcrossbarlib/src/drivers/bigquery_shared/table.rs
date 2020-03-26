@@ -4,15 +4,15 @@ use itertools::Itertools;
 use serde_json;
 use std::{
     collections::{HashMap, HashSet},
+    convert::TryFrom,
     iter::FromIterator,
     process::Stdio,
 };
 use tokio::process::Command;
 
-use super::{BqColumn, ColumnBigQueryExt, Ident, TableName, Usage};
+use super::{BqColumn, ColumnBigQueryExt, ColumnName, TableName, Usage};
 use crate::common::*;
 use crate::schema::{Column, Table};
-use crate::uniquifier::Uniquifier;
 
 /// Extensions to `Column` (the portable version) to handle BigQuery-query
 /// specific stuff.
@@ -53,10 +53,24 @@ impl BqTable {
         columns: &[Column],
         usage: Usage,
     ) -> Result<BqTable> {
-        let mut uniquifier = Uniquifier::default();
+        let mut col_names = HashSet::<ColumnName>::new();
         let columns = columns
             .iter()
-            .map(move |c| BqColumn::for_column(c, usage, &mut uniquifier))
+            .map(move |c| {
+                let col_name = ColumnName::try_from(&c.name)?;
+                if !col_names.insert(col_name.clone()) {
+                    let prev = col_names
+                        .get(&col_name)
+                        .expect("should already have matching column");
+                    Err(format_err!(
+                        "duplicate column names {:?} and {:?}",
+                        prev,
+                        col_name
+                    ))
+                } else {
+                    BqColumn::for_column(col_name, c, usage)
+                }
+            })
             .collect::<Result<Vec<BqColumn>>>()?;
         Ok(BqTable { name, columns })
     }
@@ -108,8 +122,8 @@ impl BqTable {
     /// types in the two tables, but for now, we're happy to let the database
     /// verify all that for us.
     pub(crate) fn aligned_with(&self, other_table: &BqTable) -> Result<BqTable> {
-        let column_map = HashMap::<&str, &BqColumn>::from_iter(
-            self.columns.iter().map(|c| (&c.name[..], c)),
+        let column_map = HashMap::<&ColumnName, &BqColumn>::from_iter(
+            self.columns.iter().map(|c| (&c.name, c)),
         );
         Ok(BqTable {
             name: self.name.clone(),
@@ -117,7 +131,7 @@ impl BqTable {
                 .columns
                 .iter()
                 .map(|c| -> Result<BqColumn> {
-                    if let Some(&col) = column_map.get(&c.name[..]) {
+                    if let Some(&col) = column_map.get(&c.name) {
                         Ok(col.to_owned())
                     } else {
                         Err(format_err!(
@@ -188,16 +202,13 @@ impl BqTable {
         // Convert `merge_keys` into actual column values for consistency.
         let mut column_map = HashMap::new();
         for col in &self.columns {
-            let external_name =
-                col.external_name.as_ref().map(|n| &n[..]).ok_or_else(|| {
-                    format_err!("missing external name for column {:?}", col.name)
-                })?;
-            column_map.insert(external_name, col);
+            column_map.insert(&col.name, col);
         }
         let merge_keys = merge_keys
             .iter()
             .map(|key| -> Result<&BqColumn> {
-                Ok(column_map.get(&key[..]).ok_or_else(|| {
+                let col_name = ColumnName::try_from(key)?;
+                Ok(column_map.get(&col_name).ok_or_else(|| {
                     format_err!("upsert key {} is not in table", key)
                 })?)
             })
@@ -216,10 +227,8 @@ impl BqTable {
         }
 
         // Build a table when we can check for merge keys by name.
-        let merge_key_table = merge_keys
-            .iter()
-            .map(|c| &c.name[..])
-            .collect::<HashSet<_>>();
+        let merge_key_table =
+            merge_keys.iter().map(|c| &c.name).collect::<HashSet<_>>();
 
         // Write out any helper functions we'll need to transform data.
         for (idx, col) in self.columns.iter().enumerate() {
@@ -256,7 +265,7 @@ WHEN NOT MATCHED THEN INSERT (
                 .enumerate()
                 .map(|(idx, c)| format!(
                     "dest.{col} = {expr}",
-                    col = Ident(&c.name),
+                    col = c.name,
                     expr = col_import_expr(c, idx),
                 ))
                 .join(" AND\n    "),
@@ -264,17 +273,17 @@ WHEN NOT MATCHED THEN INSERT (
                 .columns
                 .iter()
                 .enumerate()
-                .filter_map(|(idx, c)| if merge_key_table.contains(&c.name[..]) {
+                .filter_map(|(idx, c)| if merge_key_table.contains(&c.name) {
                     None
                 } else {
                     Some(format!(
                         "{col} = {expr}",
-                        col = Ident(&c.name),
+                        col = c.name,
                         expr = col_import_expr(c, idx),
                     ))
                 })
                 .join(",\n    "),
-            columns = self.columns.iter().map(|c| Ident(&c.name)).join(",\n    "),
+            columns = self.columns.iter().map(|c| &c.name).join(",\n    "),
             values = self
                 .columns
                 .iter()

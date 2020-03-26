@@ -134,32 +134,35 @@ pub(crate) async fn write_local_data_helper(
             });
             bigml_source_stream.boxed()
         } else {
-            // We don't have S3 storage, so attempt a direct upload. This doesn't
-            // work yet, so warn, and try anyway.
-            eprintln!("WARNING: You must pass --temporary=s3://... for BigML");
+            // We don't have S3 storage, so attempt a direct upload.
+            //
+            // TODO: Unimplemeted by BigML, sadly.
+            return Err(format_err!(
+                "WARNING: You must pass --temporary=s3://... for BigML"
+            ));
 
-            let ctx = ctx.clone();
-            let creds = creds.clone();
-            #[allow(deprecated)]
-            data.map_ok(move |stream| {
-                let ctx = ctx.clone();
-                let creds = creds.clone();
-                let fut = async move {
-                    let ctx = ctx.child(o!("stream" => stream.name.clone()));
-                    debug!(ctx.log(), "uploading CSV stream to BigML");
+            // let ctx = ctx.clone();
+            // let creds = creds.clone();
+            // #[allow(deprecated)]
+            // data.map_ok(move |stream| {
+            //     let ctx = ctx.clone();
+            //     let creds = creds.clone();
+            //     let fut = async move {
+            //         let ctx = ctx.child(o!("stream" => stream.name.clone()));
+            //         debug!(ctx.log(), "uploading CSV stream to BigML");
 
-                    let (name, data) = stream.into_name_and_portable_stream(&ctx);
-                    let client = creds.client()?;
-                    let source = client.create_source_from_stream(&name, data).await?;
-                    // TODO: Handle args.name if this ever works for real.
+            //         let (name, data) = stream.into_name_and_portable_stream(&ctx);
+            //         let client = creds.client()?;
+            //         let source = client.create_source_from_stream(&name, data).await?;
+            //         // TODO: Handle args.name if this ever works for real.
 
-                    let ctx = ctx.child(o!("bigml_source" => source.id().to_string()));
-                    debug!(ctx.log(), "uploaded CSV stream to BigML");
-                    Ok((ctx, source))
-                };
-                fut.boxed()
-            })
-            .boxed()
+            //         let ctx = ctx.child(o!("bigml_source" => source.id().to_string()));
+            //         debug!(ctx.log(), "uploaded CSV stream to BigML");
+            //         Ok((ctx, source))
+            //     };
+            //     fut.boxed()
+            // })
+            // .boxed()
         };
 
     // Finish setting up our source objects, and optionally convert them to

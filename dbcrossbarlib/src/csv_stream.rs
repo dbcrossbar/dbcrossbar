@@ -77,7 +77,7 @@ impl CsvStream {
     /// Convert this `CsvStream` into a `Stream` that can be used with
     /// `hyper`, `reqwest`, and possibly other Rust libraries. Returns
     /// the stream name and the stream.
-    #[allow(clippy::type_complexity)]
+    #[allow(clippy::type_complexity, dead_code)]
     pub(crate) fn into_name_and_portable_stream(
         self,
         ctx: &Context,

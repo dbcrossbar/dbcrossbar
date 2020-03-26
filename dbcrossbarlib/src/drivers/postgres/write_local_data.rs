@@ -188,7 +188,7 @@ DO UPDATE SET
         key_columns = upsert_keys.iter().map(|k| Ident(k)).join(", "),
         value_updates = value_keys
             .iter()
-            .map(|vk| format!("{name} = EXCLUDED.{name}", name = vk))
+            .map(|vk| format!("{name} = EXCLUDED.{name}", name = Ident(&vk)))
             .join(",\n    "),
     ))
 }

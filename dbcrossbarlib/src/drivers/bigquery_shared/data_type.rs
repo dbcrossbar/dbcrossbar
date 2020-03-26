@@ -3,7 +3,10 @@
 use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize, Serializer};
 use std::{borrow::Cow, collections::HashSet, fmt, result};
 
-use super::column::{BqColumn, Mode};
+use super::{
+    column::{BqColumn, Mode},
+    ColumnName,
+};
 use crate::common::*;
 use crate::schema::{DataType, Srid};
 use crate::separator::Separator;
@@ -420,7 +423,11 @@ impl Serialize for BqNonArrayDataType {
 pub struct BqStructField {
     /// An optional field name. BigQuery `STRUCT`s are basically tuples, but
     /// with optional names for each position in the tuple.
-    pub(crate) name: Option<String>,
+    ///
+    /// We assume, with no particular documentation that we've seen, that these
+    /// follow the rules from columns names and not generic BigQuery
+    /// identifiers. However, they do _not_ need to be unique within a struct.
+    pub(crate) name: Option<ColumnName>,
     /// The field type.
     pub(crate) ty: BqDataType,
 }
@@ -456,6 +463,7 @@ fn nested_arrays() {
 
 #[test]
 fn parsing() {
+    use std::convert::TryFrom;
     use BqDataType as DT;
     use BqNonArrayDataType as NADT;
     let examples = [
@@ -490,11 +498,11 @@ fn parsing() {
             "STRUCT<x FLOAT64, y FLOAT64>",
             DT::NonArray(NADT::Struct(vec![
                 BqStructField {
-                    name: Some("x".to_owned()),
+                    name: Some(ColumnName::try_from("x").unwrap()),
                     ty: DT::NonArray(NADT::Float64),
                 },
                 BqStructField {
-                    name: Some("y".to_owned()),
+                    name: Some(ColumnName::try_from("y").unwrap()),
                     ty: DT::NonArray(NADT::Float64),
                 },
             ])),
