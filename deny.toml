@@ -33,14 +33,14 @@ skip = [
     { name = "generic-array", version = "0.12.3" },
     # mio v0.6.21 still uses this old version for some reason.
     { name = "miow", version = "0.2.1" },
+    # This is using the "semver trick" to maintain compatibility between
+    # multiple releases of `rand`: https://github.com/dtolnay/semver-trick
+    { name = "rand_core", version = "0.3.1" },
     # clap v2.33.0 still uses an older version.
     { name = "strsim", version = "0.8.0" },
 ]
 
 skip-tree = [
-    # Inlcuded by `reqwest`. But not actually used on non-WASM platforms?
-    { name = "wasm-bindgen-webidl" },
-
     # postgis pulls in tons of older duplicates that we don't want, but it's
     # still worth the price for now. We should offer to update these depdencies
     # upstream.
