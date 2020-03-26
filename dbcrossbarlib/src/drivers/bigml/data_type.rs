@@ -42,6 +42,8 @@ impl OptypeExt for Optype {
                 Ok(DataType::Text)
             }
             Optype::Numeric => Ok(DataType::Float64),
+            // Future versions of `bigml` may support new optypes.
+            _ => Err(format_err!("unknown BigML optype {:?}", self)),
         }
     }
 }
