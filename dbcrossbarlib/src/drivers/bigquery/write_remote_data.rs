@@ -122,39 +122,13 @@ pub(crate) async fn write_remote_data_helper(
             dest_table.name(),
         );
 
-        // If we're doing an upsert, make sure the destination table exists.
-        if if_exists.is_upsert() {
-            bigquery::create_table_if_not_exists(&ctx, &dest_table).await?;
-        }
-
-        // Generate our import query.
+        // Generate and run our import SQL.
         let mut query = Vec::new();
-        if let IfExists::Upsert(merge_keys) = &if_exists {
-            dest_table.write_merge_sql(
-                initial_table.name(),
-                &merge_keys[..],
-                &mut query,
-            )?;
-        } else {
-            dest_table.write_import_sql(initial_table.name(), &mut query)?;
-        }
+        dest_table.write_import_sql(initial_table.name(), if_exists, &mut query)?;
         let query =
             String::from_utf8(query).expect("generated SQL should always be UTF-8");
         debug!(ctx.log(), "import sql: {}", query);
-
-        // Pipe our query text to `bq query`.
-        if if_exists.is_upsert() {
-            bigquery::execute_sql(&ctx, dest.project(), &query).await?;
-        } else {
-            bigquery::query_to_table(
-                &ctx,
-                dest.project(),
-                &query,
-                dest_table.name(),
-                &if_exists,
-            )
-            .await?;
-        }
+        bigquery::execute_sql(&ctx, dest.project(), &query).await?;
 
         // Delete temp table.
         bigquery::drop_table(&ctx, initial_table.name()).await?;

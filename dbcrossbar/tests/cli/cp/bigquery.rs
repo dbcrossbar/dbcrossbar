@@ -231,3 +231,40 @@ fn bigquery_upsert() {
     let actual = normalize_csv(&testdir.path("out/000000000000.csv"));
     assert_diff!(&expected, &actual, ",", 0);
 }
+
+#[test]
+#[ignore]
+fn bigquery_honors_not_null_for_complex_inserts() {
+    let _ = env_logger::try_init();
+    let testdir =
+        TestDir::new("dbcrossbar", "bigquery_honors_not_null_for_complex_inserts");
+    let src = testdir.src_path("fixtures/many_types.csv");
+    let schema = testdir.src_path("fixtures/many_types.sql");
+    let bq_temp_ds = bq_temp_dataset();
+    let gs_temp_dir = gs_test_dir_url("cp_csv_to_bigquery_to_csv");
+    let bq_table = bq_test_table("cp_csv_to_bigquery_to_csv");
+
+    // CSV to BigQuery.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--temporary={}", gs_temp_dir),
+            &format!("--temporary={}", bq_temp_ds),
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("csv:{}", src.display()),
+            &bq_table,
+        ])
+        .tee_output()
+        .expect_success();
+
+    // Extract the final schema.
+    testdir
+        .cmd()
+        .args(&["conv", &bq_table, "bigquery-schema:output.json"])
+        .expect_success();
+
+    // Make sure it contains REQUIRED columns.
+    testdir.expect_contains("output.json", "REQUIRED");
+}

@@ -109,6 +109,14 @@ impl BqColumn {
         self.ty.to_bq_data_type(self.mode, &self.fields)
     }
 
+    /// Should this column be declared as `NOT NULL` when generating a `CREATE TABLE`?
+    pub(crate) fn is_not_null(&self) -> bool {
+        match &self.mode {
+            Mode::Required => true,
+            Mode::Repeated | Mode::Nullable => false,
+        }
+    }
+
     /// Convert this column into a struct field. We use this to implement
     /// `RECORD` column parsing.
     pub(crate) fn to_struct_field(&self) -> Result<BqStructField> {
@@ -171,7 +179,6 @@ return "#,
                     f,
                     r#";
 """;
-
 "#
                 )?;
             }
