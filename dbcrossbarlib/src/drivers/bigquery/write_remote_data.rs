@@ -1,16 +1,15 @@
 //! Implementation of `BigQueryLocator::write_remote_data`.
 
-use std::{fs::File, process::Stdio};
+use std::fs::File;
 use tempdir::TempDir;
-use tokio::process::Command;
 
 use super::BigQueryLocator;
+use crate::clouds::gcloud::bigquery;
 use crate::common::*;
 use crate::drivers::{
-    bigquery_shared::{if_exists_to_bq_load_arg, BqTable, TableBigQueryExt, Usage},
+    bigquery_shared::{BqTable, TableBigQueryExt, Usage},
     gs::GsLocator,
 };
-use crate::tokio_glue::write_to_stdin;
 
 /// Copy `source` to `dest` using `schema`.
 ///
@@ -99,37 +98,14 @@ pub(crate) async fn write_remote_data_helper(
     initial_table.write_json_schema(&mut initial_schema_file)?;
 
     // Decide how to handle overwrites of the initial table.
-    let initial_table_replace = if use_temp {
-        "--replace"
+    let if_initial_table_exists = if use_temp {
+        &IfExists::Overwrite
     } else {
-        if_exists_to_bq_load_arg(&if_exists)?
+        if_exists
     };
 
-    // Build and run a `bq load` command.
-    debug!(ctx.log(), "running `bq load`");
-    let load_child = Command::new("bq")
-        // These arguments can all be represented as UTF-8 `&str`.
-        .args(&[
-            "load",
-            "--headless",
-            "--skip_leading_rows=1",
-            &format!("--project_id={}", dest.project()),
-            initial_table_replace,
-            &initial_table.name().to_string(),
-            source_url.as_str(),
-        ])
-        // Throw away stdout so it doesn't corrupt our output.
-        .stdout(Stdio::null())
-        // This argument is a path, and so it might contain non-UTF-8
-        // characters. We pass it separately because Rust won't allow us to
-        // create an array of mixed strings and paths.
-        .arg(&initial_schema_path)
-        .spawn()
-        .context("error starting `bq load`")?;
-    let status = load_child.await.context("error running `bq load`")?;
-    if !status.success() {
-        return Err(format_err!("`bq load` failed with {}", status));
-    }
+    // Load our data.
+    bigquery::load(&ctx, &source_url, &initial_table, if_initial_table_exists).await?;
 
     // If `use_temp` is false, then we're done. Otherwise, run the update SQL to
     // build the final table (if needed).
@@ -148,30 +124,7 @@ pub(crate) async fn write_remote_data_helper(
 
         // If we're doing an upsert, make sure the destination table exists.
         if if_exists.is_upsert() {
-            debug!(ctx.log(), "making sure table {} exists", dest_table.name(),);
-            let dest_schema_path = tmp_dir.path().join("schema.json");
-            let mut dest_schema_file = File::create(&dest_schema_path)?;
-            dest_table.write_json_schema(&mut dest_schema_file)?;
-            let mk_child = Command::new("bq")
-                // Use `--force` to ignore existing tables.
-                .args(&[
-                    "mk",
-                    "--headless",
-                    "--force",
-                    "--schema",
-                    // --project_id actually makes this fail for some reason.
-                ])
-                // Pass separately, because paths may not be UTF-8.
-                .arg(&dest_schema_path)
-                .arg(&dest_table.name().to_string())
-                // Throw away stdout so it doesn't corrupt our output.
-                .stdout(Stdio::null())
-                .spawn()
-                .context("error starting `bq mk`")?;
-            let status = mk_child.await.context("error running `bq mk`")?;
-            if !status.success() {
-                return Err(format_err!("`bq mk` failed with {}", status));
-            }
+            bigquery::create_table_if_not_exists(&ctx, &dest_table).await?;
         }
 
         // Generate our import query.
@@ -185,59 +138,26 @@ pub(crate) async fn write_remote_data_helper(
         } else {
             dest_table.write_import_sql(initial_table.name(), &mut query)?;
         }
-        debug!(ctx.log(), "import sql: {}", String::from_utf8_lossy(&query));
+        let query =
+            String::from_utf8(query).expect("generated SQL should always be UTF-8");
+        debug!(ctx.log(), "import sql: {}", query);
 
         // Pipe our query text to `bq query`.
-        debug!(ctx.log(), "running `bq query`");
-        let mut query_command = Command::new("bq");
-        query_command
-            // We'll pass the query on `stdin`.
-            .stdin(Stdio::piped())
-            // Throw away stdout so it doesn't corrupt our output.
-            .stdout(Stdio::null())
-            // Run query with no output.
-            .args(&[
-                "query",
-                "--headless",
-                "--format=none",
-                if_exists_to_bq_load_arg(&if_exists)?,
-                "--nouse_legacy_sql",
-                &format!("--project_id={}", dest.project()),
-            ]);
-        if !if_exists.is_upsert() {
-            query_command.arg(&format!("--destination_table={}", dest_table.name()));
-        }
-        let mut query_child =
-            query_command.spawn().context("error starting `bq query`")?;
-        write_to_stdin("bq query", &mut query_child, &query).await?;
-        let status = query_child.await.context("error running `bq query`")?;
-        if !status.success() {
-            return Err(format_err!("`bq query` failed with {}", status));
+        if if_exists.is_upsert() {
+            bigquery::execute_sql(&ctx, dest.project(), &query).await?;
+        } else {
+            bigquery::query_to_table(
+                &ctx,
+                dest.project(),
+                &query,
+                dest_table.name(),
+                &if_exists,
+            )
+            .await?;
         }
 
         // Delete temp table.
-        debug!(
-            ctx.log(),
-            "deleting import temp table: {}",
-            initial_table.name()
-        );
-        let rm_child = Command::new("bq")
-            .args(&[
-                "rm",
-                "--headless",
-                "-f",
-                "-t",
-                &format!("--project_id={}", dest.project()),
-                &initial_table.name().to_string(),
-            ])
-            // Throw away stdout so it doesn't corrupt our output.
-            .stdout(Stdio::null())
-            .spawn()
-            .context("error starting `bq rm`")?;
-        let status = rm_child.await.context("error running `bq rm`")?;
-        if !status.success() {
-            return Err(format_err!("`bq rm` failed with {}", status));
-        }
+        bigquery::drop_table(&ctx, initial_table.name()).await?;
     }
 
     Ok(vec![dest.boxed()])

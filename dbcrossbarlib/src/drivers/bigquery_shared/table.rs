@@ -6,11 +6,10 @@ use std::{
     collections::{HashMap, HashSet},
     convert::TryFrom,
     iter::FromIterator,
-    process::Stdio,
 };
-use tokio::process::Command;
 
 use super::{BqColumn, ColumnBigQueryExt, ColumnName, TableName, Usage};
+use crate::clouds::gcloud::bigquery;
 use crate::common::*;
 use crate::schema::{Column, Table};
 
@@ -80,37 +79,7 @@ impl BqTable {
         ctx: &Context,
         name: &TableName,
     ) -> Result<BqTable> {
-        let project_id = format!("--project_id={}", name.project());
-        let output = Command::new("bq")
-            .args(&[
-                "show",
-                "--headless",
-                "--schema",
-                "--format=json",
-                &project_id,
-                &name.to_string(),
-            ])
-            .stderr(Stdio::inherit())
-            .output()
-            .await
-            .context("error running `bq show --schema`")?;
-        if !output.status.success() {
-            return Err(format_err!(
-                "`bq show --schema` failed with {}",
-                output.status,
-            ));
-        }
-        debug!(
-            ctx.log(),
-            "BigQuery schema: {}",
-            String::from_utf8_lossy(&output.stdout).trim(),
-        );
-        let columns: Vec<BqColumn> = serde_json::from_slice(&output.stdout)
-            .context("error parsing BigQuery schema")?;
-        Ok(BqTable {
-            name: name.to_owned(),
-            columns,
-        })
+        bigquery::schema(ctx, name).await
     }
 
     /// Create a new table based on this table, but with columns matching the

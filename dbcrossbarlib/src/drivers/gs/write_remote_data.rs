@@ -1,15 +1,12 @@
 //! Implementation of `GsLocator::write_remote_data`.
 
-use std::process::Stdio;
-use tokio::process::Command;
-
 use super::{prepare_as_destination_helper, GsLocator};
+use crate::clouds::gcloud::bigquery;
 use crate::common::*;
 use crate::drivers::{
     bigquery::BigQueryLocator,
-    bigquery_shared::{if_exists_to_bq_load_arg, BqTable, Usage},
+    bigquery_shared::{BqTable, Usage},
 };
-use crate::tokio_glue::write_to_stdin;
 
 /// Copy `source` to `dest` using `schema`.
 ///
@@ -68,74 +65,23 @@ pub(crate) async fn write_remote_data_helper(
     debug!(ctx.log(), "export SQL: {}", export_sql);
 
     // Run our query.
-    debug!(ctx.log(), "running `bq query`");
-    let mut query_child = Command::new("bq")
-        // We'll pass the query on `stdin`.
-        .stdin(Stdio::piped())
-        // Throw away stdout so it doesn't corrupt our output.
-        .stdout(Stdio::null())
-        // Run query with no output.
-        .args(&[
-            "query",
-            "--headless",
-            "--format=none",
-            &format!("--destination_table={}", temp_table_name),
-            if_exists_to_bq_load_arg(&IfExists::Overwrite)?,
-            "--nouse_legacy_sql",
-            &format!("--project_id={}", source.project()),
-        ])
-        .spawn()
-        .context("error starting `bq query`")?;
-    write_to_stdin("bq query", &mut query_child, export_sql.as_bytes()).await?;
-    let status = query_child.await.context("error running `bq query`")?;
-    if !status.success() {
-        return Err(format_err!("`bq query` failed with {}", status));
-    }
+    bigquery::query_to_table(
+        &ctx,
+        source.project(),
+        &export_sql,
+        &temp_table_name,
+        &IfExists::Overwrite,
+    )
+    .await?;
 
     // Delete the existing output, if it exists.
     prepare_as_destination_helper(ctx.clone(), dest.as_url().to_owned(), if_exists)
         .await?;
 
     // Build and run a `bq extract` command.
-    debug!(ctx.log(), "running `bq extract`");
-    let extract_child = Command::new("bq")
-        // These arguments can all be represented as UTF-8 `&str`.
-        .args(&[
-            "extract",
-            "--headless",
-            "--destination_format=CSV",
-            &format!("--project_id={}", source.project()),
-            &temp_table_name.to_string(),
-            &format!("{}/*.csv", dest),
-        ])
-        // Throw away stdout so it doesn't corrupt our output.
-        .stdout(Stdio::null())
-        .spawn()
-        .context("error starting `bq extract`")?;
-    let status = extract_child.await.context("error running `bq extract`")?;
-    if !status.success() {
-        return Err(format_err!("`bq extract` failed with {}", status));
-    }
+    bigquery::extract(&ctx, &temp_table_name, dest.as_url()).await?;
 
     // Delete temp table.
-    debug!(ctx.log(), "deleting export temp table: {}", temp_table_name);
-    let rm_child = Command::new("bq")
-        .args(&[
-            "rm",
-            "--headless",
-            "-f",
-            "-t",
-            &format!("--project_id={}", source.project()),
-            &temp_table_name.to_string(),
-        ])
-        // Throw away stdout so it doesn't corrupt our output.
-        .stdout(Stdio::null())
-        .spawn()
-        .context("error starting `bq rm`")?;
-    let status = rm_child.await.context("error running `bq rm`")?;
-    if !status.success() {
-        return Err(format_err!("`bq rm` failed with {}", status));
-    }
-
+    bigquery::drop_table(&ctx, &temp_table_name).await?;
     Ok(vec![dest.boxed()])
 }
