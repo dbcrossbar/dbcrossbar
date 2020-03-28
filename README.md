@@ -4,9 +4,9 @@
 
 (Note that this requires a specific version of nightly Rust to build. See the [rust-toolchain](./rust-toolchain) file for the current Rust version, or [download pre-built binaries][releases].)
 
-[releases]: https://github.com/faradayio/dbcrossbar/releases
+[releases]: https://github.com/dbcrossbar/dbcrossbar/releases
 
-This tool is intended to help move large data sets between different databases and storage formats. It's still very incomplete, but it already has partial support for:
+This tool is intended to help move large data sets between different databases and storage formats. It's still very incomplete (though used in production at [Faraday](https://www.faraday.io)), but it already has partial support for:
 
 - CSV files.
 - `gs://` URLs.
@@ -68,7 +68,7 @@ It uses a very specific "interchange CSV" format, supporting the types listed in
 curl https://sh.rustup.rs -sSf | sh
 
 # Install dbcrossbar.
-cargo install -f --git https://github.com/faradayio/dbcrossbar dbcrossbar
+cargo install -f --git https://github.com/dbcrossbar/dbcrossbar dbcrossbar
 ```
 
 ## "Interchange" table schemas
@@ -127,6 +127,12 @@ Licensed under either of:
 - MIT license ([LICENSE-MIT.txt](./LICENSE-MIT.txt) or [on the web](http://opensource.org/licenses/MIT))
 
 ...at your option.
+
+## Sponsor
+
+<p><a href="https://www.faraday.io"><img src="https://s3.amazonaws.com/faraday-assets/files/img/logo.svg" alt="Faraday logo"/></a></p>
+
+We use `dbcrossbar` for [B2C customer lifecycle optimization at Faraday](https://www.faraday.io).
 
 ### Contributions
 
