@@ -181,7 +181,7 @@ impl BqTable {
             IfExists::Error => CreateTableType::Plain,
             IfExists::Overwrite => CreateTableType::OrReplace,
         };
-        self.write_create_table(create_table_type, f)?;
+        self.write_create_table_sql(create_table_type, f)?;
         writeln!(f)?;
 
         match if_exists {
@@ -197,7 +197,7 @@ impl BqTable {
     }
 
     /// Write a CREATE TABLE statement for this table.
-    fn write_create_table(
+    fn write_create_table_sql(
         &self,
         create_table_type: CreateTableType,
         f: &mut dyn Write,
@@ -302,8 +302,7 @@ impl BqTable {
         // Generate our actual SQL.
         writeln!(
             f,
-            r#"
-MERGE INTO {dest_table} AS dest
+            r#"MERGE INTO {dest_table} AS dest
 USING {temp_table} AS temp
 ON
     {key_comparisons}
