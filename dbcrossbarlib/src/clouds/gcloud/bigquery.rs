@@ -194,26 +194,9 @@ pub(crate) async fn load(
 /// Drop a table from BigQuery.
 pub(crate) async fn drop_table(ctx: &Context, table_name: &TableName) -> Result<()> {
     // Delete temp table.
-    debug!(ctx.log(), "deleting import temp table: {}", table_name);
-    let rm_child = Command::new("bq")
-        .args(&[
-            "rm",
-            "--headless",
-            "-f",
-            "-t",
-            &format!("--project_id={}", table_name.project()),
-            &table_name.to_string(),
-        ])
-        // Throw away stdout so it doesn't corrupt our output.
-        .stdout(Stdio::null())
-        .spawn()
-        .context("error starting `bq rm`")?;
-    let status = rm_child.await.context("error running `bq rm`")?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format_err!("`bq rm` failed with {}", status))
-    }
+    debug!(ctx.log(), "deleting table: {}", table_name);
+    let sql = format!("DROP TABLE {};\n", table_name.dotted_and_quoted());
+    execute_sql(ctx, table_name.project(), &sql).await
 }
 
 /// Look up the schema of the specified table.
