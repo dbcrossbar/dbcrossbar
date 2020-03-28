@@ -1,6 +1,8 @@
 # What is `dbcrossbar`?
 
-`dbcrossbar` copies large, tabular datasets between many different databases and storage formats. Data can be copied from any source to any destination.
+`dbcrossbar` is an [open source][] tool that copies large, tabular datasets between many different databases and storage formats. Data can be copied from any source to any destination.
+
+[open source]: https://github.com/dbcrossbar/dbcrossbar
 
 ```dot process
 digraph {
@@ -56,7 +58,7 @@ Then we can use these to create a PostgreSQL table:
 {{#include examples/my_table_cp_to_postgres.sh}}
 ```
 
-If we want to make a copy of our table in BigQuery, and keep it synchronized, we can upsert into BigQuery using the `id` column:
+If we want to use the data to update a table in BigQuery, we can upsert into BigQuery using the `id` column:
 
 ```sh
 {{#include examples/my_table_cp_to_bigquery.sh}}
