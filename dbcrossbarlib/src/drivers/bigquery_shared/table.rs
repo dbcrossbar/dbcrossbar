@@ -182,7 +182,7 @@ impl BqTable {
             IfExists::Overwrite => CreateTableType::OrReplace,
         };
         self.write_create_table(create_table_type, f)?;
-        writeln!(f, "")?;
+        writeln!(f)?;
 
         match if_exists {
             IfExists::Append | IfExists::Error | IfExists::Overwrite => {
@@ -213,7 +213,7 @@ impl BqTable {
         // Write the columns.
         for (i, col) in self.columns.iter().enumerate() {
             if i > 0 {
-                write!(f, ",\n")?;
+                writeln!(f, ",")?;
             }
             write!(f, "    {} {}", col.name, col.bq_data_type()?)?;
             if col.is_not_null() {
