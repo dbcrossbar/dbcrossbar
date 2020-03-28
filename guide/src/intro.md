@@ -1,4 +1,4 @@
-# What is `dbcrossbar`?
+# `dbcrossbar` Guide
 
 `dbcrossbar` is an [open source][] tool that copies large, tabular datasets between many different databases and storage formats. Data can be copied from any source to any destination.
 

@@ -1,6 +1,6 @@
 # Summary
 
-[What is `dbcrossbar`?](./intro.md)
+[`dbcrossbar` Guide](./intro.md)
 
 - [Features & philosophy](./features.md)
 - [Installing](./installing.md)
