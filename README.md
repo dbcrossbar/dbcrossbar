@@ -71,33 +71,6 @@ curl https://sh.rustup.rs -sSf | sh
 cargo install -f --git https://github.com/faradayio/dbcrossbar dbcrossbar
 ```
 
-## Examples
-
-Run `dbcrossbar --help` for more documentation.
-
-```sh
-# Given a `postgres:` URL, dump a table schema as JSON.
-dbcrossbar "$DATABASE_URL#mytable" > schema.json
-
-# Dump a table schema as BigQuery schema JSON.
-dbcrossbar "$DATABASE_URL#mytable" -O bq:schema > bigquery-schema.json
-
-# Ditto, but using PostgreSQL `CREATE TABLE` SQL as input.
-dbcrossbar -I pg -O bq:schema < table.sql > bigquery-schema.json
-
-# Dump a table schema as quoted PostgreSQL `SELECT ...` arguments.
-dbcrossbar "$DATABASE_URL#mytable" -O pg:select > select-args.txt
-```
-
-You can also edit the default schema JSON (generated with no `-O` flag, or with `-O json`), and then run it back through to generate another format:
-
-```sh
-dbcrossbar "$DATABASE_URL#mytable" > schema.json
-# (Edit schema.json.)
-
-dbcrossbar -O bq < schema.json > bigquery-schema.json
-```
-
 ## "Interchange" table schemas
 
 In order to make `dbcrossbar` work, we define a "interchange" table schema format using JSON. This format uses a highly-simplied and carefully curated set of column data types that make sense when passing data between databases. This represents a compromise between the richness of PostgreSQL data types, and the relative poverty of BigQuery data types, while still preserving as much information as possible. It includes timestamps, geodata, etc.

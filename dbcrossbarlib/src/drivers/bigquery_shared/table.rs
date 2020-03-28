@@ -5,6 +5,7 @@ use serde_json;
 use std::{
     collections::{HashMap, HashSet},
     convert::TryFrom,
+    fmt,
     iter::FromIterator,
 };
 
@@ -12,6 +13,27 @@ use super::{BqColumn, ColumnBigQueryExt, ColumnName, TableName, Usage};
 use crate::clouds::gcloud::bigquery;
 use crate::common::*;
 use crate::schema::{Column, Table};
+
+/// Which version of CREATE TABLE do we want to use?
+#[derive(Clone, Copy)]
+enum CreateTableType {
+    /// Regular `CREATE TABLE`.
+    Plain,
+    /// `CREATE TABLE IF NOT EXISTS`.
+    IfNotExists,
+    /// `CREATE OR REPLACE TABLE`.
+    OrReplace,
+}
+
+impl fmt::Display for CreateTableType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            CreateTableType::Plain => write!(f, "CREATE TABLE"),
+            CreateTableType::IfNotExists => write!(f, "CREATE TABLE IF NOT EXISTS"),
+            CreateTableType::OrReplace => write!(f, "CREATE OR REPLACE TABLE"),
+        }
+    }
+}
 
 /// Extensions to `Column` (the portable version) to handle BigQuery-query
 /// specific stuff.
@@ -138,18 +160,88 @@ impl BqTable {
         Ok(())
     }
 
+    /// Generate SQL which imports data from a temp table into a final
+    /// destination table, fixing any columns that couldn't be directly imported
+    /// from CSVs.
+    pub(crate) fn write_import_sql(
+        &self,
+        source_table_name: &TableName,
+        if_exists: &IfExists,
+        f: &mut dyn Write,
+    ) -> Result<()> {
+        // Write out any helper functions we'll need to transform data.
+        for (idx, col) in self.columns.iter().enumerate() {
+            col.write_import_udf(f, idx)?;
+        }
+
+        // Create the table with appropriate options. We do this explicitly so
+        // that we preserve the NULLABLE property of each column.
+        let create_table_type = match if_exists {
+            IfExists::Append | IfExists::Upsert(_) => CreateTableType::IfNotExists,
+            IfExists::Error => CreateTableType::Plain,
+            IfExists::Overwrite => CreateTableType::OrReplace,
+        };
+        self.write_create_table_sql(create_table_type, f)?;
+        writeln!(f)?;
+
+        match if_exists {
+            IfExists::Append | IfExists::Error | IfExists::Overwrite => {
+                self.write_insert_sql(source_table_name, f)?;
+            }
+            IfExists::Upsert(merge_keys) => {
+                self.write_merge_sql(source_table_name, merge_keys, f)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Write a CREATE TABLE statement for this table.
+    fn write_create_table_sql(
+        &self,
+        create_table_type: CreateTableType,
+        f: &mut dyn Write,
+    ) -> Result<()> {
+        // Write the appropriate CREATE TABLE part.
+        writeln!(
+            f,
+            "{} {} (",
+            create_table_type,
+            self.name.dotted_and_quoted()
+        )?;
+
+        // Write the columns.
+        for (i, col) in self.columns.iter().enumerate() {
+            if i > 0 {
+                writeln!(f, ",")?;
+            }
+            write!(f, "    {} {}", col.name, col.bq_data_type()?)?;
+            if col.is_not_null() {
+                write!(f, " NOT NULL")?;
+            }
+        }
+
+        // Write the footer.
+        writeln!(f, "\n);")?;
+        Ok(())
+    }
+
     /// Generate SQL which `SELECT`s from a temp table, and fixes the types
     /// of columns that couldn't be imported from CSVs.
     ///
     /// This `BqTable` should have been created with `Usage::FinalTable`.
-    pub(crate) fn write_import_sql(
+    fn write_insert_sql(
         &self,
         source_table_name: &TableName,
         f: &mut dyn Write,
     ) -> Result<()> {
-        for (i, col) in self.columns.iter().enumerate() {
-            col.write_import_udf(f, i)?;
-        }
+        // We always specify what columns we're inserting into, just to be safe.
+        writeln!(
+            f,
+            "INSERT INTO {} ({})",
+            self.name.dotted_and_quoted(),
+            self.columns.iter().map(|c| &c.name).join(","),
+        )?;
         write!(f, "SELECT ")?;
         for (i, col) in self.columns.iter().enumerate() {
             if i > 0 {
@@ -157,12 +249,12 @@ impl BqTable {
             }
             col.write_import_select_expr(f, i)?;
         }
-        write!(f, " FROM {}", source_table_name.dotted_and_quoted())?;
+        writeln!(f, "\nFROM {};", source_table_name.dotted_and_quoted())?;
         Ok(())
     }
 
     /// Generate a `MERGE INTO` statement using the specified columns.
-    pub(crate) fn write_merge_sql(
+    fn write_merge_sql(
         &self,
         source_table_name: &TableName,
         merge_keys: &[String],
@@ -199,11 +291,6 @@ impl BqTable {
         let merge_key_table =
             merge_keys.iter().map(|c| &c.name).collect::<HashSet<_>>();
 
-        // Write out any helper functions we'll need to transform data.
-        for (idx, col) in self.columns.iter().enumerate() {
-            col.write_import_udf(f, idx)?;
-        }
-
         // A helper function to generate import SQL for a column.
         let col_import_expr = |c: &BqColumn, idx: usize| -> String {
             let mut buf = vec![];
@@ -213,10 +300,9 @@ impl BqTable {
         };
 
         // Generate our actual SQL.
-        write!(
+        writeln!(
             f,
-            r#"
-MERGE INTO {dest_table} AS dest
+            r#"MERGE INTO {dest_table} AS dest
 USING {temp_table} AS temp
 ON
     {key_comparisons}
@@ -226,7 +312,7 @@ WHEN NOT MATCHED THEN INSERT (
     {columns}
 ) VALUES (
     {values}
-)"#,
+);"#,
             dest_table = self.name().dotted_and_quoted(),
             temp_table = source_table_name.dotted_and_quoted(),
             key_comparisons = merge_keys

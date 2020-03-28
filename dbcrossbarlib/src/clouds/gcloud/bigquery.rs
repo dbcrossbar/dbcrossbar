@@ -191,62 +191,12 @@ pub(crate) async fn load(
     }
 }
 
-pub(crate) async fn create_table_if_not_exists(
-    ctx: &Context,
-    dest_table: &BqTable,
-) -> Result<()> {
-    debug!(ctx.log(), "making sure table {} exists", dest_table.name(),);
-    let tmp_dir = TempDir::new("bq_mk")?;
-    let dest_schema_path = tmp_dir.path().join("schema.json");
-    let mut dest_schema_file = File::create(&dest_schema_path)?;
-    dest_table.write_json_schema(&mut dest_schema_file)?;
-    let mk_child = Command::new("bq")
-        // Use `--force` to ignore existing tables.
-        .args(&[
-            "mk",
-            "--headless",
-            "--force",
-            "--schema",
-            // --project_id actually makes this fail for some reason.
-        ])
-        // Pass separately, because paths may not be UTF-8.
-        .arg(&dest_schema_path)
-        .arg(&dest_table.name().to_string())
-        // Throw away stdout so it doesn't corrupt our output.
-        .stdout(Stdio::null())
-        .spawn()
-        .context("error starting `bq mk`")?;
-    let status = mk_child.await.context("error running `bq mk`")?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format_err!("`bq mk` failed with {}", status))
-    }
-}
-
 /// Drop a table from BigQuery.
 pub(crate) async fn drop_table(ctx: &Context, table_name: &TableName) -> Result<()> {
     // Delete temp table.
-    debug!(ctx.log(), "deleting import temp table: {}", table_name);
-    let rm_child = Command::new("bq")
-        .args(&[
-            "rm",
-            "--headless",
-            "-f",
-            "-t",
-            &format!("--project_id={}", table_name.project()),
-            &table_name.to_string(),
-        ])
-        // Throw away stdout so it doesn't corrupt our output.
-        .stdout(Stdio::null())
-        .spawn()
-        .context("error starting `bq rm`")?;
-    let status = rm_child.await.context("error running `bq rm`")?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format_err!("`bq rm` failed with {}", status))
-    }
+    debug!(ctx.log(), "deleting table: {}", table_name);
+    let sql = format!("DROP TABLE {};\n", table_name.dotted_and_quoted());
+    execute_sql(ctx, table_name.project(), &sql).await
 }
 
 /// Look up the schema of the specified table.
