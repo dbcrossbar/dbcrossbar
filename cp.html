@@ -1,0 +1,326 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>cp: Copying tables - Using dbcrossbar</title>
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
+        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div id="sidebar-scrollbox" class="sidebar-scrollbox">
+                <ol class="chapter"><li class="expanded affix "><a href="intro.html">What is dbcrossbar?</a></li><li class="expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features &amp; philosophy</a></li><li class="expanded "><a href="installing.html"><strong aria-hidden="true">2.</strong> Installing</a></li><li class="expanded "><a href="how.html"><strong aria-hidden="true">3.</strong> How it works</a></li><li><ol class="section"><li class="expanded "><a href="csv_interchange.html"><strong aria-hidden="true">3.1.</strong> CSV interchange format</a></li><li class="expanded "><a href="schema.html"><strong aria-hidden="true">3.2.</strong> Portable table schema</a></li></ol></li><li class="expanded "><a href="commands.html"><strong aria-hidden="true">4.</strong> Commands</a></li><li><ol class="section"><li class="expanded "><a href="cp.html" class="active"><strong aria-hidden="true">4.1.</strong> cp: Copying tables</a></li><li class="expanded "><a href="count.html"><strong aria-hidden="true">4.2.</strong> count: Counting records</a></li><li class="expanded "><a href="conv.html"><strong aria-hidden="true">4.3.</strong> conv: Transforming schemas</a></li></ol></li><li class="expanded "><a href="drivers.html"><strong aria-hidden="true">5.</strong> Drivers</a></li><li><ol class="section"><li class="expanded "><a href="bigml.html"><strong aria-hidden="true">5.1.</strong> BigML</a></li><li class="expanded "><a href="bigquery.html"><strong aria-hidden="true">5.2.</strong> BigQuery</a></li><li class="expanded "><a href="csv.html"><strong aria-hidden="true">5.3.</strong> CSV</a></li><li class="expanded "><a href="gs.html"><strong aria-hidden="true">5.4.</strong> Google Cloud Storage</a></li><li class="expanded "><a href="postgres.html"><strong aria-hidden="true">5.5.</strong> PostgreSQL</a></li><li class="expanded "><a href="redshift.html"><strong aria-hidden="true">5.6.</strong> RedShift</a></li><li class="expanded "><a href="s3.html"><strong aria-hidden="true">5.7.</strong> S3</a></li></ol></li><li class="expanded "><a href="credits.html">Credits and contributors</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">Using dbcrossbar</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#cp-copying-tables" id="cp-copying-tables"><code>cp</code>: Copying tables</a></h1>
+<p>The <code>cp</code> command copies tabular data from a source location to a destination location. For example, we can copy a CSV file into PostgreSQL, replacing any existing table:</p>
+<pre><code class="language-sh">dbcrossbar cp \
+    --if-exists=overwrite \
+    --schema=postgres-sql:my_table.sql \
+    csv:my_table.csv \
+    'postgres://postgres@127.0.0.1:5432/postgres#my_table'
+</code></pre>
+<p>Or we copy data from PostgreSQL and upsert it into a BigQuery table:</p>
+<pre><code class="language-sh">dbcrossbar cp \
+    --if-exists=upsert-on:id \
+    --temporary=gs://$GS_TEMP_BUCKET \
+    --temporary=bigquery:$GCOUD_PROJECT:temp_dataset \
+    'postgres://postgres@127.0.0.1:5432/postgres#my_table' \
+    bigquery:$GCOUD_PROJECT:my_dataset.my_table
+</code></pre>
+<h2><a class="header" href="#command-line-help" id="command-line-help">Command-line help</a></h2>
+<pre><code class="language-txt">dbcrossbar-cp 0.3.0
+Copy tables from one location to another
+
+USAGE:
+    dbcrossbar cp [FLAGS] [OPTIONS] &lt;from-locator&gt; &lt;to-locator&gt;
+
+FLAGS:
+        --display-output-locators
+            Display where we wrote our output data
+
+    -h, --help                       Prints help information
+    -V, --version                    Prints version information
+
+OPTIONS:
+        --from-arg &lt;from-args&gt;...
+            Pass an extra argument of the form `key=value` to the
+            source driver
+        --if-exists &lt;if-exists&gt;
+            One of `error`, `overwrite`, `append` or `upsert-on:COL`
+            [default: error]
+    -J, --max-streams &lt;max-streams&gt;
+            How many data streams should we attempt to copy in
+            parallel? [default: 4]
+        --schema &lt;schema&gt;
+            The schema to use (defaults to input table schema)
+
+        --stream-size &lt;stream-size&gt;
+            Specify the approximate size of the CSV streams
+            manipulated by `dbcrossbar`. This can be used to split a
+            large input into multiple smaller outputs. Actual data
+            streams may be bigger or smaller depending on a number of
+            factors. Examples: &quot;100000&quot;, &quot;1Gb&quot;
+        --temporary &lt;temporaries&gt;...
+            Temporary directories, cloud storage buckets, datasets to
+            use during transfer (can be repeated)
+        --to-arg &lt;to-args&gt;...
+            Pass an extra argument of the form `key=value` to the
+            destination driver
+        --where &lt;where-clause&gt;
+            SQL where clause specifying rows to use
+
+
+ARGS:
+    &lt;from-locator&gt;    The input table
+    &lt;to-locator&gt;      The output table
+
+EXAMPLE LOCATORS:
+    postgres://localhost:5432/db#table
+    bigquery:project:dataset.table
+</code></pre>
+<h2><a class="header" href="#flags" id="flags">Flags</a></h2>
+<p>Not all command-line options are supported by all drivers. See the chapter on each driver for details.</p>
+<h3><a class="header" href="#--where" id="--where"><code>--where</code></a></h3>
+<p>Specify a <code>WHERE</code> clause to include in the SQL query. This can be used to select a subset of the source rows.</p>
+<h3><a class="header" href="#--from-arg" id="--from-arg"><code>--from-arg</code></a></h3>
+<p>This can be used to specify driver-specific options for the source driver. See the chapter for that driver.</p>
+<h3><a class="header" href="#--if-existserror" id="--if-existserror"><code>--if-exists=error</code></a></h3>
+<p>If the destination location already contains data, exit with an error.</p>
+<h3><a class="header" href="#--if-existsappend" id="--if-existsappend"><code>--if-exists=append</code></a></h3>
+<p>If the destination location already contains data, append the new data.</p>
+<h3><a class="header" href="#--if-existsoverwrite" id="--if-existsoverwrite"><code>--if-exists=overwrite</code></a></h3>
+<p>If the destination location already contains data, replace it with the new data.</p>
+<h3><a class="header" href="#--if-existsupset-oncol1" id="--if-existsupset-oncol1"><code>--if-exists=upset-on:COL1,..</code></a></h3>
+<p>For every row in the new data:</p>
+<ul>
+<li>If a row with a matching <code>col1</code>, <code>col2</code>, etc., exists, use the new data to update that row.</li>
+<li>If no row matching <code>col1</code>, <code>col2</code>, etc., exists, then insert the new row.</li>
+</ul>
+<p>The columns <code>col1</code>, <code>col2</code>, etc., must be marked as <code>NOT NULL</code>.</p>
+<h3><a class="header" href="#--schema" id="--schema"><code>--schema</code></a></h3>
+<p>By default, <code>dbcrossbar</code> will use the schema of the source table. But when this can't be inferred automatically, <code>--schema</code> can be used to specify a table schema:</p>
+<ul>
+<li><code>--schema=postgres-sql:my_table.sql</code>: A PostgreSQL <code>CREATE TABLE</code> statement.</li>
+<li><code>--schema=bigquery-schema:my_table.json</code>: A <a href="https://cloud.google.com/bigquery/docs/schemas">BigQuery JSON schema</a>.</li>
+<li><code>--schema=dbcrossbar-schema:my_table.json</code>: An <a href="./schema.html">internal <code>dbcrossbar</code> schema</a>.</li>
+</ul>
+<p>It's also possible to use a schema from an existing database table:</p>
+<ul>
+<li><code>--schema=postgres://localhost:5432/db#table</code></li>
+<li><code>--schema=bigquery:project:dataset.table</code></li>
+</ul>
+<p>Note that it's possible to create a BigQuery table using a PostgreSQL schema, or vice versa. Internally, all schemes are first converted to the <a href="./schema.html">internal schema format</a>.</p>
+<h3><a class="header" href="#--temporary" id="--temporary"><code>--temporary</code></a></h3>
+<p>Specify temporary storage, which is required by certain drivers. Typical values include:</p>
+<ul>
+<li><code>--temporary=s3://$S3_TEMP_BUCKET</code></li>
+<li><code>--temporary=gs://$GS_TEMP_BUCKET</code></li>
+<li><code>--temporary=bigquery:$GCOUD_PROJECT:temp_dataset</code></li>
+</ul>
+<h3><a class="header" href="#--to-arg" id="--to-arg"><code>--to-arg</code></a></h3>
+<p>This can be used to specify driver-specific options for the destination driver. See the chapter for that driver.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="commands.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="count.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="commands.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="count.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+        
+        
+        <script type="text/javascript">
+            window.playpen_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>

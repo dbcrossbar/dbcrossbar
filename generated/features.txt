@@ -1,0 +1,13 @@
+Supported drivers:
+- bigml
+- bigquery
+- bigquery-schema
+- csv
+- dbcrossbar-schema
+- gs
+- postgres
+- postgres-sql
+- redshift
+- s3
+
+Use `dbcrossbar features $DRIVER` to list the features supported by a driver.

@@ -1,0 +1,6 @@
+bigml features:
+- conv FROM
+- cp FROM:
+- cp TO:
+  --to-arg=$NAME=$VALUE
+  --if-exists=error --if-exists=append --if-exists=overwrite --if-exists=upsert-on:col
