@@ -21,8 +21,8 @@ script:
   # warnings.
   - cargo clippy -- -D warnings
 before_deploy:
-  #- cargo doc
-  - ./build-release dbcrossbar "${TRAVIS_TAG}-${TRAVIS_OS_NAME}"
+  # This normally runs once per deploy provider.
+  - if [ ! -f ran_before_deploy ]; then touch ran_before_deploy; ./build-release dbcrossbar "${TRAVIS_TAG}-${TRAVIS_OS_NAME}"; fi
 deploy:
   - provider: releases
     api_key: $GITHUB_TOKEN
@@ -31,11 +31,11 @@ deploy:
     skip_cleanup: true
     on:
       tags: true
-  #- provider: pages
-  #  skip-cleanup: true
-  #  local-dir: target/doc
-  #  keep-history: true
-  #  github-token: $GITHUB_TOKEN
-  #  on:
-  #    tags: true
-  #    condition: $TRAVIS_OS_NAME = linux
+  - provider: pages
+    skip_cleanup: true
+    local_dir: gh-pages
+    keep_history: true
+    github_token: $GITHUB_TOKEN
+    on:
+      tags: true
+      condition: "$TRAVIS_OS_NAME = linux"
