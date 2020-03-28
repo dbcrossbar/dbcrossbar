@@ -1,17 +1,14 @@
-# `dbcrossbar`: Tools for converting between database table schemas (WIP)
+# `dbcrossbar`: Copy tabular data between databases, CSV files and cloud storage
 
 [![Build Status](https://travis-ci.org/faradayio/dbcrossbar.svg)](https://travis-ci.org/faradayio/dbcrossbar)
 
-(Note that this requires a specific version of nightly Rust to build. See the [rust-toolchain](./rust-toolchain) file for the current Rust version, or [download pre-built binaries][releases].)
+- [Documentation](docs)
+- [Releases][releases]
 
-[releases]: https://github.com/faradayio/dbcrossbar/releases
+[docs]: https://www.dbcrossbar.org/
+[releases]: https://github.com/dbcrossbar/dbcrossbar/releases
 
-This tool is intended to help move large data sets between different databases and storage formats. It's still very incomplete, but it already has partial support for:
-
-- CSV files.
-- `gs://` URLs.
-- BigQuery tables
-- PostgreSQL tables.
+`dbcrossbar` moves large data sets between different databases and storage formats.
 
 Some examples:
 
@@ -19,31 +16,20 @@ Some examples:
 # Copy from a CSV file to a PostgreSQL table.
 dbcrossbar cp \
     --if-exists=overwrite \
-    --schema=postgres-sql:my-table.sql \
-    csv:input.csv \
-    'postgres://localhost:5432/my_db#my_table'
+    --schema=postgres-sql:my_table.sql \
+    csv:my_table.csv \
+    'postgres://postgres@127.0.0.1:5432/postgres#my_table'
 
-# Copy from a PostgreSQL table to a `gs://` bucket.
+# Upsert from a PostgreSQL table to BigQuery.
 dbcrossbar cp \
-    --if-exists=overwrite \
-    'postgres://localhost:5432/my_db#my_table' \
-    gs://$MY_BUCKET/data/
-
-# Copy from `gs://` to BigQuery
-dbcrossbar cp \
-    --if-exists=overwrite \
-    --schema=postgres-sql:my-table.sql \
-    gs://$MY_BUCKET/data/ \
-    bigquery:$MY_PROJECT:example.my_table
-
-# Copy from `gs://` to CSV.
-dbcrossbar cp \
-    --schema=postgres-sql:my-table.sql \
-    gs://$MY_BUCKET/data/ \
-    csv:out/
+    --if-exists=upsert-on:id \
+    --temporary=gs://$GS_TEMP_BUCKET \
+    --temporary=bigquery:$GCOUD_PROJECT:temp_dataset \
+    'postgres://postgres@127.0.0.1:5432/postgres#my_table' \
+    bigquery:$GCOUD_PROJECT:my_dataset.my_table
 ```
 
-It can also convert between table schema formats, include PostgreSQL `CREATE TABLE` statements and BigQuery JSON schemas:
+It can also convert between table schema formats, including PostgreSQL `CREATE TABLE` statements and BigQuery JSON schemas:
 
 ```sh
 # Convert a PostgreSQL `CREATE TABLE` statement to a BigQuery JSON schema.
@@ -53,29 +39,7 @@ dbcrossbar conv postgres-sql:my_table.sql bigquery-schema:my_table.json
 dbcrossbar conv csv:data.csv postgres-sql:schema.sql
 ```
 
-Right now, certain drivers still have restrictions on what column types are supported, and whether they operate on one or many files.
-
-## Architecture
-
-`dbcrossbar` is written using nightly Rust, including `tokio`, `async` and `.await`. It uses multiple CSV streams to transfer data between databases.
-
-It uses a very specific "interchange CSV" format, supporting the types listed in [`schema.rs`](./dbcrossbarlib/src/schema.rs). In a few cases, it supports purely cloud-based transfers, such as when importing `gs://**/*.csv` URLs into BigQuery.
-
-## Installation
-
-```sh
-# Install Rust compiler.
-curl https://sh.rustup.rs -sSf | sh
-
-# Install dbcrossbar.
-cargo install -f --git https://github.com/faradayio/dbcrossbar dbcrossbar
-```
-
-## "Interchange" table schemas
-
-In order to make `dbcrossbar` work, we define a "interchange" table schema format using JSON. This format uses a highly-simplied and carefully curated set of column data types that make sense when passing data between databases. This represents a compromise between the richness of PostgreSQL data types, and the relative poverty of BigQuery data types, while still preserving as much information as possible. It includes timestamps, geodata, etc.
-
-Seee [`schema.rs`](./dbcrossbarlib/src/schema.rs) for the details of this "interchange" schema.
+For more information, see the [documentation][docs].
 
 ## Contributing
 
