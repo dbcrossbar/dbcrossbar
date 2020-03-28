@@ -24,9 +24,9 @@ dbcrossbar cp \
 dbcrossbar cp \
     --if-exists=upsert-on:id \
     --temporary=gs://$GS_TEMP_BUCKET \
-    --temporary=bigquery:$GCOUD_PROJECT:temp_dataset \
+    --temporary=bigquery:$GCLOUD_PROJECT:temp_dataset \
     'postgres://postgres@127.0.0.1:5432/postgres#my_table' \
-    bigquery:$GCOUD_PROJECT:my_dataset.my_table
+    bigquery:$GCLOUD_PROJECT:my_dataset.my_table
 ```
 
 It can also convert between table schema formats, including PostgreSQL `CREATE TABLE` statements and BigQuery JSON schemas:

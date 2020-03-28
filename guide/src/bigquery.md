@@ -17,7 +17,7 @@ Right now, all authentication is handled using `gcloud auth` from the [Google Cl
 The following command-line options will usually need to be specified for both sources and destinations:
 
 - `--temporary=gs://$GS_TEMP_BUCKET`: A Google Cloud Storage bucket to use for staging data in both directions.
-- `--temporary=bigquery:$GCOUD_PROJECT:temp_dataset`
+- `--temporary=bigquery:$GCLOUD_PROJECT:temp_dataset`
 
 ## Supported features
 

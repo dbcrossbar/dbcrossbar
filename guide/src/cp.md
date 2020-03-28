@@ -75,7 +75,7 @@ Specify temporary storage, which is required by certain drivers. Typical values 
 
 - `--temporary=s3://$S3_TEMP_BUCKET`
 - `--temporary=gs://$GS_TEMP_BUCKET`
-- `--temporary=bigquery:$GCOUD_PROJECT:temp_dataset`
+- `--temporary=bigquery:$GCLOUD_PROJECT:temp_dataset`
 
 ### `--to-arg`
 
