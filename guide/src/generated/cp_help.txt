@@ -1,0 +1,49 @@
+dbcrossbar-cp 0.3.0
+Copy tables from one location to another
+
+USAGE:
+    dbcrossbar cp [FLAGS] [OPTIONS] <from-locator> <to-locator>
+
+FLAGS:
+        --display-output-locators
+            Display where we wrote our output data
+
+    -h, --help                       Prints help information
+    -V, --version                    Prints version information
+
+OPTIONS:
+        --from-arg <from-args>...
+            Pass an extra argument of the form `key=value` to the
+            source driver
+        --if-exists <if-exists>
+            One of `error`, `overwrite`, `append` or `upsert-on:COL`
+            [default: error]
+    -J, --max-streams <max-streams>
+            How many data streams should we attempt to copy in
+            parallel? [default: 4]
+        --schema <schema>
+            The schema to use (defaults to input table schema)
+
+        --stream-size <stream-size>
+            Specify the approximate size of the CSV streams
+            manipulated by `dbcrossbar`. This can be used to split a
+            large input into multiple smaller outputs. Actual data
+            streams may be bigger or smaller depending on a number of
+            factors. Examples: "100000", "1Gb"
+        --temporary <temporaries>...
+            Temporary directories, cloud storage buckets, datasets to
+            use during transfer (can be repeated)
+        --to-arg <to-args>...
+            Pass an extra argument of the form `key=value` to the
+            destination driver
+        --where <where-clause>
+            SQL where clause specifying rows to use
+
+
+ARGS:
+    <from-locator>    The input table
+    <to-locator>      The output table
+
+EXAMPLE LOCATORS:
+    postgres://localhost:5432/db#table
+    bigquery:project:dataset.table

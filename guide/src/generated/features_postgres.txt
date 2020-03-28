@@ -1,0 +1,8 @@
+postgres features:
+- conv FROM
+- count
+  --where=$SQL_EXPR
+- cp FROM:
+  --where=$SQL_EXPR
+- cp TO:
+  --if-exists=error --if-exists=append --if-exists=overwrite --if-exists=upsert-on:col

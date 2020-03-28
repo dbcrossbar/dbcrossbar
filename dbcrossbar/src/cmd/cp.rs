@@ -17,7 +17,7 @@ use tokio_util::codec::{FramedWrite, LinesCodec};
 /// Schema conversion arguments.
 #[derive(Debug, StructOpt)]
 pub(crate) struct Opt {
-    /// One of `error`, `overwrite` or `append`.
+    /// One of `error`, `overwrite`, `append` or `upsert-on:COL`.
     #[structopt(long = "if-exists", default_value = "error")]
     if_exists: IfExists,
 

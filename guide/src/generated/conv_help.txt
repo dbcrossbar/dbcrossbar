@@ -1,0 +1,23 @@
+dbcrossbar-conv 0.3.0
+Convert table schemas from one format to another
+
+USAGE:
+    dbcrossbar conv [OPTIONS] <from-locator> <to-locator>
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+        --if-exists <if-exists>
+            One of `error`, `overrwrite` or `append` [default: error]
+
+
+ARGS:
+    <from-locator>    The input schema
+    <to-locator>      The output schema
+
+EXAMPLE LOCATORS:
+    postgres-sql:table.sql
+    postgres://localhost:5432/db#table
+    bigquery-schema:table.json
