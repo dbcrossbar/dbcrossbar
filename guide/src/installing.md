@@ -9,9 +9,9 @@ Windows binaries are not available at this time, but it may be possible to build
 
 ## Required tools
 
-To use the S3 and RedShift drivers, you will need to install the [AWS CLI tools](https://github.com/faradayio/dbcrossbar/releases).
+To use the S3 and RedShift drivers, you will need to install the [AWS CLI tools](https://aws.amazon.com/cli/).
 
-To use the BigQuery and Google Cloud Storage drivers, you will need to install the [Google Cloud SDK](https://cloud.google.com/sdk/) to get the `gsutil` and `bq` CLI tools, and authenticate to your Google Cloud account using `gcloud`.
+To use the BigQuery and Google Cloud Storage drivers, you will need to install the [Google Cloud SDK](https://cloud.google.com/sdk/) to get the `gsutil` and `bq` CLI tools, and you will need to authenticate to your Google Cloud account using `gcloud`.
 
 We plan to replace these external CLI tools with native Rust libraries before the 1.0 release.
 

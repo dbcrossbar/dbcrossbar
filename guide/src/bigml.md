@@ -12,8 +12,8 @@ Destination locators:
 
 - `bigml:source`: Create a single BigML "source" resource from the input data.
 - `bigml:sources`: Create multiple BigML "source" resources from the input data.
-- `bigml:dataset`: Create a single BigML "source" resource from the input data.
-- `bigml:datasets`: Create multiple BigML "source" resources from the input data.
+- `bigml:dataset`: Create a single BigML "dataset" resource from the input data.
+- `bigml:datasets`: Create multiple BigML "dataset" resources from the input data.
 
 If you use BigML as a destination, `dbcrossbar` will automatically activate `--display-output-locators`, and it will print locators for all the created resources on standard output. Column types on created "source" resources will be set something appropriate (but see `optype_for_text` below.)
 
@@ -34,8 +34,8 @@ You'll also need to pass the following on the command line when using:
 You can also specify the following `--to-arg` values:
 
 - `name`: The human-readable name of the resource to create.
-- `optype_for_text`: The BigML optype to use for text fields. This defaults to `text`, but you can also set it to `categorical` if your text fields contain a limited set of values.
-- `tag`: This may be specified repeatedly to attach tags to the create resources.
+- `optype_for_text`: The BigML optype to use for text fields. This defaults to `text`. You may want to set it to `categorical` if your text fields contain a small set of fixed strings.
+- `tag`: This may be specified repeatedly to attach tags to the created resources.
 
 ## Supported features
 
