@@ -8,7 +8,8 @@ edition = "2018"
 description = "Library for copying data between databases (pre-release)"
 license = "Apache-2.0 OR MIT"
 readme = "README.md"
-repository = "https://github.com/faradayio/dbcrossbar"
+homepage = "https://www.dbcrossbar.org/"
+repository = "https://github.com/dbcrossbar/dbcrossbar"
 documentation = "https://docs.rs/dbcrossbarlib/"
 
 [build-dependencies]

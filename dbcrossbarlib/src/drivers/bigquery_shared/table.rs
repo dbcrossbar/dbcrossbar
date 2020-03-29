@@ -275,7 +275,7 @@ impl BqTable {
             })
             .collect::<Result<Vec<&BqColumn>>>()?;
 
-        // As discussed at https://github.com/faradayio/dbcrossbar/issues/43,
+        // As discussed at https://github.com/dbcrossbar/dbcrossbar/issues/43,
         // it's not obvious how to `MERGE` on columns that might be `NULL`.
         // Until we have a solution that we like, fail with an error.
         for merge_key in &merge_keys {

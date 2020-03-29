@@ -7,8 +7,9 @@ edition = "2018"
 description = "Program for copying data between databases (pre-release)"
 license = "Apache-2.0 OR MIT"
 readme = "../README.md"
-repository = "https://github.com/faradayio/dbcrossbar"
-documentation = "https://docs.rs/dbcrossbarlib/"
+homepage = "https://www.dbcrossbar.org/"
+repository = "https://github.com/dbcrossbar/dbcrossbar"
+documentation = "https://www.dbcrossbar.org/"
 
 [dev-dependencies]
 cli_test_dir = "0.1.5"

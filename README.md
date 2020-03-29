@@ -1,6 +1,6 @@
 # `dbcrossbar`: Copy tabular data between databases, CSV files and cloud storage
 
-[![Build Status](https://travis-ci.org/faradayio/dbcrossbar.svg)](https://travis-ci.org/faradayio/dbcrossbar)
+[![Build Status](https://travis-ci.org/dbcrossbar/dbcrossbar.svg)](https://travis-ci.org/dbcrossbar/dbcrossbar)
 
 - [Documentation][docs]
 - [Releases][releases]

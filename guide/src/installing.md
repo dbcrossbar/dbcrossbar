@@ -1,6 +1,6 @@
 # Installing
 
-Pre-built binaries for `dbcrossbar` are [available on GitHub](https://github.com/faradayio/dbcrossbar/releases). These currently include:
+Pre-built binaries for `dbcrossbar` are [available on GitHub](https://github.com/dbcrossbar/dbcrossbar/releases). These currently include:
 
 1. Fully-static Linux x86_64 binaries, which should work on any modern distribution (including Alpine Linux containers).
 2. MacOS X binaries.
@@ -35,10 +35,10 @@ cargo install dbcrossbar
 
 ## Building from source
 
-The source code is available [on GitHub](https://github.com/faradayio/dbcrossbar). First, install the build dependencies as described above. Then run:
+The source code is available [on GitHub](https://github.com/dbcrossbar/dbcrossbar). First, install the build dependencies as described above. Then run:
 
 ```sh
-git clone https://github.com/faradayio/dbcrossbar.git
+git clone https://github.com/dbcrossbar/dbcrossbar.git
 cd dbcrossbar
 cargo build --release
 ```
