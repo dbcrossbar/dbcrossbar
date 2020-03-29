@@ -1,9 +1,11 @@
 <!DOCTYPE HTML>
-<html lang="en" class="sidebar-visible no-js">
+<html lang="en" class="sidebar-visible no-js light">
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
         <title>RedShift - Using dbcrossbar</title>
+        
+
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -30,9 +32,12 @@
 
         
     </head>
-    <body class="light">
+    <body>
         <!-- Provide site root to javascript -->
-        <script type="text/javascript">var path_to_root = "";</script>
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
+        </script>
 
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
         <script type="text/javascript">
@@ -53,10 +58,13 @@
         <!-- Set the theme before any content is loaded, prevents flash -->
         <script type="text/javascript">
             var theme;
-            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { } 
-            if (theme === null || theme === undefined) { theme = 'light'; }
-            document.body.className = theme;
-            document.querySelector('html').className = theme + ' js';
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
         </script>
 
         <!-- Hide / unhide sidebar before it is displayed -->
@@ -72,43 +80,50 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <ol class="chapter"><li class="affix"><a href="intro.html">dbcrossbar Guide</a></li><li><a href="features.html"><strong aria-hidden="true">1.</strong> Features &amp; philosophy</a></li><li><a href="installing.html"><strong aria-hidden="true">2.</strong> Installing</a></li><li><a href="how.html"><strong aria-hidden="true">3.</strong> How it works</a></li><li><ol class="section"><li><a href="csv_interchange.html"><strong aria-hidden="true">3.1.</strong> CSV interchange format</a></li><li><a href="schema.html"><strong aria-hidden="true">3.2.</strong> Portable table schema</a></li></ol></li><li><a href="commands.html"><strong aria-hidden="true">4.</strong> Commands</a></li><li><ol class="section"><li><a href="cp.html"><strong aria-hidden="true">4.1.</strong> cp: Copying tables</a></li><li><a href="count.html"><strong aria-hidden="true">4.2.</strong> count: Counting records</a></li><li><a href="conv.html"><strong aria-hidden="true">4.3.</strong> conv: Transforming schemas</a></li></ol></li><li><a href="drivers.html"><strong aria-hidden="true">5.</strong> Drivers</a></li><li><ol class="section"><li><a href="bigml.html"><strong aria-hidden="true">5.1.</strong> BigML</a></li><li><a href="bigquery.html"><strong aria-hidden="true">5.2.</strong> BigQuery</a></li><li><a href="csv.html"><strong aria-hidden="true">5.3.</strong> CSV</a></li><li><a href="gs.html"><strong aria-hidden="true">5.4.</strong> Google Cloud Storage</a></li><li><a href="postgres.html"><strong aria-hidden="true">5.5.</strong> PostgreSQL</a></li><li><a href="redshift.html" class="active"><strong aria-hidden="true">5.6.</strong> RedShift</a></li><li><a href="s3.html"><strong aria-hidden="true">5.7.</strong> S3</a></li></ol></li><li><a href="credits.html">Credits and contributors</a></li></ol>
+            <div id="sidebar-scrollbox" class="sidebar-scrollbox">
+                <ol class="chapter"><li class="expanded affix "><a href="intro.html">dbcrossbar Guide</a></li><li class="expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features &amp; philosophy</a></li><li class="expanded "><a href="installing.html"><strong aria-hidden="true">2.</strong> Installing</a></li><li class="expanded "><a href="how.html"><strong aria-hidden="true">3.</strong> How it works</a></li><li><ol class="section"><li class="expanded "><a href="csv_interchange.html"><strong aria-hidden="true">3.1.</strong> CSV interchange format</a></li><li class="expanded "><a href="schema.html"><strong aria-hidden="true">3.2.</strong> Portable table schema</a></li></ol></li><li class="expanded "><a href="commands.html"><strong aria-hidden="true">4.</strong> Commands</a></li><li><ol class="section"><li class="expanded "><a href="cp.html"><strong aria-hidden="true">4.1.</strong> cp: Copying tables</a></li><li class="expanded "><a href="count.html"><strong aria-hidden="true">4.2.</strong> count: Counting records</a></li><li class="expanded "><a href="conv.html"><strong aria-hidden="true">4.3.</strong> conv: Transforming schemas</a></li></ol></li><li class="expanded "><a href="drivers.html"><strong aria-hidden="true">5.</strong> Drivers</a></li><li><ol class="section"><li class="expanded "><a href="bigml.html"><strong aria-hidden="true">5.1.</strong> BigML</a></li><li class="expanded "><a href="bigquery.html"><strong aria-hidden="true">5.2.</strong> BigQuery</a></li><li class="expanded "><a href="csv.html"><strong aria-hidden="true">5.3.</strong> CSV</a></li><li class="expanded "><a href="gs.html"><strong aria-hidden="true">5.4.</strong> Google Cloud Storage</a></li><li class="expanded "><a href="postgres.html"><strong aria-hidden="true">5.5.</strong> PostgreSQL</a></li><li class="expanded "><a href="redshift.html" class="active"><strong aria-hidden="true">5.6.</strong> RedShift</a></li><li class="expanded "><a href="s3.html"><strong aria-hidden="true">5.7.</strong> S3</a></li></ol></li><li class="expanded "><a href="changes.html"><strong aria-hidden="true">6.</strong> Changes</a></li><li class="expanded affix "><a href="credits.html">Credits and contributors</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
 
             <div class="page">
                 
-                <div id="menu-bar" class="menu-bar">
-                    <div id="menu-bar-sticky-container">
-                        <div class="left-buttons">
-                            <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
-                                <i class="fa fa-bars"></i>
-                            </button>
-                            <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
-                                <i class="fa fa-paint-brush"></i>
-                            </button>
-                            <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
-                                <li role="none"><button role="menuitem" class="theme" id="light">Light <span class="default">(default)</span></button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
-                            </ul>
-                            
-                            <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
-                                <i class="fa fa-search"></i>
-                            </button>
-                            
-                        </div>
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
 
-                        <h1 class="menu-title">Using dbcrossbar</h1> 
+                    <h1 class="menu-title">Using dbcrossbar</h1>
 
-                        <div class="right-buttons">
-                            <a href="print.html" title="Print this book" aria-label="Print this book">
-                                <i id="print-button" class="fa fa-print"></i>
-                            </a>
-                        </div>
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        <a href="https://github.com/dbcrossbar/dbcrossbar" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        
                     </div>
                 </div>
 
@@ -136,14 +151,14 @@
 
                 <div id="content" class="content">
                     <main>
-                        <a class="header" href="#redshift" id="redshift"><h1>RedShift</h1></a>
+                        <h1><a class="header" href="#redshift" id="redshift">RedShift</a></h1>
 <p>Amazon's <a href="https://aws.amazon.com/redshift/">Redshift</a> is a cloud-based data warehouse designed to support analytical queries. This driver receives less testing than our BigQuery driver, because the cheapest possible RedShift test system costs over $100/month. Sponsors are welcome!</p>
-<a class="header" href="#example-locators" id="example-locators"><h2>Example locators</h2></a>
+<h2><a class="header" href="#example-locators" id="example-locators">Example locators</a></h2>
 <p>These are identical to <a href="./postgres.html#example-locators">PostgreSQL locators</a>, except that <code>postgres</code> is replaced by <code>redshift</code>:</p>
 <ul>
 <li><code>redshift://postgres:$PASSWORD@127.0.0.1:5432/postgres#my_table</code></li>
 </ul>
-<a class="header" href="#configuration--authentication" id="configuration--authentication"><h2>Configuration &amp; authentication</h2></a>
+<h2><a class="header" href="#configuration--authentication" id="configuration--authentication">Configuration &amp; authentication</a></h2>
 <p>Authentication is currently handled using the <code>redshift://user:pass@...</code> syntax. We may add alternative mechanisms at some point to avoid passing credentials on the command-line.</p>
 <p>The following environment variables are required.</p>
 <ul>
@@ -160,7 +175,7 @@
 <li><code>--to-arg=region=$REGION</code></li>
 </ul>
 <p>This may require some experimentation.</p>
-<a class="header" href="#supported-features" id="supported-features"><h2>Supported features</h2></a>
+<h2><a class="header" href="#supported-features" id="supported-features">Supported features</a></h2>
 <pre><code class="language-txt">redshift features:
 - conv FROM
 - cp FROM:
@@ -168,7 +183,6 @@
 - cp TO:
   --to-arg=$NAME=$VALUE
   --if-exists=append --if-exists=overwrite
-
 </code></pre>
 
                     </main>
@@ -194,13 +208,13 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a href="postgres.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="postgres.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a href="s3.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="s3.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
@@ -210,6 +224,14 @@
 
         
 
+        
+
+        
+        
+        
+        <script type="text/javascript">
+            window.playpen_copyable = true;
+        </script>
         
 
         

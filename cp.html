@@ -1,9 +1,11 @@
 <!DOCTYPE HTML>
-<html lang="en" class="sidebar-visible no-js">
+<html lang="en" class="sidebar-visible no-js light">
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
         <title>cp: Copying tables - Using dbcrossbar</title>
+        
+
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -30,9 +32,12 @@
 
         
     </head>
-    <body class="light">
+    <body>
         <!-- Provide site root to javascript -->
-        <script type="text/javascript">var path_to_root = "";</script>
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
+        </script>
 
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
         <script type="text/javascript">
@@ -53,10 +58,13 @@
         <!-- Set the theme before any content is loaded, prevents flash -->
         <script type="text/javascript">
             var theme;
-            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { } 
-            if (theme === null || theme === undefined) { theme = 'light'; }
-            document.body.className = theme;
-            document.querySelector('html').className = theme + ' js';
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
         </script>
 
         <!-- Hide / unhide sidebar before it is displayed -->
@@ -72,43 +80,50 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <ol class="chapter"><li class="affix"><a href="intro.html">dbcrossbar Guide</a></li><li><a href="features.html"><strong aria-hidden="true">1.</strong> Features &amp; philosophy</a></li><li><a href="installing.html"><strong aria-hidden="true">2.</strong> Installing</a></li><li><a href="how.html"><strong aria-hidden="true">3.</strong> How it works</a></li><li><ol class="section"><li><a href="csv_interchange.html"><strong aria-hidden="true">3.1.</strong> CSV interchange format</a></li><li><a href="schema.html"><strong aria-hidden="true">3.2.</strong> Portable table schema</a></li></ol></li><li><a href="commands.html"><strong aria-hidden="true">4.</strong> Commands</a></li><li><ol class="section"><li><a href="cp.html" class="active"><strong aria-hidden="true">4.1.</strong> cp: Copying tables</a></li><li><a href="count.html"><strong aria-hidden="true">4.2.</strong> count: Counting records</a></li><li><a href="conv.html"><strong aria-hidden="true">4.3.</strong> conv: Transforming schemas</a></li></ol></li><li><a href="drivers.html"><strong aria-hidden="true">5.</strong> Drivers</a></li><li><ol class="section"><li><a href="bigml.html"><strong aria-hidden="true">5.1.</strong> BigML</a></li><li><a href="bigquery.html"><strong aria-hidden="true">5.2.</strong> BigQuery</a></li><li><a href="csv.html"><strong aria-hidden="true">5.3.</strong> CSV</a></li><li><a href="gs.html"><strong aria-hidden="true">5.4.</strong> Google Cloud Storage</a></li><li><a href="postgres.html"><strong aria-hidden="true">5.5.</strong> PostgreSQL</a></li><li><a href="redshift.html"><strong aria-hidden="true">5.6.</strong> RedShift</a></li><li><a href="s3.html"><strong aria-hidden="true">5.7.</strong> S3</a></li></ol></li><li><a href="credits.html">Credits and contributors</a></li></ol>
+            <div id="sidebar-scrollbox" class="sidebar-scrollbox">
+                <ol class="chapter"><li class="expanded affix "><a href="intro.html">dbcrossbar Guide</a></li><li class="expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features &amp; philosophy</a></li><li class="expanded "><a href="installing.html"><strong aria-hidden="true">2.</strong> Installing</a></li><li class="expanded "><a href="how.html"><strong aria-hidden="true">3.</strong> How it works</a></li><li><ol class="section"><li class="expanded "><a href="csv_interchange.html"><strong aria-hidden="true">3.1.</strong> CSV interchange format</a></li><li class="expanded "><a href="schema.html"><strong aria-hidden="true">3.2.</strong> Portable table schema</a></li></ol></li><li class="expanded "><a href="commands.html"><strong aria-hidden="true">4.</strong> Commands</a></li><li><ol class="section"><li class="expanded "><a href="cp.html" class="active"><strong aria-hidden="true">4.1.</strong> cp: Copying tables</a></li><li class="expanded "><a href="count.html"><strong aria-hidden="true">4.2.</strong> count: Counting records</a></li><li class="expanded "><a href="conv.html"><strong aria-hidden="true">4.3.</strong> conv: Transforming schemas</a></li></ol></li><li class="expanded "><a href="drivers.html"><strong aria-hidden="true">5.</strong> Drivers</a></li><li><ol class="section"><li class="expanded "><a href="bigml.html"><strong aria-hidden="true">5.1.</strong> BigML</a></li><li class="expanded "><a href="bigquery.html"><strong aria-hidden="true">5.2.</strong> BigQuery</a></li><li class="expanded "><a href="csv.html"><strong aria-hidden="true">5.3.</strong> CSV</a></li><li class="expanded "><a href="gs.html"><strong aria-hidden="true">5.4.</strong> Google Cloud Storage</a></li><li class="expanded "><a href="postgres.html"><strong aria-hidden="true">5.5.</strong> PostgreSQL</a></li><li class="expanded "><a href="redshift.html"><strong aria-hidden="true">5.6.</strong> RedShift</a></li><li class="expanded "><a href="s3.html"><strong aria-hidden="true">5.7.</strong> S3</a></li></ol></li><li class="expanded "><a href="changes.html"><strong aria-hidden="true">6.</strong> Changes</a></li><li class="expanded affix "><a href="credits.html">Credits and contributors</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
 
             <div class="page">
                 
-                <div id="menu-bar" class="menu-bar">
-                    <div id="menu-bar-sticky-container">
-                        <div class="left-buttons">
-                            <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
-                                <i class="fa fa-bars"></i>
-                            </button>
-                            <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
-                                <i class="fa fa-paint-brush"></i>
-                            </button>
-                            <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
-                                <li role="none"><button role="menuitem" class="theme" id="light">Light <span class="default">(default)</span></button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
-                            </ul>
-                            
-                            <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
-                                <i class="fa fa-search"></i>
-                            </button>
-                            
-                        </div>
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
 
-                        <h1 class="menu-title">Using dbcrossbar</h1> 
+                    <h1 class="menu-title">Using dbcrossbar</h1>
 
-                        <div class="right-buttons">
-                            <a href="print.html" title="Print this book" aria-label="Print this book">
-                                <i id="print-button" class="fa fa-print"></i>
-                            </a>
-                        </div>
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        <a href="https://github.com/dbcrossbar/dbcrossbar" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        
                     </div>
                 </div>
 
@@ -136,14 +151,13 @@
 
                 <div id="content" class="content">
                     <main>
-                        <a class="header" href="#cp-copying-tables" id="cp-copying-tables"><h1><code>cp</code>: Copying tables</h1></a>
+                        <h1><a class="header" href="#cp-copying-tables" id="cp-copying-tables"><code>cp</code>: Copying tables</a></h1>
 <p>The <code>cp</code> command copies tabular data from a source location to a destination location. For example, we can copy a CSV file into PostgreSQL, replacing any existing table:</p>
 <pre><code class="language-sh">dbcrossbar cp \
     --if-exists=overwrite \
     --schema=postgres-sql:my_table.sql \
     csv:my_table.csv \
     'postgres://postgres@127.0.0.1:5432/postgres#my_table'
-
 </code></pre>
 <p>Or we copy data from PostgreSQL and upsert it into a BigQuery table:</p>
 <pre><code class="language-sh">dbcrossbar cp \
@@ -152,9 +166,8 @@
     --temporary=bigquery:$GCLOUD_PROJECT:temp_dataset \
     'postgres://postgres@127.0.0.1:5432/postgres#my_table' \
     bigquery:$GCLOUD_PROJECT:my_dataset.my_table
-
 </code></pre>
-<a class="header" href="#command-line-help" id="command-line-help"><h2>Command-line help</h2></a>
+<h2><a class="header" href="#command-line-help" id="command-line-help">Command-line help</a></h2>
 <pre><code class="language-txt">dbcrossbar-cp 0.3.0
 Copy tables from one location to another
 
@@ -204,28 +217,27 @@ ARGS:
 EXAMPLE LOCATORS:
     postgres://localhost:5432/db#table
     bigquery:project:dataset.table
-
 </code></pre>
-<a class="header" href="#flags" id="flags"><h2>Flags</h2></a>
+<h2><a class="header" href="#flags" id="flags">Flags</a></h2>
 <p>Not all command-line options are supported by all drivers. See the chapter on each driver for details.</p>
-<a class="header" href="#a--where" id="a--where"><h3><code>--where</code></h3></a>
+<h3><a class="header" href="#--where" id="--where"><code>--where</code></a></h3>
 <p>Specify a <code>WHERE</code> clause to include in the SQL query. This can be used to select a subset of the source rows.</p>
-<a class="header" href="#a--from-arg" id="a--from-arg"><h3><code>--from-arg</code></h3></a>
+<h3><a class="header" href="#--from-arg" id="--from-arg"><code>--from-arg</code></a></h3>
 <p>This can be used to specify driver-specific options for the source driver. See the chapter for that driver.</p>
-<a class="header" href="#a--if-existserror" id="a--if-existserror"><h3><code>--if-exists=error</code></h3></a>
+<h3><a class="header" href="#--if-existserror" id="--if-existserror"><code>--if-exists=error</code></a></h3>
 <p>If the destination location already contains data, exit with an error.</p>
-<a class="header" href="#a--if-existsappend" id="a--if-existsappend"><h3><code>--if-exists=append</code></h3></a>
+<h3><a class="header" href="#--if-existsappend" id="--if-existsappend"><code>--if-exists=append</code></a></h3>
 <p>If the destination location already contains data, append the new data.</p>
-<a class="header" href="#a--if-existsoverwrite" id="a--if-existsoverwrite"><h3><code>--if-exists=overwrite</code></h3></a>
+<h3><a class="header" href="#--if-existsoverwrite" id="--if-existsoverwrite"><code>--if-exists=overwrite</code></a></h3>
 <p>If the destination location already contains data, replace it with the new data.</p>
-<a class="header" href="#a--if-existsupset-oncol1" id="a--if-existsupset-oncol1"><h3><code>--if-exists=upset-on:COL1,..</code></h3></a>
+<h3><a class="header" href="#--if-existsupset-oncol1" id="--if-existsupset-oncol1"><code>--if-exists=upset-on:COL1,..</code></a></h3>
 <p>For every row in the new data:</p>
 <ul>
 <li>If a row with a matching <code>col1</code>, <code>col2</code>, etc., exists, use the new data to update that row.</li>
 <li>If no row matching <code>col1</code>, <code>col2</code>, etc., exists, then insert the new row.</li>
 </ul>
 <p>The columns <code>col1</code>, <code>col2</code>, etc., must be marked as <code>NOT NULL</code>.</p>
-<a class="header" href="#a--schema" id="a--schema"><h3><code>--schema</code></h3></a>
+<h3><a class="header" href="#--schema" id="--schema"><code>--schema</code></a></h3>
 <p>By default, <code>dbcrossbar</code> will use the schema of the source table. But when this can't be inferred automatically, <code>--schema</code> can be used to specify a table schema:</p>
 <ul>
 <li><code>--schema=postgres-sql:my_table.sql</code>: A PostgreSQL <code>CREATE TABLE</code> statement.</li>
@@ -238,14 +250,14 @@ EXAMPLE LOCATORS:
 <li><code>--schema=bigquery:project:dataset.table</code></li>
 </ul>
 <p>Note that it's possible to create a BigQuery table using a PostgreSQL schema, or vice versa. Internally, all schemes are first converted to the <a href="./schema.html">internal schema format</a>.</p>
-<a class="header" href="#a--temporary" id="a--temporary"><h3><code>--temporary</code></h3></a>
+<h3><a class="header" href="#--temporary" id="--temporary"><code>--temporary</code></a></h3>
 <p>Specify temporary storage, which is required by certain drivers. Typical values include:</p>
 <ul>
 <li><code>--temporary=s3://$S3_TEMP_BUCKET</code></li>
 <li><code>--temporary=gs://$GS_TEMP_BUCKET</code></li>
 <li><code>--temporary=bigquery:$GCLOUD_PROJECT:temp_dataset</code></li>
 </ul>
-<a class="header" href="#a--to-arg" id="a--to-arg"><h3><code>--to-arg</code></h3></a>
+<h3><a class="header" href="#--to-arg" id="--to-arg"><code>--to-arg</code></a></h3>
 <p>This can be used to specify driver-specific options for the destination driver. See the chapter for that driver.</p>
 
                     </main>
@@ -271,13 +283,13 @@ EXAMPLE LOCATORS:
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a href="commands.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="commands.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a href="count.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="count.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
@@ -287,6 +299,14 @@ EXAMPLE LOCATORS:
 
         
 
+        
+
+        
+        
+        
+        <script type="text/javascript">
+            window.playpen_copyable = true;
+        </script>
         
 
         

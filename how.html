@@ -1,9 +1,11 @@
 <!DOCTYPE HTML>
-<html lang="en" class="sidebar-visible no-js">
+<html lang="en" class="sidebar-visible no-js light">
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
         <title>How it works - Using dbcrossbar</title>
+        
+
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -30,9 +32,12 @@
 
         
     </head>
-    <body class="light">
+    <body>
         <!-- Provide site root to javascript -->
-        <script type="text/javascript">var path_to_root = "";</script>
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
+        </script>
 
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
         <script type="text/javascript">
@@ -53,10 +58,13 @@
         <!-- Set the theme before any content is loaded, prevents flash -->
         <script type="text/javascript">
             var theme;
-            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { } 
-            if (theme === null || theme === undefined) { theme = 'light'; }
-            document.body.className = theme;
-            document.querySelector('html').className = theme + ' js';
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
         </script>
 
         <!-- Hide / unhide sidebar before it is displayed -->
@@ -72,43 +80,50 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <ol class="chapter"><li class="affix"><a href="intro.html">dbcrossbar Guide</a></li><li><a href="features.html"><strong aria-hidden="true">1.</strong> Features &amp; philosophy</a></li><li><a href="installing.html"><strong aria-hidden="true">2.</strong> Installing</a></li><li><a href="how.html" class="active"><strong aria-hidden="true">3.</strong> How it works</a></li><li><ol class="section"><li><a href="csv_interchange.html"><strong aria-hidden="true">3.1.</strong> CSV interchange format</a></li><li><a href="schema.html"><strong aria-hidden="true">3.2.</strong> Portable table schema</a></li></ol></li><li><a href="commands.html"><strong aria-hidden="true">4.</strong> Commands</a></li><li><ol class="section"><li><a href="cp.html"><strong aria-hidden="true">4.1.</strong> cp: Copying tables</a></li><li><a href="count.html"><strong aria-hidden="true">4.2.</strong> count: Counting records</a></li><li><a href="conv.html"><strong aria-hidden="true">4.3.</strong> conv: Transforming schemas</a></li></ol></li><li><a href="drivers.html"><strong aria-hidden="true">5.</strong> Drivers</a></li><li><ol class="section"><li><a href="bigml.html"><strong aria-hidden="true">5.1.</strong> BigML</a></li><li><a href="bigquery.html"><strong aria-hidden="true">5.2.</strong> BigQuery</a></li><li><a href="csv.html"><strong aria-hidden="true">5.3.</strong> CSV</a></li><li><a href="gs.html"><strong aria-hidden="true">5.4.</strong> Google Cloud Storage</a></li><li><a href="postgres.html"><strong aria-hidden="true">5.5.</strong> PostgreSQL</a></li><li><a href="redshift.html"><strong aria-hidden="true">5.6.</strong> RedShift</a></li><li><a href="s3.html"><strong aria-hidden="true">5.7.</strong> S3</a></li></ol></li><li><a href="credits.html">Credits and contributors</a></li></ol>
+            <div id="sidebar-scrollbox" class="sidebar-scrollbox">
+                <ol class="chapter"><li class="expanded affix "><a href="intro.html">dbcrossbar Guide</a></li><li class="expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features &amp; philosophy</a></li><li class="expanded "><a href="installing.html"><strong aria-hidden="true">2.</strong> Installing</a></li><li class="expanded "><a href="how.html" class="active"><strong aria-hidden="true">3.</strong> How it works</a></li><li><ol class="section"><li class="expanded "><a href="csv_interchange.html"><strong aria-hidden="true">3.1.</strong> CSV interchange format</a></li><li class="expanded "><a href="schema.html"><strong aria-hidden="true">3.2.</strong> Portable table schema</a></li></ol></li><li class="expanded "><a href="commands.html"><strong aria-hidden="true">4.</strong> Commands</a></li><li><ol class="section"><li class="expanded "><a href="cp.html"><strong aria-hidden="true">4.1.</strong> cp: Copying tables</a></li><li class="expanded "><a href="count.html"><strong aria-hidden="true">4.2.</strong> count: Counting records</a></li><li class="expanded "><a href="conv.html"><strong aria-hidden="true">4.3.</strong> conv: Transforming schemas</a></li></ol></li><li class="expanded "><a href="drivers.html"><strong aria-hidden="true">5.</strong> Drivers</a></li><li><ol class="section"><li class="expanded "><a href="bigml.html"><strong aria-hidden="true">5.1.</strong> BigML</a></li><li class="expanded "><a href="bigquery.html"><strong aria-hidden="true">5.2.</strong> BigQuery</a></li><li class="expanded "><a href="csv.html"><strong aria-hidden="true">5.3.</strong> CSV</a></li><li class="expanded "><a href="gs.html"><strong aria-hidden="true">5.4.</strong> Google Cloud Storage</a></li><li class="expanded "><a href="postgres.html"><strong aria-hidden="true">5.5.</strong> PostgreSQL</a></li><li class="expanded "><a href="redshift.html"><strong aria-hidden="true">5.6.</strong> RedShift</a></li><li class="expanded "><a href="s3.html"><strong aria-hidden="true">5.7.</strong> S3</a></li></ol></li><li class="expanded "><a href="changes.html"><strong aria-hidden="true">6.</strong> Changes</a></li><li class="expanded affix "><a href="credits.html">Credits and contributors</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
 
             <div class="page">
                 
-                <div id="menu-bar" class="menu-bar">
-                    <div id="menu-bar-sticky-container">
-                        <div class="left-buttons">
-                            <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
-                                <i class="fa fa-bars"></i>
-                            </button>
-                            <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
-                                <i class="fa fa-paint-brush"></i>
-                            </button>
-                            <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
-                                <li role="none"><button role="menuitem" class="theme" id="light">Light <span class="default">(default)</span></button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
-                            </ul>
-                            
-                            <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
-                                <i class="fa fa-search"></i>
-                            </button>
-                            
-                        </div>
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
 
-                        <h1 class="menu-title">Using dbcrossbar</h1> 
+                    <h1 class="menu-title">Using dbcrossbar</h1>
 
-                        <div class="right-buttons">
-                            <a href="print.html" title="Print this book" aria-label="Print this book">
-                                <i id="print-button" class="fa fa-print"></i>
-                            </a>
-                        </div>
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        <a href="https://github.com/dbcrossbar/dbcrossbar" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        
                     </div>
                 </div>
 
@@ -136,74 +151,18 @@
 
                 <div id="content" class="content">
                     <main>
-                        <a class="header" href="#how-it-works" id="how-it-works"><h1>How it works</h1></a>
+                        <h1><a class="header" href="#how-it-works" id="how-it-works">How it works</a></h1>
 <p><code>dbcrossbar</code> uses pluggable input and output drivers, allowing any input to be copied to any output:</p>
-<pre><code class="language-dotprocess">digraph {
-    rankdir=&quot;LR&quot;;
-
-    csv_in [label=&quot;CSV&quot;]
-    csv_out [label=&quot;CSV&quot;]
-    csv_in -&gt; dbcrossbar -&gt; csv_out
-
-    postgres_in [label=&quot;PostgreSQL&quot;]
-    postgres_out [label=&quot;PostgreSQL&quot;]
-    postgres_in -&gt; dbcrossbar -&gt; postgres_out
-
-    bigquery_in [label=&quot;BigQuery&quot;]
-    bigquery_out [label=&quot;BigQuery&quot;]
-    bigquery_in -&gt; dbcrossbar -&gt; bigquery_out
-
-    s3_in [label=&quot;S3&quot;]
-    s3_out [label=&quot;S3&quot;]
-    s3_in -&gt; dbcrossbar -&gt; s3_out
-
-    etc_in [label=&quot;...&quot;]
-    etc_out [label=&quot;...&quot;]
-    etc_in -&gt; dbcrossbar -&gt; etc_out
-}
-
-</code></pre>
-<a class="header" href="#parallel-data-streams" id="parallel-data-streams"><h2>Parallel data streams</h2></a>
+<p><img src="how_it_works_0.generated.svg" alt="" /></p>
+<h2><a class="header" href="#parallel-data-streams" id="parallel-data-streams">Parallel data streams</a></h2>
 <p>Internally, <code>dbcrossbar</code> uses parallel data streams. If we copy <code>s3://example/</code> to <code>csv:out/</code> using <code>--max-streams=4</code>, this will run up to 4 copies in parallel:</p>
-<pre><code class="language-dotprocess">digraph {
-    rankdir=&quot;LR&quot;;
-
-    src1 [label=&quot;s3://example/file_1.csv&quot;]
-    dest1 [label=&quot;csv:out/file_1.csv&quot;]
-    src1 -&gt; dest1
-
-    src2 [label=&quot;s3://example/file_2.csv&quot;]
-    dest2 [label=&quot;csv:out/file_2.csv&quot;]
-    src2 -&gt; dest2
-
-    src3 [label=&quot;s3://example/file_3.csv&quot;]
-    dest3 [label=&quot;csv:out/file_3.csv&quot;]
-    src3 -&gt; dest3
-
-    dest4 [label=&quot;csv:out/file_4.csv&quot;]
-    src4 [label=&quot;s3://example/file_4.csv&quot;]
-    src4 -&gt; dest4
-
-    {
-        rank=same;
-        rankdir=&quot;TB&quot;;
-        src1 -&gt; src2 -&gt; src3 -&gt; src4 [style=&quot;invis&quot;]
-    }
-}
-</code></pre>
+<p><img src="how_it_works_1.generated.svg" alt="" /></p>
 <p>As soon as one stream finishes, a new one will be started:</p>
-<pre><code class="language-dotprocess">digraph {
-    rankdir=&quot;LR&quot;;
-
-    src5 [label=&quot;s3://example/file_5.csv&quot;]
-    dest5 [label=&quot;csv:out/file_5.csv&quot;]
-    src5 -&gt; dest5
-}
-</code></pre>
+<p><img src="how_it_works_2.generated.svg" alt="" /></p>
 <p><code>dbcrossbar</code> accomplishes this using a <strong>stream of CSV streams.</strong> This allows us to make extensive use of <a href="https://ferd.ca/queues-don-t-fix-overload.html">backpressure</a> to control how data flows through the system, eliminating the need for temporary files. This makes it easier to work with 100GB+ CSV files and 1TB+ datasets.</p>
-<a class="header" href="#shortcuts" id="shortcuts"><h2>Shortcuts</h2></a>
+<h2><a class="header" href="#shortcuts" id="shortcuts">Shortcuts</a></h2>
 <p>When copying between certain drivers, <code>dbcrossbar</code> supports &quot;shortcuts.&quot; For example, it can load data directly from Google Cloud Storage into BigQuery.</p>
-<a class="header" href="#multi-threaded-asynchronous-rust" id="multi-threaded-asynchronous-rust"><h2>Multi-threaded, asynchronous Rust</h2></a>
+<h2><a class="header" href="#multi-threaded-asynchronous-rust" id="multi-threaded-asynchronous-rust">Multi-threaded, asynchronous Rust</a></h2>
 <p><code>dbcrossbar</code> is written using <a href="https://rust-lang.github.io/async-book/">asynchronous</a> <a href="https://www.rust-lang.org/">Rust</a>, and it makes heavy use of a multi-threaded worker pool. Internally, it works something like a set of classic Unix pipelines running in parallel. Thanks to Rust, it bas been possible to get native performance and multithreading without spending too much time debugging.</p>
 
                     </main>
@@ -229,13 +188,13 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a href="installing.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="installing.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a href="csv_interchange.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="csv_interchange.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
@@ -245,6 +204,14 @@
 
         
 
+        
+
+        
+        
+        
+        <script type="text/javascript">
+            window.playpen_copyable = true;
+        </script>
         
 
         
