@@ -19,5 +19,6 @@
   - [PostgreSQL](./postgres.md)
   - [RedShift](./redshift.md)
   - [S3](./s3.md)
+- [Changes](./changes.md)
 
 [Credits and contributors](./credits.md)

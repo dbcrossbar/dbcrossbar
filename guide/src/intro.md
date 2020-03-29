@@ -65,3 +65,7 @@ If we want to use the data to update a table in BigQuery, we can upsert into Big
 ```
 
 Notice that we don't need to specify `--schema`, because `dbcrossbar` will automatically translate the PostgreSQL column types to corresponding BigQuery types.
+
+## Credits
+
+`dbcrossbar` is generously supported by [Faraday](http://faraday.io/) and by open source contributors. Please see the [credits](./credits.html) for more information.

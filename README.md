@@ -2,8 +2,9 @@
 
 [![Build Status](https://travis-ci.org/faradayio/dbcrossbar.svg)](https://travis-ci.org/faradayio/dbcrossbar)
 
-- [Documentation](docs)
+- [Documentation][docs]
 - [Releases][releases]
+- [Changelog](./CHANGELOG.md)
 
 [docs]: https://www.dbcrossbar.org/
 [releases]: https://github.com/dbcrossbar/dbcrossbar/releases
