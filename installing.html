@@ -1,11 +1,9 @@
 <!DOCTYPE HTML>
-<html lang="en" class="sidebar-visible no-js light">
+<html lang="en" class="sidebar-visible no-js">
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
         <title>Installing - Using dbcrossbar</title>
-        
-
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -32,12 +30,9 @@
 
         
     </head>
-    <body>
+    <body class="light">
         <!-- Provide site root to javascript -->
-        <script type="text/javascript">
-            var path_to_root = "";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
-        </script>
+        <script type="text/javascript">var path_to_root = "";</script>
 
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
         <script type="text/javascript">
@@ -58,13 +53,10 @@
         <!-- Set the theme before any content is loaded, prevents flash -->
         <script type="text/javascript">
             var theme;
-            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
-            if (theme === null || theme === undefined) { theme = default_theme; }
-            var html = document.querySelector('html');
-            html.classList.remove('no-js')
-            html.classList.remove('light')
-            html.classList.add(theme);
-            html.classList.add('js');
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { } 
+            if (theme === null || theme === undefined) { theme = 'light'; }
+            document.body.className = theme;
+            document.querySelector('html').className = theme + ' js';
         </script>
 
         <!-- Hide / unhide sidebar before it is displayed -->
@@ -80,46 +72,43 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <div id="sidebar-scrollbox" class="sidebar-scrollbox">
-                <ol class="chapter"><li class="expanded affix "><a href="intro.html">What is dbcrossbar?</a></li><li class="expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features &amp; philosophy</a></li><li class="expanded "><a href="installing.html" class="active"><strong aria-hidden="true">2.</strong> Installing</a></li><li class="expanded "><a href="how.html"><strong aria-hidden="true">3.</strong> How it works</a></li><li><ol class="section"><li class="expanded "><a href="csv_interchange.html"><strong aria-hidden="true">3.1.</strong> CSV interchange format</a></li><li class="expanded "><a href="schema.html"><strong aria-hidden="true">3.2.</strong> Portable table schema</a></li></ol></li><li class="expanded "><a href="commands.html"><strong aria-hidden="true">4.</strong> Commands</a></li><li><ol class="section"><li class="expanded "><a href="cp.html"><strong aria-hidden="true">4.1.</strong> cp: Copying tables</a></li><li class="expanded "><a href="count.html"><strong aria-hidden="true">4.2.</strong> count: Counting records</a></li><li class="expanded "><a href="conv.html"><strong aria-hidden="true">4.3.</strong> conv: Transforming schemas</a></li></ol></li><li class="expanded "><a href="drivers.html"><strong aria-hidden="true">5.</strong> Drivers</a></li><li><ol class="section"><li class="expanded "><a href="bigml.html"><strong aria-hidden="true">5.1.</strong> BigML</a></li><li class="expanded "><a href="bigquery.html"><strong aria-hidden="true">5.2.</strong> BigQuery</a></li><li class="expanded "><a href="csv.html"><strong aria-hidden="true">5.3.</strong> CSV</a></li><li class="expanded "><a href="gs.html"><strong aria-hidden="true">5.4.</strong> Google Cloud Storage</a></li><li class="expanded "><a href="postgres.html"><strong aria-hidden="true">5.5.</strong> PostgreSQL</a></li><li class="expanded "><a href="redshift.html"><strong aria-hidden="true">5.6.</strong> RedShift</a></li><li class="expanded "><a href="s3.html"><strong aria-hidden="true">5.7.</strong> S3</a></li></ol></li><li class="expanded "><a href="credits.html">Credits and contributors</a></li></ol>
-            </div>
-            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+            <ol class="chapter"><li class="affix"><a href="intro.html">dbcrossbar Guide</a></li><li><a href="features.html"><strong aria-hidden="true">1.</strong> Features &amp; philosophy</a></li><li><a href="installing.html" class="active"><strong aria-hidden="true">2.</strong> Installing</a></li><li><a href="how.html"><strong aria-hidden="true">3.</strong> How it works</a></li><li><ol class="section"><li><a href="csv_interchange.html"><strong aria-hidden="true">3.1.</strong> CSV interchange format</a></li><li><a href="schema.html"><strong aria-hidden="true">3.2.</strong> Portable table schema</a></li></ol></li><li><a href="commands.html"><strong aria-hidden="true">4.</strong> Commands</a></li><li><ol class="section"><li><a href="cp.html"><strong aria-hidden="true">4.1.</strong> cp: Copying tables</a></li><li><a href="count.html"><strong aria-hidden="true">4.2.</strong> count: Counting records</a></li><li><a href="conv.html"><strong aria-hidden="true">4.3.</strong> conv: Transforming schemas</a></li></ol></li><li><a href="drivers.html"><strong aria-hidden="true">5.</strong> Drivers</a></li><li><ol class="section"><li><a href="bigml.html"><strong aria-hidden="true">5.1.</strong> BigML</a></li><li><a href="bigquery.html"><strong aria-hidden="true">5.2.</strong> BigQuery</a></li><li><a href="csv.html"><strong aria-hidden="true">5.3.</strong> CSV</a></li><li><a href="gs.html"><strong aria-hidden="true">5.4.</strong> Google Cloud Storage</a></li><li><a href="postgres.html"><strong aria-hidden="true">5.5.</strong> PostgreSQL</a></li><li><a href="redshift.html"><strong aria-hidden="true">5.6.</strong> RedShift</a></li><li><a href="s3.html"><strong aria-hidden="true">5.7.</strong> S3</a></li></ol></li><li><a href="credits.html">Credits and contributors</a></li></ol>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
 
             <div class="page">
                 
-                <div id="menu-bar-hover-placeholder"></div>
-                <div id="menu-bar" class="menu-bar sticky bordered">
-                    <div class="left-buttons">
-                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
-                            <i class="fa fa-bars"></i>
-                        </button>
-                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
-                            <i class="fa fa-paint-brush"></i>
-                        </button>
-                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
-                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
-                        </ul>
-                        
-                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
-                            <i class="fa fa-search"></i>
-                        </button>
-                        
-                    </div>
+                <div id="menu-bar" class="menu-bar">
+                    <div id="menu-bar-sticky-container">
+                        <div class="left-buttons">
+                            <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                                <i class="fa fa-bars"></i>
+                            </button>
+                            <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                                <i class="fa fa-paint-brush"></i>
+                            </button>
+                            <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                                <li role="none"><button role="menuitem" class="theme" id="light">Light <span class="default">(default)</span></button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                            </ul>
+                            
+                            <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                                <i class="fa fa-search"></i>
+                            </button>
+                            
+                        </div>
 
-                    <h1 class="menu-title">Using dbcrossbar</h1>
+                        <h1 class="menu-title">Using dbcrossbar</h1> 
 
-                    <div class="right-buttons">
-                        <a href="print.html" title="Print this book" aria-label="Print this book">
-                            <i id="print-button" class="fa fa-print"></i>
-                        </a>
-                        
+                        <div class="right-buttons">
+                            <a href="print.html" title="Print this book" aria-label="Print this book">
+                                <i id="print-button" class="fa fa-print"></i>
+                            </a>
+                        </div>
                     </div>
                 </div>
 
@@ -147,18 +136,18 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#installing" id="installing">Installing</a></h1>
+                        <a class="header" href="#installing" id="installing"><h1>Installing</h1></a>
 <p>Pre-built binaries for <code>dbcrossbar</code> are <a href="https://github.com/faradayio/dbcrossbar/releases">available on GitHub</a>. These currently include:</p>
 <ol>
 <li>Fully-static Linux x86_64 binaries, which should work on any modern distribution (including Alpine Linux containers).</li>
 <li>MacOS X binaries.</li>
 </ol>
 <p>Windows binaries are not available at this time, but it may be possible to build them with a little work.</p>
-<h2><a class="header" href="#required-tools" id="required-tools">Required tools</a></h2>
+<a class="header" href="#required-tools" id="required-tools"><h2>Required tools</h2></a>
 <p>To use the S3 and RedShift drivers, you will need to install the <a href="https://github.com/faradayio/dbcrossbar/releases">AWS CLI tools</a>.</p>
 <p>To use the BigQuery and Google Cloud Storage drivers, you will need to install the <a href="https://cloud.google.com/sdk/">Google Cloud SDK</a> to get the <code>gsutil</code> and <code>bq</code> CLI tools, and authenticate to your Google Cloud account using <code>gcloud</code>.</p>
 <p>We plan to replace these external CLI tools with native Rust libraries before the 1.0 release.</p>
-<h2><a class="header" href="#installing-using-cargo" id="installing-using-cargo">Installing using <code>cargo</code></a></h2>
+<a class="header" href="#installing-using-cargo" id="installing-using-cargo"><h2>Installing using <code>cargo</code></h2></a>
 <p>You can also install <code>dbcrossbar</code> using <code>cargo</code>. First, you will need to make sure you have the necessary C dependencies installed:</p>
 <pre><code class="language-sh"># Ubuntu Linux (might be incomplete).
 sudo apt install build-essential libssl-dev libpq-dev
@@ -169,7 +158,7 @@ brew install openssl@1.1 postgresql
 <p>Then, you can install using <code>cargo</code>:</p>
 <pre><code class="language-sh">cargo install dbcrossbar
 </code></pre>
-<h2><a class="header" href="#building-from-source" id="building-from-source">Building from source</a></h2>
+<a class="header" href="#building-from-source" id="building-from-source"><h2>Building from source</h2></a>
 <p>The source code is available <a href="https://github.com/faradayio/dbcrossbar">on GitHub</a>. First, install the build dependencies as described above. Then run:</p>
 <pre><code class="language-sh">git clone https://github.com/faradayio/dbcrossbar.git
 cd dbcrossbar
@@ -200,13 +189,13 @@ cargo build --release
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="features.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a href="features.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a rel="next" href="how.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a href="how.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
@@ -216,14 +205,6 @@ cargo build --release
 
         
 
-        
-
-        
-        
-        
-        <script type="text/javascript">
-            window.playpen_copyable = true;
-        </script>
         
 
         
