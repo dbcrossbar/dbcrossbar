@@ -182,7 +182,7 @@ fn bigquery_upsert() {
     let bq_table = bq_test_table("bigquery_upsert");
 
     // CSVes to BigQuery.
-    let mut first = false;
+    let mut first = true;
     for src in srcs {
         let if_exists = if first {
             first = false;

@@ -83,7 +83,7 @@ impl BqColumn {
     /// Given a `BqColumn`, construct a portable `Column`.
     pub(crate) fn to_column(&self) -> Result<Column> {
         Ok(Column {
-            name: self.name.to_string(),
+            name: self.name.to_portable_name(),
             data_type: self.bq_data_type()?.to_data_type()?,
             is_nullable: match self.mode {
                 // I'm not actually sure about how to best map `Repeated`, so
@@ -260,14 +260,14 @@ return "#,
                 "ImportJson_{idx}({table_prefix}{name})",
                 idx = idx,
                 table_prefix = table_prefix,
-                name = self.name,
+                name = self.name.quoted(),
             )?;
         } else {
             write!(
                 f,
                 "{table_prefix}{name}",
                 table_prefix = table_prefix,
-                name = self.name,
+                name = self.name.quoted(),
             )?;
         }
         Ok(())
@@ -281,7 +281,7 @@ return "#,
         idx: usize,
     ) -> Result<()> {
         self.write_import_expr(f, idx, None)?;
-        write!(f, " AS {name}", name = self.name)?;
+        write!(f, " AS {name}", name = self.name.quoted())?;
         Ok(())
     }
 
@@ -313,19 +313,31 @@ return "#,
             | BqNonArrayDataType::Int64
             | BqNonArrayDataType::Numeric
             | BqNonArrayDataType::String => {
-                write!(f, "{}", self.name)?;
+                write!(f, "{}", self.name.quoted())?;
             }
 
             BqNonArrayDataType::Datetime => {
-                write!(f, "(SELECT ARRAY_AGG(FORMAT_DATETIME(\"%Y-%m-%dT%H:%M:%E*S\", {name})) FROM UNNEST({name}) AS {name})", name = self.name)?;
+                write!(
+                    f,
+                    "(SELECT ARRAY_AGG(FORMAT_DATETIME(\"%Y-%m-%dT%H:%M:%E*S\", {name})) FROM UNNEST({name}) AS {name})",
+                    name = self.name.quoted(),
+                )?;
             }
 
             BqNonArrayDataType::Geography => {
-                write!(f, "(SELECT ARRAY_AGG(ST_ASGEOJSON({name})) FROM UNNEST({name}) AS {name})", name = self.name)?;
+                write!(
+                    f,
+                    "(SELECT ARRAY_AGG(ST_ASGEOJSON({name})) FROM UNNEST({name}) AS {name})",
+                    name = self.name.quoted(),
+                )?;
             }
 
             BqNonArrayDataType::Timestamp => {
-                write!(f, "(SELECT ARRAY_AGG(FORMAT_TIMESTAMP(\"%Y-%m-%dT%H:%M:%E*SZ\", {name}, \"+0\")) FROM UNNEST({name}) AS {name})", name = self.name)?;
+                write!(
+                    f,
+                    "(SELECT ARRAY_AGG(FORMAT_TIMESTAMP(\"%Y-%m-%dT%H:%M:%E*SZ\", {name}, \"+0\")) FROM UNNEST({name}) AS {name})",
+                    name = self.name.quoted(),
+                )?;
             }
 
             // These we don't know how to output at all. (We don't have a
@@ -339,7 +351,7 @@ return "#,
                 ));
             }
         }
-        write!(f, "), '[]') AS {name}", name = self.name)?;
+        write!(f, "), '[]') AS {name}", name = self.name.quoted())?;
         Ok(())
     }
 
@@ -356,7 +368,7 @@ return "#,
             | BqNonArrayDataType::Int64
             | BqNonArrayDataType::Numeric
             | BqNonArrayDataType::String => {
-                write!(f, "{}", self.name)?;
+                write!(f, "{}", self.name.quoted())?;
             }
 
             // BigQuery outputs "true" and "false" by default, but let's make it
@@ -368,7 +380,7 @@ return "#,
                 write!(
                     f,
                     "(CASE {name} WHEN TRUE THEN \"t\" WHEN FALSE THEN \"f\" ELSE NULL END) AS {name}",
-                    name = self.name,
+                    name = self.name.quoted(),
                 )?;
             }
 
@@ -376,17 +388,25 @@ return "#,
                 write!(
                     f,
                     "FORMAT_DATETIME(\"%Y-%m-%dT%H:%M:%E*S\", {name}) AS {name}",
-                    name = self.name
+                    name = self.name.quoted()
                 )?;
             }
 
             BqNonArrayDataType::Geography => {
-                write!(f, "ST_ASGEOJSON({name}) AS {name}", name = self.name)?;
+                write!(
+                    f,
+                    "ST_ASGEOJSON({name}) AS {name}",
+                    name = self.name.quoted()
+                )?;
             }
 
             struct_ty @ BqNonArrayDataType::Struct(_) => {
                 if struct_ty.is_json_safe() {
-                    write!(f, "TO_JSON_STRING({name}) AS {name}", name = self.name)?;
+                    write!(
+                        f,
+                        "TO_JSON_STRING({name}) AS {name}",
+                        name = self.name.quoted()
+                    )?;
                 } else {
                     return Err(format_err!("cannot serialize {} as JSON", struct_ty));
                 }
@@ -396,7 +416,7 @@ return "#,
                 write!(
                     f,
                     "FORMAT_TIMESTAMP(\"%Y-%m-%dT%H:%M:%E*SZ\", {name}, \"+0\") AS {name}",
-                    name = self.name
+                    name = self.name.quoted(),
                 )?;
             }
 

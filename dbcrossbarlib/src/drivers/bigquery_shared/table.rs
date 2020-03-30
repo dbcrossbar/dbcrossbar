@@ -127,7 +127,7 @@ impl BqTable {
                     } else {
                         Err(format_err!(
                             "could not find column {} in BigQuery table {}",
-                            c.name,
+                            c.name.quoted(),
                             self.name,
                         ))
                     }
@@ -215,7 +215,7 @@ impl BqTable {
             if i > 0 {
                 writeln!(f, ",")?;
             }
-            write!(f, "    {} {}", col.name, col.bq_data_type()?)?;
+            write!(f, "    {} {}", col.name.quoted(), col.bq_data_type()?)?;
             if col.is_not_null() {
                 write!(f, " NOT NULL")?;
             }
@@ -240,7 +240,7 @@ impl BqTable {
             f,
             "INSERT INTO {} ({})",
             self.name.dotted_and_quoted(),
-            self.columns.iter().map(|c| &c.name).join(","),
+            self.columns.iter().map(|c| c.name.quoted()).join(","),
         )?;
         write!(f, "SELECT ")?;
         for (i, col) in self.columns.iter().enumerate() {
@@ -320,7 +320,7 @@ WHEN NOT MATCHED THEN INSERT (
                 .enumerate()
                 .map(|(idx, c)| format!(
                     "dest.{col} = {expr}",
-                    col = c.name,
+                    col = c.name.quoted(),
                     expr = col_import_expr(c, idx),
                 ))
                 .join(" AND\n    "),
@@ -333,12 +333,12 @@ WHEN NOT MATCHED THEN INSERT (
                 } else {
                     Some(format!(
                         "{col} = {expr}",
-                        col = c.name,
+                        col = c.name.quoted(),
                         expr = col_import_expr(c, idx),
                     ))
                 })
                 .join(",\n    "),
-            columns = self.columns.iter().map(|c| &c.name).join(",\n    "),
+            columns = self.columns.iter().map(|c| c.name.quoted()).join(",\n    "),
             values = self
                 .columns
                 .iter()
