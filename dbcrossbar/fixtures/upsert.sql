@@ -3,6 +3,7 @@ CREATE TABLE upsert_test (
     key2 INT NOT NULL,
     value TEXT,
     more TEXT[],
+    "select" TEXT,
     camelCase TEXT
 );
 

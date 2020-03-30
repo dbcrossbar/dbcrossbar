@@ -9,5 +9,6 @@ CREATE TABLE exact_output (
     test_timestamp_without_time_zone timestamp,
     test_timestamp_with_time_zone timestamp with time zone,
     test_uuid uuid,
+    "select" text,
     testCapitalized text
 );

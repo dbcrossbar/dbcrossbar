@@ -45,12 +45,24 @@ pub(crate) struct ColumnName {
 impl ColumnName {
     /// The original string, including case information.
     pub(crate) fn as_str(&self) -> &str {
+        // We store the original string in the first half.
         &self.data[..self.data.len() / 2]
     }
 
-    /// Am all-lowecase version
+    /// Am all-lowecase version. Used for comparison.
     fn as_lowercase(&self) -> &str {
+        // We store the lowercase string in the second half.
         &self.data[self.data.len() / 2..]
+    }
+
+    /// Convert this to a portable name.
+    pub(crate) fn to_portable_name(&self) -> String {
+        self.as_str().to_owned()
+    }
+
+    /// Quote this for use in SQL.
+    pub(crate) fn quoted(&self) -> ColumnNameQuoted<'_> {
+        ColumnNameQuoted(self)
     }
 }
 
@@ -87,37 +99,30 @@ impl fmt::Debug for ColumnName {
     }
 }
 
-impl fmt::Display for ColumnName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(self.as_str(), f)
-    }
-}
-
 impl TryFrom<&str> for ColumnName {
     type Error = Error;
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         // Check for validity.
-        {
-            let mut chars = s.chars();
-            match chars.next() {
-                Some(c) if c == '_' || c.is_ascii_alphabetic() => {}
-                _ => {
-                    return Err(format_err!(
+        let mut chars = s.chars();
+        match chars.next() {
+            Some(c) if c == '_' || c.is_ascii_alphabetic() => {}
+            _ => {
+                return Err(format_err!(
                         "BigQuery column name {:?} must start with an underscore or an ASCII letter",
                         s,
                     ));
-                }
             }
-            if !chars.all(|c| c == '_' || c.is_ascii_alphanumeric()) {
-                return Err(format_err!("BigQuery column name {:?} must contain only underscores, ASCII letters, or ASCII digits", s,));
-            }
+        }
+        if !chars.all(|c| c == '_' || c.is_ascii_alphanumeric()) {
+            return Err(format_err!("BigQuery column name {:?} must contain only underscores, ASCII letters, or ASCII digits", s,));
         }
 
         // Build data.
         let mut data = String::with_capacity(s.len() * 2);
         data.push_str(s);
         data.extend(s.chars().map(|c| c.to_ascii_lowercase()));
+        assert!(data.len() == 2 * s.len());
         Ok(ColumnName { data })
     }
 }
@@ -154,6 +159,19 @@ impl<'de> Deserialize<'de> for ColumnName {
     {
         let s: &str = Deserialize::deserialize(deserializer)?;
         Ok(ColumnName::try_from(s).map_err(|e| de::Error::custom(e))?)
+    }
+}
+
+/// A wrapper type used to display column names in a quoted format.
+///
+/// We avoid defining `Display` directly on `ColumnName`, so that there's no way
+/// to display it without making a decision.
+pub(crate) struct ColumnNameQuoted<'a>(&'a ColumnName);
+
+impl<'a> fmt::Display for ColumnNameQuoted<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Always quote, just in case the column name is a keyword.
+        write!(f, "`{}`", self.0.as_str())
     }
 }
 
@@ -201,6 +219,6 @@ fn ignores_case_for_hash() {
 fn format_preserves_case() {
     let s = "Aa";
     let name = ColumnName::from_str(s).unwrap();
-    assert_eq!(format!("{}", name), format!("{}", s));
+    assert_eq!(format!("{}", name.quoted()), format!("`{}`", s));
     assert_eq!(format!("{:?}", name), format!("{:?}", s));
 }

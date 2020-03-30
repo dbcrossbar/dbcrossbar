@@ -437,7 +437,7 @@ impl fmt::Display for BqStructField {
         if let Some(name) = &self.name {
             // TODO: It's not clear whether we can/should escape this using
             // `Ident` to insert backticks.
-            write!(f, "{} ", name)?;
+            write!(f, "{} ", name.quoted())?;
         }
         write!(f, "{}", self.ty)
     }
