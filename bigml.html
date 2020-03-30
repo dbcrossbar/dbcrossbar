@@ -162,8 +162,8 @@
 <ul>
 <li><code>bigml:source</code>: Create a single BigML &quot;source&quot; resource from the input data.</li>
 <li><code>bigml:sources</code>: Create multiple BigML &quot;source&quot; resources from the input data.</li>
-<li><code>bigml:dataset</code>: Create a single BigML &quot;source&quot; resource from the input data.</li>
-<li><code>bigml:datasets</code>: Create multiple BigML &quot;source&quot; resources from the input data.</li>
+<li><code>bigml:dataset</code>: Create a single BigML &quot;dataset&quot; resource from the input data.</li>
+<li><code>bigml:datasets</code>: Create multiple BigML &quot;dataset&quot; resources from the input data.</li>
 </ul>
 <p>If you use BigML as a destination, <code>dbcrossbar</code> will automatically activate <code>--display-output-locators</code>, and it will print locators for all the created resources on standard output. Column types on created &quot;source&quot; resources will be set something appropriate (but see <code>optype_for_text</code> below.)</p>
 <h2><a class="header" href="#configuration--authentication" id="configuration--authentication">Configuration &amp; authentication</a></h2>
@@ -181,8 +181,8 @@
 <p>You can also specify the following <code>--to-arg</code> values:</p>
 <ul>
 <li><code>name</code>: The human-readable name of the resource to create.</li>
-<li><code>optype_for_text</code>: The BigML optype to use for text fields. This defaults to <code>text</code>, but you can also set it to <code>categorical</code> if your text fields contain a limited set of values.</li>
-<li><code>tag</code>: This may be specified repeatedly to attach tags to the create resources.</li>
+<li><code>optype_for_text</code>: The BigML optype to use for text fields. This defaults to <code>text</code>. You may want to set it to <code>categorical</code> if your text fields contain a small set of fixed strings.</li>
+<li><code>tag</code>: This may be specified repeatedly to attach tags to the created resources.</li>
 </ul>
 <h2><a class="header" href="#supported-features" id="supported-features">Supported features</a></h2>
 <pre><code class="language-txt">bigml features:

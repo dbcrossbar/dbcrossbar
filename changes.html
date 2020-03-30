@@ -154,6 +154,12 @@
                         <h1><a class="header" href="#changelog" id="changelog">Changelog</a></h1>
 <p>All notable changes to this project will be documented in this file.</p>
 <p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>, and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a> for the <code>dbcrossbar</code> CLI tool. (The <code>dbcrossbarlib</code> is an internal-only dependency with no versioning policy at this time.)</p>
+<h2><a class="header" href="#032---2020-03-30" id="032---2020-03-30">0.3.2 - 2020-03-30</a></h2>
+<h3><a class="header" href="#fixed" id="fixed">Fixed</a></h3>
+<ul>
+<li>Correctly quote BigQuery column names again (which regressed in 0.3.0), and added test cases to prevent further regressions.</li>
+<li>Fix an error that caused <code>bigquery_upsert</code> test to fail.</li>
+</ul>
 <h2><a class="header" href="#031---2020-03-29" id="031---2020-03-29">0.3.1 - 2020-03-29</a></h2>
 <h3><a class="header" href="#added" id="added">Added</a></h3>
 <ul>
@@ -164,7 +170,7 @@
 <li>Encapsulate all calls to <code>bq</code> and <code>gsutil</code></li>
 <li>Improve performance of <code>--stream-size</code></li>
 </ul>
-<h3><a class="header" href="#fixed" id="fixed">Fixed</a></h3>
+<h3><a class="header" href="#fixed-1" id="fixed-1">Fixed</a></h3>
 <ul>
 <li>BigQuery: Honor NOT NULL on import (fixes #45)</li>
 </ul>
@@ -180,7 +186,7 @@
 <li>Replace <code>wkb</code> with <code>postgis</code> for licensing reasons</li>
 <li>BigML: Fail immediately if no S3 temporary bucket provided (fixes #101)</li>
 </ul>
-<h3><a class="header" href="#fixed-1" id="fixed-1">Fixed</a></h3>
+<h3><a class="header" href="#fixed-2" id="fixed-2">Fixed</a></h3>
 <ul>
 <li>BigQuery: Handle mixed-case column names using BigQuery semantics (fixes #84)</li>
 <li>PostgreSQL: Fix upserts with mixed-case column names</li>

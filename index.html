@@ -174,7 +174,7 @@
     csv:my_table.csv \
     'postgres://postgres@127.0.0.1:5432/postgres#my_table'
 </code></pre>
-<p>If we want to use the data to update a table in BigQuery, we can upsert into BigQuery using the <code>id</code> column:</p>
+<p>If we want to use this data to update an existing table in BigQuery, we can upsert into BigQuery using the <code>id</code> column:</p>
 <pre><code class="language-sh">dbcrossbar cp \
     --if-exists=upsert-on:id \
     --temporary=gs://$GS_TEMP_BUCKET \
@@ -182,7 +182,8 @@
     'postgres://postgres@127.0.0.1:5432/postgres#my_table' \
     bigquery:$GCLOUD_PROJECT:my_dataset.my_table
 </code></pre>
-<p>Notice that we don't need to specify <code>--schema</code>, because <code>dbcrossbar</code> will automatically translate the PostgreSQL column types to corresponding BigQuery types.</p>
+<p>This will stream the data out of PostgreSQL, upload it to <code>$GS_TEMP_BUCKET</code>, import it into a temporary BigQuery table, and run an appropriate <code>MERGE</code> command.</p>
+<p>Notice that we don't need to specify <code>--schema</code>, because <code>dbcrossbar</code> will automatically translate the PostgreSQL column types to corresponding BigQuery types. The <code>--temporary</code> arguments specify what bucket to use for loading the CSV files, and what BigQuery data set to use for the temporary table used as input to the <code>MERGE</code>.</p>
 <h2><a class="header" href="#credits" id="credits">Credits</a></h2>
 <p><code>dbcrossbar</code> is generously supported by <a href="http://faraday.io/">Faraday</a> and by open source contributors. Please see the <a href="./credits.html">credits</a> for more information.</p>
 
