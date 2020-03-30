@@ -25,6 +25,7 @@ You'll need to set the following environment variables:
 
 - `BIGML_USERNAME`: Set this to your BigML username.
 - `BIGML_API_KEY`: Set this to your BigML API key.
+- `BIGML_DOMAIN` (optional): Set this to the domain name of your BigML instance, if it's not located at the standard address.
 - `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`: Set these to your AWS credentials when using BigML as a destination. Do **not** set `AWS_SESSION_TOKEN`; it will not work with BigML.
 
 You'll also need to pass the following on the command line when using:
