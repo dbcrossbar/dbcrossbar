@@ -7,7 +7,7 @@ use bigml::{
 use chrono::{Duration, Utc};
 use serde::Deserialize;
 
-use super::{source::SourceExt, BigMlCredentials, BigMlLocator, CreateOptions};
+use super::{source::SourceExt, BigMlLocator, CreateOptions};
 use crate::common::*;
 use crate::concat::concatenate_csv_streams;
 use crate::drivers::s3::{find_s3_temp_dir, sign_s3_url, AwsCredentials};
@@ -47,11 +47,6 @@ pub(crate) async fn write_local_data_helper(
         .deserialize::<BigMlDestinationArguments>()
         .context("could not parse --to-arg")?;
 
-    // Get our BigML credentials. We fetch these from environment variables
-    // for now, but maybe there's a better, more consistent way to handle
-    // credentials?
-    let creds = BigMlCredentials::try_default()?;
-
     // Extract some more options from our destination locator.
     let CreateOptions {
         concat_csv_streams,
@@ -83,11 +78,9 @@ pub(crate) async fn write_local_data_helper(
 
             // Convert our S3 locators into BigML `Source` objects.
             let ctx = ctx.clone();
-            let creds = creds.clone();
             let bigml_dest_args = bigml_dest_args.clone();
             let bigml_source_stream = s3_locator_stream.map_ok(move |locator_fut| {
                 let ctx = ctx.clone();
-                let creds = creds.clone();
                 let bigml_dest_args = bigml_dest_args.clone();
                 let fut = async move {
                     // Get our S3 URL back.
@@ -123,7 +116,7 @@ pub(crate) async fn write_local_data_helper(
                         args.name = Some(name.to_owned());
                     }
                     args.tags = bigml_dest_args.tags.clone();
-                    let client = creds.client()?;
+                    let client = bigml::Client::new_from_env()?;
                     let source = client.create(&args).await?;
 
                     let ctx = ctx.child(o!("bigml_source" => source.id().to_string()));
@@ -168,7 +161,6 @@ pub(crate) async fn write_local_data_helper(
     // Finish setting up our source objects, and optionally convert them to
     // datasets.
     let written = sources.map_ok(move |ctx_source_fut| {
-        let creds = creds.clone();
         let schema = schema.clone(); // Expensive.
         let bigml_dest_args = bigml_dest_args.clone();
         let fut = async move {
@@ -176,7 +168,7 @@ pub(crate) async fn write_local_data_helper(
 
             // Wait for our `source` to finish being created.
             trace!(ctx.log(), "waiting for source to be ready");
-            let client = creds.client()?;
+            let client = bigml::Client::new_from_env()?;
             source = client.wait(source.id()).await?;
 
             // Fix data types.

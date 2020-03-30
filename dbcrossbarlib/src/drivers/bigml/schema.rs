@@ -1,6 +1,8 @@
 //! Implementation of `schema`.
 
-use super::{data_type::OptypeExt, BigMlAction, BigMlCredentials, BigMlLocator};
+use bigml;
+
+use super::{data_type::OptypeExt, BigMlAction, BigMlLocator};
 use crate::common::*;
 use crate::schema::{Column, Table};
 
@@ -9,8 +11,7 @@ pub(crate) async fn schema_helper(
     _ctx: Context,
     source: BigMlLocator,
 ) -> Result<Option<Table>> {
-    let creds = BigMlCredentials::try_default()?;
-    let client = creds.client()?;
+    let client = bigml::Client::new_from_env()?;
     if let BigMlAction::ReadDataset(id) = &source.action {
         let dataset = client.fetch(id).await?;
         let fields = &dataset.fields;

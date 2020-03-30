@@ -1,8 +1,11 @@
 //! Helper for reading data from BigML.
 
-use bigml::resource::{Id, Resource};
+use bigml::{
+    self,
+    resource::{Id, Resource},
+};
 
-use super::{BigMlAction, BigMlCredentials, BigMlLocator};
+use super::{BigMlAction, BigMlLocator};
 use crate::common::*;
 
 /// Implementation of `local_data`, but as a real `async` function.
@@ -21,8 +24,7 @@ pub(crate) async fn local_data_helper(
     };
     debug!(ctx.log(), "reading data from {}", id);
 
-    let creds = BigMlCredentials::try_default()?;
-    let client = creds.client()?;
+    let client = bigml::Client::new_from_env()?;
     let response = client.download(&id).await?;
     let csv_stream =
         CsvStream::from_http_response(strip_id_prefix(&id).to_owned(), response)?;
