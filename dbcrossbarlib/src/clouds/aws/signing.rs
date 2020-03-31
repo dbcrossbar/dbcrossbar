@@ -4,35 +4,9 @@ use base64;
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use sha1::Sha1;
-use std::env;
 
+use super::AwsCredentials;
 use crate::common::*;
-
-/// Credentials used to access S3.
-pub(crate) struct AwsCredentials {
-    /// The value of `AWS_ACCESS_KEY_ID`.
-    access_key_id: String,
-    /// The value of `AWS_SECRET_ACCESS_KEY`.
-    secret_access_key: String,
-    /// The value of `AWS_SESSION_TOKEN`.
-    session_token: Option<String>,
-}
-
-impl AwsCredentials {
-    /// Try to look up a default value for our AWS credentials.
-    pub(crate) fn try_default() -> Result<AwsCredentials> {
-        let access_key_id = env::var("AWS_ACCESS_KEY_ID")
-            .context("could not find AWS_ACCESS_KEY_ID")?;
-        let secret_access_key = env::var("AWS_SECRET_ACCESS_KEY")
-            .context("could not find AWS_ACCESS_KEY_ID")?;
-        let session_token = env::var("AWS_SESSION_TOKEN").ok();
-        Ok(AwsCredentials {
-            access_key_id,
-            secret_access_key,
-            session_token,
-        })
-    }
-}
 
 /// Sign an `s3://` URL for use with AWS. Returns the signed URL and an optional
 /// value for the `x-amz-security-token` header.

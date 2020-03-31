@@ -19,9 +19,19 @@ pub(crate) struct TableName {
 }
 
 impl TableName {
-    /// Return the name of this project.
+    /// Return the name of the table's project.
     pub(crate) fn project(&self) -> &str {
         &self.project
+    }
+
+    /// Return the name of the table's dataset.
+    pub(crate) fn dataset(&self) -> &str {
+        &self.dataset
+    }
+
+    /// Return the bare table name itself, without project or dataset.
+    pub(crate) fn table(&self) -> &str {
+        &self.table
     }
 
     /// Return a value which will be formatted as

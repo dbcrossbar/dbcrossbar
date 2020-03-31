@@ -23,7 +23,7 @@ where
         + Send
         + 'static,
 {
-    let ctx = ctx.child(o!("transform" => name.clone()));
+    let ctx = ctx.child(o!("transform" => name));
 
     let rdr_ctx = ctx.child(o!("mode" => "input"));
     let rdr = SyncStreamReader::new(rdr_ctx, input);
