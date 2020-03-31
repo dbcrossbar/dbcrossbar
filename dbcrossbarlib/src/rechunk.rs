@@ -32,9 +32,8 @@ pub fn rechunk_csvs(
 
     // Run a synchronous background worker thread that parsers our sync CSV
     // `Read`er into a stream of `CsvStream`s.
-    let name = "rechunk".to_owned();
     let worker_ctx = ctx.clone();
-    let worker_fut = run_sync_fn_in_background(name, move || -> Result<()> {
+    let worker_fut = spawn_blocking(move || -> Result<()> {
         let mut rdr = csv::Reader::from_reader(csv_rdr);
         let hdr = rdr
             .byte_headers()

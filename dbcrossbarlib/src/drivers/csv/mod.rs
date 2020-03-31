@@ -57,7 +57,7 @@ impl Locator for CsvLocator {
         // We're going to use a helper thread to do this, because `csv` is a
         // purely synchrnous library.
         let source = self.to_owned();
-        run_sync_fn_in_background("csv::schema".to_owned(), move || {
+        spawn_blocking(move || {
             match &source.path {
                 PathOrStdio::Stdio => {
                     // This is actually fairly tricky, because we may need to first

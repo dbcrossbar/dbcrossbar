@@ -95,7 +95,7 @@ pub(crate) mod common {
         tokio_glue::{
             async_read_to_end, async_read_to_string, box_stream_once,
             buffer_sync_write_and_copy_to_async, run_futures_with_runtime,
-            run_sync_fn_in_background, BoxFuture, BoxStream, SendResultExt,
+            spawn_blocking, BoxFuture, BoxStream, SendResultExt,
         },
         Error, Result, BUFFER_SIZE,
     };

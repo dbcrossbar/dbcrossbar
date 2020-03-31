@@ -4,8 +4,8 @@
 //! application.
 
 use futures::{self, executor::block_on, stream, Sink, SinkExt};
-use std::{cmp::min, error, fmt, result, thread};
-use tokio::{io, process::Child, sync::mpsc};
+use std::{cmp::min, error, fmt, panic, result};
+use tokio::{io, process::Child, sync::mpsc, task};
 
 use crate::common::*;
 
@@ -339,38 +339,20 @@ where
 
 /// Run a synchronous function `f` in a background worker thread and return its
 /// value.
-pub(crate) async fn run_sync_fn_in_background<F, T>(
-    thread_name: String,
-    f: F,
-) -> Result<T>
+pub(crate) async fn spawn_blocking<F, T>(f: F) -> Result<T>
 where
     F: (FnOnce() -> Result<T>) + Send + 'static,
     T: Send + 'static,
 {
-    // Spawn a worker thread outside our thread pool to do the actual work.
-    let (mut sender, mut receiver) = mpsc::channel::<Result<T>>(1);
-    let thr = thread::Builder::new().name(thread_name);
-    let handle = thr
-        .spawn(move || {
-            block_on(sender.send(f())).map_send_err().expect(
-                "should always be able to send results from background thread",
-            );
-        })
-        .context("could not spawn thread")?;
-
-    // Wait for our worker to report its results.
-    let result = receiver
-        .next()
-        .await
-        // The background thread exitted without sending anything. This
-        // shouldn't happen.
-        .expect("background thread did not send any results");
-
-    // Block until our worker exits. This is a synchronous block in an
-    // asynchronous task, but the background worker already reported its result,
-    // so the wait should be short.
-    handle.join().expect("background worker thread panicked");
-    result
+    match task::spawn_blocking(f).await {
+        Ok(f_result) => f_result,
+        Err(join_err) => match join_err.try_into_panic() {
+            Ok(panic_value) => panic::resume_unwind(panic_value),
+            Err(join_err) => {
+                Err(format_err!("background thread failed: {}", join_err))
+            }
+        },
+    }
 }
 
 /// Create a new `tokio` runtime and use it to run `cmd_future` (which carries
