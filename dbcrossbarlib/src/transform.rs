@@ -1,9 +1,7 @@
 //! Tools for transforming data streams.
 
 use crate::common::*;
-use crate::tokio_glue::{
-    run_sync_fn_in_background, SyncStreamReader, SyncStreamWriter,
-};
+use crate::tokio_glue::{SyncStreamReader, SyncStreamWriter};
 
 /// Run a synchronous transform in a separate thread.
 ///
@@ -25,7 +23,7 @@ where
         + Send
         + 'static,
 {
-    let ctx = ctx.child(o!("transform" => name.clone()));
+    let ctx = ctx.child(o!("transform" => name));
 
     let rdr_ctx = ctx.child(o!("mode" => "input"));
     let rdr = SyncStreamReader::new(rdr_ctx, input);
@@ -33,7 +31,7 @@ where
     let (wtr, output) = SyncStreamWriter::pipe(wtr_ctx);
 
     let transform_ctx = ctx.clone();
-    let transform_fut = run_sync_fn_in_background(name, move || -> Result<()> {
+    let transform_fut = spawn_blocking(move || -> Result<()> {
         transform(transform_ctx, Box::new(rdr), Box::new(wtr))
     });
     ctx.spawn_worker(transform_fut.boxed());

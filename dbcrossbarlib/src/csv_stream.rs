@@ -1,12 +1,11 @@
 //! Our basic data representation.
 
-use bytes::Bytes;
-use failure::Compat;
 use reqwest::{self, Response};
-use std::pin::Pin;
 
 use crate::common::*;
-use crate::tokio_glue::try_forward_to_sender;
+use crate::tokio_glue::{
+    http_response_stream, idiomatic_bytes_stream, IdiomaticBytesStream,
+};
 
 /// A stream of CSV data, with a unique name.
 pub struct CsvStream {
@@ -62,45 +61,21 @@ impl CsvStream {
         name: String,
         response: Response,
     ) -> Result<CsvStream> {
-        let data = response
-            .bytes_stream()
-            // Convert `Bytes` to `BytesMut` by copying, which is slightly
-            // expensive.
-            .map_ok(|chunk| BytesMut::from(chunk.as_ref()))
-            .map_err(|err| err.into());
         Ok(CsvStream {
             name,
-            data: data.boxed(),
+            data: http_response_stream(response),
         })
     }
 
     /// Convert this `CsvStream` into a `Stream` that can be used with
     /// `hyper`, `reqwest`, and possibly other Rust libraries. Returns
     /// the stream name and the stream.
-    #[allow(clippy::type_complexity, dead_code)]
-    pub(crate) fn into_name_and_portable_stream(
+    #[allow(dead_code)]
+    pub(crate) fn into_name_and_idiomatic_stream(
         self,
         ctx: &Context,
-    ) -> (
-        String,
-        Pin<Box<dyn Stream<Item = Result<Bytes, Compat<Error>>> + Send + Sync>>,
-    ) {
-        // Adjust our payload type.
-        let to_forward = self.data.map_ok(|bytes| bytes.freeze());
-
-        // `self.data` is a `BoxStream`, so we can't assume that it's `Sync`.
-        // But our return type needs to be `Sync`, so we need to take fairly
-        // drastic measures, and forward our stream through a channel.
-        let (mut sender, receiver) = mpsc::channel::<Result<Bytes, Error>>(1);
-        let forwarder_ctx = ctx.to_owned();
-        let forwarder: BoxFuture<()> = async move {
-            try_forward_to_sender(&forwarder_ctx, to_forward, &mut sender).await
-        }
-        .boxed();
-        ctx.spawn_worker(forwarder);
-
-        let stream = receiver.map_err(|err| err.compat());
-        (self.name, Box::pin(stream))
+    ) -> (String, IdiomaticBytesStream) {
+        (self.name, idiomatic_bytes_stream(ctx, self.data))
     }
 }
 

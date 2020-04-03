@@ -7,13 +7,11 @@ use crate::drivers::redshift::RedshiftLocator;
 
 mod local_data;
 mod prepare_as_destination;
-mod signing;
 mod write_local_data;
 mod write_remote_data;
 
 use local_data::local_data_helper;
 pub(crate) use prepare_as_destination::prepare_as_destination_helper;
-pub(crate) use signing::{sign_s3_url, AwsCredentials};
 use write_local_data::write_local_data_helper;
 use write_remote_data::write_remote_data_helper;
 

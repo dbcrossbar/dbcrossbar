@@ -84,10 +84,9 @@ impl PgCreateTable {
     ) -> Result<Option<PgCreateTable>> {
         let database_url = database_url.to_owned();
         let full_table_name = full_table_name.to_owned();
-        run_sync_fn_in_background(
-            "PgCreateTable::from_pg_catalog".to_owned(),
-            move || catalog::fetch_from_url(&database_url, &full_table_name),
-        )
+        spawn_blocking(move || {
+            catalog::fetch_from_url(&database_url, &full_table_name)
+        })
         .await
     }
 

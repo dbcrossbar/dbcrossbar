@@ -8,9 +8,10 @@ use chrono::{Duration, Utc};
 use serde::Deserialize;
 
 use super::{source::SourceExt, BigMlLocator, CreateOptions};
+use crate::clouds::aws::{sign_s3_url, AwsCredentials};
 use crate::common::*;
 use crate::concat::concatenate_csv_streams;
-use crate::drivers::s3::{find_s3_temp_dir, sign_s3_url, AwsCredentials};
+use crate::drivers::s3::find_s3_temp_dir;
 
 /// Parsed version of `--to-arg` values.
 #[derive(Clone, Debug, Deserialize)]

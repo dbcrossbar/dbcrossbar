@@ -3,9 +3,12 @@
 //! This is mostly smaller things that happen to recur in our particular
 //! application.
 
-use futures::{self, executor::block_on, stream, Sink, SinkExt};
-use std::{cmp::min, error, fmt, result, thread};
-use tokio::{io, process::Child, sync::mpsc};
+use bytes::Bytes;
+use futures::{
+    self, executor::block_on, stream, Sink, SinkExt, TryStream, TryStreamExt,
+};
+use std::{cmp::min, error, fmt, panic, pin::Pin, result};
+use tokio::{io, process::Child, sync::mpsc, task};
 
 use crate::common::*;
 
@@ -106,10 +109,7 @@ where
     trace!(ctx.log(), "forwarding stream to sender");
     while let Some(result) = stream.next().await {
         match result {
-            Ok(bytes) => sender
-                .send(Ok(bytes))
-                .await
-                .map_err(|_| format_err!("error forwarding value to sender"))?,
+            Ok(bytes) => sender.send(Ok(bytes)).await.map_send_err()?,
             Err(err) => {
                 let ret_err = format_err!("error reading from stream: {}", err);
                 sender.send(Err(err)).await.map_err(|_| {
@@ -339,38 +339,20 @@ where
 
 /// Run a synchronous function `f` in a background worker thread and return its
 /// value.
-pub(crate) async fn run_sync_fn_in_background<F, T>(
-    thread_name: String,
-    f: F,
-) -> Result<T>
+pub(crate) async fn spawn_blocking<F, T>(f: F) -> Result<T>
 where
     F: (FnOnce() -> Result<T>) + Send + 'static,
     T: Send + 'static,
 {
-    // Spawn a worker thread outside our thread pool to do the actual work.
-    let (mut sender, mut receiver) = mpsc::channel::<Result<T>>(1);
-    let thr = thread::Builder::new().name(thread_name);
-    let handle = thr
-        .spawn(move || {
-            block_on(sender.send(f())).map_send_err().expect(
-                "should always be able to send results from background thread",
-            );
-        })
-        .context("could not spawn thread")?;
-
-    // Wait for our worker to report its results.
-    let result = receiver
-        .next()
-        .await
-        // The background thread exitted without sending anything. This
-        // shouldn't happen.
-        .expect("background thread did not send any results");
-
-    // Block until our worker exits. This is a synchronous block in an
-    // asynchronous task, but the background worker already reported its result,
-    // so the wait should be short.
-    handle.join().expect("background worker thread panicked");
-    result
+    match task::spawn_blocking(f).await {
+        Ok(f_result) => f_result,
+        Err(join_err) => match join_err.try_into_panic() {
+            Ok(panic_value) => panic::resume_unwind(panic_value),
+            Err(join_err) => {
+                Err(format_err!("background thread failed: {}", join_err))
+            }
+        },
+    }
 }
 
 /// Create a new `tokio` runtime and use it to run `cmd_future` (which carries
@@ -430,6 +412,7 @@ where
 /// WARNING: The child process must consume the entire input without blocking,
 /// or our caller must otherwise arrange to consume any output from the child
 /// process to avoid the risk of blocking.
+#[allow(dead_code)]
 pub(crate) async fn write_to_stdin(
     child_name: &str,
     child: &mut Child,
@@ -504,4 +487,65 @@ impl<T, ErrInfo> SendResultExt<T> for Result<T, mpsc::error::SendError<ErrInfo>>
             Err(_err) => Err(SendError),
         }
     }
+}
+
+/// A bytes stream type simailar to our `BoxStream<BytesMut>`, but instead
+/// using more idomatic Rust types.
+///
+/// - We replace `failure::Error` with `Box<dyn std::error::Error>`.
+/// - We replace `BytesMut` with `Bytes`.
+/// - We require `Sync` everywhere.
+///
+/// This is used for interoperability with other crates such as `reqwest`,
+/// and we may eventually use it to replace `BoxStream<BytesMut>`.
+pub(crate) type IdiomaticBytesStream = Pin<
+    Box<
+        dyn TryStream<
+                Ok = Bytes,
+                Error = Box<dyn error::Error + Send + Sync>,
+                Item = Result<Bytes, Box<dyn error::Error + Send + Sync>>,
+            > + Send
+            + Sync
+            + 'static,
+    >,
+>;
+
+/// Convert an HTTP response into a `BoxStream<BytesMut>`.
+///
+/// This is limited to a single concrete input stream type.
+pub(crate) fn http_response_stream(
+    response: reqwest::Response,
+) -> BoxStream<BytesMut> {
+    response
+        .bytes_stream()
+        // Convert `Bytes` to `BytesMut` by copying, which is slightly
+        // expensive.
+        .map_ok(|chunk| BytesMut::from(chunk.as_ref()))
+        .map_err(|err| err.into())
+        .boxed()
+}
+
+/// Convert a `BoxStream<BytesMut>` to something more idiomatic.
+pub(crate) fn idiomatic_bytes_stream(
+    ctx: &Context,
+    stream: BoxStream<BytesMut>,
+) -> IdiomaticBytesStream {
+    // Adjust our payload type.
+    let to_forward = stream.map_ok(|bytes| bytes.freeze());
+
+    // `stream` is a `BoxStream`, so we can't assume that it's `Sync`.
+    // But our return type needs to be `Sync`, so we need to take fairly
+    // drastic measures, and forward our stream through a channel.
+    let (mut sender, receiver) = mpsc::channel::<Result<Bytes, Error>>(1);
+    let forwarder_ctx = ctx.to_owned();
+    let forwarder: BoxFuture<()> = async move {
+        try_forward_to_sender(&forwarder_ctx, to_forward, &mut sender).await
+    }
+    .boxed();
+    ctx.spawn_worker(forwarder);
+
+    let stream = receiver.map_err(|err| -> Box<dyn error::Error + Send + Sync> {
+        Box::new(err.compat())
+    });
+    Box::pin(stream)
 }
