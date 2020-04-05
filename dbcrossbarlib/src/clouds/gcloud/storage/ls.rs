@@ -6,7 +6,7 @@ use tokio::sync::mpsc;
 
 use super::{
     super::{percent_encode, Client},
-    parse_gs_url,
+    parse_gs_url, StorageObject,
 };
 use crate::common::*;
 
@@ -30,13 +30,6 @@ struct ListResponse {
 
     #[serde(default)]
     items: Vec<StorageObject>,
-}
-
-/// Information about an individual object.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct StorageObject {
-    name: String,
 }
 
 /// A local helper macro that works like `?`, except that it report errors
@@ -66,7 +59,7 @@ macro_rules! try_and_forward_errors {
 pub(crate) async fn ls(
     ctx: &Context,
     url: &Url,
-) -> Result<impl Stream<Item = Result<String>> + Send + Unpin + 'static> {
+) -> Result<impl Stream<Item = Result<StorageObject>> + Send + Unpin + 'static> {
     debug!(ctx.log(), "listing {}", url);
     let (bucket, object) = parse_gs_url(url)?;
 
@@ -81,7 +74,7 @@ pub(crate) async fn ls(
     // Set up a background worker which forwards list output to `sender`. This
     // should also forward all errors to `sender`, except errors that occur when
     // fowarding other errors.
-    let (mut sender, receiver) = mpsc::channel::<Result<String>>(1);
+    let (mut sender, receiver) = mpsc::channel::<Result<StorageObject>>(1);
     let worker_ctx = ctx.child(o!("worker" => "gcloud storage ls"));
     let worker: BoxFuture<()> = async move {
         // Make our client.
@@ -136,9 +129,8 @@ pub(crate) async fn ls(
                     continue;
                 }
 
-                // Send our URL.
-                let url_str = format!("gs://{}/{}", bucket, item.name);
-                sender.send(Ok(url_str)).await.map_err(|_| {
+                // Send our item.
+                sender.send(Ok(item)).await.map_err(|_| {
                     format_err!(
                         "error sending data to stream (perhaps it was closed)",
                     )
