@@ -18,16 +18,16 @@ pub(crate) async fn local_data_helper(
 
     let file_urls = storage::ls(&ctx, &url).await?;
 
-    let csv_streams = file_urls.and_then(move |file_url| {
+    let csv_streams = file_urls.and_then(move |item| {
         let ctx = ctx.clone();
         let url = url.clone();
         async move {
             // Stream the file from the cloud.
+            let file_url = item.to_url_string();
             let name = csv_stream_name(url.as_str(), &file_url)?;
             let ctx =
                 ctx.child(o!("stream" => name.to_owned(), "url" => file_url.clone()));
-            let file_url = Url::parse(&file_url)?;
-            let data = storage::download_file(&ctx, &file_url).await?;
+            let data = storage::download_file(&ctx, &item).await?;
 
             // Assemble everything into a CSV stream.
             Ok(CsvStream {

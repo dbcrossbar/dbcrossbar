@@ -111,7 +111,7 @@ impl FromStr for TableName {
 
     fn from_str(s: &str) -> Result<Self> {
         lazy_static! {
-            static ref RE: Regex = Regex::new("^([^:.]+):([^:.]+).([^:.]+)$")
+            static ref RE: Regex = Regex::new("^([^:.`]+):([^:.`]+).([^:.`]+)$")
                 .expect("could not parse built-in regex");
         }
         let cap = RE.captures(s).ok_or_else(|| {

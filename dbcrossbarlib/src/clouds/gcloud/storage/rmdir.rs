@@ -25,9 +25,10 @@ pub(crate) async fn rmdir(ctx: &Context, url: &Url) -> Result<()> {
     let url_stream = ls(ctx, url).await?;
     let ctx = ctx.clone();
     let del_fut_stream: BoxStream<BoxFuture<()>> = url_stream
-        .map_ok(move |url| {
+        .map_ok(move |item| {
             let ctx = ctx.clone();
             async move {
+                let url = item.to_url_string();
                 trace!(ctx.log(), "deleting {}", url);
                 let url = url.parse::<Url>()?;
                 let (bucket, object) = parse_gs_url(&url)?;

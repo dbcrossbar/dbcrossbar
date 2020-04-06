@@ -2,7 +2,7 @@
 
 use failure::ResultExt;
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
-use reqwest::{self, IntoUrl};
+use reqwest::{self, header::HeaderMap, IntoUrl};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_urlencoded;
 use std::{error, fmt};
@@ -71,13 +71,19 @@ impl Client {
     }
 
     /// Make an HTTP GET request and return the response.
-    async fn get_helper(&self, ctx: &Context, url: &Url) -> Result<reqwest::Response> {
+    async fn get_helper(
+        &self,
+        ctx: &Context,
+        url: &Url,
+        headers: HeaderMap,
+    ) -> Result<reqwest::Response> {
         trace!(ctx.log(), "GET {}", url);
         let token = self.token().await?;
         Ok(self
             .client
             .get(url.as_str())
             .bearer_auth(token.as_str())
+            .headers(headers)
             .send()
             .await
             .with_context(|_| format!("could not GET {}", url))?)
@@ -97,7 +103,8 @@ impl Client {
         Query: fmt::Debug + Serialize,
     {
         let url = build_url(url, query)?;
-        let http_resp = self.get_helper(ctx, &url).await?;
+        let headers = HeaderMap::default();
+        let http_resp = self.get_helper(ctx, &url, headers).await?;
         self.handle_response(ctx, "GET", &url, http_resp).await
     }
 
@@ -108,13 +115,14 @@ impl Client {
         ctx: &Context,
         url: U,
         query: Query,
+        headers: HeaderMap,
     ) -> Result<reqwest::Response>
     where
         U: IntoUrl,
         Query: fmt::Debug + Serialize,
     {
         let url = build_url(url, query)?;
-        let http_resp = self.get_helper(ctx, &url).await?;
+        let http_resp = self.get_helper(ctx, &url, headers).await?;
         if http_resp.status().is_success() {
             Ok(http_resp)
         } else {

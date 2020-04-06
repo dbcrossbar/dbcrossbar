@@ -6,7 +6,7 @@ use tokio::sync::mpsc;
 
 use super::{
     super::{percent_encode, Client},
-    parse_gs_url,
+    parse_gs_url, StorageObject,
 };
 use crate::common::*;
 
@@ -32,13 +32,6 @@ struct ListResponse {
     items: Vec<StorageObject>,
 }
 
-/// Information about an individual object.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct StorageObject {
-    name: String,
-}
-
 /// A local helper macro that works like `?`, except that it report errors
 /// by sending them to `sender` and returning `Ok(())`.
 macro_rules! try_and_forward_errors {
@@ -59,22 +52,29 @@ macro_rules! try_and_forward_errors {
 
 /// List all the files at the specified `gs://` URL, recursively.
 ///
-/// TODO: Handle dir versus file.
-///
-/// See the [documentation][list].
+/// See the [documentation][list]. We treat "/" a directory separate, and try to
+/// handle prefix matches using ordinary file-system behavior.
 ///
 /// [list]: https://cloud.google.com/storage/docs/json_api/v1/objects/list
 pub(crate) async fn ls(
     ctx: &Context,
     url: &Url,
-) -> Result<impl Stream<Item = Result<String>> + Send + Unpin + 'static> {
+) -> Result<impl Stream<Item = Result<StorageObject>> + Send + Unpin + 'static> {
     debug!(ctx.log(), "listing {}", url);
     let (bucket, object) = parse_gs_url(url)?;
+
+    // We were asked to list `object`, so everything we return should either be
+    // `object` itself, or something in a subdirectory.
+    let dir_prefix = if object.ends_with('/') {
+        object.clone()
+    } else {
+        format!("{}/", object)
+    };
 
     // Set up a background worker which forwards list output to `sender`. This
     // should also forward all errors to `sender`, except errors that occur when
     // fowarding other errors.
-    let (mut sender, receiver) = mpsc::channel::<Result<String>>(1);
+    let (mut sender, receiver) = mpsc::channel::<Result<StorageObject>>(1);
     let worker_ctx = ctx.child(o!("worker" => "gcloud storage ls"));
     let worker: BoxFuture<()> = async move {
         // Make our client.
@@ -109,18 +109,32 @@ pub(crate) async fn ls(
 
             // Forward the listed objects to the stream.
             for item in res.items {
-                // Check to make sure this is a CSV file and that we haven't
-                // seen it before.
-                if item.name.to_ascii_lowercase().ends_with(".csv")
-                    && seen.insert(item.name.clone())
-                {
-                    let url_str = format!("gs://{}/{}", bucket, item.name);
-                    sender.send(Ok(url_str)).await.map_err(|_| {
-                        format_err!(
-                            "error sending data to stream (perhaps it was closed)",
-                        )
-                    })?;
+                // Filter out duplicate items. I don't know whether this
+                // actually happens, but it does on AWS.
+                if !seen.insert(item.name.clone()) {
+                    continue;
                 }
+
+                // Filter out non-CSV files.
+                if !item.name.to_ascii_lowercase().ends_with(".csv") {
+                    continue;
+                }
+
+                // Make sure that we either return the file that we were asked
+                // for, or something in a subdirectory. We don't want to accidentally
+                // return `object + "_trailing"`, but since cloud bucket stores don't
+                // actually treat "/" as special, that's what we'll have to do.
+                if item.name != object && !item.name.starts_with(&dir_prefix) {
+                    trace!(worker_ctx.log(), "filtered false match {:?}", item.name);
+                    continue;
+                }
+
+                // Send our item.
+                sender.send(Ok(item)).await.map_err(|_| {
+                    format_err!(
+                        "error sending data to stream (perhaps it was closed)",
+                    )
+                })?;
             }
 
             // Exit if this is the last page of results.
