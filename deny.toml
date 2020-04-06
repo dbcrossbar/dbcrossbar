@@ -9,19 +9,27 @@ unlicensed = "deny"
 # Don't allow "copylefted" licenses unless they're listed below.
 copyleft = "deny"
 
-# Allow common non-restrictive licenses.
-allow = ["MIT", "Apache-2.0", "BSD-3-Clause", "BSD-2-Clause", "CC0-1.0"]
+# Allow common non-restrictive licenses. ISC is used for various DNS and crypto
+# things, and it's a minimally restrictive open source license.
+allow = ["MIT", "Apache-2.0", "BSD-3-Clause", "BSD-2-Clause", "CC0-1.0", "ISC", "OpenSSL"]
 
 # Many organizations ban AGPL-licensed code
 # https://opensource.google/docs/using/agpl-policy/
 deny = ["AGPL-3.0"]
 
-# Some slightly odder licenses. ISC is an unrestrictive license but unusual, and
-# MPL-2.0 is long and complicated "copyleft" license that's less strict than the
-# GPL. 
+# Some slightly odder licenses. MPL-2.0 is a long and complicated "copyleft"
+# license that's less strict than the GPL. 
 exceptions = [
-    { name = "rdrand", allow = ["ISC"] },
     { name = "slog-json", allow = ["MPL-2.0"] },
+]
+
+[[licenses.clarify]]
+# Ring has a messy license. We should either commit 100% to ring everywhere, or
+# to native-tls everywhere, and not mix the two.
+name = "ring"
+expression = "ISC AND OpenSSL AND MIT"
+license-files = [
+    { path = "LICENSE", hash = 3171872035 },
 ]
 
 [bans]
@@ -50,6 +58,9 @@ skip-tree = [
     # introduces duplicate dependencies.
     { name = "slog-term" },
     { name = "slog-envlogger" },
+
+    # This needs updates.
+    { name = "rustls-native-certs" },
 ]
 
 
