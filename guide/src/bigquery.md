@@ -12,7 +12,7 @@ When loading data into BigQuery, or extracting it, we always go via Google Cloud
 
 ## Configuration & authentication
 
-Right now, all authentication is handled using `gcloud auth` from the [Google Cloud SDK](https://cloud.google.com/sdk/). **This will change in a future release.**
+See [the Cloud Storage driver](./gs.html#configuration--authentication) for authentication details.
 
 The following command-line options will usually need to be specified for both sources and destinations:
 
