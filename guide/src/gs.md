@@ -2,8 +2,6 @@
 
 Google Cloud Storage is a bucket-based storage system similar to Amazon's S3. It's frequently used in connection with BigQuery and other Google Cloud services.
 
-**COMPATIBILITY WARNING:** This driver currently relies on `gsutil` for many tasks, but `gsutil` is poorly-suited to the kind of automation we need. In particular, `gsutil` uses too much RAM, and has poor timeout behavio. We plan to replace it with native Rust libraries at some point. This will change how the Cloud Storage driver handles authentication in a future version.
-
 ## Example locators
 
 Source locators:
@@ -19,7 +17,21 @@ At this point, we do not support single-file output to a cloud bucket. This is r
 
 ## Configuration & authentication
 
-Right now, all authentication is handled using `gcloud auth` from the [Google Cloud SDK](https://cloud.google.com/sdk/). **This will change in a future release.**
+**0.3.x and earlier:** Agll authentication is handled using `gcloud auth` from the [Google Cloud SDK](https://cloud.google.com/sdk/).
+
+**0.4.x and later:** You can authenticate using either a client secret or a service key, which you can create using the [console credentials page](https://console.cloud.google.com/apis/credentials).
+
+- Client secrets are can be stored in `~/.dbcrossbar/config/gcloud_client_secret.json` or in `GCLOUD_CLIENT_SECRET`. These are strongly recommended for interactive use.
+- Service account keys can be stored in `~/.dbcrossbar/config/gcloud_service_account_key.json` or in `GCLOUD_SERVICE_ACCOUNT_KEY`.
+
+For a service account, you can use the following permissions:
+
+- Storage Object Admin (Cloud Storage and BigQuery drivers)
+- BigQuery Data Editor (BigQuery driver only)
+- BigQuery Job User (BigQuery driver only)
+- BigQuery User (BigQuery driver only)
+
+There's probably a more limited set of permissions which will work if you set them up manually.
 
 ## Supported features
 
