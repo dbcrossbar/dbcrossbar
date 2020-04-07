@@ -17,12 +17,12 @@ At this point, we do not support single-file output to a cloud bucket. This is r
 
 ## Configuration & authentication
 
-**0.3.x and earlier:** Agll authentication is handled using `gcloud auth` from the [Google Cloud SDK](https://cloud.google.com/sdk/).
+**0.3.x and earlier:** All authentication is handled using `gcloud auth` from the [Google Cloud SDK](https://cloud.google.com/sdk/).
 
 **0.4.x and later:** You can authenticate using either a client secret or a service key, which you can create using the [console credentials page](https://console.cloud.google.com/apis/credentials).
 
-- Client secrets are can be stored in `~/.dbcrossbar/config/gcloud_client_secret.json` or in `GCLOUD_CLIENT_SECRET`. These are strongly recommended for interactive use.
-- Service account keys can be stored in `~/.dbcrossbar/config/gcloud_service_account_key.json` or in `GCLOUD_SERVICE_ACCOUNT_KEY`.
+- Client secrets can be stored in `~/.dbcrossbar/config/gcloud_client_secret.json` or in `GCLOUD_CLIENT_SECRET`. These are strongly recommended for interactive use.
+- Service account keys can be stored in `~/.dbcrossbar/config/gcloud_service_account_key.json` or in `GCLOUD_SERVICE_ACCOUNT_KEY`. These are recommended for server and container use.
 
 For a service account, you can use the following permissions:
 
