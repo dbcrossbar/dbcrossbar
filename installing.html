@@ -160,8 +160,8 @@
 <p>Windows binaries are not available at this time, but it may be possible to build them with a little work.</p>
 <h2><a class="header" href="#required-tools" id="required-tools">Required tools</a></h2>
 <p>To use the S3 and RedShift drivers, you will need to install the <a href="https://aws.amazon.com/cli/">AWS CLI tools</a>.</p>
-<p>To use the BigQuery and Google Cloud Storage drivers, you will need to install the <a href="https://cloud.google.com/sdk/">Google Cloud SDK</a> to get the <code>gsutil</code> and <code>bq</code> CLI tools, and you will need to authenticate to your Google Cloud account using <code>gcloud</code>.</p>
-<p>We plan to replace these external CLI tools with native Rust libraries before the 1.0 release.</p>
+<p><strong>Versions 0.3.x and earlier only:</strong> To use the BigQuery and Google Cloud Storage drivers, you will need to install the <a href="https://cloud.google.com/sdk/">Google Cloud SDK</a> to get the <code>gsutil</code> and <code>bq</code> CLI tools, and you will need to authenticate to your Google Cloud account using <code>gcloud</code>.</p>
+<p>We plan to replace all external CLI tools with native Rust libraries before the 1.0 release.</p>
 <h2><a class="header" href="#installing-using-cargo" id="installing-using-cargo">Installing using <code>cargo</code></a></h2>
 <p>You can also install <code>dbcrossbar</code> using <code>cargo</code>. First, you will need to make sure you have the necessary C dependencies installed:</p>
 <pre><code class="language-sh"># Ubuntu Linux (might be incomplete).

@@ -153,7 +153,6 @@
                     <main>
                         <h1><a class="header" href="#google-cloud-storage" id="google-cloud-storage">Google Cloud Storage</a></h1>
 <p>Google Cloud Storage is a bucket-based storage system similar to Amazon's S3. It's frequently used in connection with BigQuery and other Google Cloud services.</p>
-<p><strong>COMPATIBILITY WARNING:</strong> This driver currently relies on <code>gsutil</code> for many tasks, but <code>gsutil</code> is poorly-suited to the kind of automation we need. In particular, <code>gsutil</code> uses too much RAM, and has poor timeout behavio. We plan to replace it with native Rust libraries at some point. This will change how the Cloud Storage driver handles authentication in a future version.</p>
 <h2><a class="header" href="#example-locators" id="example-locators">Example locators</a></h2>
 <p>Source locators:</p>
 <ul>
@@ -166,7 +165,20 @@
 </ul>
 <p>At this point, we do not support single-file output to a cloud bucket. This is relatively easy to add, but has not yet been implemented.</p>
 <h2><a class="header" href="#configuration--authentication" id="configuration--authentication">Configuration &amp; authentication</a></h2>
-<p>Right now, all authentication is handled using <code>gcloud auth</code> from the <a href="https://cloud.google.com/sdk/">Google Cloud SDK</a>. <strong>This will change in a future release.</strong></p>
+<p><strong>0.3.x and earlier:</strong> All authentication is handled using <code>gcloud auth</code> from the <a href="https://cloud.google.com/sdk/">Google Cloud SDK</a>.</p>
+<p><strong>0.4.x and later:</strong> You can authenticate using either a client secret or a service key, which you can create using the <a href="https://console.cloud.google.com/apis/credentials">console credentials page</a>.</p>
+<ul>
+<li>Client secrets can be stored in <code>~/.dbcrossbar/config/gcloud_client_secret.json</code> or in <code>GCLOUD_CLIENT_SECRET</code>. These are strongly recommended for interactive use.</li>
+<li>Service account keys can be stored in <code>~/.dbcrossbar/config/gcloud_service_account_key.json</code> or in <code>GCLOUD_SERVICE_ACCOUNT_KEY</code>. These are recommended for server and container use.</li>
+</ul>
+<p>For a service account, you can use the following permissions:</p>
+<ul>
+<li>Storage Object Admin (Cloud Storage and BigQuery drivers)</li>
+<li>BigQuery Data Editor (BigQuery driver only)</li>
+<li>BigQuery Job User (BigQuery driver only)</li>
+<li>BigQuery User (BigQuery driver only)</li>
+</ul>
+<p>There's probably a more limited set of permissions which will work if you set them up manually.</p>
 <h2><a class="header" href="#supported-features" id="supported-features">Supported features</a></h2>
 <pre><code class="language-txt">gs features:
 - cp FROM:

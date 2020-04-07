@@ -154,13 +154,24 @@
                         <h1><a class="header" href="#changelog" id="changelog">Changelog</a></h1>
 <p>All notable changes to this project will be documented in this file.</p>
 <p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>, and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a> for the <code>dbcrossbar</code> CLI tool. (The <code>dbcrossbarlib</code> is an internal-only dependency with no versioning policy at this time.)</p>
+<h2><a class="header" href="#040-alpha1---2020-04-07" id="040-alpha1---2020-04-07">0.4.0-alpha.1 - 2020-04-07</a></h2>
+<h3><a class="header" href="#changed" id="changed">Changed</a></h3>
+<ul>
+<li>Replace <code>gcloud auth</code>, <code>gsutil</code> and <code>bq</code> with native Rust. This changes how we authenticate to Google Cloud. In particular, we now support <code>GCLOUD_CLIENT_SECRET</code>, <code>~/.config/dbcrossbar/gcloud_client_secret.json</code>, <code>GCLOUD_SERVICE_ACCOUNT_KEY</code> or <code>~/.config/dbcrossbar/gcloud_service_account_key.json</code>, as <a href="https://www.dbcrossbar.org/gs.html#configuration--authentication">explained in the manual</a>. We no longer use <code>gcloud auth</code>, and the Google Cloud SDK tools are no longer required. In the current alpha version, uploads and deletions are probably slower than before.</li>
+</ul>
+<h3><a class="header" href="#fixed" id="fixed">Fixed</a></h3>
+<ul>
+<li>gs: Avoid download stalls when backpressure is applied (<a href="https://github.com/dbcrossbar/dbcrossbar/issues/102">#103</a>).</li>
+<li>bigquery: Display error messages more reliably (<a href="https://github.com/dbcrossbar/dbcrossbar/issues/110">#110</a>).</li>
+<li>bigquery: Detect &quot;`&quot; quotes in the CLI form of table names, and report an error.</li>
+</ul>
 <h2><a class="header" href="#033---2020-03-30" id="033---2020-03-30">0.3.3 - 2020-03-30</a></h2>
 <h3><a class="header" href="#added" id="added">Added</a></h3>
 <ul>
 <li>BigML: Honor BIGML_DOMAIN, allowing the user to point the BigML driver to a custom VPC instance of BigML.</li>
 </ul>
 <h2><a class="header" href="#032---2020-03-30" id="032---2020-03-30">0.3.2 - 2020-03-30</a></h2>
-<h3><a class="header" href="#fixed" id="fixed">Fixed</a></h3>
+<h3><a class="header" href="#fixed-1" id="fixed-1">Fixed</a></h3>
 <ul>
 <li>Correctly quote BigQuery column names again (which regressed in 0.3.0), and added test cases to prevent further regressions.</li>
 <li>Fix an error that caused <code>bigquery_upsert</code> test to fail.</li>
@@ -170,12 +181,12 @@
 <ul>
 <li>Write a new <a href="https://www.dbcrossbar.org/">manual</a>!</li>
 </ul>
-<h3><a class="header" href="#changed" id="changed">Changed</a></h3>
+<h3><a class="header" href="#changed-1" id="changed-1">Changed</a></h3>
 <ul>
 <li>Encapsulate all calls to <code>bq</code> and <code>gsutil</code></li>
 <li>Improve performance of <code>--stream-size</code></li>
 </ul>
-<h3><a class="header" href="#fixed-1" id="fixed-1">Fixed</a></h3>
+<h3><a class="header" href="#fixed-2" id="fixed-2">Fixed</a></h3>
 <ul>
 <li>BigQuery: Honor NOT NULL on import (fixes #45)</li>
 </ul>
@@ -185,13 +196,13 @@
 <li>Use <code>cargo deny</code> to enforce license and duplicate dependency policies</li>
 <li>Add notes about license and contribution policies</li>
 </ul>
-<h3><a class="header" href="#changed-1" id="changed-1">Changed</a></h3>
+<h3><a class="header" href="#changed-2" id="changed-2">Changed</a></h3>
 <ul>
 <li>Update to tokio 0.2 and the latest stable Rust</li>
 <li>Replace <code>wkb</code> with <code>postgis</code> for licensing reasons</li>
 <li>BigML: Fail immediately if no S3 temporary bucket provided (fixes #101)</li>
 </ul>
-<h3><a class="header" href="#fixed-2" id="fixed-2">Fixed</a></h3>
+<h3><a class="header" href="#fixed-3" id="fixed-3">Fixed</a></h3>
 <ul>
 <li>BigQuery: Handle mixed-case column names using BigQuery semantics (fixes #84)</li>
 <li>PostgreSQL: Fix upserts with mixed-case column names</li>

@@ -228,8 +228,8 @@
 <p>Windows binaries are not available at this time, but it may be possible to build them with a little work.</p>
 <h2><a class="header" href="#required-tools" id="required-tools">Required tools</a></h2>
 <p>To use the S3 and RedShift drivers, you will need to install the <a href="https://aws.amazon.com/cli/">AWS CLI tools</a>.</p>
-<p>To use the BigQuery and Google Cloud Storage drivers, you will need to install the <a href="https://cloud.google.com/sdk/">Google Cloud SDK</a> to get the <code>gsutil</code> and <code>bq</code> CLI tools, and you will need to authenticate to your Google Cloud account using <code>gcloud</code>.</p>
-<p>We plan to replace these external CLI tools with native Rust libraries before the 1.0 release.</p>
+<p><strong>Versions 0.3.x and earlier only:</strong> To use the BigQuery and Google Cloud Storage drivers, you will need to install the <a href="https://cloud.google.com/sdk/">Google Cloud SDK</a> to get the <code>gsutil</code> and <code>bq</code> CLI tools, and you will need to authenticate to your Google Cloud account using <code>gcloud</code>.</p>
+<p>We plan to replace all external CLI tools with native Rust libraries before the 1.0 release.</p>
 <h2><a class="header" href="#installing-using-cargo" id="installing-using-cargo">Installing using <code>cargo</code></a></h2>
 <p>You can also install <code>dbcrossbar</code> using <code>cargo</code>. First, you will need to make sure you have the necessary C dependencies installed:</p>
 <pre><code class="language-sh"># Ubuntu Linux (might be incomplete).
@@ -520,7 +520,7 @@ EXAMPLE LOCATORS:
 <li><code>bigquery:$PROJECT:$DATASET.$TABLE</code>: A BigQuery table.</li>
 </ul>
 <h2><a class="header" href="#configuration--authentication-1" id="configuration--authentication-1">Configuration &amp; authentication</a></h2>
-<p>Right now, all authentication is handled using <code>gcloud auth</code> from the <a href="https://cloud.google.com/sdk/">Google Cloud SDK</a>. <strong>This will change in a future release.</strong></p>
+<p>See <a href="./gs.html#configuration--authentication">the Cloud Storage driver</a> for authentication details.</p>
 <p>The following command-line options will usually need to be specified for both sources and destinations:</p>
 <ul>
 <li><code>--temporary=gs://$GS_TEMP_BUCKET</code>: A Google Cloud Storage bucket to use for staging data in both directions.</li>
@@ -562,7 +562,6 @@ EXAMPLE LOCATORS:
 </code></pre>
 <h1><a class="header" href="#google-cloud-storage" id="google-cloud-storage">Google Cloud Storage</a></h1>
 <p>Google Cloud Storage is a bucket-based storage system similar to Amazon's S3. It's frequently used in connection with BigQuery and other Google Cloud services.</p>
-<p><strong>COMPATIBILITY WARNING:</strong> This driver currently relies on <code>gsutil</code> for many tasks, but <code>gsutil</code> is poorly-suited to the kind of automation we need. In particular, <code>gsutil</code> uses too much RAM, and has poor timeout behavio. We plan to replace it with native Rust libraries at some point. This will change how the Cloud Storage driver handles authentication in a future version.</p>
 <h2><a class="header" href="#example-locators-3" id="example-locators-3">Example locators</a></h2>
 <p>Source locators:</p>
 <ul>
@@ -575,7 +574,20 @@ EXAMPLE LOCATORS:
 </ul>
 <p>At this point, we do not support single-file output to a cloud bucket. This is relatively easy to add, but has not yet been implemented.</p>
 <h2><a class="header" href="#configuration--authentication-3" id="configuration--authentication-3">Configuration &amp; authentication</a></h2>
-<p>Right now, all authentication is handled using <code>gcloud auth</code> from the <a href="https://cloud.google.com/sdk/">Google Cloud SDK</a>. <strong>This will change in a future release.</strong></p>
+<p><strong>0.3.x and earlier:</strong> All authentication is handled using <code>gcloud auth</code> from the <a href="https://cloud.google.com/sdk/">Google Cloud SDK</a>.</p>
+<p><strong>0.4.x and later:</strong> You can authenticate using either a client secret or a service key, which you can create using the <a href="https://console.cloud.google.com/apis/credentials">console credentials page</a>.</p>
+<ul>
+<li>Client secrets can be stored in <code>~/.dbcrossbar/config/gcloud_client_secret.json</code> or in <code>GCLOUD_CLIENT_SECRET</code>. These are strongly recommended for interactive use.</li>
+<li>Service account keys can be stored in <code>~/.dbcrossbar/config/gcloud_service_account_key.json</code> or in <code>GCLOUD_SERVICE_ACCOUNT_KEY</code>. These are recommended for server and container use.</li>
+</ul>
+<p>For a service account, you can use the following permissions:</p>
+<ul>
+<li>Storage Object Admin (Cloud Storage and BigQuery drivers)</li>
+<li>BigQuery Data Editor (BigQuery driver only)</li>
+<li>BigQuery Job User (BigQuery driver only)</li>
+<li>BigQuery User (BigQuery driver only)</li>
+</ul>
+<p>There's probably a more limited set of permissions which will work if you set them up manually.</p>
 <h2><a class="header" href="#supported-features-3" id="supported-features-3">Supported features</a></h2>
 <pre><code class="language-txt">gs features:
 - cp FROM:
@@ -663,13 +675,24 @@ EXAMPLE LOCATORS:
 <h1><a class="header" href="#changelog" id="changelog">Changelog</a></h1>
 <p>All notable changes to this project will be documented in this file.</p>
 <p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>, and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a> for the <code>dbcrossbar</code> CLI tool. (The <code>dbcrossbarlib</code> is an internal-only dependency with no versioning policy at this time.)</p>
+<h2><a class="header" href="#040-alpha1---2020-04-07" id="040-alpha1---2020-04-07">0.4.0-alpha.1 - 2020-04-07</a></h2>
+<h3><a class="header" href="#changed" id="changed">Changed</a></h3>
+<ul>
+<li>Replace <code>gcloud auth</code>, <code>gsutil</code> and <code>bq</code> with native Rust. This changes how we authenticate to Google Cloud. In particular, we now support <code>GCLOUD_CLIENT_SECRET</code>, <code>~/.config/dbcrossbar/gcloud_client_secret.json</code>, <code>GCLOUD_SERVICE_ACCOUNT_KEY</code> or <code>~/.config/dbcrossbar/gcloud_service_account_key.json</code>, as <a href="https://www.dbcrossbar.org/gs.html#configuration--authentication">explained in the manual</a>. We no longer use <code>gcloud auth</code>, and the Google Cloud SDK tools are no longer required. In the current alpha version, uploads and deletions are probably slower than before.</li>
+</ul>
+<h3><a class="header" href="#fixed" id="fixed">Fixed</a></h3>
+<ul>
+<li>gs: Avoid download stalls when backpressure is applied (<a href="https://github.com/dbcrossbar/dbcrossbar/issues/102">#103</a>).</li>
+<li>bigquery: Display error messages more reliably (<a href="https://github.com/dbcrossbar/dbcrossbar/issues/110">#110</a>).</li>
+<li>bigquery: Detect &quot;`&quot; quotes in the CLI form of table names, and report an error.</li>
+</ul>
 <h2><a class="header" href="#033---2020-03-30" id="033---2020-03-30">0.3.3 - 2020-03-30</a></h2>
 <h3><a class="header" href="#added" id="added">Added</a></h3>
 <ul>
 <li>BigML: Honor BIGML_DOMAIN, allowing the user to point the BigML driver to a custom VPC instance of BigML.</li>
 </ul>
 <h2><a class="header" href="#032---2020-03-30" id="032---2020-03-30">0.3.2 - 2020-03-30</a></h2>
-<h3><a class="header" href="#fixed" id="fixed">Fixed</a></h3>
+<h3><a class="header" href="#fixed-1" id="fixed-1">Fixed</a></h3>
 <ul>
 <li>Correctly quote BigQuery column names again (which regressed in 0.3.0), and added test cases to prevent further regressions.</li>
 <li>Fix an error that caused <code>bigquery_upsert</code> test to fail.</li>
@@ -679,12 +702,12 @@ EXAMPLE LOCATORS:
 <ul>
 <li>Write a new <a href="https://www.dbcrossbar.org/">manual</a>!</li>
 </ul>
-<h3><a class="header" href="#changed" id="changed">Changed</a></h3>
+<h3><a class="header" href="#changed-1" id="changed-1">Changed</a></h3>
 <ul>
 <li>Encapsulate all calls to <code>bq</code> and <code>gsutil</code></li>
 <li>Improve performance of <code>--stream-size</code></li>
 </ul>
-<h3><a class="header" href="#fixed-1" id="fixed-1">Fixed</a></h3>
+<h3><a class="header" href="#fixed-2" id="fixed-2">Fixed</a></h3>
 <ul>
 <li>BigQuery: Honor NOT NULL on import (fixes #45)</li>
 </ul>
@@ -694,13 +717,13 @@ EXAMPLE LOCATORS:
 <li>Use <code>cargo deny</code> to enforce license and duplicate dependency policies</li>
 <li>Add notes about license and contribution policies</li>
 </ul>
-<h3><a class="header" href="#changed-1" id="changed-1">Changed</a></h3>
+<h3><a class="header" href="#changed-2" id="changed-2">Changed</a></h3>
 <ul>
 <li>Update to tokio 0.2 and the latest stable Rust</li>
 <li>Replace <code>wkb</code> with <code>postgis</code> for licensing reasons</li>
 <li>BigML: Fail immediately if no S3 temporary bucket provided (fixes #101)</li>
 </ul>
-<h3><a class="header" href="#fixed-2" id="fixed-2">Fixed</a></h3>
+<h3><a class="header" href="#fixed-3" id="fixed-3">Fixed</a></h3>
 <ul>
 <li>BigQuery: Handle mixed-case column names using BigQuery semantics (fixes #84)</li>
 <li>PostgreSQL: Fix upserts with mixed-case column names</li>
