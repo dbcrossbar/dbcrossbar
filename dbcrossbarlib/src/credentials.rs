@@ -152,7 +152,7 @@ impl CredentialsManager {
             // credential. The `Display` method on `CredentialsSource` is
             // responsible for explaining how to set credentials.
             Err(format_err!(
-                "could not find credentials for {} in:\n{}",
+                "could not find credentials for {} in any of:\n{}",
                 name,
                 source,
             ))
@@ -224,11 +224,11 @@ impl EnvCredentialsSource {
 impl fmt::Display for EnvCredentialsSource {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.mapping.len() == 1 {
-            writeln!(f, "The environment variable {}", &self.mapping[0])
+            writeln!(f, "- The environment variable {}", &self.mapping[0])
         } else {
             writeln!(
                 f,
-                "The environment variables {}",
+                "- The environment variables {}",
                 self.mapping.iter().join(", "),
             )
         }
@@ -303,7 +303,7 @@ impl FileCredentialsSource {
 
 impl fmt::Display for FileCredentialsSource {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "The file {}", self.path.display())
+        writeln!(f, "- The file {}", self.path.display())
     }
 }
 
@@ -344,9 +344,8 @@ impl CredentialsSources {
 
 impl fmt::Display for CredentialsSources {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "One of:")?;
         for s in &self.sources {
-            write!(f, "- {}", s)?;
+            write!(f, "{}", s)?;
         }
         Ok(())
     }
