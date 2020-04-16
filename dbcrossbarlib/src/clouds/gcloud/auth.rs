@@ -5,6 +5,7 @@ use hyper::{self, client::connect::HttpConnector};
 use hyper_rustls::HttpsConnector;
 use serde_json;
 use std::path::PathBuf;
+use tokio::fs;
 pub(crate) use yup_oauth2::AccessToken;
 use yup_oauth2::{
     ApplicationSecret, ConsoleApplicationSecret, InstalledFlowReturnMethod,
@@ -21,12 +22,18 @@ pub(crate) type Authenticator =
     yup_oauth2::authenticator::Authenticator<HyperConnector>;
 
 /// The path to the file where we store our OAuth2 tokens.
-fn token_file_path() -> Result<PathBuf> {
-    Ok(dirs::data_local_dir()
-        .ok_or_else(|| {
-            format_err!("cannot find directory to store authentication keys")
-        })?
-        .join("dbcrossbar-gcloud-oauth2.json"))
+async fn token_file_path() -> Result<PathBuf> {
+    let data_local_dir = dirs::data_local_dir().ok_or_else(|| {
+        format_err!("cannot find directory to store authentication keys")
+    })?;
+    // `yup_oauth2` will fail with a cryptic error if the containing directory
+    // doesn't exist.
+    fs::create_dir_all(&data_local_dir)
+        .await
+        .with_context(|_| {
+            format!("could not create directory {}", data_local_dir.display())
+        })?;
+    Ok(data_local_dir.join("dbcrossbar-gcloud-oauth2.json"))
 }
 
 /// Get the service account key needed to connect a server app to BigQuery.
@@ -42,7 +49,7 @@ async fn service_account_key() -> Result<ServiceAccountKey> {
 async fn service_account_authenticator() -> Result<Authenticator> {
     Ok(
         yup_oauth2::ServiceAccountAuthenticator::builder(service_account_key().await?)
-            .persist_tokens_to_disk(token_file_path()?)
+            .persist_tokens_to_disk(token_file_path().await?)
             .build()
             .await
             .context("failed to create authenticator")?,
@@ -71,7 +78,7 @@ async fn installed_flow_authenticator() -> Result<Authenticator> {
         application_secret().await?,
         InstalledFlowReturnMethod::HTTPRedirect,
     )
-    .persist_tokens_to_disk(token_file_path()?)
+    .persist_tokens_to_disk(token_file_path().await?)
     .build()
     .await
     .context("failed to create authenticator")?)

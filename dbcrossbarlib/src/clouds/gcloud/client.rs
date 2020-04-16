@@ -223,7 +223,11 @@ impl Client {
 
     /// Get an access token.
     async fn token(&self) -> Result<AccessToken> {
-        Ok(self.authenticator.token(SCOPES).await?)
+        Ok(self
+            .authenticator
+            .token(SCOPES)
+            .await
+            .context("could not get Google Cloud OAuth2 token")?)
     }
 
     /// Handle an HTTP response.
