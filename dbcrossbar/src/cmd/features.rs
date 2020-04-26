@@ -2,6 +2,7 @@
 
 use common_failures::Result;
 use dbcrossbarlib::{
+    config::Configuration,
     drivers::{all_drivers, find_driver},
     Context,
 };
@@ -15,7 +16,11 @@ pub(crate) struct Opt {
 }
 
 /// Perform our schema conversion.
-pub(crate) async fn run(_ctx: Context, opt: Opt) -> Result<()> {
+pub(crate) async fn run(
+    _ctx: Context,
+    _config: Configuration,
+    opt: Opt,
+) -> Result<()> {
     if let Some(name) = &opt.driver {
         let scheme = format!("{}:", name);
         let driver = find_driver(&scheme)?;

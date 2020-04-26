@@ -12,7 +12,7 @@ extern crate openssl;
 extern crate tokio;
 
 use common_failures::{quick_main, Result};
-use dbcrossbarlib::{run_futures_with_runtime, Context};
+use dbcrossbarlib::{config::Configuration, run_futures_with_runtime, Context};
 use env_logger;
 use openssl_probe;
 use slog::{debug, Drain};
@@ -59,8 +59,12 @@ fn run() -> Result<()> {
     // Log our command-line options.
     debug!(ctx.log(), "{:?}", opt);
 
+    // Load our configuration.
+    let config = Configuration::try_default()?;
+    debug!(ctx.log(), "{:?}", config);
+
     // Create a future to run our command.
-    let cmd_fut = cmd::run(ctx, opt);
+    let cmd_fut = cmd::run(ctx, config, opt);
 
     // Run our futures.
     run_futures_with_runtime(cmd_fut, worker_fut)

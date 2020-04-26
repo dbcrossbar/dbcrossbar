@@ -17,6 +17,7 @@ use std::result;
 pub(crate) mod args;
 pub(crate) mod clouds;
 pub(crate) mod concat;
+pub mod config;
 pub(crate) mod context;
 pub(crate) mod credentials;
 pub(crate) mod csv_stream;

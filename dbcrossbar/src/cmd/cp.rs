@@ -2,8 +2,8 @@
 
 use common_failures::Result;
 use dbcrossbarlib::{
-    rechunk::rechunk_csvs, tokio_glue::try_forward, BoxLocator, Context,
-    DestinationArguments, DisplayOutputLocators, DriverArguments, IfExists,
+    config::Configuration, rechunk::rechunk_csvs, tokio_glue::try_forward, BoxLocator,
+    Context, DestinationArguments, DisplayOutputLocators, DriverArguments, IfExists,
     SharedArguments, SourceArguments, TemporaryStorage,
 };
 use failure::{format_err, ResultExt};
@@ -66,7 +66,7 @@ pub(crate) struct Opt {
 }
 
 /// Perform our schema conversion.
-pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
+pub(crate) async fn run(ctx: Context, config: Configuration, opt: Opt) -> Result<()> {
     // Figure out what table schema to use.
     let schema = {
         let schema_locator = opt.schema.as_ref().unwrap_or(&opt.from_locator);
@@ -82,7 +82,8 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
     }?;
 
     // Build our shared arguments.
-    let temporary_storage = TemporaryStorage::new(opt.temporaries.clone());
+    let temporaries = opt.temporaries.clone();
+    let temporary_storage = TemporaryStorage::with_config(temporaries, &config)?;
     let shared_args = SharedArguments::new(schema, temporary_storage, opt.max_streams);
 
     // Build our source arguments.

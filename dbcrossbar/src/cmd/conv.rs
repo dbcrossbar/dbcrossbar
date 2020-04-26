@@ -1,7 +1,7 @@
 //! The `conv` subcommand.
 
 use common_failures::Result;
-use dbcrossbarlib::{BoxLocator, Context, IfExists};
+use dbcrossbarlib::{config::Configuration, BoxLocator, Context, IfExists};
 use failure::format_err;
 use structopt::{self, StructOpt};
 
@@ -20,7 +20,7 @@ pub(crate) struct Opt {
 }
 
 /// Perform our schema conversion.
-pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
+pub(crate) async fn run(ctx: Context, _config: Configuration, opt: Opt) -> Result<()> {
     let schema = opt.from_locator.schema(ctx.clone()).await?.ok_or_else(|| {
         format_err!("don't know how to read schema from {}", opt.from_locator)
     })?;
