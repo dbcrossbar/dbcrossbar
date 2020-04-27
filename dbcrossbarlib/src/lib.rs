@@ -3,15 +3,18 @@
 //! At the moment, the most interesting type here is the [`schema`](./schema/)
 //! module, which defines a portable SQL schema.
 
+#![forbid(unsafe_code)]
 #![warn(
     missing_docs,
     unused_extern_crates,
     clippy::all,
     clippy::cargo,
+    clippy::cast_lossless,
     clippy::cast_possible_truncation,
     clippy::cast_possible_wrap,
     clippy::cast_precision_loss,
-    clippy::cast_sign_loss
+    clippy::cast_sign_loss,
+    clippy::inefficient_to_string
 )]
 // We handle this using `cargo deny` instead.
 #![allow(clippy::multiple_crate_versions)]
