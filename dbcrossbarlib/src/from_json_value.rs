@@ -1,6 +1,5 @@
 //! Construct various types from parsed JSON values.
 
-use cast;
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, Utc};
 use geo_types::Geometry;
 use serde_json::Value;

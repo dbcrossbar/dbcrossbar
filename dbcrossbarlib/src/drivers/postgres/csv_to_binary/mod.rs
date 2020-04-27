@@ -8,11 +8,8 @@
 //! - https://github.com/sfackler/rust-postgres/blob/master/postgres-protocol/src/types.rs Rust implementations.
 
 use byteorder::{NetworkEndian as NE, WriteBytesExt};
-use cast;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
-use csv;
 use geo_types::Geometry;
-use hex;
 use serde_json::Value;
 use std::{
     io::{self, prelude::*},

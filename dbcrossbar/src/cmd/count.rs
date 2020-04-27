@@ -2,8 +2,8 @@
 
 use common_failures::Result;
 use dbcrossbarlib::{
-    BoxLocator, Context, DriverArguments, SharedArguments, SourceArguments,
-    TemporaryStorage,
+    config::Configuration, BoxLocator, Context, DriverArguments, SharedArguments,
+    SourceArguments, TemporaryStorage,
 };
 use failure::{format_err, ResultExt};
 use structopt::{self, StructOpt};
@@ -33,7 +33,7 @@ pub(crate) struct Opt {
 }
 
 /// Count records.
-pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
+pub(crate) async fn run(ctx: Context, config: Configuration, opt: Opt) -> Result<()> {
     // Figure out what table schema to use.
     let schema = {
         let schema_locator = opt.schema.as_ref().unwrap_or(&opt.locator);
@@ -48,7 +48,8 @@ pub(crate) async fn run(ctx: Context, opt: Opt) -> Result<()> {
 
     // Build our shared arguments. Specify 1 for `max_streams` until we actually
     // implement local counting.
-    let temporary_storage = TemporaryStorage::new(opt.temporaries.clone());
+    let temporaries = opt.temporaries.clone();
+    let temporary_storage = TemporaryStorage::with_config(temporaries, &config)?;
     let shared_args = SharedArguments::new(schema, temporary_storage, 1);
 
     // Build our source arguments.

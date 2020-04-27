@@ -158,7 +158,7 @@ impl<'de> Deserialize<'de> for ColumnName {
         D: Deserializer<'de>,
     {
         let s: &str = Deserialize::deserialize(deserializer)?;
-        Ok(ColumnName::try_from(s).map_err(|e| de::Error::custom(e))?)
+        Ok(ColumnName::try_from(s).map_err(de::Error::custom)?)
     }
 }
 

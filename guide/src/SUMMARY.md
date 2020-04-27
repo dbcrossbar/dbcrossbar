@@ -7,6 +7,7 @@
 - [How it works](./how.md)
   - [CSV interchange format](./csv_interchange.md)
   - [Portable table schema](./schema.md)
+- [Configuration](./config.md)
 - [Commands](./commands.md)
   - [`cp`: Copying tables](./cp.md)
   - [`count`: Counting records](./count.md)

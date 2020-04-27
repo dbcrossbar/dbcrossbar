@@ -4,7 +4,6 @@ use failure::ResultExt;
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use reqwest::{self, header::HeaderMap, IntoUrl};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_urlencoded;
 use std::{error, fmt};
 
 use super::auth::{authenticator, AccessToken, Authenticator};

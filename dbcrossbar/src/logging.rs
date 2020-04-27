@@ -3,8 +3,6 @@
 use dbcrossbarlib::{Error, Result};
 use failure::format_err;
 use slog::{error, slog_o as o, Drain, Logger, Never};
-use slog_json;
-use slog_term;
 use std::{io::stderr, result, str::FromStr};
 
 /// A polymorphic log drain (which means we need to use `Box<dyn ...>`,

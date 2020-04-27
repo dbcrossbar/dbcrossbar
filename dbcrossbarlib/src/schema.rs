@@ -182,8 +182,6 @@ fn data_type_serialization_examples() {
 
 #[test]
 fn data_type_roundtrip() {
-    use serde_json;
-
     let data_types = vec![
         DataType::Array(Box::new(DataType::Text)),
         DataType::Bool,

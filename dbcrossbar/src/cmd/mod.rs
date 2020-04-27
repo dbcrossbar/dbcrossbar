@@ -1,12 +1,13 @@
 //! Command parsing.
 
-use dbcrossbarlib::{tokio_glue::BoxFuture, Context};
+use dbcrossbarlib::{config::Configuration, tokio_glue::BoxFuture, Context};
 use futures::FutureExt;
 //use structopt::StructOpt;
 use structopt_derive::StructOpt;
 
 use crate::logging::LogFormat;
 
+pub(crate) mod config;
 pub(crate) mod conv;
 pub(crate) mod count;
 pub(crate) mod cp;
@@ -35,6 +36,13 @@ pub(crate) struct Opt {
 /// The command to run.
 #[derive(Debug, StructOpt)]
 pub(crate) enum Command {
+    /// Update configuration.
+    #[structopt(name = "config")]
+    Config {
+        #[structopt(flatten)]
+        command: config::Opt,
+    },
+
     /// Convert table schemas from one format to another.
     #[structopt(name = "conv")]
     #[structopt(after_help = r#"EXAMPLE LOCATORS:
@@ -77,11 +85,12 @@ pub(crate) enum Command {
     },
 }
 
-pub(crate) fn run(ctx: Context, opt: Opt) -> BoxFuture<()> {
+pub(crate) fn run(ctx: Context, config: Configuration, opt: Opt) -> BoxFuture<()> {
     match opt.cmd {
-        Command::Conv { command } => conv::run(ctx, command).boxed(),
-        Command::Count { command } => count::run(ctx, command).boxed(),
-        Command::Cp { command } => cp::run(ctx, command).boxed(),
-        Command::Features { command } => features::run(ctx, command).boxed(),
+        Command::Config { command } => config::run(ctx, config, command).boxed(),
+        Command::Conv { command } => conv::run(ctx, config, command).boxed(),
+        Command::Count { command } => count::run(ctx, config, command).boxed(),
+        Command::Cp { command } => cp::run(ctx, config, command).boxed(),
+        Command::Features { command } => features::run(ctx, config, command).boxed(),
     }
 }

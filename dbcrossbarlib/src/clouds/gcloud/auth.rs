@@ -1,9 +1,7 @@
 //! Authentication support for Google Cloud.
 
-use dirs;
 use hyper::{self, client::connect::HttpConnector};
 use hyper_rustls::HttpsConnector;
-use serde_json;
 use std::path::PathBuf;
 use tokio::fs;
 pub(crate) use yup_oauth2::AccessToken;

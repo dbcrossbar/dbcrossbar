@@ -1,6 +1,5 @@
 //! Driver for working with CSV files.
 
-use csv;
 use std::{ffi::OsStr, fmt, path::PathBuf, str::FromStr};
 use tokio::{
     fs,

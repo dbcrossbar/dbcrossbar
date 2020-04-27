@@ -1,7 +1,6 @@
 //! Support for looking up credentials.
 
 use async_trait::async_trait;
-use dirs;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use std::{
@@ -13,6 +12,7 @@ use std::{
 use tokio::{fs, sync::Mutex};
 
 use crate::common::*;
+use crate::config::config_dir;
 
 /// A set of credentials that we can use to access a service.
 ///
@@ -77,9 +77,7 @@ impl CredentialsManager {
     /// Create a new credentials manager and install the default handlers.
     fn new() -> Result<CredentialsManager> {
         let mut sources = HashMap::new();
-        let config_dir = dirs::config_dir()
-            .ok_or_else(|| format_err!("could not find user config dir"))?
-            .join("dbcrossbar");
+        let config_dir = config_dir()?;
 
         // Specify how to find Google Cloud service account keys.
         let gcloud_service_account_key = CredentialsSources::new(vec![

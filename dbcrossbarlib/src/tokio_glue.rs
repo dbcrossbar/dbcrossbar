@@ -339,7 +339,7 @@ where
 
 /// Run a synchronous function `f` in a background worker thread and return its
 /// value.
-pub(crate) async fn spawn_blocking<F, T>(f: F) -> Result<T>
+pub async fn spawn_blocking<F, T>(f: F) -> Result<T>
 where
     F: (FnOnce() -> Result<T>) + Send + 'static,
     T: Send + 'static,

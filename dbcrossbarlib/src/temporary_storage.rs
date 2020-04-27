@@ -4,6 +4,9 @@ use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use std::iter;
 
+use crate::common::*;
+use crate::config::Configuration;
+
 /// Provides different types of temporary storage.
 #[derive(Clone, Debug)]
 pub struct TemporaryStorage {
@@ -17,6 +20,16 @@ impl TemporaryStorage {
     /// `bigquery:project:dataset`.
     pub fn new(locations: Vec<String>) -> Self {
         TemporaryStorage { locations }
+    }
+
+    /// Like `new`, but also use temporaries from `config`.
+    pub fn with_config(
+        mut locations: Vec<String>,
+        config: &Configuration,
+    ) -> Result<Self> {
+        // These go _after_, so that they can be overridden by values in `locations`.
+        locations.extend(config.temporaries()?);
+        Ok(TemporaryStorage { locations })
     }
 
     /// Find a location with the specified scheme.
