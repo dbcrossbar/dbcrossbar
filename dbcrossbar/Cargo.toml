@@ -5,6 +5,8 @@ authors = ["Eric Kidd <git@randomhacks.net>"]
 edition = "2018"
 
 description = "Program for copying data between databases (pre-release)"
+categories = ["command-line-utilities", "database", "filesystem"]
+keywords = ["postgresql", "bigquery"]
 license = "Apache-2.0 OR MIT"
 readme = "../README.md"
 homepage = "https://www.dbcrossbar.org/"

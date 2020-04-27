@@ -6,6 +6,8 @@ build = "build.rs"
 edition = "2018"
 
 description = "Library for copying data between databases (pre-release)"
+categories = ["database", "filesystem"]
+keywords = ["database"]
 license = "Apache-2.0 OR MIT"
 readme = "README.md"
 homepage = "https://www.dbcrossbar.org/"

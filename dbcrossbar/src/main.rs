@@ -1,6 +1,8 @@
 //! A CLI tool for converting between table schema formats.
 
-#![warn(rust_2018_idioms, unused_extern_crates, clippy::all)]
+#![warn(missing_docs, unused_extern_crates, clippy::all, clippy::cargo)]
+// We handle this using `cargo deny` instead.
+#![allow(clippy::multiple_crate_versions)]
 
 // Needed to prevent linker errors about OpenSSL.
 #[allow(unused_extern_crates)]
