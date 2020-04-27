@@ -45,7 +45,7 @@ impl WriteBinary for bool {
 impl WriteBinary for NaiveDate {
     fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         let epoch = NaiveDate::from_ymd(2000, 1, 1);
-        let day_number = cast::i32((*self - epoch).num_days())?;
+        let day_number = i32::try_from((*self - epoch).num_days())?;
         wtr.write_len(size_of_val(&day_number))?;
         wtr.write_i32::<NE>(day_number)?;
         Ok(())

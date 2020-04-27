@@ -85,7 +85,7 @@ pub(crate) fn copy_csv_to_pg_binary(
         let row = row?;
 
         // Write our tuple field count.
-        wtr.write_i16::<NE>(cast::i16(row.len())?)?;
+        wtr.write_i16::<NE>(i16::try_from(row.len())?)?;
 
         // Write each of our rows. Using `zip` allows Rust to omit bounds
         // checks on the `row` and `columns` arrays.
@@ -166,7 +166,7 @@ fn array_to_binary(
         WriteBytesExt::write_i32::<NE>(wtr, data_type.oid()?)?;
 
         // Array dimension 1 of 1: Size.
-        WriteBytesExt::write_i32::<NE>(wtr, cast::i32(json_array.len())?)?;
+        WriteBytesExt::write_i32::<NE>(wtr, i32::try_from(json_array.len())?)?;
 
         // Array dimension 1 of 1: Lower bound. We want 1-based, because that's the default
         // in PostgreSQL.
@@ -347,7 +347,7 @@ pub(crate) trait WriteExt {
 
 impl<'a, W: Write + 'a> WriteExt for W {
     fn write_len(&mut self, len: usize) -> Result<()> {
-        self.write_i32::<NE>(cast::i32(len)?)?;
+        self.write_i32::<NE>(i32::try_from(len)?)?;
         Ok(())
     }
 

@@ -48,6 +48,9 @@ impl FromJsonValue for f32 {
                 let f = n
                     .as_f64()
                     .ok_or_else(|| format_err!("cannot represent {} as f64", json))?;
+                // TODO: This is the only reason we still need the `cast` crate.
+                // It checks for out-of-bounds values when converting from `f64`
+                // to `f32`.
                 Ok(cast::f32(f)?)
             }
             Value::String(s) => Self::from_csv_cell(s),
@@ -80,7 +83,7 @@ impl FromJsonValue for i16 {
                 let i = n
                     .as_i64()
                     .ok_or_else(|| format_err!("cannot represent {} as i64", json))?;
-                Ok(cast::i16(i)?)
+                Ok(i16::try_from(i)?)
             }
             Value::String(s) => Self::from_csv_cell(s),
             _ => Err(format_err!("could not parse JSON value {} as i16", json)),
@@ -95,7 +98,7 @@ impl FromJsonValue for i32 {
                 let i = n
                     .as_i64()
                     .ok_or_else(|| format_err!("cannot represent {} as i64", json))?;
-                Ok(cast::i32(i)?)
+                Ok(i32::try_from(i)?)
             }
             Value::String(s) => Self::from_csv_cell(s),
             _ => Err(format_err!("could not parse JSON value {} as i32", json)),

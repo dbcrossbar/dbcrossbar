@@ -9,7 +9,6 @@
 
 use diesel::{pg::PgConnection, prelude::*, sql_query, sql_types::*, QueryableByName};
 use std::result;
-use try_from::TryInto;
 
 use crate::common::*;
 

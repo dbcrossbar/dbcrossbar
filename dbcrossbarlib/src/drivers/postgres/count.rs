@@ -51,6 +51,6 @@ pub(crate) async fn count_helper(
         ))
     } else {
         let count: i64 = rows[0].get("count");
-        Ok(cast::usize(count).context("count out of range")?)
+        Ok(usize::try_from(count).context("count out of range")?)
     }
 }

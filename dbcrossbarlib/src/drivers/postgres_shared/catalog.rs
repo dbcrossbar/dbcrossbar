@@ -123,7 +123,7 @@ pub(crate) fn fetch_from_url(
             // handle integer range errors, and to convert everything into a
             // nice `HashMap`.
             .into_iter()
-            .map(|(name, srid)| Ok((name, Srid::new(cast::u32(srid)?))))
+            .map(|(name, srid)| Ok((name, Srid::new(u32::try_from(srid)?))))
             .collect::<Result<HashMap<String, Srid>>>()?
     } else {
         // If we don't have any geometry columns, then we don't want to run the
