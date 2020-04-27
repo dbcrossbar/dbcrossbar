@@ -1,7 +1,6 @@
 //! Running queries against BigQuery.
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json;
 use std::convert::TryFrom;
 
 use super::{

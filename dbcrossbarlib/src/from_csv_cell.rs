@@ -5,7 +5,6 @@ use geo_types::Geometry;
 use geojson::GeoJson;
 use lazy_static::lazy_static;
 use regex::Regex;
-use serde_json;
 use std::convert::TryInto;
 use uuid::Uuid;
 

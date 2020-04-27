@@ -1,6 +1,5 @@
 //! S3 URL signing.
 
-use base64;
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use sha1::Sha1;

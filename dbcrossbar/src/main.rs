@@ -13,11 +13,8 @@ extern crate tokio;
 
 use common_failures::{quick_main, Result};
 use dbcrossbarlib::{config::Configuration, run_futures_with_runtime, Context};
-use env_logger;
-use openssl_probe;
 use slog::{debug, Drain};
 use slog_async::{self, OverflowStrategy};
-use slog_envlogger;
 use structopt::{self, StructOpt};
 
 mod cmd;

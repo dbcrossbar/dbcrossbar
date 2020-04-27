@@ -1,6 +1,5 @@
 //! Given a stream of streams CSV data, rechunk the stream sizes.
 
-use csv;
 use futures::executor::block_on;
 use std::{cell::Cell, cmp::min, io, rc::Rc};
 use tokio::sync::mpsc;

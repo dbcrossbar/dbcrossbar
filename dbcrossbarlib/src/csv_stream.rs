@@ -53,7 +53,7 @@ impl CsvStream {
             }
         }
         trace!(ctx.log(), "end of stream");
-        return Ok(bytes);
+        Ok(bytes)
     }
 
     /// Convert an HTTP `Body` into a `CsvStream`.

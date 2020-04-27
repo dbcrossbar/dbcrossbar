@@ -1,7 +1,5 @@
 //! Implementation of `schema`.
 
-use bigml;
-
 use super::{data_type::OptypeExt, BigMlAction, BigMlLocator};
 use crate::common::*;
 use crate::schema::{Column, Table};

@@ -1,6 +1,5 @@
 //! Configuration file support.
 
-use dirs;
 use failure::Fail;
 use std::{
     env, fmt,
