@@ -49,7 +49,7 @@ impl Key<'_> {
     }
 
     /// A top-level configuration key.
-    pub(crate) fn global<'a>(key: &'a str) -> Key<'a> {
+    pub(crate) fn global(key: &str) -> Key<'_> {
         Key { key }
     }
 }

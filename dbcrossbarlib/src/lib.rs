@@ -4,8 +4,6 @@
 //! module, which defines a portable SQL schema.
 
 #![warn(missing_docs, unused_extern_crates, clippy::all)]
-// Work around clippy false positives.
-#![allow(clippy::redundant_closure, clippy::needless_lifetimes)]
 
 // We keep one `macro_use` here, because `diesel`'s macros do not yet play
 // nicely with the new Rust 2018 macro importing features.

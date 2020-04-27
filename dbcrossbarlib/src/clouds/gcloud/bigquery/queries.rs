@@ -187,7 +187,7 @@ where
     let output = query_all_json(ctx, project, sql).await?;
     let rows = output
         .into_iter()
-        .map(|row| serde_json::from_value::<T>(row))
+        .map(serde_json::from_value::<T>)
         .collect::<Result<Vec<T>, _>>()
         .context("could not parse count output")?;
     Ok(rows)
