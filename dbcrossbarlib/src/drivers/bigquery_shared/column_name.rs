@@ -64,6 +64,11 @@ impl ColumnName {
     pub(crate) fn quoted(&self) -> ColumnNameQuoted<'_> {
         ColumnNameQuoted(self)
     }
+
+    /// Quote this for use in JavaScript.
+    pub(crate) fn javascript_quoted(&self) -> ColumnNameJavaScriptQuoted<'_> {
+        ColumnNameJavaScriptQuoted(self)
+    }
 }
 
 impl PartialEq for ColumnName {
@@ -172,6 +177,19 @@ impl<'a> fmt::Display for ColumnNameQuoted<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Always quote, just in case the column name is a keyword.
         write!(f, "`{}`", self.0.as_str())
+    }
+}
+
+/// A wrapper type used to display column names as quoted JavaScript
+/// identifiers.
+///
+/// TODO: Do we need to anything special with case-handling here? BigQuery
+/// ignores case, but JavaScript treats it as significant.
+pub(crate) struct ColumnNameJavaScriptQuoted<'a>(&'a ColumnName);
+
+impl<'a> fmt::Display for ColumnNameJavaScriptQuoted<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "\"{}\"", self.0.as_str())
     }
 }
 

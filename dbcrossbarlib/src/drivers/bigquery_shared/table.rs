@@ -122,7 +122,7 @@ impl BqTable {
                 .iter()
                 .map(|c| -> Result<BqColumn> {
                     if let Some(&col) = column_map.get(&c.name) {
-                        Ok(col.to_owned())
+                        col.aligned_with(&c)
                     } else {
                         Err(format_err!(
                             "could not find column {} in BigQuery table {}",
@@ -355,12 +355,16 @@ WHEN NOT MATCHED THEN INSERT (
         source_args: &SourceArguments<Verified>,
         f: &mut dyn Write,
     ) -> Result<()> {
+        for (i, col) in self.columns.iter().enumerate() {
+            col.write_export_udf(f, i)?;
+        }
+
         write!(f, "SELECT ")?;
         for (i, col) in self.columns.iter().enumerate() {
             if i > 0 {
                 write!(f, ",")?;
             }
-            col.write_export_select_expr(f)?;
+            col.write_export_select_expr(f, i)?;
         }
         write!(f, " FROM {}", self.name.dotted_and_quoted())?;
         if let Some(where_clause) = source_args.where_clause() {

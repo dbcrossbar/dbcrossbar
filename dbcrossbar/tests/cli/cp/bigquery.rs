@@ -1,9 +1,10 @@
 //! BigQuery-specific tests.
 
 use cli_test_dir::*;
-use dbcrossbarlib::TemporaryStorage;
+use dbcrossbarlib::{schema::DataType, TemporaryStorage};
 use difference::assert_diff;
-use std::{fs, path::Path, process::Command};
+use serde_json::json;
+use std::{fs, io::Write, path::Path, process::Command};
 
 use super::*;
 
@@ -267,4 +268,131 @@ fn bigquery_honors_not_null_for_complex_inserts() {
 
     // Make sure it contains REQUIRED columns.
     testdir.expect_contains("output.json", "REQUIRED");
+}
+
+#[test]
+#[ignore]
+fn bigquery_roundtrips_structs() {
+    let _ = env_logger::try_init();
+    let testdir = TestDir::new("dbcrossbar", "bigquery_roundtrips_structs");
+    let raw_src_path = testdir.src_path("fixtures/structs/struct.json");
+    let src = testdir.path("structs.csv");
+    let raw_data_type_path =
+        testdir.src_path("fixtures/structs/struct-data-type.json");
+    let schema = testdir.path("structs-schema.json");
+    let bq_temp_ds = bq_temp_dataset();
+    let gs_temp_dir = gs_test_dir_url("bigquery_roundtrips_structs");
+    let bq_table = bq_test_table("bigquery_roundtrips_structs");
+
+    // Use our example JSON to create a CSV file with two columns: One
+    // containing our struct, and the other containing a single-element array
+    // containing our struct.
+    let raw_src = fs::read_to_string(&raw_src_path).unwrap();
+    let src_data = format!(
+        r#"struct,structs
+"{escaped}","[{escaped}]"
+"#,
+        escaped = raw_src.replace('\n', " ").replace('"', "\"\""),
+    );
+    let mut src_wtr = fs::File::create(&src).unwrap();
+    write!(&mut src_wtr, "{}", &src_data).unwrap();
+    src_wtr.flush().unwrap();
+    drop(src_wtr);
+
+    // Load our data type and use it to create our schema. This actually needs two columns.
+    let schema_from_file = |path: &Path| -> serde_json::Value {
+        let ty: DataType =
+            serde_json::from_reader(fs::File::open(path).unwrap()).unwrap();
+        json!({
+            "name": "root-180513:test.bigquery_roundtrips_structs",
+            "columns": [
+                {
+                    "name": "struct",
+                    "is_nullable": true,
+                    "data_type": ty
+                },
+                {
+                    "name": "structs",
+                    // TODO: Try with `is_nullable: false`.
+                    "is_nullable": true,
+                    "data_type": { "array": ty },
+                },
+            ]
+        })
+    };
+    let schema_data = schema_from_file(&raw_data_type_path);
+    let schema_wtr = fs::File::create(&schema).unwrap();
+    serde_json::to_writer(schema_wtr, &schema_data).unwrap();
+
+    // Load our data into BigQuery.
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--temporary={}", gs_temp_dir),
+            &format!("--temporary={}", bq_temp_ds),
+            &format!("--schema=dbcrossbar-schema:{}", schema.display()),
+            &format!("csv:{}", src.display()),
+            &bq_table,
+        ])
+        .spawn()
+        .expect_success();
+
+    // Dump our data from BigQuery.
+    let exported = testdir.path("structs.csv");
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--temporary={}", gs_temp_dir),
+            &format!("--temporary={}", bq_temp_ds),
+            &format!("--schema=dbcrossbar-schema:{}", schema.display()),
+            &bq_table,
+            &format!("csv:{}", exported.display()),
+        ])
+        .spawn()
+        .expect_success();
+
+    // Compare our dumped data to what we expected, using JSON comparison to
+    // ignore whitespace and ordering.
+    let mut exported_rdr = ::csv::Reader::from_path(&exported).unwrap();
+    let row = exported_rdr
+        .records()
+        .next()
+        .expect("should have one row")
+        .unwrap();
+    let expected = serde_json::from_str::<serde_json::Value>(&raw_src).unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(row.get(0).unwrap()).unwrap(),
+        expected,
+    );
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(row.get(1).unwrap()).unwrap(),
+        json!([expected]),
+    );
+
+    // Dump our actual schema from BigQuery.
+    let exported_schema = testdir.path("structs-schema.json");
+    testdir
+        .cmd()
+        .args(&[
+            "conv",
+            "--if-exists=overwrite",
+            &bq_table,
+            &format!("dbcrossbar-schema:{}", exported_schema.display()),
+        ])
+        .spawn()
+        .expect_success();
+
+    // Compare our schema data as JSON. This will contain less information than
+    // the schema we originally loaded, because BigQuery can't represent all our
+    // schemas perfectly.
+    let expected_schema_data = schema_from_file(
+        &testdir.src_path("fixtures/structs/struct-data-type-after-bq.json"),
+    );
+    let exported_schema: serde_json::Value =
+        serde_json::from_reader(fs::File::open(&exported_schema).unwrap()).unwrap();
+    assert_eq!(exported_schema, expected_schema_data);
 }

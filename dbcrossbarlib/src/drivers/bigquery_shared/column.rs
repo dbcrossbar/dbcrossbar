@@ -3,6 +3,8 @@
 use serde_derive::{Deserialize, Serialize};
 
 use super::{
+    export_udf::{generate_export_udf, needs_custom_json_export},
+    import_udf::generate_import_udf,
     BqDataType, BqNonArrayDataType, BqRecordOrNonArrayDataType, BqStructField,
     ColumnName, DataTypeBigQueryExt, Usage,
 };
@@ -106,7 +108,21 @@ impl BqColumn {
     /// Get the BigQuery data type for this column, taking into account
     /// shenanigans like `RECORD` and `REPEATED`.
     pub(crate) fn bq_data_type(&self) -> Result<BqDataType> {
-        self.ty.to_bq_data_type(self.mode, &self.fields)
+        let ty = match &self.ty {
+            BqRecordOrNonArrayDataType::Record => {
+                let fields = self
+                    .fields
+                    .iter()
+                    .map(|f| f.to_struct_field())
+                    .collect::<Result<Vec<_>>>()?;
+                BqNonArrayDataType::Struct(fields)
+            }
+            BqRecordOrNonArrayDataType::DataType(ty) => ty.to_owned(),
+        };
+        match self.mode {
+            Mode::Repeated => Ok(BqDataType::Array(ty)),
+            Mode::Nullable | Mode::Required => Ok(BqDataType::NonArray(ty)),
+        }
     }
 
     /// Should this column be declared as `NOT NULL` when generating a `CREATE TABLE`?
@@ -114,6 +130,58 @@ impl BqColumn {
         match &self.mode {
             Mode::Required => true,
             Mode::Repeated | Mode::Nullable => false,
+        }
+    }
+
+    /// Given two columns with the same name, use `other` to "upgrade" the
+    /// information that we have about `self`, and return the result.
+    ///
+    /// This is used to replace `BqNonArrayDataType::String` with
+    /// `BqNonArrayDataType::Stringified(_)` when we have more specific type
+    /// information available in `other` than we have in `self`. We can't just
+    /// use `other` directly, because it may be less _accurate_ than what we
+    /// have in `self`, and we need accurate types to export correctly.
+    pub(crate) fn aligned_with(&self, other: &BqColumn) -> Result<BqColumn> {
+        // Check to make sure that our columns have the same name. (Should be
+        // guaranteed by our caller.)
+        if self.name != other.name {
+            return Err(format_err!(
+                "cannot align columns {} and {}",
+                self.name.quoted(),
+                other.name.quoted()
+            ));
+        };
+
+        // Get the actual type of this column, and align it.
+        let self_ty = self.bq_data_type()?;
+        let other_ty = other.bq_data_type()?;
+        let aligned_ty = self_ty.aligned_with(&other_ty)?;
+
+        // Reconstruct our column using the new type. This is unnecessarily
+        // annoying because of how BigQuery represents structs and arrays. This
+        // will also end up replacing `RECORD` with a `STRUCT` type, just to make things
+        // easier.
+        match (self.mode, aligned_ty) {
+            (Mode::Repeated, BqDataType::Array(nested)) => Ok(Self {
+                description: self.description.clone(),
+                name: self.name.clone(),
+                ty: BqRecordOrNonArrayDataType::DataType(nested),
+                mode: self.mode,
+                fields: vec![],
+            }),
+            (Mode::Repeated, _) => {
+                unreachable!("should never have REPEATED without ARRAY")
+            }
+            (_, BqDataType::Array(_)) => {
+                unreachable!("should never have ARRAY without REPEATED")
+            }
+            (_, BqDataType::NonArray(nested)) => Ok(Self {
+                description: self.description.clone(),
+                name: self.name.clone(),
+                ty: BqRecordOrNonArrayDataType::DataType(nested),
+                mode: self.mode,
+                fields: vec![],
+            }),
         }
     }
 
@@ -162,79 +230,13 @@ AS ((
                 )?;
             }
 
-            // Most kinds of arrays can be handled with JavaScript. But some
-            // of these might be faster as SQL UDFs.
-            BqDataType::Array(elem_ty) => {
-                write!(
-                    f,
-                    r#"CREATE TEMP FUNCTION ImportJson_{idx}(input STRING)
-RETURNS ARRAY<{bq_type}>
-LANGUAGE js AS """
-return "#,
-                    idx = idx,
-                    bq_type = elem_ty,
-                )?;
-                self.write_import_udf_body_for_array(f, &elem_ty)?;
-                writeln!(
-                    f,
-                    r#";
-""";
-"#
-                )?;
+            BqDataType::Array(_)
+            | BqDataType::NonArray(BqNonArrayDataType::Struct(_)) => {
+                generate_import_udf(self, idx, f)?;
             }
 
             // No special import required for any of these types yet.
             BqDataType::NonArray(_) => {}
-        }
-        Ok(())
-    }
-
-    /// Write the actual import JavaScript for an array of the specified type.
-    fn write_import_udf_body_for_array(
-        &self,
-        f: &mut dyn Write,
-        elem_ty: &BqNonArrayDataType,
-    ) -> Result<()> {
-        match elem_ty {
-            // These types can be converted directly from JSON.
-            BqNonArrayDataType::Bool
-            | BqNonArrayDataType::Float64
-            | BqNonArrayDataType::String => {
-                write!(f, "JSON.parse(input)")?;
-            }
-
-            // These types all need to go through `Date`, even when they
-            // theoretically don't involve time zones.
-            //
-            // TODO: We may need to handle `TIMESTAMP` microseconds explicitly.
-            BqNonArrayDataType::Date
-            | BqNonArrayDataType::Datetime
-            | BqNonArrayDataType::Timestamp => {
-                write!(
-                    f,
-                    "JSON.parse(input).map(function (d) {{ return new Date(d); }})",
-                )?;
-            }
-
-            // This is tricky, because not all 64-bit integers can be exactly
-            // represented as JSON.
-            BqNonArrayDataType::Int64 => {
-                write!(f, "JSON.parse(input)")?;
-            }
-
-            // Unsupported types. Some of these aren't actually supported by our
-            // portable schema, so we should never see them. Others can occur in
-            // real data.
-            BqNonArrayDataType::Bytes
-            | BqNonArrayDataType::Geography
-            | BqNonArrayDataType::Numeric
-            | BqNonArrayDataType::Time
-            | BqNonArrayDataType::Struct(_) => {
-                return Err(format_err!(
-                    "cannot import `ARRAY<{}>` into BigQuery yet",
-                    elem_ty,
-                ));
-            }
         }
         Ok(())
     }
@@ -254,21 +256,25 @@ return "#,
     ) -> Result<()> {
         let table_prefix = table_prefix.unwrap_or("");
         assert!(table_prefix == "" || table_prefix.ends_with('.'));
-        if self.mode == Mode::Repeated {
-            write!(
-                f,
-                "ImportJson_{idx}({table_prefix}{name})",
-                idx = idx,
-                table_prefix = table_prefix,
-                name = self.name.quoted(),
-            )?;
-        } else {
-            write!(
-                f,
-                "{table_prefix}{name}",
-                table_prefix = table_prefix,
-                name = self.name.quoted(),
-            )?;
+        match self.bq_data_type()? {
+            BqDataType::Array(_)
+            | BqDataType::NonArray(BqNonArrayDataType::Struct(_)) => {
+                write!(
+                    f,
+                    "ImportJson_{idx}({table_prefix}{name})",
+                    idx = idx,
+                    table_prefix = table_prefix,
+                    name = self.name.quoted(),
+                )?;
+            }
+            _ => {
+                write!(
+                    f,
+                    "{table_prefix}{name}",
+                    table_prefix = table_prefix,
+                    name = self.name.quoted(),
+                )?;
+            }
         }
         Ok(())
     }
@@ -285,16 +291,41 @@ return "#,
         Ok(())
     }
 
+    /// Write an an export UDF function if we need one.
+    pub(crate) fn write_export_udf(
+        &self,
+        f: &mut dyn Write,
+        idx: usize,
+    ) -> Result<()> {
+        if needs_custom_json_export(&self.bq_data_type()?)?.in_sql_code() {
+            generate_export_udf(self, idx, f)?;
+        }
+        Ok(())
+    }
+
     /// Output the SQL expression used in the `SELECT` clause of our table
     /// export statement.
-    pub(crate) fn write_export_select_expr(&self, f: &mut dyn Write) -> Result<()> {
-        match self.bq_data_type()? {
-            // We export arrays of structs as JSON arrays of objects.
-            BqDataType::NonArray(ty)
-            | BqDataType::Array(ty @ BqNonArrayDataType::Struct(_)) => {
-                self.write_export_select_expr_for_non_array(&ty, f)
+    pub(crate) fn write_export_select_expr(
+        &self,
+        f: &mut dyn Write,
+        idx: usize,
+    ) -> Result<()> {
+        match &self.bq_data_type()? {
+            // Some types need a custom export function.
+            ty if needs_custom_json_export(&ty)?.in_sql_code() => {
+                write!(
+                    f,
+                    "ExportJson_{idx}({name}) AS {name}",
+                    idx = idx,
+                    name = self.name.quoted(),
+                )?;
+                Ok(())
             }
-            BqDataType::Array(ty) => self.write_export_select_expr_for_array(&ty, f),
+            // We export arrays of structs as JSON arrays of objects.
+            BqDataType::NonArray(ty) => {
+                self.write_export_select_expr_for_non_array(ty, f)
+            }
+            BqDataType::Array(ty) => self.write_export_select_expr_for_array(ty, f),
         }
     }
 
@@ -340,11 +371,15 @@ return "#,
                 )?;
             }
 
+            // These types can only make it here if they contain nothing that
+            // needs a special export routine.
+            BqNonArrayDataType::Stringified(_) | BqNonArrayDataType::Struct(_) => {
+                write!(f, "{}", self.name.quoted())?;
+            }
+
             // These we don't know how to output at all. (We don't have a
             // portable type for most of these.)
-            BqNonArrayDataType::Bytes
-            | BqNonArrayDataType::Struct(_)
-            | BqNonArrayDataType::Time => {
+            BqNonArrayDataType::Bytes | BqNonArrayDataType::Time => {
                 return Err(format_err!(
                     "can't output {} columns yet",
                     self.bq_data_type()?,
@@ -367,7 +402,8 @@ return "#,
             | BqNonArrayDataType::Float64
             | BqNonArrayDataType::Int64
             | BqNonArrayDataType::Numeric
-            | BqNonArrayDataType::String => {
+            | BqNonArrayDataType::String
+            | BqNonArrayDataType::Stringified(_) => {
                 write!(f, "{}", self.name.quoted())?;
             }
 
