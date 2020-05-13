@@ -81,11 +81,10 @@ impl CredentialsManager {
 
         // Specify how to find Google Cloud service account keys.
         let gcloud_service_account_key = CredentialsSources::new(vec![
-            EnvCredentialsSource::new(&[EnvMapping {
-                key: "value",
-                var: "GCLOUD_SERVICE_ACCOUNT_KEY",
-                optional: false,
-            }])
+            EnvCredentialsSource::new(vec![EnvMapping::required(
+                "value",
+                "GCLOUD_SERVICE_ACCOUNT_KEY",
+            )])
             .boxed(),
             FileCredentialsSource::new(
                 "value",
@@ -100,11 +99,10 @@ impl CredentialsManager {
 
         // Specify how to find Google Cloud client secret.
         let gcloud_client_secret = CredentialsSources::new(vec![
-            EnvCredentialsSource::new(&[EnvMapping {
-                key: "value",
-                var: "GCLOUD_CLIENT_SECRET",
-                optional: false,
-            }])
+            EnvCredentialsSource::new(vec![EnvMapping::required(
+                "value",
+                "GCLOUD_CLIENT_SECRET",
+            )])
             .boxed(),
             FileCredentialsSource::new(
                 "value",
@@ -115,6 +113,17 @@ impl CredentialsManager {
         sources.insert(
             "gcloud_client_secret".to_owned(),
             Mutex::new(gcloud_client_secret.boxed()),
+        );
+
+        // Specify how to find a Shopify secret.
+        let shopify_secret =
+            CredentialsSources::new(vec![EnvCredentialsSource::new(vec![
+                EnvMapping::required("auth_token", "SHOPIFY_AUTH_TOKEN"),
+            ])
+            .boxed()]);
+        sources.insert(
+            "shopify_secret".to_owned(),
+            Mutex::new(shopify_secret.boxed()),
         );
 
         let cache = Mutex::new(HashMap::new());
@@ -189,6 +198,17 @@ struct EnvMapping {
     optional: bool,
 }
 
+impl EnvMapping {
+    /// Fetch the value of `key` from `var`.
+    fn required(key: &'static str, var: &'static str) -> Self {
+        Self {
+            key,
+            var,
+            optional: false,
+        }
+    }
+}
+
 impl fmt::Display for EnvMapping {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.optional {
@@ -202,7 +222,7 @@ impl fmt::Display for EnvMapping {
 /// Look up credentials stored in environment variables.
 #[derive(Debug)]
 struct EnvCredentialsSource {
-    mapping: &'static [EnvMapping],
+    mapping: Vec<EnvMapping>,
 }
 
 impl EnvCredentialsSource {
@@ -210,7 +230,7 @@ impl EnvCredentialsSource {
     ///
     /// `mapping` should contain at least one element. The first element must
     /// not be `optional`.
-    fn new(mapping: &'static [EnvMapping]) -> Self {
+    fn new(mapping: Vec<EnvMapping>) -> Self {
         // Check our preconditions with assertions, since all callers will be
         // hard-coded in the source.
         assert!(!mapping.is_empty());

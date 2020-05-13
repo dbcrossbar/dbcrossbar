@@ -33,7 +33,11 @@
 //!     { "name": "d", "is_nullable": true,  "data_type": "date" },
 //!     { "name": "e", "is_nullable": true,  "data_type": "float64" },
 //!     { "name": "f", "is_nullable": true,  "data_type": { "array": "text" } },
-//!     { "name": "h", "is_nullable": true,  "data_type": { "geo_json": 4326 } }
+//!     { "name": "h", "is_nullable": true,  "data_type": { "geo_json": 4326 } },
+//!     { "name": "g", "is_nullable": true,  "data_type": { "struct": [
+//!       { "name": "x", "data_type": "float64", "is_nullable": false },
+//!       { "name": "y", "data_type": "float64", "is_nullable": false }
+//!     ] } }
 //!   ]
 //! }
 //! "#;
@@ -50,6 +54,7 @@ use std::fmt;
 ///
 /// This is the "top level" of our JSON schema format.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Table {
     /// The name of the table.
     pub name: String,
@@ -60,6 +65,7 @@ pub struct Table {
 
 /// Information about a column.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Column {
     /// The name of the column.
     pub name: String,
@@ -133,6 +139,10 @@ pub enum DataType {
     Other(String),
     /// A text type.
     Text,
+    /// A structure with a known set of named fields.
+    ///
+    /// Field names must be unique within a struct, and non-empty.
+    Struct(Vec<StructField>),
     /// A timestamp with no timezone. Ideally, this will would be in UTC, and
     /// some systems like BigQuery may automatically assume that.
     TimestampWithoutTimeZone,
@@ -140,6 +150,20 @@ pub enum DataType {
     TimestampWithTimeZone,
     /// A UUID.
     Uuid,
+}
+
+/// Information about a named field.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct StructField {
+    /// The name of this field.
+    pub name: String,
+
+    /// Can this field be `NULL`?
+    pub is_nullable: bool,
+
+    /// The type of this field.
+    pub data_type: DataType,
 }
 
 #[test]
@@ -163,6 +187,16 @@ fn data_type_serialization_examples() {
         (
             DataType::Other("custom".to_owned()),
             json!({"other":"custom"}),
+        ),
+        (
+            DataType::Struct(vec![StructField {
+                name: "x".to_owned(),
+                is_nullable: false,
+                data_type: DataType::Float32,
+            }]),
+            json!({ "struct": [
+                { "name": "x", "is_nullable": false, "data_type": "float32" },
+            ] }),
         ),
         (DataType::Text, json!("text")),
         (
@@ -194,6 +228,11 @@ fn data_type_roundtrip() {
         DataType::Int64,
         DataType::Json,
         DataType::Other("custom".to_owned()),
+        DataType::Struct(vec![StructField {
+            name: "x".to_owned(),
+            is_nullable: false,
+            data_type: DataType::Float32,
+        }]),
         DataType::Text,
         DataType::TimestampWithoutTimeZone,
         DataType::TimestampWithTimeZone,

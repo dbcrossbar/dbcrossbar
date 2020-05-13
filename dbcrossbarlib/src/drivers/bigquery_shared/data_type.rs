@@ -1,14 +1,11 @@
 //! Data types supported BigQuery.
 
 use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize, Serializer};
-use std::{borrow::Cow, collections::HashSet, fmt, result};
+use std::{collections::HashSet, fmt, result};
 
-use super::{
-    column::{BqColumn, Mode},
-    ColumnName,
-};
+use super::ColumnName;
 use crate::common::*;
-use crate::schema::{DataType, Srid};
+use crate::schema::{DataType, Srid, StructField};
 use crate::separator::Separator;
 
 /// Include our `rust-peg` grammar.
@@ -92,19 +89,6 @@ impl BqDataType {
     /// Convert this `BqDataType` to `DataType`.
     pub(crate) fn to_data_type(&self) -> Result<DataType> {
         match self {
-            // This is controversial philosophical decision, but Seamus argues
-            // strongly that nobody ever wants to see `jsonb[]` or
-            // `ARRAY<STRING>` where the `STRING` contains serialized JSON. So
-            // we turn arrays of JSON values into JSON array values, yielding
-            // `jsonb` or a `STRING` containing a serialized JSON array value.
-            //
-            // We special-case this _here_ because BigQuery uses this pattern a
-            // lot. Other database drivers should probably to something similar
-            // when converting native types to portable types, but it's really
-            // rare to see `jsonb[]` in a real-world PostgreSQL database. Or I
-            // suppose we could apply this simplification directly on the
-            // portable `DataType` at some point.
-            BqDataType::Array(BqNonArrayDataType::Struct(_)) => Ok(DataType::Json),
             BqDataType::Array(ty) => Ok(DataType::Array(Box::new(ty.to_data_type()?))),
             BqDataType::NonArray(ty) => ty.to_data_type(),
         }
@@ -123,6 +107,27 @@ impl BqDataType {
         match self {
             BqDataType::Array(ty) => ty.is_json_safe(),
             BqDataType::NonArray(ty) => ty.is_json_safe(),
+        }
+    }
+
+    /// Given two data types the same name, use `other` to "upgrade" the
+    /// information that we have about `self`, and return the result.
+    ///
+    /// This is used to replace `BqNonArrayDataType::String` with
+    /// `BqNonArrayDataType::Stringified(_)` when we have more specific type
+    /// information available.
+    pub(crate) fn aligned_with(&self, other: &BqDataType) -> Result<BqDataType> {
+        match (self, other) {
+            (BqDataType::Array(self_nested), BqDataType::Array(other_nested)) => {
+                Ok(BqDataType::Array(self_nested.aligned_with(other_nested)?))
+            }
+            (
+                BqDataType::NonArray(self_nested),
+                BqDataType::NonArray(other_nested),
+            ) => Ok(BqDataType::NonArray(
+                self_nested.aligned_with(other_nested)?,
+            )),
+            _ => Err(format_err!("cannot align types {:?} and {:?}", self, other)),
         }
     }
 }
@@ -174,37 +179,6 @@ pub enum BqRecordOrNonArrayDataType {
     DataType(BqNonArrayDataType),
 }
 
-impl BqRecordOrNonArrayDataType {
-    pub(crate) fn to_bq_data_type(
-        &self,
-        mode: Mode,
-        fields: &[BqColumn],
-    ) -> Result<BqDataType> {
-        let ty = self.to_bq_non_array_data_type(fields)?.into_owned();
-        match mode {
-            Mode::Repeated => Ok(BqDataType::Array(ty)),
-            Mode::Nullable | Mode::Required => Ok(BqDataType::NonArray(ty)),
-        }
-    }
-
-    /// Convert this to BigQuery `BqNonArrayDataType`.
-    pub(crate) fn to_bq_non_array_data_type(
-        &self,
-        fields: &[BqColumn],
-    ) -> Result<Cow<BqNonArrayDataType>> {
-        match self {
-            BqRecordOrNonArrayDataType::Record => {
-                let fields = fields
-                    .iter()
-                    .map(|f| f.to_struct_field())
-                    .collect::<Result<Vec<_>>>()?;
-                Ok(Cow::Owned(BqNonArrayDataType::Struct(fields)))
-            }
-            BqRecordOrNonArrayDataType::DataType(ty) => Ok(Cow::Borrowed(ty)),
-        }
-    }
-}
-
 impl<'de> Deserialize<'de> for BqRecordOrNonArrayDataType {
     fn deserialize<D>(deserializer: D) -> result::Result<Self, D::Error>
     where
@@ -254,6 +228,7 @@ pub enum BqNonArrayDataType {
     Int64,
     Numeric,
     String,
+    Stringified(DataType),
     Struct(Vec<BqStructField>),
     Time,
     Timestamp,
@@ -271,6 +246,7 @@ impl BqNonArrayDataType {
     ///    means that we need to wrap it in a single-element
     ///    `BqNonArrayDataType::Struct`, because BigQuery always needs to have
     ///    `ARRAY<STRUCT<ARRAY<...>>` instead of `ARRAY<ARRAY<...>>`.
+    ///    TODO: Is this still a safe assumption?
     ///
     /// Getting (2) right is the whole reason for separating `BqDataType` and
     /// `BqNonArrayDataType`.
@@ -301,20 +277,31 @@ impl BqNonArrayDataType {
             DataType::GeoJson(srid) if *srid == Srid::wgs84() => {
                 Ok(BqNonArrayDataType::Geography)
             }
-            DataType::GeoJson(_) => Ok(BqNonArrayDataType::String),
+            ty @ DataType::GeoJson(_) => {
+                Ok(BqNonArrayDataType::Stringified(ty.to_owned()))
+            }
             DataType::Int16 => Ok(BqNonArrayDataType::Int64),
             DataType::Int32 => Ok(BqNonArrayDataType::Int64),
             DataType::Int64 => Ok(BqNonArrayDataType::Int64),
-            DataType::Json => Ok(BqNonArrayDataType::String),
+            DataType::Json => Ok(BqNonArrayDataType::Stringified(DataType::Json)),
             // Unknown types will become strings.
             DataType::Other(_unknown_type) => Ok(BqNonArrayDataType::String),
+            DataType::Struct(_) if usage == Usage::CsvLoad => {
+                Ok(BqNonArrayDataType::String)
+            }
+            DataType::Struct(fields) => Ok(BqNonArrayDataType::Struct(
+                fields
+                    .iter()
+                    .map(BqStructField::for_struct_field)
+                    .collect::<Result<Vec<_>>>()?,
+            )),
             DataType::Text => Ok(BqNonArrayDataType::String),
             // Timestamps without timezones will be mapped to `DATETIME`.
             DataType::TimestampWithoutTimeZone => Ok(BqNonArrayDataType::Datetime),
             // As far as I can tell, BigQuery will convert timestamps with timezones
             // to UTC.
             DataType::TimestampWithTimeZone => Ok(BqNonArrayDataType::Timestamp),
-            DataType::Uuid => Ok(BqNonArrayDataType::String),
+            DataType::Uuid => Ok(BqNonArrayDataType::Stringified(DataType::Uuid)),
         }
     }
 
@@ -328,8 +315,39 @@ impl BqNonArrayDataType {
             BqNonArrayDataType::Geography => Ok(DataType::GeoJson(Srid::wgs84())),
             BqNonArrayDataType::Int64 => Ok(DataType::Int64),
             BqNonArrayDataType::String => Ok(DataType::Text),
+            BqNonArrayDataType::Stringified(ty) => Ok(ty.to_owned()),
             BqNonArrayDataType::Datetime => Ok(DataType::TimestampWithoutTimeZone),
-            BqNonArrayDataType::Struct(_) => Ok(DataType::Json),
+            // Our struct has a single anonymous field, so we should treat it as a transparent wrapper.
+            //
+            // TODO: This may require major export support.
+            BqNonArrayDataType::Struct(bq_fields)
+                if bq_fields.len() == 1 && bq_fields[0].name.is_none() =>
+            {
+                Err(format_err!(
+                    "cannot yet export struct with 1 anonymous field: {}",
+                    self
+                ))
+            }
+            BqNonArrayDataType::Struct(bq_fields) => {
+                // Convert our fields.
+                let fields = bq_fields
+                    .iter()
+                    .map(BqStructField::to_struct_field)
+                    .collect::<Result<Vec<StructField>>>()?;
+                let mut names = HashSet::new();
+
+                // Check for duplicate names.
+                for f in &fields {
+                    if !names.insert(&f.name[..]) {
+                        return Err(format_err!(
+                            "duplicate field name {:?} in BigQuery struct {}",
+                            f.name,
+                            self
+                        ));
+                    }
+                }
+                Ok(DataType::Struct(fields))
+            }
             BqNonArrayDataType::Timestamp => Ok(DataType::TimestampWithTimeZone),
             BqNonArrayDataType::Bytes | BqNonArrayDataType::Time => Err(format_err!(
                 "cannot convert {} to portable type (yet)",
@@ -362,6 +380,59 @@ impl BqNonArrayDataType {
             _ => true,
         }
     }
+
+    /// Given two data types the same name, use `other` to "upgrade" the
+    /// information that we have about `self`, and return the result.
+    ///
+    /// This is used to replace `BqNonArrayDataType::String` with
+    /// `BqNonArrayDataType::Stringified(_)` when we have more specific type
+    /// information available.
+    pub(crate) fn aligned_with(
+        &self,
+        other: &BqNonArrayDataType,
+    ) -> Result<BqNonArrayDataType> {
+        match (self, other) {
+            // Upgrade a bare `String` type to contain more detailed
+            // information.
+            (BqNonArrayDataType::String, ty @ BqNonArrayDataType::Stringified(_)) => {
+                Ok(ty.to_owned())
+            }
+
+            // Align struct types recursively.
+            (
+                BqNonArrayDataType::Struct(self_fields),
+                BqNonArrayDataType::Struct(other_fields),
+            ) => {
+                if self_fields.len() != other_fields.len() {
+                    return Err(format_err!(
+                        "cannot align types {} and {} other",
+                        self,
+                        other,
+                    ));
+                }
+                let mut aligned_fields = vec![];
+                for (self_f, other_f) in self_fields.iter().zip(other_fields.iter()) {
+                    if self_f.name != other_f.name {
+                        return Err(format_err!(
+                            "cannot align STRUCT fields in {} and {}",
+                            self,
+                            other,
+                        ));
+                    }
+                    let mut aligned_field = self_f.to_owned();
+                    aligned_field.ty = aligned_field.ty.aligned_with(&other_f.ty)?;
+                    aligned_fields.push(aligned_field);
+                }
+                Ok(BqNonArrayDataType::Struct(aligned_fields))
+            }
+
+            // Matching types need no further work.
+            (self_ty, other_ty) if self_ty == other_ty => Ok(self_ty.to_owned()),
+
+            // Any other combinations can't be aligned.
+            (_, _) => Err(format_err!("cannot align types {} and {}", self, other)),
+        }
+    }
 }
 
 impl<'de> Deserialize<'de> for BqNonArrayDataType {
@@ -391,7 +462,9 @@ impl fmt::Display for BqNonArrayDataType {
             BqNonArrayDataType::Geography => write!(f, "GEOGRAPHY"),
             BqNonArrayDataType::Int64 => write!(f, "INT64"),
             BqNonArrayDataType::Numeric => write!(f, "NUMERIC"),
-            BqNonArrayDataType::String => write!(f, "STRING"),
+            BqNonArrayDataType::String | BqNonArrayDataType::Stringified(_) => {
+                write!(f, "STRING")
+            }
             BqNonArrayDataType::Struct(fields) => {
                 write!(f, "STRUCT<")?;
                 let mut sep = Separator::new(",");
@@ -430,6 +503,34 @@ pub struct BqStructField {
     pub(crate) name: Option<ColumnName>,
     /// The field type.
     pub(crate) ty: BqDataType,
+}
+
+impl BqStructField {
+    /// Create a `BqStructField` from a portable `StructField`.
+    fn for_struct_field(f: &StructField) -> Result<Self> {
+        let name = ColumnName::try_from(&f.name)?;
+        Ok(BqStructField {
+            name: Some(name),
+            ty: BqDataType::for_data_type(&f.data_type, Usage::FinalTable)?,
+        })
+    }
+
+    /// Convert this `BqStructField` to a portable `StructField`.
+    fn to_struct_field(&self) -> Result<StructField> {
+        if let Some(name) = &self.name {
+            // This is guaranteed to be non-empty.
+            assert!(!name.as_str().is_empty());
+            Ok(StructField {
+                name: name.to_portable_name(),
+                is_nullable: true,
+                data_type: self.ty.to_data_type()?,
+            })
+        } else {
+            Err(format_err!(
+                "cannot convert anonymous BigQuery field to portable struct"
+            ))
+        }
+    }
 }
 
 impl fmt::Display for BqStructField {

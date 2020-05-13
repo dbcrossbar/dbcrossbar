@@ -1,0 +1,93 @@
+{
+    "struct": [
+        {
+            "name": "int32_array",
+            "is_nullable": false,
+            "data_type": {
+                "array": "int32"
+            }
+        },
+        {
+            "name": "bool",
+            "is_nullable": false,
+            "data_type": "bool"
+        },
+        {
+            "name": "date",
+            "is_nullable": true,
+            "data_type": "date"
+        },
+        {
+            "name": "date_array",
+            "is_nullable": false,
+            "data_type": {
+                "array": "date"
+            }
+        },
+        {
+            "name": "float32",
+            "is_nullable": true,
+            "data_type": "float32"
+        },
+        {
+            "name": "float64",
+            "is_nullable": true,
+            "data_type": "float64"
+        },
+        {
+            "name": "geojson_3857",
+            "is_nullable": true,
+            "data_type": {
+                "geo_json": 3857
+            }
+        },
+        {
+            "name": "int16",
+            "is_nullable": true,
+            "data_type": "int16"
+        },
+        {
+            "name": "int32",
+            "is_nullable": true,
+            "data_type": "int32"
+        },
+        {
+            "name": "int64",
+            "is_nullable": true,
+            "data_type": "int64"
+        },
+        {
+            "name": "json",
+            "is_nullable": true,
+            "data_type": "json"
+        },
+        {
+            "name": "struct",
+            "is_nullable": true,
+            "data_type": {
+                "struct": [
+                    {
+                        "name": "nested",
+                        "is_nullable": true,
+                        "data_type": "date"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "text",
+            "is_nullable": true,
+            "data_type": "text"
+        },
+        {
+            "name": "timestamp_with_time_zone",
+            "is_nullable": true,
+            "data_type": "timestamp_with_time_zone"
+        },
+        {
+            "name": "uuid",
+            "is_nullable": true,
+            "data_type": "uuid"
+        }
+    ]
+}

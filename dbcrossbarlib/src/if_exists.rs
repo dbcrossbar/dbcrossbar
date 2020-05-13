@@ -81,7 +81,7 @@ impl IfExists {
                 open_options.create_new(true);
             }
             IfExists::Overwrite => {
-                open_options.create(true).append(true);
+                open_options.create(true).truncate(true);
             }
             IfExists::Append => {
                 return Err(format_err!("appending not supported"));

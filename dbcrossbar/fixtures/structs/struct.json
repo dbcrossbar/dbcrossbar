@@ -1,0 +1,32 @@
+{
+    "int32_array": [
+        "1"
+    ],
+    "bool": true,
+    "date": "1969-07-20",
+    "date_array": [
+        "1969-07-20"
+    ],
+    "float32": 0,
+    "float64": 0,
+    "geojson_3857": {
+        "type": "Point",
+        "coordinates": [
+            -71,
+            42
+        ]
+    },
+    "int16": "0",
+    "int32": "0",
+    "int64": "0",
+    "json": {
+        "x": 1,
+        "y": 2
+    },
+    "struct": {
+        "nested": "1969-07-20"
+    },
+    "text": "hello",
+    "timestamp_with_time_zone": "1969-07-20T20:17:39.500Z",
+    "uuid": "084ec3bb-3193-4ffb-8b74-99a288e8432c"
+}
