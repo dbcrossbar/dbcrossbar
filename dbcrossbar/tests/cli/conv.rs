@@ -11,7 +11,7 @@ const EXAMPLE_SQL: &str = include_str!("../../fixtures/example.sql");
 /// means we don't fully test certain modes of the CLI (though we have unit
 /// tests for much of the related code).
 const INPUT_SQL: &str = include_str!(
-    "../../../dbcrossbarlib/src/drivers/postgres_shared/create_table_sql_example.sql"
+    "../../../dbcrossbarlib/src/drivers/postgres_shared/table/create_table_sql_example.sql"
 );
 
 #[test]
