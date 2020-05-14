@@ -7,6 +7,8 @@ use crate::common::*;
 use crate::schema::Column;
 use crate::separator::Separator;
 
+mod create_table_sql;
+
 /// Should we check the PostgreSQL catalog for a schema, or just use the one we
 /// were given?
 ///
@@ -248,19 +250,11 @@ impl fmt::Display for PgCreateTable {
     }
 }
 
-/// Include our `rust-peg` grammar.
-///
-/// We disable lots of clippy warnings because this is machine-generated code.
-#[allow(clippy::all, rust_2018_idioms, elided_lifetimes_in_paths)]
-mod grammar {
-    include!(concat!(env!("OUT_DIR"), "/create_table_sql.rs"));
-}
-
 impl FromStr for PgCreateTable {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        Ok(grammar::create_table(s)
+        Ok(create_table_sql::parse(s)
             .context("error parsing Postgres `CREATE TABLE`")?)
     }
 }

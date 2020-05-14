@@ -2,7 +2,6 @@
 name = "dbcrossbarlib"
 version = "0.4.0-alpha.1"
 authors = ["Eric Kidd <git@randomhacks.net>"]
-build = "build.rs"
 edition = "2018"
 
 description = "Library for copying data between databases (pre-release)"
@@ -13,9 +12,6 @@ readme = "README.md"
 homepage = "https://www.dbcrossbar.org/"
 repository = "https://github.com/dbcrossbar/dbcrossbar"
 documentation = "https://docs.rs/dbcrossbarlib/"
-
-[build-dependencies]
-peg = "0.5"
 
 [dev-dependencies]
 slog-async = "2.3.0"
@@ -47,6 +43,7 @@ itertools = "0.9.0"
 lazy_static = "1.2.0"
 log = "0.4.5"
 native-tls = "0.2.2"
+peg = "0.6.2"
 percent-encoding = "2.1.0"
 postgis = "0.7.0"
 postgres-native-tls = "0.3.0"

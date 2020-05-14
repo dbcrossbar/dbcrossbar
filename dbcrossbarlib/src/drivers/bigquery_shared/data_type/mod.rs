@@ -8,13 +8,7 @@ use crate::common::*;
 use crate::schema::{DataType, Srid, StructField};
 use crate::separator::Separator;
 
-/// Include our `rust-peg` grammar.
-///
-/// We disable lots of clippy warnings because this is machine-generated code.
-#[allow(clippy::all, rust_2018_idioms, elided_lifetimes_in_paths)]
-mod grammar {
-    include!(concat!(env!("OUT_DIR"), "/data_type.rs"));
-}
+mod grammar;
 
 /// Extensions to `DataType` (the portable version) to handle BigQuery-query
 /// specific stuff.
