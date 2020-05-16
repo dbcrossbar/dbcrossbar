@@ -14,6 +14,7 @@ pub mod bigquery_schema;
 pub mod bigquery_shared;
 pub mod csv;
 pub mod dbcrossbar_schema;
+pub mod dbcrossbar_ts;
 pub mod gs;
 pub mod postgres;
 pub mod postgres_shared;
@@ -35,6 +36,7 @@ lazy_static! {
         driver::<bigquery_schema::BigQuerySchemaLocator>(),
         driver::<csv::CsvLocator>(),
         driver::<dbcrossbar_schema::DbcrossbarSchemaLocator>(),
+        driver::<dbcrossbar_ts::DbcrossbarTsLocator>(),
         driver::<gs::GsLocator>(),
         driver::<postgres::PostgresLocator>(),
         driver::<postgres_sql::PostgresSqlLocator>(),

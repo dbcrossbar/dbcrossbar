@@ -197,6 +197,7 @@ fn locator_from_str_to_string_roundtrip() {
         "csv:file.csv",
         "csv:dir/",
         "dbcrossbar-schema:file.json",
+        "dbcrossbar-ts:file %231 20%25.ts#Type",
         "gs://example-bucket/tmp/",
         "postgres://localhost:5432/db#my_table",
         "postgres-sql:dir/my_table.sql",

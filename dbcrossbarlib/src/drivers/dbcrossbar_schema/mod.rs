@@ -4,7 +4,7 @@ use std::{fmt, str::FromStr};
 
 use crate::common::*;
 
-/// A JSON file containing BigQuery table schema.
+/// A JSON file containing a `dbcrossbar` native schema.
 #[derive(Clone, Debug)]
 pub struct DbcrossbarSchemaLocator {
     path: PathOrStdio,
