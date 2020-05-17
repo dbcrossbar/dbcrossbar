@@ -17,7 +17,7 @@ type Span = Range<usize>;
 
 /// A node in our abstract syntax tree.
 pub(crate) trait Node: fmt::Debug {
-    /// The soure span corresponding to this node.
+    /// The source span corresponding to this node.
     fn span(&self) -> Span;
 }
 
@@ -67,14 +67,14 @@ impl SourceFile {
                     file_string,
                     vec![
                         Annotation {
-                            ty: AnnotationType::Secondary,
-                            location: Location::Range(existing.name().span()),
-                            message: "existing definition here".to_owned(),
-                        },
-                        Annotation {
                             ty: AnnotationType::Primary,
                             location: Location::Range(name.span()),
                             message: "duplicate definition here".to_owned(),
+                        },
+                        Annotation {
+                            ty: AnnotationType::Secondary,
+                            location: Location::Range(existing.name().span()),
+                            message: "existing definition here".to_owned(),
                         },
                     ],
                     format!("duplicate definition of {}", name),
@@ -202,14 +202,14 @@ impl ToDataType for Interface {
                     source_file.file_string.clone(),
                     vec![
                         Annotation {
-                            ty: AnnotationType::Secondary,
-                            location: Location::Range(existing.span()),
-                            message: "original definition here".to_owned(),
-                        },
-                        Annotation {
                             ty: AnnotationType::Primary,
                             location: Location::Range(f.name.span()),
                             message: "defined again here".to_owned(),
+                        },
+                        Annotation {
+                            ty: AnnotationType::Secondary,
+                            location: Location::Range(existing.span()),
+                            message: "original definition here".to_owned(),
                         },
                     ],
                     format!("duplicate definition of {} field", f.name),
