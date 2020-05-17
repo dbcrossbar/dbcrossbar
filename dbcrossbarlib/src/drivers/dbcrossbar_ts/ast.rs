@@ -422,7 +422,7 @@ peg::parser! {
                 TypeDetails::Union(Box::new(left), Box::new(right))
             }
             --
-            elem:@ ws()? "[" ws()? "]" e:position!() {
+            elem:@ ws()? "[" ws()? "]" {
                 TypeDetails::Array(Box::new(elem))
             }
             --
