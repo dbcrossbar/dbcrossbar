@@ -1,6 +1,12 @@
-//! Support for schemas specifd using a subset of TypeScript.
+//! Support for schemas specif{ ty: (), location: (), message: ()}using a subset of TypeScript.
 
-use std::{collections::HashMap, fmt, ops::Range, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+    hash::Hash,
+    ops::Range,
+    sync::Arc,
+};
 
 use crate::common::*;
 use crate::parse_error::{Annotation, AnnotationType, Location, ParseError};
@@ -120,7 +126,8 @@ impl SourceFile {
                             name: f.name,
                             is_nullable: f.is_nullable,
                             data_type: f.data_type,
-                            comment: None, }
+                            comment: None,
+                        }
                     }).collect(),
                 })
             }
@@ -183,6 +190,34 @@ pub(crate) struct Interface {
 
 impl ToDataType for Interface {
     fn to_data_type(&self, source_file: &SourceFile) -> Result<DataType, ParseError> {
+        // Check for duplicate fields.
+        //
+        // TODO: Ideally, we would do this is a syntax-checking pass.
+        let mut seen = HashSet::new();
+        for f in &self.fields {
+            if !seen.insert(f.name.clone()) {
+                let existing = seen.get(&f.name).expect("item should be in set");
+                return Err(ParseError::from_file_string(
+                    source_file.file_name.clone(),
+                    source_file.file_string.clone(),
+                    vec![
+                        Annotation {
+                            ty: AnnotationType::Secondary,
+                            location: Location::Range(existing.span()),
+                            message: "original definition here".to_owned(),
+                        },
+                        Annotation {
+                            ty: AnnotationType::Primary,
+                            location: Location::Range(f.name.span()),
+                            message: "defined again here".to_owned(),
+                        },
+                    ],
+                    format!("duplicate definition of {} field", f.name),
+                ));
+            }
+        }
+
+        // Convert our struct.
         let fields = self
             .fields
             .iter()
@@ -298,13 +333,31 @@ impl ToDataType for Type {
 }
 
 /// A TypeScript identifier.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub(crate) struct Identifier(Span, String);
 
 impl Identifier {
     /// The underlying string for this identifier.
     fn as_str(&self) -> &str {
         &self.1
+    }
+}
+
+/// Two identifiers are equal if their name is equal, ignoring the span information.
+impl PartialEq for Identifier {
+    fn eq(&self, other: &Self) -> bool {
+        self.1.eq(&other.1)
+    }
+}
+
+/// Two identifiers are equal if their name is equal, ignoring the span information.
+impl Eq for Identifier {}
+
+/// Two identifiers hash the same if their names hash the same, ignoring the
+/// span information.
+impl Hash for Identifier {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.1.hash(state)
     }
 }
 
@@ -459,6 +512,20 @@ interface Money {
     );
 
     Ok(())
+}
+
+#[test]
+fn detects_duplicate_field_names() {
+    let input = r#"
+interface Point {
+    x: number,
+    x: number,
+};
+"#;
+    // At some point is the future, we might fail on `parse` instead.
+    let source_file =
+        SourceFile::parse("test.ts".to_owned(), input.to_owned()).unwrap();
+    assert!(source_file.definition_to_table("Point").is_err());
 }
 
 // Use `main_error` for pretty test output.
