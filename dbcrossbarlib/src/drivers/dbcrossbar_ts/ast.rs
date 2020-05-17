@@ -45,7 +45,7 @@ impl SourceFile {
         file_string: String,
     ) -> Result<Self, ParseError> {
         let file_string = Arc::new(file_string);
-        let definition_vec = typescript_grammar::definitions(file_string.as_ref())
+        let statements = typescript_grammar::statements(file_string.as_ref())
             .map_err(|err| {
                 ParseError::from_file_string(
                     file_name.clone(),
@@ -58,8 +58,12 @@ impl SourceFile {
                     format!("error parsing {}", file_name),
                 )
             })?;
-        let mut definitions = HashMap::with_capacity(definition_vec.len());
-        for d in definition_vec {
+        let definitions_vec = statements
+            .into_iter()
+            .filter_map(Statement::definition)
+            .collect::<Vec<_>>();
+        let mut definitions = HashMap::with_capacity(definitions_vec.len());
+        for d in definitions_vec {
             let name = d.name().to_owned();
             if let Some(existing) = definitions.insert(name.as_str().to_owned(), d) {
                 return Err(ParseError::from_file_string(
@@ -151,6 +155,21 @@ impl SourceFile {
     ) -> Result<DataType, ParseError> {
         let def = self.definition_for_identifier(id)?;
         def.to_data_type(self)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) enum Statement {
+    Definition(Definition),
+    Empty,
+}
+
+impl Statement {
+    fn definition(self) -> Option<Definition> {
+        match self {
+            Statement::Definition(d) => Some(d),
+            Statement::Empty => None,
+        }
     }
 }
 
@@ -375,10 +394,14 @@ impl Node for Identifier {
 
 peg::parser! {
     grammar typescript_grammar() for str {
-        pub(crate) rule definitions() -> Vec<Definition>
-            = ws()? definitions:(definition() ** (ws()?)) ws()? {
-                definitions
+        pub(crate) rule statements() -> Vec<Statement>
+            = ws()? statements:(statement() ** (ws()?)) ws()? {
+                statements
             }
+
+        rule statement() -> Statement
+            = d:definition() { Statement::Definition(d) }
+            / ";" { Statement::Empty }
 
         rule definition() -> Definition
             = iface:interface() { Definition::Interface(iface) }
@@ -387,12 +410,14 @@ peg::parser! {
             }
 
         rule interface() -> Interface
-            = "interface" ws() name:identifier() ws()? "{" fields:fields() "}" ws()? ";" {
+            = "interface" ws() name:identifier() ws()? "{"
+                ws()? fields:fields() ws()? "}"
+            {
                 Interface { name, fields }
             }
 
         rule fields() -> Vec<Field>
-            = ws()? fields:(field() ** (ws()? "," ws()?)) (ws()? ",")? ws()? { fields }
+            = fields:(field() ** (ws()? "," ws()?)) (ws()? ",")? { fields }
 
         rule field() -> Field
             = name:identifier() optional:optional_mark() ":" ws()? ty:ty() {
@@ -461,7 +486,7 @@ interface PriceSet {
     shop_money: Money,
     presentement_money: Money,
 };
-    
+
 interface Money {
     amount: string, // Currency decimal encoded as string.
     currency_code: string,

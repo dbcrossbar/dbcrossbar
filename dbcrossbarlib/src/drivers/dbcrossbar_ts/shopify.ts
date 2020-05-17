@@ -69,7 +69,7 @@ interface Order {
     updated_at: string,
     user_id: number,
     order_status_url: string,
-};
+}
 
 interface Address {
     address1: string,
@@ -87,7 +87,7 @@ interface Address {
     country_code: string,
     latitude: string,
     longitude: string,
-};
+}
 
 interface ClientDetails {
     accepts_language: string,
@@ -96,7 +96,7 @@ interface ClientDetails {
     browser_width: number,
     session_hash: string,
     user_agent: string,
-};
+}
 
 // https://shopify.dev/docs/admin-api/rest/reference/customers/customer?api[version]=2020-04
 interface Customer {
@@ -125,7 +125,7 @@ interface Customer {
     total_spent: Decimal,
     updated_at: string,
     verified_email: boolean,
-};
+}
 
 interface DiscountApplication {
     type: string,
@@ -135,13 +135,13 @@ interface DiscountApplication {
     allocation_method: string,
     target_selection: string,
     target_type: string,
-};
+}
 
 interface DiscountCode {
     code: string,
     amount: Decimal,
     type: string,
-};
+}
 
 // https://shopify.dev/docs/admin-api/rest/reference/shipping-and-fulfillment/fulfillment?api[version]=2020-04
 interface Fulfillment {
@@ -161,7 +161,7 @@ interface Fulfillment {
     tracking_urls: string[],
     updated_at: string,
     variant_inventory_management: string,
-};
+}
 
 interface LineItem {
     fulfillable_quantity: number,
@@ -190,40 +190,40 @@ interface LineItem {
     duties: Duty[],
     tip_payment_gateway?: string,
     tip_payment_method?: string,
-};
+}
 
 interface Receipt {
     testcase: boolean,
     authorization: string,
-};
+}
 
 interface PriceSet {
     shop_money: Money,
     presentement_money: Money,
-};
+}
 
 interface Money {
     amount: Decimal,
     currency_code: string,
-};
+}
 
 interface Property {
     name: string,
     value: string, // Well, we hope that's the only possibility.
-};
+}
 
 interface TaxLine {
     title: string,
     price: string,
     price_set: PriceSet,
     rate: number,
-};
+}
 
 interface DiscountAllocation {
     amount: Decimal,
     discount_application_index: number,
     amount_set: PriceSet,
-};
+}
 
 interface Duty {
     id: string,
@@ -233,7 +233,7 @@ interface Duty {
     presentment_money: Money,
     tax_lines: TaxLine[],
     admin_graphql_api_id: string,
-};
+}
 
 interface PaymentDetails {
     avs_result_code: string,
@@ -241,7 +241,7 @@ interface PaymentDetails {
     cvv_result_code: string,
     credit_card_number: string,
     credit_card_company: string,
-};
+}
 
 // https://shopify.dev/docs/admin-api/rest/reference/orders/refund?api[version]=2020-04
 interface Refund {
@@ -255,7 +255,7 @@ interface Refund {
     restock: boolean,
     transactions: Transaction[],
     user_id: number,
-};
+}
 
 interface OrderAdjustment {
     id: number,
@@ -267,7 +267,7 @@ interface OrderAdjustment {
     reason: string,
     amount_set: PriceSet,
     tax_amount_set: PriceSet,
-};
+}
 
 interface RefundLineItem {
     id: number,
@@ -280,7 +280,7 @@ interface RefundLineItem {
     total_tax: number,
     subtotal_set: PriceSet,
     total_tax_set: PriceSet,
-};
+}
 
 // https://shopify.dev/donullcs/admin-api/rest/reference/orders/transaction?api[version]=2020-04
 interface Transaction {
@@ -305,7 +305,7 @@ interface Transaction {
     test: boolean,
     user_id: number,
     currency_exchange_adjustment: CurrencyExchangeAdjustment,
-};
+}
 
 interface CurrencyExchangeAdjustment {
     id: number,
@@ -313,7 +313,7 @@ interface CurrencyExchangeAdjustment {
     original_amount: Decimal,
     final_amount: Decimal,
     currency: string,
-};
+}
 
 interface ShippingLine {
     code: string,
@@ -326,4 +326,4 @@ interface ShippingLine {
     tax_lines: TaxLine[],
     carrier_identifier: string,
     requested_fulfillment_service_id: string,
-};
+}
