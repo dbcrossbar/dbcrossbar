@@ -19,6 +19,9 @@ type Span = Range<usize>;
 pub(crate) trait Node: fmt::Debug {
     /// The source span corresponding to this node.
     fn span(&self) -> Span;
+
+    /// Recursively chec this node and all its child nodes for correctness.
+    fn check(&self, source_file: &SourceFile) -> Result<(), ParseError>;
 }
 
 /// Interface for types which can be converted to `DataType`.
@@ -44,6 +47,7 @@ impl SourceFile {
         file_name: String,
         file_string: String,
     ) -> Result<Self, ParseError> {
+        // Parse our input file into statements.
         let file_string = Arc::new(file_string);
         let statements = typescript_grammar::statements(file_string.as_ref())
             .map_err(|err| {
@@ -58,10 +62,15 @@ impl SourceFile {
                     format!("error parsing {}", file_name),
                 )
             })?;
+
+        // Keep just the definitions.
         let definitions_vec = statements
             .into_iter()
             .filter_map(Statement::definition)
             .collect::<Vec<_>>();
+
+        // Build a `HashMap` of our definitions, returning an error if we find
+        // duplicate names.
         let mut definitions = HashMap::with_capacity(definitions_vec.len());
         for d in definitions_vec {
             let name = d.name().to_owned();
@@ -85,11 +94,17 @@ impl SourceFile {
                 ));
             }
         }
-        Ok(SourceFile {
+
+        // Build our `source_file` and check it for correctness.
+        let source_file = SourceFile {
             file_name,
             file_string,
             definitions,
-        })
+        };
+        for d in source_file.definitions.values() {
+            d.check(&source_file)?;
+        }
+        Ok(source_file)
     }
 
     /// Look up a definition in this source file.
@@ -158,7 +173,7 @@ impl SourceFile {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub(crate) enum Statement {
     Definition(Definition),
     Empty,
@@ -174,19 +189,38 @@ impl Statement {
 }
 
 /// A type definition.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub(crate) enum Definition {
     /// An interface definition.
     Interface(Interface),
     /// A type alias.
-    TypeAlias(Identifier, Type),
+    TypeAlias(Span, Identifier, Type),
 }
 
 impl Definition {
     pub(crate) fn name(&self) -> &Identifier {
         match self {
             Definition::Interface(iface) => &iface.name,
-            Definition::TypeAlias(name, _) => name,
+            Definition::TypeAlias(_, name, _) => name,
+        }
+    }
+}
+
+impl Node for Definition {
+    fn span(&self) -> Span {
+        match self {
+            Definition::Interface(iface) => iface.span(),
+            Definition::TypeAlias(span, _, _) => span.to_owned(),
+        }
+    }
+
+    fn check(&self, source_file: &SourceFile) -> Result<(), ParseError> {
+        match self {
+            Definition::Interface(iface) => iface.check(source_file),
+            Definition::TypeAlias(_, name, ty) => {
+                name.check(source_file)?;
+                ty.check(source_file)
+            }
         }
     }
 }
@@ -195,25 +229,31 @@ impl ToDataType for Definition {
     fn to_data_type(&self, source_file: &SourceFile) -> Result<DataType, ParseError> {
         match self {
             Definition::Interface(iface) => iface.to_data_type(source_file),
-            Definition::TypeAlias(_, ty) => ty.to_data_type(source_file),
+            Definition::TypeAlias(_, _, ty) => ty.to_data_type(source_file),
         }
     }
 }
 
 /// An `interface` type.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub(crate) struct Interface {
+    span: Span,
     name: Identifier,
     fields: Vec<Field>,
 }
 
-impl ToDataType for Interface {
-    fn to_data_type(&self, source_file: &SourceFile) -> Result<DataType, ParseError> {
-        // Check for duplicate fields.
-        //
-        // TODO: Ideally, we would do this is a syntax-checking pass.
+impl Node for Interface {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+
+    fn check(&self, source_file: &SourceFile) -> Result<(), ParseError> {
+        self.name.check(source_file)?;
+
+        // Check our field.
         let mut seen = HashSet::new();
         for f in &self.fields {
+            // Check for duplicate field names.
             if !seen.insert(f.name.clone()) {
                 let existing = seen.get(&f.name).expect("item should be in set");
                 return Err(ParseError::from_file_string(
@@ -234,8 +274,16 @@ impl ToDataType for Interface {
                     format!("duplicate definition of {} field", f.name),
                 ));
             }
-        }
 
+            // Check our field itself.
+            f.check(source_file)?;
+        }
+        Ok(())
+    }
+}
+
+impl ToDataType for Interface {
+    fn to_data_type(&self, source_file: &SourceFile) -> Result<DataType, ParseError> {
         // Convert our struct.
         let fields = self
             .fields
@@ -254,15 +302,27 @@ impl ToDataType for Interface {
 }
 
 /// A field in an interface (or other struct-like type).
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub(crate) struct Field {
+    span: Span,
     name: Identifier,
     optional: bool,
     ty: Type,
 }
 
+impl Node for Field {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+
+    fn check(&self, source_file: &SourceFile) -> Result<(), ParseError> {
+        self.name.check(source_file)?;
+        self.ty.check(source_file)
+    }
+}
+
 /// A TypeScript type, without any span information.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub(crate) enum TypeDetails {
     /// Any value.
     Any,
@@ -283,7 +343,7 @@ pub(crate) enum TypeDetails {
 }
 
 /// A TypeScript type.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub(crate) struct Type {
     span: Span,
     details: TypeDetails,
@@ -305,6 +365,34 @@ impl Type {
             TypeDetails::Union(t1, t2) if t2.is_sql_null() => (true, t1),
             TypeDetails::Union(t1, t2) if t1.is_sql_null() => (true, t2),
             _ => (false, self),
+        }
+    }
+}
+
+impl Node for Type {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+
+    fn check(&self, source_file: &SourceFile) -> Result<(), ParseError> {
+        match &self.details {
+            TypeDetails::Any
+            | TypeDetails::Boolean
+            | TypeDetails::Null
+            | TypeDetails::Number
+            | TypeDetails::String => Ok(()),
+
+            TypeDetails::Array(elem_ty) => elem_ty.check(source_file),
+
+            // Make sure names refer to something.
+            TypeDetails::Ref(id) => {
+                source_file.definition_for_identifier(id).map(|_| ())
+            }
+
+            TypeDetails::Union(t1, t2) => {
+                t1.check(source_file)?;
+                t2.check(source_file)
+            }
         }
     }
 }
@@ -390,6 +478,11 @@ impl Node for Identifier {
     fn span(&self) -> Span {
         self.0.clone()
     }
+
+    fn check(&self, _source_file: &SourceFile) -> Result<(), ParseError> {
+        // There's nothing to check here, not really.
+        Ok(())
+    }
 }
 
 peg::parser! {
@@ -405,23 +498,27 @@ peg::parser! {
 
         rule definition() -> Definition
             = iface:interface() { Definition::Interface(iface) }
-            / "type" ws() name:identifier() ws()? "=" ws()? ty:ty() ws()? ";" {
-                Definition::TypeAlias(name, ty)
+            / s:position!() "type" ws() name:identifier() ws()? "=" ws()?
+                ty:ty() ws()? e:position!() ";"
+            {
+                Definition::TypeAlias(s..e, name, ty)
             }
 
         rule interface() -> Interface
-            = "interface" ws() name:identifier() ws()? "{"
-                ws()? fields:fields() ws()? "}"
+            = s:position!() "interface" ws() name:identifier() ws()? "{"
+                ws()? fields:fields() ws()? "}" e:position!()
             {
-                Interface { name, fields }
+                Interface { span: s..e, name, fields }
             }
 
         rule fields() -> Vec<Field>
             = fields:(field() ** (ws()? "," ws()?)) (ws()? ",")? { fields }
 
         rule field() -> Field
-            = name:identifier() optional:optional_mark() ":" ws()? ty:ty() {
-                Field { name, optional, ty }
+            = s:position!() name:identifier() optional:optional_mark() ":" ws()?
+                ty:ty() e:position!()
+            {
+                Field { span: s..e, name, optional, ty }
             }
 
         // For optional fields.
@@ -547,10 +644,8 @@ interface Point {
     x: number,
 };
 "#;
-    // At some point is the future, we might fail on `parse` instead.
-    let source_file =
-        SourceFile::parse("test.ts".to_owned(), input.to_owned()).unwrap();
-    assert!(source_file.definition_to_table("Point").is_err());
+    // This error should be detected at `parse` time.
+    assert!(SourceFile::parse("test.ts".to_owned(), input.to_owned()).is_err());
 }
 
 // Use `main_error` for pretty test output.
