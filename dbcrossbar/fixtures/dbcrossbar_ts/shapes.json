@@ -1,0 +1,25 @@
+{
+    "name": "Shape",
+    "columns": [
+        {
+            "name": "points",
+            "is_nullable": false,
+            "data_type": {
+                "array": {
+                    "struct": [
+                        {
+                            "name": "x",
+                            "is_nullable": false,
+                            "data_type": "float64"
+                        },
+                        {
+                            "name": "y",
+                            "is_nullable": false,
+                            "data_type": "float64"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

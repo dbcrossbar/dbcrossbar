@@ -99,3 +99,25 @@ fn conv_bq_schema_to_pg_sql() {
     let expected = fs::read_to_string(&expected_sql).unwrap();
     testdir.expect_file_contents("output.sql", &expected);
 }
+
+#[test]
+fn conv_ts_to_portable() {
+    let testdir = TestDir::new("dbcrossbar", "conv_ts_to_portable");
+    let input_ts = testdir.src_path("fixtures/dbcrossbar_ts/shapes.ts");
+    let output_json = testdir.path("output.json");
+    let expected_json = testdir.src_path("fixtures/dbcrossbar_ts/shapes.json");
+    testdir
+        .cmd()
+        .args(&[
+            "conv",
+            &format!("dbcrossbar-ts:{}#Shape", input_ts.display()),
+            &format!("dbcrossbar-schema:{}", output_json.display()),
+        ])
+        .expect_success();
+    let output = fs::read_to_string(&output_json).unwrap();
+    let expected = fs::read_to_string(&expected_json).unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&output).unwrap(),
+        serde_json::from_str::<serde_json::Value>(&expected).unwrap(),
+    );
+}
