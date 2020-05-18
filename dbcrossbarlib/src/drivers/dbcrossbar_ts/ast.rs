@@ -651,7 +651,7 @@ interface Point {
 // Use `main_error` for pretty test output.
 #[test]
 fn parses_shopify_schema() -> Result<(), main_error::MainError> {
-    let file_string = include_str!("shopify.ts");
+    let file_string = include_str!("../../../../dbcrossbar/fixtures/shopify.ts");
     let source_file =
         SourceFile::parse("shopify.ts".to_owned(), file_string.to_owned())?;
     for def in &["Order"] {

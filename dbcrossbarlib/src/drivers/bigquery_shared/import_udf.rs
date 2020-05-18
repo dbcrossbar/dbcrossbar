@@ -46,7 +46,11 @@ fn write_transform_expr(
 ) -> Result<()> {
     match output_type {
         BqDataType::Array(ty) => {
-            writeln!(f, "{}.map(function (e) {{", input_expr)?;
+            writeln!(
+                f,
+                "({ie} == null) ? null : {ie}.map(function (e) {{",
+                ie = input_expr,
+            )?;
             write!(f, "{}return ", indent.incr())?;
             write_non_array_transform_expr("e", ty, indent.incr(), f)?;
             writeln!(f, ";")?;
@@ -110,7 +114,7 @@ fn write_non_array_transform_expr(
 
         // Structs require special handling.
         BqNonArrayDataType::Struct(fields) => {
-            write!(f, "{{")?;
+            write!(f, "({}) == null ? null : {{", input_expr)?;
             let mut first = true;
             for field in fields {
                 if first {

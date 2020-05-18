@@ -28,5 +28,8 @@
     },
     "text": "hello",
     "timestamp_with_time_zone": "1969-07-20T20:17:39.500Z",
-    "uuid": "084ec3bb-3193-4ffb-8b74-99a288e8432c"
+    "uuid": "084ec3bb-3193-4ffb-8b74-99a288e8432c",
+    "nested_nulls": {
+        "null_struct": null
+    }
 }

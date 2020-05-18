@@ -4,10 +4,12 @@ Supported drivers:
 - bigquery-schema
 - csv
 - dbcrossbar-schema
+- dbcrossbar-ts
 - gs
 - postgres
 - postgres-sql
 - redshift
 - s3
+- shopify
 
 Use `dbcrossbar features $DRIVER` to list the features supported by a driver.
