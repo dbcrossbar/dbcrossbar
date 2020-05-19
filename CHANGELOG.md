@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - The `dbcrossbar-ts` driver now supports magic type aliases that will convert to the corresponding `dbcrossbar` types:
   - `type decimal = string;`
   - `type int16 = number | string;`
-  - `type int32 = string | number;`
+  - `type int32 = number | string;`
   - `type int64 = number | string;`
 
 ### Changed
