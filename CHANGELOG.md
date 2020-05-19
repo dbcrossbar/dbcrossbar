@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` is an internal-only dependency with no versioning policy at this time.)
 
+## 0.4.0-alpha.3 - 2020-05-19
+
+### Added
+
+- BigQuery now imports and exports decimal (aka NUMERIC) values everywhere.
+- The `dbcrossbar-ts` driver now supports magic type aliases that will convert to the corresponding `dbcrossbar` types:
+  - `type decimal = string;`
+  - `type int16 = number | string;`
+  - `type int32 = string | number;`
+  - `type int64 = number | string;`
+
+### Changed
+
+- The sample `shopify.ts` schema now uses `decimal` instead of `string` when appropriate. It does not attempt to use `int64` yet.
+
 ## 0.4.0-alpha.2 - 2020-05-19
 
 This is a significant release, with support for "struct" types.
