@@ -25,6 +25,11 @@
             }
         },
         {
+            "name": "decimal",
+            "is_nullable": true,
+            "data_type": "decimal"
+        },
+        {
             "name": "float32",
             "is_nullable": true,
             "data_type": "float64"

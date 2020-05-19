@@ -79,6 +79,7 @@ fn write_non_array_transform_expr(
         BqNonArrayDataType::Bool
         | BqNonArrayDataType::Float64
         | BqNonArrayDataType::Int64
+        | BqNonArrayDataType::Numeric
         | BqNonArrayDataType::String => {
             write!(f, "{}", input_expr)?;
         }
@@ -145,7 +146,6 @@ fn write_non_array_transform_expr(
         BqNonArrayDataType::Datetime
         | BqNonArrayDataType::Bytes
         | BqNonArrayDataType::Geography
-        | BqNonArrayDataType::Numeric
         | BqNonArrayDataType::Time => {
             return Err(format_err!(
                 "cannot import nested values of type {} into BigQuery yet",

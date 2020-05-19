@@ -7,6 +7,7 @@
     "date_array": [
         "1969-07-20"
     ],
+    "decimal": "3.14",
     "float32": 0,
     "float64": 0,
     "geojson_3857": {
