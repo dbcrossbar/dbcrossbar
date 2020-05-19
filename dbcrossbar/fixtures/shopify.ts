@@ -1,10 +1,7 @@
 // This is a Shopify REST schema that we built by reading the docs.
 
 // A decimal value represented as a string for accuracy.
-type Decimal = string;
-
-// A type that we still need to look up.
-//type TODO = string;
+type decimal = string;
 
 // https://shopify.dev/docs/admin-api/rest/reference/orders/order?api[version]=2020-04
 interface Order {
@@ -57,14 +54,14 @@ interface Order {
     taxes_included: boolean | null,
     test: boolean | null,
     token: string | null,
-    total_discounts: Decimal | null,
+    total_discounts: decimal | null,
     total_discounts_set: PriceSet | null,
-    total_line_items_price: Decimal | null,
+    total_line_items_price: decimal | null,
     total_line_items_price_set: PriceSet | null,
     total_price_set: PriceSet | null,
-    total_tax: Decimal | null,
+    total_tax: decimal | null,
     total_tax_set: PriceSet | null,
-    total_tip_received: Decimal | null,
+    total_tip_received: decimal | null,
     total_weight: number | null,
     updated_at: string | null,
     user_id: number | null,
@@ -122,7 +119,7 @@ interface Customer {
     tags: string | null,
     tax_exempt: boolean | null,
     tax_exemptions: string[] | null,
-    total_spent: Decimal | null,
+    total_spent: decimal | null,
     updated_at: string | null,
     verified_email: boolean | null,
 }
@@ -130,7 +127,7 @@ interface Customer {
 interface DiscountApplication {
     type: string | null,
     description: string | null,
-    value: Decimal | null,
+    value: decimal | null,
     value_type: string | null,
     allocation_method: string | null,
     target_selection: string | null,
@@ -139,7 +136,7 @@ interface DiscountApplication {
 
 interface DiscountCode {
     code: string | null,
-    amount: Decimal | null,
+    amount: decimal | null,
     type: string | null,
 }
 
@@ -169,7 +166,7 @@ interface LineItem {
     fulfillment_status: string | null,
     grams: number | null,
     id: number,
-    price: Decimal | null,
+    price: decimal | null,
     product_id: number | null,
     quantity: number | null,
     requires_shipping: boolean | null,
@@ -184,7 +181,7 @@ interface LineItem {
     properties: Property[] | null,
     taxable: boolean | null,
     tax_lines: TaxLine[] | null,
-    total_discount: Decimal | null,
+    total_discount: decimal | null,
     total_discount_set: PriceSet | null,
     discount_allocations: DiscountAllocation[] | null,
     duties: Duty[] | null,
@@ -203,7 +200,7 @@ interface PriceSet {
 }
 
 interface Money {
-    amount: Decimal | null,
+    amount: decimal | null,
     currency_code: string | null,
 }
 
@@ -220,7 +217,7 @@ interface TaxLine {
 }
 
 interface DiscountAllocation {
-    amount: Decimal | null,
+    amount: decimal | null,
     discount_application_index: number | null,
     amount_set: PriceSet | null,
 }
@@ -261,8 +258,8 @@ interface OrderAdjustment {
     id: number,
     order_id: number,
     refund_id: number | null,
-    amount: Decimal | null,
-    tax_amount: Decimal | null,
+    amount: decimal | null,
+    tax_amount: decimal | null,
     kind: string | null,
     reason: string | null,
     amount_set: PriceSet | null,
@@ -284,7 +281,7 @@ interface RefundLineItem {
 
 // https://shopify.dev/donullcs/admin-api/rest/reference/orders/transaction?api[version]=2020-04
 interface Transaction {
-    amount: Decimal | null,
+    amount: decimal | null,
     authorization: string | null,
     created_at: string | null,
     currency: string | null,
@@ -309,17 +306,17 @@ interface Transaction {
 
 interface CurrencyExchangeAdjustment {
     id: number,
-    adjustment: Decimal | null,
-    original_amount: Decimal | null,
-    final_amount: Decimal | null,
+    adjustment: decimal | null,
+    original_amount: decimal | null,
+    final_amount: decimal | null,
     currency: string | null,
 }
 
 interface ShippingLine {
     code: string | null,
-    price: Decimal | null,
+    price: decimal | null,
     price_set: PriceSet | null,
-    discounted_price: Decimal | null,
+    discounted_price: decimal | null,
     discounted_price_set: PriceSet | null,
     source: string | null,
     title: string | null,

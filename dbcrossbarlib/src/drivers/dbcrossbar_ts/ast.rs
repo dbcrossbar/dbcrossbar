@@ -1,4 +1,4 @@
-//! Support for schemas specif{ ty: (), location: (), message: ()}using a subset of TypeScript.
+//! Support for schemas specified using a subset of TypeScript.
 
 use std::{
     collections::{HashMap, HashSet},
@@ -229,7 +229,28 @@ impl ToDataType for Definition {
     fn to_data_type(&self, source_file: &SourceFile) -> Result<DataType, ParseError> {
         match self {
             Definition::Interface(iface) => iface.to_data_type(source_file),
-            Definition::TypeAlias(_, _, ty) => ty.to_data_type(source_file),
+            Definition::TypeAlias(_, id, ty) => match id.as_str() {
+                // These type aliases are magic when converting to a data type.
+                "decimal" => {
+                    ty.expect_string_type(source_file, id)?;
+                    Ok(DataType::Decimal)
+                }
+                "int16" => {
+                    ty.expect_integer_type(source_file, id)?;
+                    Ok(DataType::Int16)
+                }
+                "int32" => {
+                    ty.expect_integer_type(source_file, id)?;
+                    Ok(DataType::Int32)
+                }
+                "int64" => {
+                    ty.expect_integer_type(source_file, id)?;
+                    Ok(DataType::Int64)
+                }
+
+                // Ordinary type aliases are converted normally.
+                _ => ty.to_data_type(source_file),
+            },
         }
     }
 }
@@ -358,6 +379,22 @@ impl Type {
         }
     }
 
+    /// Is this a string type?
+    fn is_string(&self) -> bool {
+        match &self.details {
+            TypeDetails::String => true,
+            _ => false,
+        }
+    }
+
+    /// Is this a numeric type?
+    fn is_number(&self) -> bool {
+        match &self.details {
+            TypeDetails::Number => true,
+            _ => false,
+        }
+    }
+
     /// If this type is `x | null` or `null | x`, return `(true, x)`. Otherwise,
     /// return `(false, self)`.
     fn to_possibly_optional_type(&self) -> (bool, &Type) {
@@ -365,6 +402,63 @@ impl Type {
             TypeDetails::Union(t1, t2) if t2.is_sql_null() => (true, t1),
             TypeDetails::Union(t1, t2) if t1.is_sql_null() => (true, t2),
             _ => (false, self),
+        }
+    }
+
+    /// Check to see if this type is equal to `string`, and if it isn't, blame it on `id`.
+    fn expect_string_type(
+        &self,
+        source_file: &SourceFile,
+        id: &Identifier,
+    ) -> Result<(), ParseError> {
+        match &self.details {
+            TypeDetails::String => Ok(()),
+            _ => Err(ParseError::from_file_string(
+                source_file.file_name.clone(),
+                source_file.file_string.clone(),
+                vec![
+                    Annotation {
+                        ty: AnnotationType::Primary,
+                        location: Location::Range(self.span.clone()),
+                        message: "expected `string`".to_owned(),
+                    },
+                    Annotation {
+                        ty: AnnotationType::Secondary,
+                        location: Location::Range(id.span()),
+                        message: "because this name is reserved".to_owned(),
+                    },
+                ],
+                format!("unexpected definition of type {}", id),
+            )),
+        }
+    }
+
+    /// Check to see if this type is equal to `number | string`, and if it isn't, blame it on `id`.
+    fn expect_integer_type(
+        &self,
+        source_file: &SourceFile,
+        id: &Identifier,
+    ) -> Result<(), ParseError> {
+        match &self.details {
+            TypeDetails::Union(t1, t2) if t1.is_string() && t2.is_number() => Ok(()),
+            TypeDetails::Union(t1, t2) if t1.is_number() && t2.is_string() => Ok(()),
+            _ => Err(ParseError::from_file_string(
+                source_file.file_name.clone(),
+                source_file.file_string.clone(),
+                vec![
+                    Annotation {
+                        ty: AnnotationType::Primary,
+                        location: Location::Range(self.span.clone()),
+                        message: "expected `number | string`".to_owned(),
+                    },
+                    Annotation {
+                        ty: AnnotationType::Secondary,
+                        location: Location::Range(id.span()),
+                        message: "because this name is reserved".to_owned(),
+                    },
+                ],
+                format!("unexpected definition of type {}", id),
+            )),
         }
     }
 }
@@ -632,8 +726,74 @@ interface Money {
             ]
         },
     );
-
     Ok(())
+}
+
+#[test]
+fn handles_magic_types() -> Result<(), main_error::MainError> {
+    let input = r#"
+// These type declarations are automatically recognized and converted to the
+// appropriate `dbcrossbar` types.
+type decimal = string;
+type int16 = number | string;
+type int32 = string | number;
+type int64 = number | string;
+
+interface Magic {
+    decimal: decimal,
+    int16: int16,
+    int32: int32,
+    int64: int64,
+}
+"#;
+    let source_file = SourceFile::parse("test.ts".to_owned(), input.to_owned())?;
+    assert_eq!(
+        source_file.definition_to_table("Magic")?,
+        Table {
+            name: "Magic".to_owned(),
+            columns: vec![
+                Column {
+                    name: "decimal".to_owned(),
+                    is_nullable: false,
+                    data_type: DataType::Decimal,
+                    comment: None,
+                },
+                Column {
+                    name: "int16".to_owned(),
+                    is_nullable: false,
+                    data_type: DataType::Int16,
+                    comment: None,
+                },
+                Column {
+                    name: "int32".to_owned(),
+                    is_nullable: false,
+                    data_type: DataType::Int32,
+                    comment: None,
+                },
+                Column {
+                    name: "int64".to_owned(),
+                    is_nullable: false,
+                    data_type: DataType::Int64,
+                    comment: None,
+                },
+            ]
+        },
+    );
+    Ok(())
+}
+
+#[test]
+fn rejects_invalid_magic_types() {
+    let invalid_declarations = &[
+        "type decimal = boolean;\ninterface Example { f: decimal, }",
+        "type int16 = number;\ninterface Example { f: int16, }",
+        "type int32 = string;\ninterface Example { f: int32, }",
+    ];
+    for &decl in invalid_declarations {
+        let source_file =
+            SourceFile::parse("test.ts".to_owned(), decl.to_owned()).unwrap();
+        assert!(source_file.definition_to_table("Example").is_err());
+    }
 }
 
 #[test]
