@@ -88,6 +88,27 @@
             "name": "uuid",
             "is_nullable": true,
             "data_type": "uuid"
+        },
+        {
+            "name": "nested_nulls",
+            "is_nullable": true,
+            "data_type": {
+                "struct": [
+                    {
+                        "name": "null_struct",
+                        "is_nullable": true,
+                        "data_type": {
+                            "struct": [
+                                {
+                                    "name": "nested",
+                                    "is_nullable": true,
+                                    "data_type": "date"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
         }
     ]
 }

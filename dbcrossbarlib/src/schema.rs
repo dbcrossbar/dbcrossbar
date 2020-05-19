@@ -152,6 +152,32 @@ pub enum DataType {
     Uuid,
 }
 
+impl DataType {
+    /// Should we serialize values of this type as JSON in a CSV file?
+    pub(crate) fn serializes_as_json_for_csv(&self) -> bool {
+        match self {
+            DataType::Array(_)
+            | DataType::GeoJson(_)
+            | DataType::Json
+            | DataType::Struct(_) => true,
+
+            DataType::Bool
+            | DataType::Date
+            | DataType::Decimal
+            | DataType::Float32
+            | DataType::Float64
+            | DataType::Int16
+            | DataType::Int32
+            | DataType::Int64
+            | DataType::Other(_)
+            | DataType::Text
+            | DataType::TimestampWithoutTimeZone
+            | DataType::TimestampWithTimeZone
+            | DataType::Uuid => false,
+        }
+    }
+}
+
 /// Information about a named field.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]

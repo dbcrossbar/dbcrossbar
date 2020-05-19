@@ -21,6 +21,7 @@ pub mod postgres_shared;
 pub mod postgres_sql;
 pub mod redshift;
 pub mod s3;
+pub mod shopify;
 
 /// A helper which builds a `Box<dyn LocatorDriver>` for a type implementating
 /// `LocatorStatic`.
@@ -42,6 +43,7 @@ lazy_static! {
         driver::<postgres_sql::PostgresSqlLocator>(),
         driver::<redshift::RedshiftLocator>(),
         driver::<s3::S3Locator>(),
+        driver::<shopify::ShopifyLocator>(),
     ];
 
     /// A hash table of all known drivers, indexed by scheme and computed the

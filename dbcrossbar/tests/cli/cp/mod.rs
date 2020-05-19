@@ -12,6 +12,7 @@ mod gs;
 mod postgres;
 mod redshift;
 mod s3;
+mod shopify;
 
 /// The URL of our test database.
 pub(crate) fn postgres_test_url() -> String {
