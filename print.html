@@ -83,7 +83,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div id="sidebar-scrollbox" class="sidebar-scrollbox">
-                <ol class="chapter"><li class="expanded affix "><a href="intro.html">dbcrossbar Guide</a></li><li class="expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features &amp; philosophy</a></li><li class="expanded "><a href="installing.html"><strong aria-hidden="true">2.</strong> Installing</a></li><li class="expanded "><a href="how.html"><strong aria-hidden="true">3.</strong> How it works</a></li><li><ol class="section"><li class="expanded "><a href="csv_interchange.html"><strong aria-hidden="true">3.1.</strong> CSV interchange format</a></li><li class="expanded "><a href="schema.html"><strong aria-hidden="true">3.2.</strong> Portable table schema</a></li></ol></li><li class="expanded "><a href="commands.html"><strong aria-hidden="true">4.</strong> Commands</a></li><li><ol class="section"><li class="expanded "><a href="cp.html"><strong aria-hidden="true">4.1.</strong> cp: Copying tables</a></li><li class="expanded "><a href="count.html"><strong aria-hidden="true">4.2.</strong> count: Counting records</a></li><li class="expanded "><a href="conv.html"><strong aria-hidden="true">4.3.</strong> conv: Transforming schemas</a></li></ol></li><li class="expanded "><a href="drivers.html"><strong aria-hidden="true">5.</strong> Drivers</a></li><li><ol class="section"><li class="expanded "><a href="bigml.html"><strong aria-hidden="true">5.1.</strong> BigML</a></li><li class="expanded "><a href="bigquery.html"><strong aria-hidden="true">5.2.</strong> BigQuery</a></li><li class="expanded "><a href="csv.html"><strong aria-hidden="true">5.3.</strong> CSV</a></li><li class="expanded "><a href="gs.html"><strong aria-hidden="true">5.4.</strong> Google Cloud Storage</a></li><li class="expanded "><a href="postgres.html"><strong aria-hidden="true">5.5.</strong> PostgreSQL</a></li><li class="expanded "><a href="redshift.html"><strong aria-hidden="true">5.6.</strong> RedShift</a></li><li class="expanded "><a href="s3.html"><strong aria-hidden="true">5.7.</strong> S3</a></li></ol></li><li class="expanded "><a href="changes.html"><strong aria-hidden="true">6.</strong> Changes</a></li><li class="expanded affix "><a href="credits.html">Credits and contributors</a></li></ol>
+                <ol class="chapter"><li class="expanded affix "><a href="intro.html">dbcrossbar Guide</a></li><li class="expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features &amp; philosophy</a></li><li class="expanded "><a href="installing.html"><strong aria-hidden="true">2.</strong> Installing</a></li><li class="expanded "><a href="how.html"><strong aria-hidden="true">3.</strong> How it works</a></li><li><ol class="section"><li class="expanded "><a href="csv_interchange.html"><strong aria-hidden="true">3.1.</strong> CSV interchange format</a></li><li class="expanded "><a href="schema.html"><strong aria-hidden="true">3.2.</strong> Portable table schema</a></li></ol></li><li class="expanded "><a href="config.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li class="expanded "><a href="commands.html"><strong aria-hidden="true">5.</strong> Commands</a></li><li><ol class="section"><li class="expanded "><a href="cp.html"><strong aria-hidden="true">5.1.</strong> cp: Copying tables</a></li><li class="expanded "><a href="count.html"><strong aria-hidden="true">5.2.</strong> count: Counting records</a></li><li class="expanded "><a href="conv.html"><strong aria-hidden="true">5.3.</strong> conv: Transforming schemas</a></li></ol></li><li class="expanded "><a href="drivers.html"><strong aria-hidden="true">6.</strong> Drivers</a></li><li><ol class="section"><li class="expanded "><a href="bigml.html"><strong aria-hidden="true">6.1.</strong> BigML</a></li><li class="expanded "><a href="bigquery.html"><strong aria-hidden="true">6.2.</strong> BigQuery</a></li><li class="expanded "><a href="csv.html"><strong aria-hidden="true">6.3.</strong> CSV</a></li><li class="expanded "><a href="gs.html"><strong aria-hidden="true">6.4.</strong> Google Cloud Storage</a></li><li class="expanded "><a href="postgres.html"><strong aria-hidden="true">6.5.</strong> PostgreSQL</a></li><li class="expanded "><a href="redshift.html"><strong aria-hidden="true">6.6.</strong> RedShift</a></li><li class="expanded "><a href="s3.html"><strong aria-hidden="true">6.7.</strong> S3</a></li><li class="expanded "><a href="shopify.html"><strong aria-hidden="true">6.8.</strong> EXPERIMENTAL: Shopify</a></li></ol></li><li class="expanded "><a href="changes.html"><strong aria-hidden="true">7.</strong> Changes</a></li><li class="expanded affix "><a href="credits.html">Credits and contributors</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -177,14 +177,14 @@
     'postgres://postgres@127.0.0.1:5432/postgres#my_table'
 </code></pre>
 <p>If we want to use this data to update an existing table in BigQuery, we can upsert into BigQuery using the <code>id</code> column:</p>
-<pre><code class="language-sh">dbcrossbar cp \
+<pre><code class="language-sh">dbcrossbar config add temporary gs://$GS_TEMP_BUCKET
+dbcrossbar config add temporary bigquery:$GCLOUD_PROJECT:temp_dataset
+dbcrossbar cp \
     --if-exists=upsert-on:id \
-    --temporary=gs://$GS_TEMP_BUCKET \
-    --temporary=bigquery:$GCLOUD_PROJECT:temp_dataset \
     'postgres://postgres@127.0.0.1:5432/postgres#my_table' \
     bigquery:$GCLOUD_PROJECT:my_dataset.my_table
 </code></pre>
-<p>This will stream the data out of PostgreSQL, upload it to <code>$GS_TEMP_BUCKET</code>, import it into a temporary BigQuery table, and run an appropriate <code>MERGE</code> command.</p>
+<p>This will stream the data out of PostgreSQL, upload it to <code>$GS_TEMP_BUCKET</code>, import it into a temporary BigQuery table, and run an appropriate <code>MERGE</code> command. The <code>config add temporary</code> commands tell <code>dbcrossbar</code> what cloud bucket and BigQuery dataset should be used for temporary files and tables, respectively.</p>
 <p>Notice that we don't need to specify <code>--schema</code>, because <code>dbcrossbar</code> will automatically translate the PostgreSQL column types to corresponding BigQuery types. The <code>--temporary</code> arguments specify what bucket to use for loading the CSV files, and what BigQuery data set to use for the temporary table used as input to the <code>MERGE</code>.</p>
 <h2><a class="header" href="#credits" id="credits">Credits</a></h2>
 <p><code>dbcrossbar</code> is generously supported by <a href="http://faraday.io/">Faraday</a> and by open source contributors. Please see the <a href="./credits.html">credits</a> for more information.</p>
@@ -282,6 +282,20 @@ cargo build --release
 <li><a href="https://docs.rs/dbcrossbarlib/latest/dbcrossbarlib/schema/enum.DataType.html">The <code>dbcrossbar</code> column types</a>.</li>
 </ul>
 <p>All table schemas and column types are converted into the portable format and then into the appropriate destination format.</p>
+<h1><a class="header" href="#configuring-dbcrossbar" id="configuring-dbcrossbar">Configuring <code>dbcrossbar</code></a></h1>
+<p><code>dbcrossbar</code> can read information from a configuration directory. By default, this can be found at:</p>
+<ul>
+<li>Linux: <code>~/.config</code></li>
+<li>MacOS: <code>~/Library/Preferences</code></li>
+</ul>
+<p>To override this default location, you can set <code>DBCROSSBAR_CONFIG_DIR</code> to point to an alternate configuration directory.</p>
+<p>If a file <code>dbcrossbar.toml</code> appears in this directory, <code>dbcrossbar</code> will read its configuration from that file. Other files may be placed in this directory, including certain local credential files.</p>
+<h2><a class="header" href="#modifying-the-configuration-file" id="modifying-the-configuration-file">Modifying the configuration file</a></h2>
+<p>You can modify the <code>dbcrossbar.toml</code> file from the command line using the <code>config</code> subcommand. For example:</p>
+<pre><code class="language-sh">dbcrossbar config add temporary s3://example/temp/
+dbcrossbar config rm temporary s3://example/temp/
+</code></pre>
+<p>Using <code>config add temporary</code> allows you to specify default values for <code>--temporary</code> flags. You can still override specific defaults by passing <code>--temporary</code> to commands that use it.</p>
 <h1><a class="header" href="#commands" id="commands">Commands</a></h1>
 <p><code>dbcrossbar</code> supports four main subcommands:</p>
 <ul>
@@ -300,10 +314,10 @@ cargo build --release
     'postgres://postgres@127.0.0.1:5432/postgres#my_table'
 </code></pre>
 <p>Or we copy data from PostgreSQL and upsert it into a BigQuery table:</p>
-<pre><code class="language-sh">dbcrossbar cp \
+<pre><code class="language-sh">dbcrossbar config add temporary gs://$GS_TEMP_BUCKET
+dbcrossbar config add temporary bigquery:$GCLOUD_PROJECT:temp_dataset
+dbcrossbar cp \
     --if-exists=upsert-on:id \
-    --temporary=gs://$GS_TEMP_BUCKET \
-    --temporary=bigquery:$GCLOUD_PROJECT:temp_dataset \
     'postgres://postgres@127.0.0.1:5432/postgres#my_table' \
     bigquery:$GCLOUD_PROJECT:my_dataset.my_table
 </code></pre>
@@ -577,9 +591,10 @@ EXAMPLE LOCATORS:
 <p><strong>0.3.x and earlier:</strong> All authentication is handled using <code>gcloud auth</code> from the <a href="https://cloud.google.com/sdk/">Google Cloud SDK</a>.</p>
 <p><strong>0.4.x and later:</strong> You can authenticate using either a client secret or a service key, which you can create using the <a href="https://console.cloud.google.com/apis/credentials">console credentials page</a>.</p>
 <ul>
-<li>Client secrets can be stored in <code>~/.dbcrossbar/config/gcloud_client_secret.json</code> or in <code>GCLOUD_CLIENT_SECRET</code>. These are strongly recommended for interactive use.</li>
-<li>Service account keys can be stored in <code>~/.dbcrossbar/config/gcloud_service_account_key.json</code> or in <code>GCLOUD_SERVICE_ACCOUNT_KEY</code>. These are recommended for server and container use.</li>
+<li>Client secrets can be stored in <code>$DBCROSSBAR_CONFIG_DIR/gcloud_client_secret.json</code> or in <code>GCLOUD_CLIENT_SECRET</code>. These are strongly recommended for interactive use.</li>
+<li>Service account keys can be stored in <code>$DBCROSSBAR_CONFIG_DIR/gcloud_service_account_key.json</code> or in <code>GCLOUD_SERVICE_ACCOUNT_KEY</code>. These are recommended for server and container use.</li>
 </ul>
+<p>For more information on <code>DBCROSSBAR_CONFIG_DIR</code>, see <a href="./config.html">Configuration</a>.</p>
 <p>For a service account, you can use the following permissions:</p>
 <ul>
 <li>Storage Object Admin (Cloud Storage and BigQuery drivers)</li>
@@ -672,58 +687,103 @@ EXAMPLE LOCATORS:
 - cp TO:
   --if-exists=overwrite
 </code></pre>
+<h1><a class="header" href="#experimental-shopify" id="experimental-shopify">Experimental: Shopify</a></h1>
+<p><strong>WARNING:</strong> This is highly experimental and subject to change.</p>
+<p>Shopify is an online e-commerce platform with a REST API for fetching data.</p>
+<h2><a class="header" href="#example-locators-7" id="example-locators-7">Example locators</a></h2>
+<p>Locators look just like Shopify REST API URLs, but with <code>https:</code> replaced with <code>shopify</code>:</p>
+<ul>
+<li><code>shopify://$SHOP/admin/api/2020-04/orders.json?status=any</code></li>
+</ul>
+<p>For a schema, download <a href="https://github.com/dbcrossbar/dbcrossbar/blob/master/dbcrossbar/fixtures/shopify.ts">shopify.ts</a>, and refer to it as follows:</p>
+<ul>
+<li><code>--schema=&quot;dbcrossbar-ts:shopify.ts#Order&quot;</code></li>
+</ul>
+<p>We do not currently include a default Shopify schema in <code>dbcrossbar</code> itself, because it's still undergoing significant changes.</p>
+<h2><a class="header" href="#configuration--authentication-7" id="configuration--authentication-7">Configuration &amp; authentication</a></h2>
+<p>The following environment variables are required:</p>
+<ul>
+<li><code>SHOPIFY_AUTH_TOKEN</code>: The Shopify authorization token to use. (We don't yet support password authentication, but it would be easy enough to add.)</li>
+</ul>
+<h2><a class="header" href="#supported-features-7" id="supported-features-7">Supported features</a></h2>
+<pre><code class="language-txt">shopify features:
+- cp FROM:
+</code></pre>
 <h1><a class="header" href="#changelog" id="changelog">Changelog</a></h1>
 <p>All notable changes to this project will be documented in this file.</p>
 <p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>, and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a> for the <code>dbcrossbar</code> CLI tool. (The <code>dbcrossbarlib</code> is an internal-only dependency with no versioning policy at this time.)</p>
-<h2><a class="header" href="#040-alpha1---2020-04-07" id="040-alpha1---2020-04-07">0.4.0-alpha.1 - 2020-04-07</a></h2>
+<h2><a class="header" href="#040-alpha2---2020-05-19" id="040-alpha2---2020-05-19">0.4.0-alpha.2 - 2020-05-19</a></h2>
+<p>This is a significant release, with support for &quot;struct&quot; types.</p>
+<h3><a class="header" href="#added" id="added">Added</a></h3>
+<ul>
+<li>The portable schema now supports a <code>DataType::Struct(fields)</code> type that can be used to represent BigQuery STRUCT values (as long as they have unique, named fields) and JSON objects with known keys.</li>
+<li>The BigQuery driver now supports importing and exporting <code>STRUCT</code> fields using the new <code>DataType::Struct(fields)</code> type.</li>
+<li>EXPERIMENTAL: Schemas can now be specified using the <code>dbcrossbar-ts</code> driver, which supports subset of TypeScript type declarations. This is useful for specifying complex, nested structs. This can be used as <code>--schema=&quot;dbcrossbar-ts:shopify.ts#Order&quot;</code>, where <code>Order</code> is the name of the type within the <code>*.ts</code> file to use as the table's type.</li>
+<li>EXPERIMENTAL: We now support a Shopify input driver that uses the Shopify REST API. See the manual for details.</li>
+<li>We now have support for fancy parser error messages, which we use with the <code>dbcrossbar-ts</code> parser.</li>
+<li>We now support a CLI-editable config file using commands like <code>dbcrossbar config add temporary s3://example/temp/</code>.</li>
+</ul>
 <h3><a class="header" href="#changed" id="changed">Changed</a></h3>
+<ul>
+<li>BREAKING: Some corner cases involving struct types and JSON may have changed subtly.</li>
+<li>We've upgraded to the latest <code>rust-peg</code> parser syntax everywhere.</li>
+</ul>
+<h3><a class="header" href="#fixed" id="fixed">Fixed</a></h3>
+<ul>
+<li><code>--if-exists=overwrite</code> now overwrites when writing to local files (instead of appending).</li>
+<li>We automatically create <code>~/.local/share</code> if it does not exist.</li>
+<li>More <code>clippy</code> warnings have been fixed, and unsafe code has been forbidden.</li>
+<li>Various obsolete casting libraries have been removed.</li>
+</ul>
+<h2><a class="header" href="#040-alpha1---2020-04-07" id="040-alpha1---2020-04-07">0.4.0-alpha.1 - 2020-04-07</a></h2>
+<h3><a class="header" href="#changed-1" id="changed-1">Changed</a></h3>
 <ul>
 <li>Replace <code>gcloud auth</code>, <code>gsutil</code> and <code>bq</code> with native Rust. This changes how we authenticate to Google Cloud. In particular, we now support <code>GCLOUD_CLIENT_SECRET</code>, <code>~/.config/dbcrossbar/gcloud_client_secret.json</code>, <code>GCLOUD_SERVICE_ACCOUNT_KEY</code> or <code>~/.config/dbcrossbar/gcloud_service_account_key.json</code>, as <a href="https://www.dbcrossbar.org/gs.html#configuration--authentication">explained in the manual</a>. We no longer use <code>gcloud auth</code>, and the Google Cloud SDK tools are no longer required. In the current alpha version, uploads and deletions are probably slower than before.</li>
 </ul>
-<h3><a class="header" href="#fixed" id="fixed">Fixed</a></h3>
+<h3><a class="header" href="#fixed-1" id="fixed-1">Fixed</a></h3>
 <ul>
 <li>gs: Avoid download stalls when backpressure is applied (<a href="https://github.com/dbcrossbar/dbcrossbar/issues/102">#103</a>).</li>
 <li>bigquery: Display error messages more reliably (<a href="https://github.com/dbcrossbar/dbcrossbar/issues/110">#110</a>).</li>
 <li>bigquery: Detect &quot;`&quot; quotes in the CLI form of table names, and report an error.</li>
 </ul>
 <h2><a class="header" href="#033---2020-03-30" id="033---2020-03-30">0.3.3 - 2020-03-30</a></h2>
-<h3><a class="header" href="#added" id="added">Added</a></h3>
+<h3><a class="header" href="#added-1" id="added-1">Added</a></h3>
 <ul>
 <li>BigML: Honor BIGML_DOMAIN, allowing the user to point the BigML driver to a custom VPC instance of BigML.</li>
 </ul>
 <h2><a class="header" href="#032---2020-03-30" id="032---2020-03-30">0.3.2 - 2020-03-30</a></h2>
-<h3><a class="header" href="#fixed-1" id="fixed-1">Fixed</a></h3>
+<h3><a class="header" href="#fixed-2" id="fixed-2">Fixed</a></h3>
 <ul>
 <li>Correctly quote BigQuery column names again (which regressed in 0.3.0), and added test cases to prevent further regressions.</li>
 <li>Fix an error that caused <code>bigquery_upsert</code> test to fail.</li>
 </ul>
 <h2><a class="header" href="#031---2020-03-29" id="031---2020-03-29">0.3.1 - 2020-03-29</a></h2>
-<h3><a class="header" href="#added-1" id="added-1">Added</a></h3>
+<h3><a class="header" href="#added-2" id="added-2">Added</a></h3>
 <ul>
 <li>Write a new <a href="https://www.dbcrossbar.org/">manual</a>!</li>
 </ul>
-<h3><a class="header" href="#changed-1" id="changed-1">Changed</a></h3>
+<h3><a class="header" href="#changed-2" id="changed-2">Changed</a></h3>
 <ul>
 <li>Encapsulate all calls to <code>bq</code> and <code>gsutil</code></li>
 <li>Improve performance of <code>--stream-size</code></li>
 </ul>
-<h3><a class="header" href="#fixed-2" id="fixed-2">Fixed</a></h3>
+<h3><a class="header" href="#fixed-3" id="fixed-3">Fixed</a></h3>
 <ul>
 <li>BigQuery: Honor NOT NULL on import (fixes #45)</li>
 </ul>
 <h2><a class="header" href="#030---2020-03-26" id="030---2020-03-26">0.3.0 - 2020-03-26</a></h2>
-<h3><a class="header" href="#added-2" id="added-2">Added</a></h3>
+<h3><a class="header" href="#added-3" id="added-3">Added</a></h3>
 <ul>
 <li>Use <code>cargo deny</code> to enforce license and duplicate dependency policies</li>
 <li>Add notes about license and contribution policies</li>
 </ul>
-<h3><a class="header" href="#changed-2" id="changed-2">Changed</a></h3>
+<h3><a class="header" href="#changed-3" id="changed-3">Changed</a></h3>
 <ul>
 <li>Update to tokio 0.2 and the latest stable Rust</li>
 <li>Replace <code>wkb</code> with <code>postgis</code> for licensing reasons</li>
 <li>BigML: Fail immediately if no S3 temporary bucket provided (fixes #101)</li>
 </ul>
-<h3><a class="header" href="#fixed-3" id="fixed-3">Fixed</a></h3>
+<h3><a class="header" href="#fixed-4" id="fixed-4">Fixed</a></h3>
 <ul>
 <li>BigQuery: Handle mixed-case column names using BigQuery semantics (fixes #84)</li>
 <li>PostgreSQL: Fix upserts with mixed-case column names</li>
