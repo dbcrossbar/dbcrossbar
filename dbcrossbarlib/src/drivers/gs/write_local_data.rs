@@ -28,7 +28,7 @@ pub(crate) async fn write_local_data_helper(
             let ctx = ctx
                 .child(o!("stream" => stream.name.clone(), "url" => url.to_string()));
 
-            storage::upload_file(ctx.clone(), stream.data, &url).await?;
+            storage::upload_file(&ctx, stream.data, &url).await?;
             Ok(GsLocator { url }.boxed())
         }
         .boxed()

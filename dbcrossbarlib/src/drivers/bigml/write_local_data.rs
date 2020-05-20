@@ -97,7 +97,7 @@ pub(crate) async fn write_local_data_helper(
                     debug!(ctx.log(), "creating BigML source from S3 object");
 
                     // Sign the S3 URL.
-                    let aws_creds = AwsCredentials::try_default()?;
+                    let aws_creds = AwsCredentials::try_default().await?;
                     let url = locator
                         .parse::<Url>()
                         .context("could not parse S3 temporary URL")?;

@@ -39,7 +39,7 @@ async fn service_account_key() -> Result<ServiceAccountKey> {
     let creds = CredentialsManager::singleton()
         .get("gcloud_service_account_key")
         .await?;
-    Ok(serde_json::from_str(creds.get("value")?)
+    Ok(serde_json::from_str(creds.get_required("value")?)
         .context("could not parse service account key")?)
 }
 
@@ -64,7 +64,7 @@ async fn application_secret() -> Result<ApplicationSecret> {
     let creds = CredentialsManager::singleton()
         .get("gcloud_client_secret")
         .await?;
-    serde_json::from_str::<ConsoleApplicationSecret>(creds.get("value")?)
+    serde_json::from_str::<ConsoleApplicationSecret>(creds.get_required("value")?)
         .context("could not parse client secret")?
         .installed
         .ok_or_else(|| format_err!("client secret does not contain `installed` key"))

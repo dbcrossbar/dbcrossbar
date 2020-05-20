@@ -25,11 +25,10 @@ struct UploadQuery {
 /// Docs: https://cloud.google.com/storage/docs/json_api/v1/objects/insert
 ///
 /// TODO: Support https://cloud.google.com/storage/docs/performing-resumable-uploads.
-pub(crate) async fn upload_file(
-    // Pass `ctx` by value, not reference, because of a weird async lifetime error.
-    ctx: Context,
+pub(crate) async fn upload_file<'a>(
+    ctx: &'a Context,
     data: BoxStream<BytesMut>,
-    file_url: &Url,
+    file_url: &'a Url,
 ) -> Result<()> {
     debug!(ctx.log(), "streaming to {}", file_url);
     let (bucket, object) = parse_gs_url(file_url)?;

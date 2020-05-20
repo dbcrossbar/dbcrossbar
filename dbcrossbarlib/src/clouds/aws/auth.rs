@@ -1,8 +1,7 @@
 //! AWS authentication.
 
-use std::env;
-
 use crate::common::*;
+use crate::credentials::CredentialsManager;
 
 /// Credentials used to access S3.
 pub(crate) struct AwsCredentials {
@@ -16,12 +15,11 @@ pub(crate) struct AwsCredentials {
 
 impl AwsCredentials {
     /// Try to look up a default value for our AWS credentials.
-    pub(crate) fn try_default() -> Result<AwsCredentials> {
-        let access_key_id = env::var("AWS_ACCESS_KEY_ID")
-            .context("could not find AWS_ACCESS_KEY_ID")?;
-        let secret_access_key = env::var("AWS_SECRET_ACCESS_KEY")
-            .context("could not find AWS_ACCESS_KEY_ID")?;
-        let session_token = env::var("AWS_SESSION_TOKEN").ok();
+    pub(crate) async fn try_default() -> Result<AwsCredentials> {
+        let creds = CredentialsManager::singleton().get("aws").await?;
+        let access_key_id = creds.get_required("access_key_id")?.to_owned();
+        let secret_access_key = creds.get_required("secret_access_key")?.to_owned();
+        let session_token = creds.get_optional("session_token").map(|t| t.to_owned());
         Ok(AwsCredentials {
             access_key_id,
             secret_access_key,

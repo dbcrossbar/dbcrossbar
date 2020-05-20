@@ -27,11 +27,15 @@ pub(crate) struct Credentials {
 
 impl Credentials {
     /// Get the specied value for this credential.
-    pub(crate) fn get<'a>(&'a self, key: &str) -> Result<&'a str> {
-        self.data
-            .get(key)
-            .map(|v| &v[..])
+    pub(crate) fn get_required<'a>(&'a self, key: &str) -> Result<&'a str> {
+        self.get_optional(key)
             .ok_or_else(|| format_err!("no key {:?} in credential", key))
+    }
+
+    /// Get the specified value for this credential, or `None` if it isn't
+    /// available.
+    pub(crate) fn get_optional<'a>(&'a self, key: &str) -> Option<&'a str> {
+        self.data.get(key).map(|v| &v[..])
     }
 
     /// Does this secret need to be refreshed?
@@ -79,6 +83,15 @@ impl CredentialsManager {
         let mut sources = HashMap::new();
         let config_dir = config_dir()?;
 
+        // Specify how to connect to AWS.
+        let aws = EnvCredentialsSource::new(vec![
+            EnvMapping::required("access_key_id", "AWS_ACCESS_KEY_ID"),
+            EnvMapping::required("secret_access_key", "AWS_SECRET_ACCESS_KEY"),
+            EnvMapping::optional("session_token", "AWS_SESSION_TOKEN"),
+            EnvMapping::optional("region", "AWS_REGION"),
+        ]);
+        sources.insert("aws".to_owned(), Mutex::new(aws.boxed()));
+
         // Specify how to find Google Cloud service account keys.
         let gcloud_service_account_key = CredentialsSources::new(vec![
             EnvCredentialsSource::new(vec![EnvMapping::required(
@@ -116,15 +129,11 @@ impl CredentialsManager {
         );
 
         // Specify how to find a Shopify secret.
-        let shopify_secret =
-            CredentialsSources::new(vec![EnvCredentialsSource::new(vec![
-                EnvMapping::required("auth_token", "SHOPIFY_AUTH_TOKEN"),
-            ])
-            .boxed()]);
-        sources.insert(
-            "shopify_secret".to_owned(),
-            Mutex::new(shopify_secret.boxed()),
-        );
+        let shopify_secret = EnvCredentialsSource::new(vec![EnvMapping::required(
+            "auth_token",
+            "SHOPIFY_AUTH_TOKEN",
+        )]);
+        sources.insert("shopify".to_owned(), Mutex::new(shopify_secret.boxed()));
 
         let cache = Mutex::new(HashMap::new());
         Ok(CredentialsManager { sources, cache })
@@ -205,6 +214,15 @@ impl EnvMapping {
             key,
             var,
             optional: false,
+        }
+    }
+
+    /// Fetch the value of `key` from `var`, if present.
+    fn optional(key: &'static str, var: &'static str) -> Self {
+        Self {
+            key,
+            var,
+            optional: true,
         }
     }
 }

@@ -1,8 +1,6 @@
 //! Preparing bucket directories as output destinations.
 
-use std::process::Stdio;
-use tokio::process::Command;
-
+use crate::clouds::aws::s3;
 use crate::common::*;
 
 /// Prepare the target of this locator for use as a destination.
@@ -14,28 +12,7 @@ pub(crate) async fn prepare_as_destination_helper(
     // Delete the existing output, if it exists.
     if if_exists == IfExists::Overwrite {
         // Delete all the files under `self.url`.
-        debug!(ctx.log(), "deleting existing {}", s3_url);
-        if !s3_url.path().ends_with('/') {
-            return Err(format_err!(
-                "can only write to s3:// URL ending in '/', got {}",
-                s3_url,
-            ));
-        }
-        let status = Command::new("aws")
-            .args(&["s3", "rm", "--recursive", s3_url.as_str()])
-            // Throw away stdout so it doesn't corrupt our output.
-            .stdout(Stdio::null())
-            .status()
-            .await
-            .context("error running `aws s3`")?;
-        if !status.success() {
-            warn!(
-                ctx.log(),
-                "can't delete contents of {}, possibly because it doesn't exist",
-                s3_url,
-            );
-        }
-        Ok(())
+        s3::rmdir(&ctx, &s3_url).await
     } else {
         Err(format_err!(
             "must specify `overwrite` for {} destination",

@@ -32,10 +32,8 @@ pub(crate) async fn local_data_helper(
     url.query_pairs_mut().append_pair("limit", "250").finish();
 
     // Get our credentials.
-    let creds = CredentialsManager::singleton()
-        .get("shopify_secret")
-        .await?;
-    let auth_token = creds.get("auth_token")?.to_owned();
+    let creds = CredentialsManager::singleton().get("shopify").await?;
+    let auth_token = creds.get_required("auth_token")?.to_owned();
 
     // Loop over pages until we run out.
     let mut include_headers = true;
