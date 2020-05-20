@@ -105,6 +105,51 @@ fn cp_csv_to_bigquery_to_csv() {
 
 #[test]
 #[ignore]
+fn cp_bigquery_if_exists_error() {
+    let _ = env_logger::try_init();
+    let testdir = TestDir::new("dbcrossbar", "cp_bigquery_if_exists_error");
+    let src = testdir.src_path("fixtures/many_types.csv");
+    let schema = testdir.src_path("fixtures/many_types.sql");
+    let bq_temp_ds = bq_temp_dataset();
+    let gs_temp_dir = gs_test_dir_url("cp_bigquery_if_exists_error");
+    let bq_table = bq_test_table("cp_bigquery_if_exists_error");
+
+    // CSV to BigQuery (make sure we have a table).
+    testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--temporary={}", gs_temp_dir),
+            &format!("--temporary={}", bq_temp_ds),
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("csv:{}", src.display()),
+            &bq_table,
+        ])
+        .tee_output()
+        .expect_success();
+
+    // BigQuery to CSV (make sure it fails with --if-exists=error).
+    let output = testdir
+        .cmd()
+        .args(&[
+            "cp",
+            "--if-exists=error",
+            &format!("--temporary={}", gs_temp_dir),
+            &format!("--temporary={}", bq_temp_ds),
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("csv:{}", src.display()),
+            &bq_table,
+        ])
+        .tee_output()
+        .expect_failure();
+
+    // Make sure our error doesn't mention `--if-exists=error`.
+    assert!(!output.stderr_str().contains("--if-exists=error"));
+}
+
+#[test]
+#[ignore]
 fn cp_more_bigquery_types() {
     let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "cp_more_bigquery_types");
