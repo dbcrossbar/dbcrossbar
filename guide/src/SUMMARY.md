@@ -20,7 +20,7 @@
   - [PostgreSQL](./postgres.md)
   - [RedShift](./redshift.md)
   - [S3](./s3.md)
-  - [EXPERIMENTAL: Shopify](./shopify.md)
+  - [Shopify (UNSTABLE)](./shopify.md)
 - [Changes](./changes.md)
 
 [Credits and contributors](./credits.md)

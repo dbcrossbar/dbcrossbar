@@ -93,4 +93,9 @@ impl LocatorStatic for ShopifyLocator {
             _placeholder: (),
         }
     }
+
+    /// This locator type is currently unstable.
+    fn is_unstable() -> bool {
+        true
+    }
 }

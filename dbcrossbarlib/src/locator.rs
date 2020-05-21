@@ -164,24 +164,20 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
 /// A value of an unknown type implementing `Locator`.
 pub type BoxLocator = Box<dyn Locator>;
 
-impl FromStr for BoxLocator {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self> {
-        // Parse our locator into a URL-style scheme and the rest.
-        lazy_static! {
-            static ref SCHEME_RE: Regex = Regex::new("^[A-Za-z][-A-Za-z0-9+.]*:")
-                .expect("invalid regex in source");
-        }
-        let cap = SCHEME_RE
-            .captures(s)
-            .ok_or_else(|| format_err!("cannot parse locator: {:?}", s))?;
-        let scheme = &cap[0];
-
-        // Select an appropriate locator type.
-        let driver = find_driver(scheme)?;
-        driver.parse(s)
+fn parse_locator(s: &str, enable_unstable: bool) -> Result<BoxLocator> {
+    // Parse our locator into a URL-style scheme and the rest.
+    lazy_static! {
+        static ref SCHEME_RE: Regex =
+            Regex::new("^[A-Za-z][-A-Za-z0-9+.]*:").expect("invalid regex in source");
     }
+    let cap = SCHEME_RE
+        .captures(s)
+        .ok_or_else(|| format_err!("cannot parse locator: {:?}", s))?;
+    let scheme = &cap[0];
+
+    // Select an appropriate locator type.
+    let driver = find_driver(scheme, enable_unstable)?;
+    driver.parse(s)
 }
 
 #[test]
@@ -205,8 +201,30 @@ fn locator_from_str_to_string_roundtrip() {
         "shopify://example.myshopify.com/admin/api/2020-04/orders.json",
     ];
     for locator in locators.into_iter() {
-        let parsed: BoxLocator = locator.parse().unwrap();
+        let parsed: BoxLocator = parse_locator(locator, true).unwrap();
         assert_eq!(parsed.to_string(), locator);
+    }
+}
+
+/// A locator which has not yet been parsed.
+///
+/// This is separate from `BoxLocator` because `BoxLocator` can only be parsed
+/// once we have the `enable_unstable` flag.
+#[derive(Debug)]
+pub struct UnparsedLocator(String);
+
+impl UnparsedLocator {
+    /// Try to parse this locator.
+    pub fn parse(&self, enable_unstable: bool) -> Result<BoxLocator> {
+        parse_locator(&self.0, enable_unstable)
+    }
+}
+
+impl FromStr for UnparsedLocator {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(UnparsedLocator(s.to_owned()))
     }
 }
 
@@ -292,6 +310,11 @@ pub trait LocatorStatic: Locator + Clone + FromStr<Err = Error> + Sized {
 
     /// Return a mask of `LocatorFeatures` supported by this `Locator` type.
     fn features() -> Features;
+
+    /// Is this driver unstable?
+    fn is_unstable() -> bool {
+        false
+    }
 }
 
 /// Interface to a locator driver. This exists because we Rust can't treat
@@ -312,6 +335,9 @@ pub trait LocatorDriver: Send + Sync + 'static {
 
     /// The features supported by this driver.
     fn features(&self) -> Features;
+
+    /// Is this driver unstable?
+    fn is_unstable(&self) -> bool;
 
     /// Parse a locator string and return a [`BoxLocator`].
     fn parse(&self, s: &str) -> Result<BoxLocator>;
@@ -339,6 +365,11 @@ impl<L: LocatorStatic> LocatorDriver for LocatorDriverWrapper<L> {
 
     fn features(&self) -> Features {
         L::features()
+    }
+
+    /// Is this driver unstable?
+    fn is_unstable(&self) -> bool {
+        L::is_unstable()
     }
 
     fn parse(&self, s: &str) -> Result<BoxLocator> {

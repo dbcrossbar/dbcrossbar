@@ -28,6 +28,10 @@ pub(crate) struct Opt {
     #[structopt(long = "log-extra")]
     pub(crate) log_extra: Vec<String>,
 
+    /// Enable unstable, experimental features.
+    #[structopt(long = "enable-unstable")]
+    pub(crate) enable_unstable: bool,
+
     /// The command to run.
     #[structopt(subcommand)]
     pub(crate) cmd: Command,
@@ -35,6 +39,7 @@ pub(crate) struct Opt {
 
 /// The command to run.
 #[derive(Debug, StructOpt)]
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum Command {
     /// Update configuration.
     #[structopt(name = "config")]
@@ -88,9 +93,17 @@ pub(crate) enum Command {
 pub(crate) fn run(ctx: Context, config: Configuration, opt: Opt) -> BoxFuture<()> {
     match opt.cmd {
         Command::Config { command } => config::run(ctx, config, command).boxed(),
-        Command::Conv { command } => conv::run(ctx, config, command).boxed(),
-        Command::Count { command } => count::run(ctx, config, command).boxed(),
-        Command::Cp { command } => cp::run(ctx, config, command).boxed(),
-        Command::Features { command } => features::run(ctx, config, command).boxed(),
+        Command::Conv { command } => {
+            conv::run(ctx, config, opt.enable_unstable, command).boxed()
+        }
+        Command::Count { command } => {
+            count::run(ctx, config, opt.enable_unstable, command).boxed()
+        }
+        Command::Cp { command } => {
+            cp::run(ctx, config, opt.enable_unstable, command).boxed()
+        }
+        Command::Features { command } => {
+            features::run(ctx, config, opt.enable_unstable, command).boxed()
+        }
     }
 }

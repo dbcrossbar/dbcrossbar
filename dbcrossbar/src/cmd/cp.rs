@@ -2,9 +2,9 @@
 
 use common_failures::Result;
 use dbcrossbarlib::{
-    config::Configuration, rechunk::rechunk_csvs, tokio_glue::try_forward, BoxLocator,
-    Context, DestinationArguments, DisplayOutputLocators, DriverArguments, IfExists,
-    SharedArguments, SourceArguments, TemporaryStorage,
+    config::Configuration, rechunk::rechunk_csvs, tokio_glue::try_forward, Context,
+    DestinationArguments, DisplayOutputLocators, DriverArguments, IfExists,
+    SharedArguments, SourceArguments, TemporaryStorage, UnparsedLocator,
 };
 use failure::{format_err, ResultExt};
 use futures::{pin_mut, stream, FutureExt, StreamExt, TryStreamExt};
@@ -23,7 +23,7 @@ pub(crate) struct Opt {
 
     /// The schema to use (defaults to input table schema).
     #[structopt(long = "schema")]
-    schema: Option<BoxLocator>,
+    schema: Option<UnparsedLocator>,
 
     /// Temporary directories, cloud storage buckets, datasets to use during
     /// transfer (can be repeated).
@@ -59,25 +59,32 @@ pub(crate) struct Opt {
     display_output_locators: bool,
 
     /// The input table.
-    from_locator: BoxLocator,
+    from_locator: UnparsedLocator,
 
     /// The output table.
-    to_locator: BoxLocator,
+    to_locator: UnparsedLocator,
 }
 
 /// Perform our schema conversion.
-pub(crate) async fn run(ctx: Context, config: Configuration, opt: Opt) -> Result<()> {
+pub(crate) async fn run(
+    ctx: Context,
+    config: Configuration,
+    enable_unstable: bool,
+    opt: Opt,
+) -> Result<()> {
+    let schema_opt = opt.schema.map(|s| s.parse(enable_unstable)).transpose()?;
+    let from_locator = opt.from_locator.parse(enable_unstable)?;
+    let to_locator = opt.to_locator.parse(enable_unstable)?;
+
     // Figure out what table schema to use.
     let schema = {
-        let schema_locator = opt.schema.as_ref().unwrap_or(&opt.from_locator);
+        let schema_locator = schema_opt.as_ref().unwrap_or(&from_locator);
         schema_locator
             .schema(ctx.clone())
             .await
-            .with_context(|_| {
-                format!("error reading schema from {}", opt.from_locator)
-            })?
+            .with_context(|_| format!("error reading schema from {}", schema_locator))?
             .ok_or_else(|| {
-                format_err!("don't know how to read schema from {}", opt.from_locator)
+                format_err!("don't know how to read schema from {}", schema_locator)
             })
     }?;
 
@@ -97,8 +104,6 @@ pub(crate) async fn run(ctx: Context, config: Configuration, opt: Opt) -> Result
     // Can we short-circuit this particular copy using special features of the
     // the source and destination, or do we need to pull the data down to the
     // local machine?
-    let to_locator = opt.to_locator;
-    let from_locator = opt.from_locator;
     let should_use_remote = opt.stream_size.is_none()
         && to_locator.supports_write_remote_data(from_locator.as_ref());
     let dests = if should_use_remote {

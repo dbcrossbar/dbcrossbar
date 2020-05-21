@@ -1,7 +1,7 @@
 //! The `conv` subcommand.
 
 use common_failures::Result;
-use dbcrossbarlib::{config::Configuration, BoxLocator, Context, IfExists};
+use dbcrossbarlib::{config::Configuration, Context, IfExists, UnparsedLocator};
 use failure::format_err;
 use structopt::{self, StructOpt};
 
@@ -13,19 +13,24 @@ pub(crate) struct Opt {
     if_exists: IfExists,
 
     /// The input schema.
-    from_locator: BoxLocator,
+    from_locator: UnparsedLocator,
 
     /// The output schema.
-    to_locator: BoxLocator,
+    to_locator: UnparsedLocator,
 }
 
 /// Perform our schema conversion.
-pub(crate) async fn run(ctx: Context, _config: Configuration, opt: Opt) -> Result<()> {
-    let schema = opt.from_locator.schema(ctx.clone()).await?.ok_or_else(|| {
-        format_err!("don't know how to read schema from {}", opt.from_locator)
+pub(crate) async fn run(
+    ctx: Context,
+    _config: Configuration,
+    enable_unstable: bool,
+    opt: Opt,
+) -> Result<()> {
+    let from_locator = opt.from_locator.parse(enable_unstable)?;
+    let to_locator = opt.to_locator.parse(enable_unstable)?;
+    let schema = from_locator.schema(ctx.clone()).await?.ok_or_else(|| {
+        format_err!("don't know how to read schema from {}", from_locator)
     })?;
-    opt.to_locator
-        .write_schema(ctx, schema, opt.if_exists)
-        .await?;
+    to_locator.write_schema(ctx, schema, opt.if_exists).await?;
     Ok(())
 }

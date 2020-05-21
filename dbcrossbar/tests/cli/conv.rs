@@ -109,6 +109,7 @@ fn conv_ts_to_portable() {
     testdir
         .cmd()
         .args(&[
+            "--enable-unstable",
             "conv",
             &format!("dbcrossbar-ts:{}#Shape", input_ts.display()),
             &format!("dbcrossbar-schema:{}", output_json.display()),

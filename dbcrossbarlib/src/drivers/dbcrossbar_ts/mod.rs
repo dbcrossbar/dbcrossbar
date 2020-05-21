@@ -78,12 +78,17 @@ impl LocatorStatic for DbcrossbarTsLocator {
     fn features() -> Features {
         Features {
             locator: LocatorFeatures::Schema.into(),
-            write_schema_if_exists: IfExistsFeatures::no_append(),
+            write_schema_if_exists: EnumSet::empty(),
             source_args: EnumSet::empty(),
             dest_args: EnumSet::empty(),
             dest_if_exists: EnumSet::empty(),
             _placeholder: (),
         }
+    }
+
+    /// This locator type is currently unstable.
+    fn is_unstable() -> bool {
+        true
     }
 }
 

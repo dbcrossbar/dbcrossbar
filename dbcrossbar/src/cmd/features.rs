@@ -19,17 +19,27 @@ pub(crate) struct Opt {
 pub(crate) async fn run(
     _ctx: Context,
     _config: Configuration,
+    enable_unstable: bool,
     opt: Opt,
 ) -> Result<()> {
     if let Some(name) = &opt.driver {
         let scheme = format!("{}:", name);
-        let driver = find_driver(&scheme)?;
+        let driver = find_driver(&scheme, enable_unstable)?;
         println!("{} features:", name);
         print!("{}", driver.features());
+        if driver.is_unstable() {
+            println!("\nThis driver is UNSTABLE and may change without warning.");
+        }
     } else {
         println!("Supported drivers:");
         for driver in all_drivers() {
-            println!("- {}", driver.name());
+            if !driver.is_unstable() || enable_unstable {
+                if driver.is_unstable() {
+                    println!("- {} (UNSTABLE)", driver.name());
+                } else {
+                    println!("- {}", driver.name());
+                }
+            }
         }
         println!(
             "\nUse `dbcrossbar features $DRIVER` to list the features supported by a driver."

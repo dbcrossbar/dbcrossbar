@@ -65,7 +65,7 @@ pub use context::Context;
 pub use csv_stream::CsvStream;
 pub use driver_args::DriverArguments;
 pub use if_exists::IfExists;
-pub use locator::{BoxLocator, DisplayOutputLocators, Locator};
+pub use locator::{BoxLocator, DisplayOutputLocators, Locator, UnparsedLocator};
 pub use temporary_storage::TemporaryStorage;
 pub use tokio_glue::{run_futures_with_runtime, ConsumeWithParallelism};
 

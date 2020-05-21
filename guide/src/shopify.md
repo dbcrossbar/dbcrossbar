@@ -1,6 +1,6 @@
-# Experimental: Shopify
+# Shopify (UNSTABLE)
 
-**WARNING:** This is highly experimental and subject to change.
+**WARNING:** This is highly experimental and subject to change. To use it, you must enable it using the `--enable-unstable` flag.
 
 Shopify is an online e-commerce platform with a REST API for fetching data.
 

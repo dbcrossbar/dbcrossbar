@@ -2,8 +2,8 @@
 
 use common_failures::Result;
 use dbcrossbarlib::{
-    config::Configuration, BoxLocator, Context, DriverArguments, SharedArguments,
-    SourceArguments, TemporaryStorage,
+    config::Configuration, Context, DriverArguments, SharedArguments, SourceArguments,
+    TemporaryStorage, UnparsedLocator,
 };
 use failure::{format_err, ResultExt};
 use structopt::{self, StructOpt};
@@ -13,7 +13,7 @@ use structopt::{self, StructOpt};
 pub(crate) struct Opt {
     /// The schema to use (defaults to input table schema).
     #[structopt(long = "schema")]
-    schema: Option<BoxLocator>,
+    schema: Option<UnparsedLocator>,
 
     /// Temporary directories, cloud storage buckets, datasets to use during
     /// transfer (can be repeated).
@@ -29,20 +29,28 @@ pub(crate) struct Opt {
     where_clause: Option<String>,
 
     /// The locator specifying the records to count.
-    locator: BoxLocator,
+    locator: UnparsedLocator,
 }
 
 /// Count records.
-pub(crate) async fn run(ctx: Context, config: Configuration, opt: Opt) -> Result<()> {
+pub(crate) async fn run(
+    ctx: Context,
+    config: Configuration,
+    enable_unstable: bool,
+    opt: Opt,
+) -> Result<()> {
+    let schema_opt = opt.schema.map(|s| s.parse(enable_unstable)).transpose()?;
+    let locator = opt.locator.parse(enable_unstable)?;
+
     // Figure out what table schema to use.
     let schema = {
-        let schema_locator = opt.schema.as_ref().unwrap_or(&opt.locator);
+        let schema_locator = schema_opt.as_ref().unwrap_or(&locator);
         schema_locator
             .schema(ctx.clone())
             .await
-            .with_context(|_| format!("error reading schema from {}", opt.locator))?
+            .with_context(|_| format!("error reading schema from {}", schema_locator))?
             .ok_or_else(|| {
-                format_err!("don't know how to read schema from {}", opt.locator)
+                format_err!("don't know how to read schema from {}", schema_locator)
             })
     }?;
 
@@ -56,10 +64,7 @@ pub(crate) async fn run(ctx: Context, config: Configuration, opt: Opt) -> Result
     let from_args = DriverArguments::from_cli_args(&opt.from_args)?;
     let source_args = SourceArguments::new(from_args, opt.where_clause.clone());
 
-    let count = opt
-        .locator
-        .count(ctx.clone(), shared_args, source_args)
-        .await?;
+    let count = locator.count(ctx.clone(), shared_args, source_args).await?;
     println!("{}", count);
     Ok(())
 }

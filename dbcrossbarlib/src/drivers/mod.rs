@@ -63,9 +63,13 @@ pub fn all_drivers() -> &'static [Box<dyn LocatorDriver>] {
 }
 
 /// Look up a specifc driver by `Locator` scheme.
-pub fn find_driver(scheme: &str) -> Result<&'static dyn LocatorDriver> {
+pub fn find_driver(
+    scheme: &str,
+    enable_unstable: bool,
+) -> Result<&'static dyn LocatorDriver> {
     KNOWN_DRIVERS_BY_SCHEME
         .get(scheme)
         .copied()
+        .filter(|&d| !d.is_unstable() || enable_unstable)
         .ok_or_else(|| format_err!("unknown locator scheme {:?}", scheme))
 }
