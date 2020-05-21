@@ -623,9 +623,11 @@ peg::parser! {
             }
             / expected!("identifier")
 
-        rule ws() = quiet! { ([' ' | '\t' | '\r' | '\n'] / line_comment())+ }
+        rule ws() = (quiet! { [' ' | '\t' | '\r' | '\n'] } / line_comment() / block_comment())+
 
         rule line_comment() = "//" (!['\n'][_])* ( "\n" / ![_] )
+
+        rule block_comment() = "/*" quiet! { (!"*/"[_])* } "*/"
     }
 }
 
@@ -633,13 +635,17 @@ peg::parser! {
 #[test]
 fn parses_typescript_and_converts_to_data_type() -> Result<(), main_error::MainError> {
     let input = r#"
+type decimal = string;
+
+/** Prices in the shop's currency, and the user's currency. */
 interface PriceSet {
     shop_money: Money,
     presentement_money: Money,
 };
 
+/** A quantity of money, and an associated currency. */
 interface Money {
-    amount: string, // Currency decimal encoded as string.
+    amount: decimal, // Currency decimal encoded as string.
     currency_code: string,
 };
 "#;
@@ -656,7 +662,7 @@ interface Money {
                         StructField {
                             name: "amount".to_owned(),
                             is_nullable: false,
-                            data_type: DataType::Text,
+                            data_type: DataType::Decimal,
                         },
                         StructField {
                             name: "currency_code".to_owned(),
@@ -673,7 +679,7 @@ interface Money {
                         StructField {
                             name: "amount".to_owned(),
                             is_nullable: false,
-                            data_type: DataType::Text,
+                            data_type: DataType::Decimal,
                         },
                         StructField {
                             name: "currency_code".to_owned(),
