@@ -1,9 +1,10 @@
 //! A PostgreSQL `CREATE TABLE` declaration.
 
-use std::{collections::HashMap, fmt, iter::FromIterator, str::FromStr};
+use std::{collections::HashMap, fmt, iter::FromIterator, sync::Arc};
 
 use super::{catalog, PgColumn, TableName};
 use crate::common::*;
+use crate::parse_error::{Annotation, FileInfo, ParseError};
 use crate::schema::Column;
 use crate::separator::Separator;
 
@@ -50,6 +51,24 @@ pub struct PgCreateTable {
 }
 
 impl PgCreateTable {
+    /// Parse a source file containing a PostgreSQL `CREATE TABLE` statement.
+    pub(crate) fn parse(
+        file_name: String,
+        file_contents: String,
+    ) -> Result<Self, ParseError> {
+        let file_info = Arc::new(FileInfo::new(file_name, file_contents));
+        create_table_sql::parse(&file_info.contents).map_err(|err| {
+            ParseError::new(
+                file_info,
+                vec![Annotation::primary(
+                    err.location.offset,
+                    format!("expected {}", err.expected),
+                )],
+                "error parsing Postgres CREATE TABLE",
+            )
+        })
+    }
+
     /// Given a table name and a list of portable columns, construct a
     /// corresponding `PgCreateTable`.
     ///
@@ -250,26 +269,16 @@ impl fmt::Display for PgCreateTable {
     }
 }
 
-impl FromStr for PgCreateTable {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self> {
-        Ok(create_table_sql::parse(s)
-            .context("error parsing Postgres `CREATE TABLE`")?)
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::schema::{Column, DataType, Srid};
 
-    use std::str;
-
     #[test]
     fn simple_table() {
         let input = include_str!("create_table_sql_example.sql");
-        let pg_table: PgCreateTable = input.parse().unwrap();
+        let pg_table =
+            PgCreateTable::parse("test.sql".to_owned(), input.to_owned()).unwrap();
         let table = pg_table.to_table().unwrap();
         let expected = Table {
             name: "example".to_string(),
@@ -347,10 +356,11 @@ mod test {
         // Now try writing and re-reading.
         let mut out = vec![];
         write!(&mut out, "{}", &pg_table).expect("error writing table");
-        let pg_parsed_again: PgCreateTable = str::from_utf8(&out)
-            .unwrap()
-            .parse()
-            .expect("error parsing table");
+        let pg_parsed_again = PgCreateTable::parse(
+            "test.sql".to_owned(),
+            String::from_utf8(out).unwrap(),
+        )
+        .expect("error re-parsing table");
         let parsed_again = pg_parsed_again.to_table().unwrap();
         assert_eq!(parsed_again, expected);
     }

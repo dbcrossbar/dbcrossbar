@@ -11,12 +11,8 @@ use termcolor::NoColor;
 /// An error occurred processing the schema.
 #[derive(Debug)]
 pub(crate) struct ParseError {
-    /// The name of the file in which the error occurred.
-    file_name: String,
-
-    /// Our input file. Yes, this is huge, so we store it behind a thread-safe
-    /// reference count using `Arc`.
-    file_string: Arc<String>,
+    /// The source file in which the error occurred.
+    file_info: Arc<FileInfo>,
 
     /// The location of the error.
     pub(crate) annotations: Vec<Annotation>,
@@ -27,17 +23,15 @@ pub(crate) struct ParseError {
 
 impl ParseError {
     /// Construct a parse error from an input file.
-    pub(crate) fn from_file_string(
-        file_name: String,
-        file_string: Arc<String>,
+    pub(crate) fn new<M: Into<String>>(
+        file_info: Arc<FileInfo>,
         annotations: Vec<Annotation>,
-        message: String,
+        message: M,
     ) -> ParseError {
         ParseError {
-            file_name,
-            file_string,
+            file_info,
             annotations,
-            message,
+            message: message.into(),
         }
     }
 }
@@ -46,7 +40,7 @@ impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Build a set of source files.
         let mut files = SimpleFiles::new();
-        let file_id = files.add(&self.file_name, self.file_string.as_ref());
+        let file_id = files.add(&self.file_info.name, &self.file_info.contents);
 
         // Build our diagnostic.
         let diagnostic = Diagnostic::error().with_message(&self.message).with_labels(
@@ -77,6 +71,22 @@ impl fmt::Display for ParseError {
 
 impl StdError for ParseError {}
 
+/// Information about a file we attempted to parse.
+#[derive(Debug)]
+pub(crate) struct FileInfo {
+    /// The name of the file.
+    pub(crate) name: String,
+    /// The data of the file.
+    pub(crate) contents: String,
+}
+
+impl FileInfo {
+    /// Create a new `FileInfo`.
+    pub(crate) fn new(name: String, contents: String) -> Self {
+        Self { name, contents }
+    }
+}
+
 /// An annotation pointing at a particular part of our input.
 #[derive(Debug)]
 pub(crate) struct Annotation {
@@ -88,6 +98,34 @@ pub(crate) struct Annotation {
 
     /// The message to display for this annotation.
     pub(crate) message: String,
+}
+
+impl Annotation {
+    /// Create a primary annotation which shows the main location of the error.
+    pub(crate) fn primary<L, M>(location: L, message: M) -> Self
+    where
+        L: Into<Location>,
+        M: Into<String>,
+    {
+        Annotation {
+            ty: AnnotationType::Primary,
+            location: location.into(),
+            message: message.into(),
+        }
+    }
+
+    /// Create a secondary annotation that shows another location related to the error.
+    pub(crate) fn secondary<L, M>(location: L, message: M) -> Self
+    where
+        L: Into<Location>,
+        M: Into<String>,
+    {
+        Annotation {
+            ty: AnnotationType::Secondary,
+            location: location.into(),
+            message: message.into(),
+        }
+    }
 }
 
 /// What type of annotation are we displaying?
@@ -106,6 +144,18 @@ pub(crate) enum Location {
     Position(usize),
     /// This error occurred at a span in the source code.
     Range(Range<usize>),
+}
+
+impl From<usize> for Location {
+    fn from(pos: usize) -> Self {
+        Location::Position(pos)
+    }
+}
+
+impl From<Range<usize>> for Location {
+    fn from(range: Range<usize>) -> Self {
+        Location::Range(range)
+    }
 }
 
 impl<'a> From<&'a Location> for Range<usize> {

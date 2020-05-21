@@ -78,9 +78,7 @@ async fn schema_helper(
     let sql = async_read_to_string(input)
         .await
         .with_context(|_| format!("error reading {}", source.path))?;
-    let pg_create_table: PgCreateTable = sql
-        .parse::<PgCreateTable>()
-        .with_context(|_| format!("error parsing {}", source.path))?;
+    let pg_create_table = PgCreateTable::parse(source.path.to_string(), sql)?;
     let table = pg_create_table.to_table()?;
     Ok(Some(table))
 }

@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::common::*;
-use crate::parse_error::{Annotation, AnnotationType, Location, ParseError};
+use crate::parse_error::{Annotation, FileInfo, ParseError};
 use crate::schema::{Column, DataType, StructField, Table};
 
 /// We represent a span in our source code using a Rust range.
@@ -32,34 +32,30 @@ pub(crate) trait ToDataType {
 
 /// A TypeScript source file containing a limited set of type definitions.
 pub(crate) struct SourceFile {
-    /// The name of our input file.
-    file_name: String,
-    /// Our original input data. We manage this using an atomic reference count,
+    /// Information about our input file. We manage this using an atomic reference count,
     /// so that we can share ownership with `ParseError`.
-    file_string: Arc<String>,
+    file_info: Arc<FileInfo>,
     /// The type definitions found in this file.
     definitions: HashMap<String, Definition>,
 }
 
 impl SourceFile {
-    /// Parse a source file from a `&str`.
+    /// Parse a source file containing TypeScript definitions.
     pub(crate) fn parse(
         file_name: String,
-        file_string: String,
+        file_contents: String,
     ) -> Result<Self, ParseError> {
         // Parse our input file into statements.
-        let file_string = Arc::new(file_string);
-        let statements = typescript_grammar::statements(file_string.as_ref())
-            .map_err(|err| {
-                ParseError::from_file_string(
-                    file_name.clone(),
-                    file_string.clone(),
-                    vec![Annotation {
-                        ty: AnnotationType::Primary,
-                        location: Location::Position(err.location.offset),
-                        message: format!("expected {}", err.expected),
-                    }],
-                    format!("error parsing {}", file_name),
+        let file_info = Arc::new(FileInfo::new(file_name, file_contents));
+        let statements =
+            typescript_grammar::statements(&file_info.contents).map_err(|err| {
+                ParseError::new(
+                    file_info.clone(),
+                    vec![Annotation::primary(
+                        err.location.offset,
+                        format!("expected {}", err.expected),
+                    )],
+                    format!("error parsing {}", file_info.name),
                 )
             })?;
 
@@ -75,20 +71,14 @@ impl SourceFile {
         for d in definitions_vec {
             let name = d.name().to_owned();
             if let Some(existing) = definitions.insert(name.as_str().to_owned(), d) {
-                return Err(ParseError::from_file_string(
-                    file_name,
-                    file_string,
+                return Err(ParseError::new(
+                    file_info,
                     vec![
-                        Annotation {
-                            ty: AnnotationType::Primary,
-                            location: Location::Range(name.span()),
-                            message: "duplicate definition here".to_owned(),
-                        },
-                        Annotation {
-                            ty: AnnotationType::Secondary,
-                            location: Location::Range(existing.name().span()),
-                            message: "existing definition here".to_owned(),
-                        },
+                        Annotation::primary(name.span(), "duplicate definition here"),
+                        Annotation::secondary(
+                            existing.name().span(),
+                            "existing definition here",
+                        ),
                     ],
                     format!("duplicate definition of {}", name),
                 ));
@@ -97,8 +87,7 @@ impl SourceFile {
 
         // Build our `source_file` and check it for correctness.
         let source_file = SourceFile {
-            file_name,
-            file_string,
+            file_info,
             definitions,
         };
         for d in source_file.definitions.values() {
@@ -110,7 +99,7 @@ impl SourceFile {
     /// Look up a definition in this source file.
     pub(crate) fn definition<'a>(&'a self, name: &str) -> Result<&'a Definition> {
         self.definitions.get(name).ok_or_else(|| {
-            format_err!("type `{}` is not defined in {}", name, self.file_name)
+            format_err!("type `{}` is not defined in {}", name, self.file_info.name)
         })
     }
 
@@ -120,14 +109,12 @@ impl SourceFile {
         id: &Identifier,
     ) -> Result<&'a Definition, ParseError> {
         self.definitions.get(id.as_str()).ok_or_else(|| {
-            ParseError::from_file_string(
-                self.file_name.clone(),
-                self.file_string.clone(),
-                vec![Annotation {
-                    ty: AnnotationType::Primary,
-                    location: Location::Range(id.span()),
-                    message: "cannot find the definition of this type".to_string(),
-                }],
+            ParseError::new(
+                self.file_info.clone(),
+                vec![Annotation::primary(
+                    id.span(),
+                    "cannot find the definition of this type",
+                )],
                 format!("cannot find definition of {}", id),
             )
         })
@@ -150,14 +137,12 @@ impl SourceFile {
                     }).collect(),
                 })
             }
-            _ => Err(ParseError::from_file_string(
-                self.file_name.clone(),
-                self.file_string.clone(),
-                vec![Annotation {
-                    ty: AnnotationType::Primary,
-                    location: Location::Range(def.name().span()),
-                    message: "expected an interface type".to_string(),
-                }],
+            _ => Err(ParseError::new(
+                self.file_info.clone(),
+                vec![Annotation::primary(
+                    def.name().span(),
+                    "expected an interface type",
+                )],
                 format!("cannot convert {} to a table schema because it is not an interface", name),
             ).into()),
         }
@@ -277,20 +262,14 @@ impl Node for Interface {
             // Check for duplicate field names.
             if !seen.insert(f.name.clone()) {
                 let existing = seen.get(&f.name).expect("item should be in set");
-                return Err(ParseError::from_file_string(
-                    source_file.file_name.clone(),
-                    source_file.file_string.clone(),
+                return Err(ParseError::new(
+                    source_file.file_info.clone(),
                     vec![
-                        Annotation {
-                            ty: AnnotationType::Primary,
-                            location: Location::Range(f.name.span()),
-                            message: "defined again here".to_owned(),
-                        },
-                        Annotation {
-                            ty: AnnotationType::Secondary,
-                            location: Location::Range(existing.span()),
-                            message: "original definition here".to_owned(),
-                        },
+                        Annotation::primary(f.name.span(), "defined again here"),
+                        Annotation::secondary(
+                            existing.span(),
+                            "original definition here",
+                        ),
                     ],
                     format!("duplicate definition of {} field", f.name),
                 ));
@@ -413,20 +392,11 @@ impl Type {
     ) -> Result<(), ParseError> {
         match &self.details {
             TypeDetails::String => Ok(()),
-            _ => Err(ParseError::from_file_string(
-                source_file.file_name.clone(),
-                source_file.file_string.clone(),
+            _ => Err(ParseError::new(
+                source_file.file_info.clone(),
                 vec![
-                    Annotation {
-                        ty: AnnotationType::Primary,
-                        location: Location::Range(self.span.clone()),
-                        message: "expected `string`".to_owned(),
-                    },
-                    Annotation {
-                        ty: AnnotationType::Secondary,
-                        location: Location::Range(id.span()),
-                        message: "because this name is reserved".to_owned(),
-                    },
+                    Annotation::primary(self.span.clone(), "expected `string`"),
+                    Annotation::secondary(id.span(), "because this name is reserved"),
                 ],
                 format!("unexpected definition of type {}", id),
             )),
@@ -442,20 +412,14 @@ impl Type {
         match &self.details {
             TypeDetails::Union(t1, t2) if t1.is_string() && t2.is_number() => Ok(()),
             TypeDetails::Union(t1, t2) if t1.is_number() && t2.is_string() => Ok(()),
-            _ => Err(ParseError::from_file_string(
-                source_file.file_name.clone(),
-                source_file.file_string.clone(),
+            _ => Err(ParseError::new(
+                source_file.file_info.clone(),
                 vec![
-                    Annotation {
-                        ty: AnnotationType::Primary,
-                        location: Location::Range(self.span.clone()),
-                        message: "expected `number | string`".to_owned(),
-                    },
-                    Annotation {
-                        ty: AnnotationType::Secondary,
-                        location: Location::Range(id.span()),
-                        message: "because this name is reserved".to_owned(),
-                    },
+                    Annotation::primary(
+                        self.span.clone(),
+                        "expected `number | string`",
+                    ),
+                    Annotation::secondary(id.span(), "because this name is reserved"),
                 ],
                 format!("unexpected definition of type {}", id),
             )),
@@ -502,15 +466,13 @@ impl ToDataType for Type {
 
             TypeDetails::Boolean => Ok(DataType::Bool),
 
-            TypeDetails::Null => Err(ParseError::from_file_string(
-                source_file.file_name.clone(),
-                source_file.file_string.clone(),
-                vec![Annotation {
-                    ty: AnnotationType::Primary,
-                    location: Location::Range(self.span.clone()),
-                    message: "null type found here".to_string(),
-                }],
-                "cannot convert `null` type to dbcrossbar type".to_owned(),
+            TypeDetails::Null => Err(ParseError::new(
+                source_file.file_info.clone(),
+                vec![Annotation::primary(
+                    self.span.clone(),
+                    "null type found here",
+                )],
+                "cannot convert `null` type to dbcrossbar type",
             )),
 
             TypeDetails::Number => Ok(DataType::Float64),
@@ -519,15 +481,13 @@ impl ToDataType for Type {
 
             TypeDetails::String => Ok(DataType::Text),
 
-            TypeDetails::Union(_, _) => Err(ParseError::from_file_string(
-                source_file.file_name.clone(),
-                source_file.file_string.clone(),
-                vec![Annotation {
-                    ty: AnnotationType::Primary,
-                    location: Location::Range(self.span.clone()),
-                    message: "union type found here".to_string(),
-                }],
-                "cannot convert union type to dbcrossbar type".to_owned(),
+            TypeDetails::Union(_, _) => Err(ParseError::new(
+                source_file.file_info.clone(),
+                vec![Annotation::primary(
+                    self.span.clone(),
+                    "union type found here",
+                )],
+                "cannot convert union type to dbcrossbar type",
             )),
         }
     }
