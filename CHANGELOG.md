@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` is an internal-only dependency with no versioning policy at this time.)
 
+## 0.4.0-alpha.5 - 2020-05-21
+
+### Added
+
+- BigQuery: Support `--if-exists=error`.
+
+### Changed
+
+- Require `--enable-unstable` to use `dbcrossbar-ts` or `shopify` locators, which are unstable.
+- AWS credentials must now always be passed via `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` (optional) and `AWS_REGION` (optional). This lays the groundwork for replacing the `aws` CLI tool with native Rust code, so that we will someday be able to remove our last CLI dependency.
+
 ## 0.4.0-alpha.4 - 2020-05-19
 
 ### Added
