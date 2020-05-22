@@ -28,7 +28,7 @@ pub struct RedshiftLocator {
 
 impl RedshiftLocator {
     /// The URL for this locator.
-    pub(crate) fn url(&self) -> &Url {
+    pub(crate) fn url(&self) -> &UrlWithHiddenPassword {
         self.postgres_locator.url()
     }
 

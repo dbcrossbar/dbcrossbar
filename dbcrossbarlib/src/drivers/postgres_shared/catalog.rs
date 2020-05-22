@@ -74,10 +74,10 @@ impl PgColumnSchema {
 ///
 /// Returns `None` if no matching table exists.
 pub(crate) fn fetch_from_url(
-    database_url: &Url,
+    database_url: &UrlWithHiddenPassword,
     full_table_name: &str,
 ) -> Result<Option<PgCreateTable>> {
-    let conn = PgConnection::establish(database_url.as_str())
+    let conn = PgConnection::establish(database_url.with_password().as_str())
         .context("error connecting to PostgreSQL")?;
     let (table_schema, table_name) = parse_full_table_name(full_table_name);
 

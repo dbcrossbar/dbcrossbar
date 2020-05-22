@@ -29,14 +29,16 @@ use self::write_local_data::write_local_data_helper;
 pub(crate) use write_local_data::prepare_table;
 
 /// Connect to the database, using SSL if possible.
-pub(crate) async fn connect(ctx: Context, url: Url) -> Result<Client> {
+pub(crate) async fn connect(
+    ctx: &Context,
+    url: &UrlWithHiddenPassword,
+) -> Result<Client> {
     let mut base_url = url.clone();
-    base_url.set_fragment(None);
+    base_url.as_url_mut().set_fragment(None);
 
     // Build a basic config from our URL args.
-    let config = Config::from_str(base_url.as_str())
+    let config = Config::from_str(base_url.with_password().as_str())
         .context("could not configure PostgreSQL connection")?;
-    trace!(ctx.log(), "PostgreSQL connection config: {:?}", config);
     let tls_connector = TlsConnector::builder()
         .build()
         .context("could not build PostgreSQL TLS connector")?;
@@ -59,15 +61,15 @@ pub(crate) async fn connect(ctx: Context, url: Url) -> Result<Client> {
 ///
 /// This is the central point of access for talking to a running PostgreSQL
 /// database.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PostgresLocator {
-    url: Url,
+    url: UrlWithHiddenPassword,
     table_name: String,
 }
 
 impl PostgresLocator {
     /// The URL associated with this locator.
-    pub(crate) fn url(&self) -> &Url {
+    pub(crate) fn url(&self) -> &UrlWithHiddenPassword {
         &self.url
     }
 
@@ -75,32 +77,12 @@ impl PostgresLocator {
     pub(crate) fn table_name(&self) -> &str {
         &self.table_name
     }
-
-    /// Return our `url`, replacing any password with a placeholder string. Used
-    /// for logging.
-    fn url_without_password(&self) -> Url {
-        let mut url = self.url.clone();
-        if url.password().is_some() {
-            url.set_password(Some("XXXXXX"))
-                .expect("should always be able to set password for postgres://");
-        }
-        url
-    }
-}
-
-impl fmt::Debug for PostgresLocator {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("PostgresLocator")
-            .field("url", &self.url_without_password())
-            .field("table_name", &self.table_name)
-            .finish()
-    }
 }
 
 impl fmt::Display for PostgresLocator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut full_url = self.url_without_password();
-        full_url.set_fragment(Some(&self.table_name));
+        let mut full_url = self.url.clone();
+        full_url.as_url_mut().set_fragment(Some(&self.table_name));
         full_url.fmt(f)
     }
 }
@@ -129,6 +111,7 @@ impl FromStr for PostgresLocator {
                 })?
                 .to_owned();
             url.set_fragment(None);
+            let url = UrlWithHiddenPassword::new(url);
             Ok(PostgresLocator { url, table_name })
         }
     }

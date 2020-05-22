@@ -10,7 +10,7 @@ use crate::drivers::postgres_shared::{CheckCatalog, PgCreateTable};
 /// Copy the specified table from the database, returning a `CsvStream`.
 pub(crate) async fn local_data_helper(
     ctx: Context,
-    url: Url,
+    url: UrlWithHiddenPassword,
     table_name: String,
     shared_args: SharedArguments<Unverified>,
     source_args: SourceArguments<Unverified>,
@@ -42,7 +42,7 @@ pub(crate) async fn local_data_helper(
     debug!(ctx.log(), "export SQL: {}", sql);
 
     // Copy the data out of PostgreSQL as a CSV stream.
-    let conn = connect(ctx.clone(), url).await?;
+    let conn = connect(&ctx, &url).await?;
     let stmt = conn.prepare(&sql).await?;
     let rdr = conn
         .copy_out(&stmt)

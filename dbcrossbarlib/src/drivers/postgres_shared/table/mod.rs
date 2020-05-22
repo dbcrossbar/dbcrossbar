@@ -100,7 +100,7 @@ impl PgCreateTable {
     ///
     /// Returns `None` if no matching table exists.
     pub(crate) async fn from_pg_catalog(
-        database_url: &Url,
+        database_url: &UrlWithHiddenPassword,
         full_table_name: &str,
     ) -> Result<Option<PgCreateTable>> {
         let database_url = database_url.to_owned();
@@ -118,7 +118,7 @@ impl PgCreateTable {
     /// table.
     pub(crate) async fn from_pg_catalog_or_default(
         check_catalog: CheckCatalog,
-        database_url: &Url,
+        database_url: &UrlWithHiddenPassword,
         full_table_name: &str,
         default: &Table,
     ) -> Result<PgCreateTable> {

@@ -47,6 +47,7 @@ pub(crate) mod separator;
 mod temporary_storage;
 pub mod tokio_glue;
 pub(crate) mod transform;
+mod url_with_hidden_password;
 
 /// Standard error type for this library.
 pub use failure::Error;
@@ -113,6 +114,7 @@ pub(crate) mod common {
             buffer_sync_write_and_copy_to_async, run_futures_with_runtime,
             spawn_blocking, BoxFuture, BoxStream, SendResultExt,
         },
+        url_with_hidden_password::UrlWithHiddenPassword,
         Error, Result, BUFFER_SIZE,
     };
 }

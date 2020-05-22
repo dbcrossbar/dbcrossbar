@@ -59,7 +59,7 @@ pub(crate) async fn write_remote_data_helper(
     debug!(ctx.log(), "export SQL: {}", select_sql);
 
     // Export as CSV.
-    let client = connect(ctx.clone(), source.url().to_owned()).await?;
+    let client = connect(&ctx, source.url()).await?;
     let unload_sql = format!(
         "UNLOAD ({source}) TO {dest}\n{credentials}HEADER FORMAT CSV",
         source = pg_quote(&select_sql),

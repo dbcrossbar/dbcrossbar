@@ -250,7 +250,7 @@ pub(crate) async fn write_local_data_helper(
     .await?;
 
     // Connect to PostgreSQL and prepare our destination table.
-    let mut client = connect(ctx.clone(), url.clone()).await?;
+    let mut client = connect(&ctx, &url).await?;
     prepare_table(&ctx, &mut client, dest_table.clone(), &if_exists).await?;
 
     // Insert data streams one at a time, because parallel insertion _probably_
