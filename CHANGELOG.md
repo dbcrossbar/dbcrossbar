@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` is an internal-only dependency with no versioning policy at this time.)
 
+## 0.4.0-alpha.6 - 2020-05-22
+
+This release improves the example `shopify.ts` schema, and adds new features to `dbcrossbar-ts` to parse it.
+
+### Added
+
+- dbcrossbar-ts:
+  - Parse `/* */` comments.
+  - Allow `Date` to be used as a type. This requires the date to be a string in ISO 8601 format, including a time zone.
+  - Allow `decimal`, `int16`, `int32` and `int64` to be defined as any of `number`, `string`, `number | string` or `string | number`. This allows the schema to more accurately represent what appears on the wire. It allows `decimal` values to be represented as a mix of floats and strings, which is seen in Shopify.
+- postgres-sql: Use new format for parse errors.
+
+### Fixed
+
+- shopify: The example `shopify.ts` schema has been updated to use `Date` and `int64` in many places. `Address` and `CustomerAddress` are now distinct types, and several other minor issues have been fixed.
+
 ## 0.4.0-alpha.5 - 2020-05-21
 
 ### Added
