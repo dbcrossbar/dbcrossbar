@@ -217,19 +217,19 @@ impl ToDataType for Definition {
             Definition::TypeAlias(_, id, ty) => match id.as_str() {
                 // These type aliases are magic when converting to a data type.
                 "decimal" => {
-                    ty.expect_string_type(source_file, id)?;
+                    ty.expect_string_and_or_number_type(source_file, id)?;
                     Ok(DataType::Decimal)
                 }
                 "int16" => {
-                    ty.expect_integer_type(source_file, id)?;
+                    ty.expect_string_and_or_number_type(source_file, id)?;
                     Ok(DataType::Int16)
                 }
                 "int32" => {
-                    ty.expect_integer_type(source_file, id)?;
+                    ty.expect_string_and_or_number_type(source_file, id)?;
                     Ok(DataType::Int32)
                 }
                 "int64" => {
-                    ty.expect_integer_type(source_file, id)?;
+                    ty.expect_string_and_or_number_type(source_file, id)?;
                     Ok(DataType::Int64)
                 }
 
@@ -330,6 +330,8 @@ pub(crate) enum TypeDetails {
     Array(Box<Type>),
     /// A true or false value.
     Boolean,
+    /// An ISO 8601 date, including timezone.
+    Date,
     /// The null value.
     Null,
     /// A 64-bit floating point number.
@@ -384,32 +386,16 @@ impl Type {
         }
     }
 
-    /// Check to see if this type is equal to `string`, and if it isn't, blame it on `id`.
-    fn expect_string_type(
+    /// Check to see if this type is equal to `number`, `string`, or `number |
+    /// string`, and if it isn't, blame it on `id`.
+    fn expect_string_and_or_number_type(
         &self,
         source_file: &SourceFile,
         id: &Identifier,
     ) -> Result<(), ParseError> {
         match &self.details {
+            TypeDetails::Number => Ok(()),
             TypeDetails::String => Ok(()),
-            _ => Err(ParseError::new(
-                source_file.file_info.clone(),
-                vec![
-                    Annotation::primary(self.span.clone(), "expected `string`"),
-                    Annotation::secondary(id.span(), "because this name is reserved"),
-                ],
-                format!("unexpected definition of type {}", id),
-            )),
-        }
-    }
-
-    /// Check to see if this type is equal to `number | string`, and if it isn't, blame it on `id`.
-    fn expect_integer_type(
-        &self,
-        source_file: &SourceFile,
-        id: &Identifier,
-    ) -> Result<(), ParseError> {
-        match &self.details {
             TypeDetails::Union(t1, t2) if t1.is_string() && t2.is_number() => Ok(()),
             TypeDetails::Union(t1, t2) if t1.is_number() && t2.is_string() => Ok(()),
             _ => Err(ParseError::new(
@@ -436,6 +422,7 @@ impl Node for Type {
         match &self.details {
             TypeDetails::Any
             | TypeDetails::Boolean
+            | TypeDetails::Date
             | TypeDetails::Null
             | TypeDetails::Number
             | TypeDetails::String => Ok(()),
@@ -465,6 +452,8 @@ impl ToDataType for Type {
                 .map(|ty| DataType::Array(Box::new(ty))),
 
             TypeDetails::Boolean => Ok(DataType::Bool),
+
+            TypeDetails::Date => Ok(DataType::TimestampWithTimeZone),
 
             TypeDetails::Null => Err(ParseError::new(
                 source_file.file_info.clone(),
@@ -603,10 +592,11 @@ peg::parser! {
             }
             --
             "any" { TypeDetails::Any }
-            "string" { TypeDetails::String }
+            "boolean" { TypeDetails::Boolean }
+            "Date" { TypeDetails::Date }
             "null" { TypeDetails::Null }
             "number" { TypeDetails::Number }
-            "boolean" { TypeDetails::Boolean }
+            "string" { TypeDetails::String }
             id:identifier() { TypeDetails::Ref(id) }
         }
 
@@ -756,8 +746,8 @@ interface Magic {
 fn rejects_invalid_magic_types() {
     let invalid_declarations = &[
         "type decimal = boolean;\ninterface Example { f: decimal, }",
-        "type int16 = number;\ninterface Example { f: int16, }",
-        "type int32 = string;\ninterface Example { f: int32, }",
+        "type int16 = boolean;\ninterface Example { f: int16, }",
+        "type int32 = boolean;\ninterface Example { f: int32, }",
     ];
     for &decl in invalid_declarations {
         let source_file =
