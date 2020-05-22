@@ -211,7 +211,7 @@ interface Property {
 
 interface TaxLine {
     title: string | null,
-    price: string | null,
+    price: decimal | null,
     price_set: PriceSet | null,
     rate: number | null,
 }
