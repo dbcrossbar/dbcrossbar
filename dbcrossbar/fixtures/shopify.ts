@@ -452,7 +452,6 @@ interface CurrencyExchangeAdjustment {
  * 
  * [Order]: https://shopify.dev/docs/admin-api/rest/reference/orders/order?api[version]=2020-04
  */
-
 interface ShippingLine {
     code: string | null,
     price: decimal | null,
