@@ -154,8 +154,25 @@
                         <h1><a class="header" href="#changelog" id="changelog">Changelog</a></h1>
 <p>All notable changes to this project will be documented in this file.</p>
 <p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>, and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a> for the <code>dbcrossbar</code> CLI tool. (The <code>dbcrossbarlib</code> is an internal-only dependency with no versioning policy at this time.)</p>
-<h2><a class="header" href="#040-alpha5---2020-05-21" id="040-alpha5---2020-05-21">0.4.0-alpha.5 - 2020-05-21</a></h2>
+<h2><a class="header" href="#040-alpha6---2020-05-22" id="040-alpha6---2020-05-22">0.4.0-alpha.6 - 2020-05-22</a></h2>
+<p>This release improves the example <code>shopify.ts</code> schema, and adds new features to <code>dbcrossbar-ts</code> to parse it.</p>
 <h3><a class="header" href="#added" id="added">Added</a></h3>
+<ul>
+<li>dbcrossbar-ts:
+<ul>
+<li>Parse <code>/* */</code> comments.</li>
+<li>Allow <code>Date</code> to be used as a type. This requires the date to be a string in ISO 8601 format, including a time zone.</li>
+<li>Allow <code>decimal</code>, <code>int16</code>, <code>int32</code> and <code>int64</code> to be defined as any of <code>number</code>, <code>string</code>, <code>number | string</code> or <code>string | number</code>. This allows the schema to more accurately represent what appears on the wire. It allows <code>decimal</code> values to be represented as a mix of floats and strings, which is seen in Shopify.</li>
+</ul>
+</li>
+<li>postgres-sql: Use new format for parse errors.</li>
+</ul>
+<h3><a class="header" href="#fixed" id="fixed">Fixed</a></h3>
+<ul>
+<li>shopify: The example <code>shopify.ts</code> schema has been updated to use <code>Date</code> and <code>int64</code> in many places. <code>Address</code> and <code>CustomerAddress</code> are now distinct types, and several other minor issues have been fixed.</li>
+</ul>
+<h2><a class="header" href="#040-alpha5---2020-05-21" id="040-alpha5---2020-05-21">0.4.0-alpha.5 - 2020-05-21</a></h2>
+<h3><a class="header" href="#added-1" id="added-1">Added</a></h3>
 <ul>
 <li>BigQuery: Support <code>--if-exists=error</code>.</li>
 </ul>
@@ -165,7 +182,7 @@
 <li>AWS credentials must now always be passed via <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>, <code>AWS_SESSION_TOKEN</code> (optional) and <code>AWS_REGION</code> (optional). This lays the groundwork for replacing the <code>aws</code> CLI tool with native Rust code, so that we will someday be able to remove our last CLI dependency.</li>
 </ul>
 <h2><a class="header" href="#040-alpha4---2020-05-19" id="040-alpha4---2020-05-19">0.4.0-alpha.4 - 2020-05-19</a></h2>
-<h3><a class="header" href="#added-1" id="added-1">Added</a></h3>
+<h3><a class="header" href="#added-2" id="added-2">Added</a></h3>
 <ul>
 <li>BigQuery now imports and exports decimal (aka NUMERIC) values everywhere.</li>
 <li>The <code>dbcrossbar-ts</code> driver now supports magic type aliases that will convert to the corresponding <code>dbcrossbar</code> types:
@@ -185,7 +202,7 @@
 <p>YANKED.</p>
 <h2><a class="header" href="#040-alpha2---2020-05-19" id="040-alpha2---2020-05-19">0.4.0-alpha.2 - 2020-05-19</a></h2>
 <p>This is a significant release, with support for &quot;struct&quot; types.</p>
-<h3><a class="header" href="#added-2" id="added-2">Added</a></h3>
+<h3><a class="header" href="#added-3" id="added-3">Added</a></h3>
 <ul>
 <li>The portable schema now supports a <code>DataType::Struct(fields)</code> type that can be used to represent BigQuery STRUCT values (as long as they have unique, named fields) and JSON objects with known keys.</li>
 <li>The BigQuery driver now supports importing and exporting <code>STRUCT</code> fields using the new <code>DataType::Struct(fields)</code> type.</li>
@@ -199,7 +216,7 @@
 <li>BREAKING: Some corner cases involving struct types and JSON may have changed subtly.</li>
 <li>We've upgraded to the latest <code>rust-peg</code> parser syntax everywhere.</li>
 </ul>
-<h3><a class="header" href="#fixed" id="fixed">Fixed</a></h3>
+<h3><a class="header" href="#fixed-1" id="fixed-1">Fixed</a></h3>
 <ul>
 <li><code>--if-exists=overwrite</code> now overwrites when writing to local files (instead of appending).</li>
 <li>We automatically create <code>~/.local/share</code> if it does not exist.</li>
@@ -211,25 +228,25 @@
 <ul>
 <li>Replace <code>gcloud auth</code>, <code>gsutil</code> and <code>bq</code> with native Rust. This changes how we authenticate to Google Cloud. In particular, we now support <code>GCLOUD_CLIENT_SECRET</code>, <code>~/.config/dbcrossbar/gcloud_client_secret.json</code>, <code>GCLOUD_SERVICE_ACCOUNT_KEY</code> or <code>~/.config/dbcrossbar/gcloud_service_account_key.json</code>, as <a href="https://www.dbcrossbar.org/gs.html#configuration--authentication">explained in the manual</a>. We no longer use <code>gcloud auth</code>, and the Google Cloud SDK tools are no longer required. In the current alpha version, uploads and deletions are probably slower than before.</li>
 </ul>
-<h3><a class="header" href="#fixed-1" id="fixed-1">Fixed</a></h3>
+<h3><a class="header" href="#fixed-2" id="fixed-2">Fixed</a></h3>
 <ul>
 <li>gs: Avoid download stalls when backpressure is applied (<a href="https://github.com/dbcrossbar/dbcrossbar/issues/102">#103</a>).</li>
 <li>bigquery: Display error messages more reliably (<a href="https://github.com/dbcrossbar/dbcrossbar/issues/110">#110</a>).</li>
 <li>bigquery: Detect &quot;`&quot; quotes in the CLI form of table names, and report an error.</li>
 </ul>
 <h2><a class="header" href="#033---2020-03-30" id="033---2020-03-30">0.3.3 - 2020-03-30</a></h2>
-<h3><a class="header" href="#added-3" id="added-3">Added</a></h3>
+<h3><a class="header" href="#added-4" id="added-4">Added</a></h3>
 <ul>
 <li>BigML: Honor BIGML_DOMAIN, allowing the user to point the BigML driver to a custom VPC instance of BigML.</li>
 </ul>
 <h2><a class="header" href="#032---2020-03-30" id="032---2020-03-30">0.3.2 - 2020-03-30</a></h2>
-<h3><a class="header" href="#fixed-2" id="fixed-2">Fixed</a></h3>
+<h3><a class="header" href="#fixed-3" id="fixed-3">Fixed</a></h3>
 <ul>
 <li>Correctly quote BigQuery column names again (which regressed in 0.3.0), and added test cases to prevent further regressions.</li>
 <li>Fix an error that caused <code>bigquery_upsert</code> test to fail.</li>
 </ul>
 <h2><a class="header" href="#031---2020-03-29" id="031---2020-03-29">0.3.1 - 2020-03-29</a></h2>
-<h3><a class="header" href="#added-4" id="added-4">Added</a></h3>
+<h3><a class="header" href="#added-5" id="added-5">Added</a></h3>
 <ul>
 <li>Write a new <a href="https://www.dbcrossbar.org/">manual</a>!</li>
 </ul>
@@ -238,12 +255,12 @@
 <li>Encapsulate all calls to <code>bq</code> and <code>gsutil</code></li>
 <li>Improve performance of <code>--stream-size</code></li>
 </ul>
-<h3><a class="header" href="#fixed-3" id="fixed-3">Fixed</a></h3>
+<h3><a class="header" href="#fixed-4" id="fixed-4">Fixed</a></h3>
 <ul>
 <li>BigQuery: Honor NOT NULL on import (fixes #45)</li>
 </ul>
 <h2><a class="header" href="#030---2020-03-26" id="030---2020-03-26">0.3.0 - 2020-03-26</a></h2>
-<h3><a class="header" href="#added-5" id="added-5">Added</a></h3>
+<h3><a class="header" href="#added-6" id="added-6">Added</a></h3>
 <ul>
 <li>Use <code>cargo deny</code> to enforce license and duplicate dependency policies</li>
 <li>Add notes about license and contribution policies</li>
@@ -254,7 +271,7 @@
 <li>Replace <code>wkb</code> with <code>postgis</code> for licensing reasons</li>
 <li>BigML: Fail immediately if no S3 temporary bucket provided (fixes #101)</li>
 </ul>
-<h3><a class="header" href="#fixed-4" id="fixed-4">Fixed</a></h3>
+<h3><a class="header" href="#fixed-5" id="fixed-5">Fixed</a></h3>
 <ul>
 <li>BigQuery: Handle mixed-case column names using BigQuery semantics (fixes #84)</li>
 <li>PostgreSQL: Fix upserts with mixed-case column names</li>
