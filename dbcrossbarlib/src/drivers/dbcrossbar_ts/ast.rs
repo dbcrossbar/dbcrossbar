@@ -623,11 +623,15 @@ peg::parser! {
             }
             / expected!("identifier")
 
+        // Whitespace, including comments. We don't normally want whitespace to
+        // show up as an "expected" token in error messages, so we carefully
+        // enclose _most_ of this in `quiet!`. The exception is the closing
+        // "*/" in a block comment, which we want to mention explicitly.
         rule ws() = (quiet! { [' ' | '\t' | '\r' | '\n'] } / line_comment() / block_comment())+
 
-        rule line_comment() = "//" (!['\n'][_])* ( "\n" / ![_] )
+        rule line_comment() = quiet! { "//" (!['\n'][_])* ( "\n" / ![_] ) }
 
-        rule block_comment() = "/*" quiet! { (!"*/"[_])* } "*/"
+        rule block_comment() = quiet! { "/*"(!"*/"[_])* } "*/"
     }
 }
 
