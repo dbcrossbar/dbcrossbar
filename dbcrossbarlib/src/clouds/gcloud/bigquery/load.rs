@@ -3,7 +3,7 @@
 use super::{
     super::Client,
     jobs::{
-        run_job, CreateDisposition, Job, JobConfigurationLoad, TableReference,
+        run_job, CreateDisposition, Job, JobConfigurationLoad, Labels, TableReference,
         WriteDisposition,
     },
     TableSchema,
@@ -18,6 +18,7 @@ pub(crate) async fn load(
     gs_url: &Url,
     dest_table: &BqTable,
     if_exists: &IfExists,
+    labels: &Labels,
 ) -> Result<()> {
     trace!(ctx.log(), "loading {} into {}", gs_url, dest_table.name);
 
@@ -40,7 +41,7 @@ pub(crate) async fn load(
         ctx,
         &client,
         dest_table.name.project(),
-        Job::new_load(config),
+        Job::new_load(config, labels.to_owned()),
     )
     .await?;
     Ok(())

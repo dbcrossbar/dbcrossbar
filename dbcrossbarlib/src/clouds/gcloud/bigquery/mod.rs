@@ -13,6 +13,7 @@ mod queries;
 mod schema;
 
 pub(crate) use extract::*;
+pub(crate) use jobs::Labels;
 pub(crate) use load::*;
 pub(crate) use queries::*;
 pub(crate) use schema::*;
@@ -55,9 +56,13 @@ pub(crate) struct TableSchema {
 }
 
 /// Drop a table from BigQuery.
-pub(crate) async fn drop_table(ctx: &Context, table_name: &TableName) -> Result<()> {
+pub(crate) async fn drop_table(
+    ctx: &Context,
+    table_name: &TableName,
+    labels: &Labels,
+) -> Result<()> {
     // Delete temp table.
     debug!(ctx.log(), "deleting table: {}", table_name);
     let sql = format!("DROP TABLE {};\n", table_name.dotted_and_quoted());
-    execute_sql(ctx, table_name.project(), &sql).await
+    execute_sql(ctx, table_name.project(), &sql, labels).await
 }

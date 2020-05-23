@@ -13,6 +13,7 @@
 mod column;
 mod column_name;
 mod data_type;
+mod driver_args;
 mod export_udf;
 mod import_udf;
 mod indent_level;
@@ -22,5 +23,6 @@ mod table_name;
 pub(crate) use self::column::*;
 pub(crate) use self::column_name::*;
 pub(crate) use self::data_type::*;
+pub(crate) use self::driver_args::*;
 pub(crate) use self::table::*;
 pub(crate) use self::table_name::*;

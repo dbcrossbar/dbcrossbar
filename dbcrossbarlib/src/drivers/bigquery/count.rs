@@ -6,7 +6,7 @@ use crate::clouds::gcloud::bigquery;
 use crate::common::*;
 use crate::drivers::{
     bigquery::BigQueryLocator,
-    bigquery_shared::{BqTable, Usage},
+    bigquery_shared::{BqTable, GCloudDriverArguments, Usage},
 };
 
 /// Implementation of `count`, but as a real `async` function.
@@ -18,6 +18,14 @@ pub(crate) async fn count_helper(
 ) -> Result<usize> {
     let shared_args = shared_args.verify(BigQueryLocator::features())?;
     let source_args = source_args.verify(BigQueryLocator::features())?;
+
+    // Get our billing labels.
+    let job_labels = source_args
+        .driver_args()
+        .deserialize::<GCloudDriverArguments>()
+        .context("error parsing --from-args")?
+        .job_labels
+        .to_owned();
 
     // Look up the arguments we need.
     let schema = shared_args.schema();
@@ -41,10 +49,14 @@ pub(crate) async fn count_helper(
     struct CountRow {
         count: String,
     }
-    let count_str =
-        bigquery::query_one::<CountRow>(&ctx, locator.project(), &count_sql)
-            .await?
-            .count;
+    let count_str = bigquery::query_one::<CountRow>(
+        &ctx,
+        locator.project(),
+        &count_sql,
+        &job_labels,
+    )
+    .await?
+    .count;
     Ok(count_str
         .parse::<usize>()
         .context("could not parse count output")?)

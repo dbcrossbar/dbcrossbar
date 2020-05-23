@@ -7,7 +7,7 @@ use super::BigQueryLocator;
 use crate::clouds::gcloud::bigquery;
 use crate::common::*;
 use crate::drivers::{
-    bigquery_shared::{BqTable, TableBigQueryExt, Usage},
+    bigquery_shared::{BqTable, GCloudDriverArguments, TableBigQueryExt, Usage},
     gs::GsLocator,
 };
 
@@ -43,6 +43,14 @@ pub(crate) async fn write_remote_data_helper(
     let schema = shared_args.schema();
     let temporary_storage = shared_args.temporary_storage();
     let if_exists = dest_args.if_exists();
+
+    // Get our billing labels.
+    let job_labels = dest_args
+        .driver_args()
+        .deserialize::<GCloudDriverArguments>()
+        .context("error parsing --to-args")?
+        .job_labels
+        .to_owned();
 
     // If our URL looks like a directory, add a glob.
     //
@@ -105,7 +113,14 @@ pub(crate) async fn write_remote_data_helper(
     };
 
     // Load our data.
-    bigquery::load(&ctx, &source_url, &initial_table, if_initial_table_exists).await?;
+    bigquery::load(
+        &ctx,
+        &source_url,
+        &initial_table,
+        if_initial_table_exists,
+        &job_labels,
+    )
+    .await?;
 
     // If `use_temp` is false, then we're done. Otherwise, run the update SQL to
     // build the final table (if needed).
@@ -128,10 +143,10 @@ pub(crate) async fn write_remote_data_helper(
         let query =
             String::from_utf8(query).expect("generated SQL should always be UTF-8");
         debug!(ctx.log(), "import sql: {}", query);
-        bigquery::execute_sql(&ctx, dest.project(), &query).await?;
+        bigquery::execute_sql(&ctx, dest.project(), &query, &job_labels).await?;
 
         // Delete temp table.
-        bigquery::drop_table(&ctx, initial_table.name()).await?;
+        bigquery::drop_table(&ctx, initial_table.name(), &job_labels).await?;
     }
 
     Ok(vec![dest.boxed()])

@@ -3,7 +3,7 @@
 //! These use a number of closely-related types.
 
 use serde::{Deserialize, Serialize};
-use std::convert::TryFrom;
+use std::{collections::HashMap, convert::TryFrom};
 use tokio::time::{delay_for, Duration};
 
 use super::{
@@ -12,6 +12,11 @@ use super::{
 };
 use crate::common::*;
 use crate::drivers::bigquery_shared::TableName;
+
+/// Key/value pairs. See [JobConfiguration][config].
+///
+/// [config]: https://cloud.google.com/bigquery/docs/reference/rest/v2/Job#jobconfiguration
+pub(crate) type Labels = HashMap<String, String>;
 
 /// A BigQuery job.
 #[derive(Debug, Deserialize, Serialize)]
@@ -49,23 +54,32 @@ impl Job {
     }
 
     /// Create a new query job.
-    pub(crate) fn new_query(query_config: JobConfigurationQuery) -> Self {
+    pub(crate) fn new_query(
+        query_config: JobConfigurationQuery,
+        labels: Labels,
+    ) -> Self {
         let mut config = JobConfiguration::default();
         config.query = Some(query_config);
+        config.labels = labels;
         Self::from_config(config)
     }
 
     /// Create a new load job.
-    pub(crate) fn new_load(load_config: JobConfigurationLoad) -> Self {
+    pub(crate) fn new_load(load_config: JobConfigurationLoad, labels: Labels) -> Self {
         let mut config = JobConfiguration::default();
         config.load = Some(load_config);
+        config.labels = labels;
         Self::from_config(config)
     }
 
     /// Create a new load job.
-    pub(crate) fn new_extract(extract_config: JobConfigurationExtract) -> Self {
+    pub(crate) fn new_extract(
+        extract_config: JobConfigurationExtract,
+        labels: Labels,
+    ) -> Self {
         let mut config = JobConfiguration::default();
         config.extract = Some(extract_config);
+        config.labels = labels;
         Self::from_config(config)
     }
 
@@ -121,6 +135,10 @@ pub(crate) struct JobConfiguration {
     /// Don't run the job, just calculate what we would need to do.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) dry_run: Option<bool>,
+
+    /// Labels to attach to jobs.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub(crate) labels: Labels,
 }
 
 /// Configuration for query jobs.
