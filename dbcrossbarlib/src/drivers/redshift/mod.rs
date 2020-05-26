@@ -3,6 +3,7 @@
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::{
+    collections::HashMap,
     fmt,
     str::{self, FromStr},
 };
@@ -146,10 +147,11 @@ impl LocatorStatic for RedshiftLocator {
 /// Given a `DriverArgs` structure, convert it into Redshift credentials SQL.
 pub(crate) fn credentials_sql(args: &DriverArguments) -> Result<String> {
     let mut out = vec![];
-    for (k, v) in args.iter() {
+    let map = args.deserialize::<HashMap<String, String>>()?;
+    for (k, v) in &map {
         lazy_static! {
             static ref KEY_RE: Regex =
-                Regex::new("^[-_A-Za-z0-9]+$").expect("invalid regex in source code");
+                Regex::new("^[_A-Za-z0-9]+$").expect("invalid regex in source code");
         }
         if !KEY_RE.is_match(k) {
             return Err(format_err!("cannot pass {:?} as Redshift credential", k));
