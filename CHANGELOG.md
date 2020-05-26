@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` is an internal-only dependency with no versioning policy at this time.)
 
+## 0.4.0-alpha.7 - 2020-05-22
+
+This release adds support for labeling BigQuery jobs.
+
+### Added
+
+- bigquery: Optionally specify billing labels for jobs. See the manual for details.
+- Allow driver argument names to be specified as either `x.y` or `x[y]`, interchangeably. This makes `job_labels` look nicer.
+- Hide URL passwords from (most) logs using a dedicated wrapper type.
+
+### Changed
+
+- We now have test cases that make sure we catch duplicate driver arguments and raise an error.
+- redshift: Authentication argument names may no longer include `-` characters. I'm not even sure whether these are valid, but they won't work with the new scheme for parsing driver arguments.
+- `DriverArguments::from_cli_args` now takes an iterator instead of a slice.
+
 ## 0.4.0-alpha.6 - 2020-05-22
 
 This release improves the example `shopify.ts` schema, and adds new features to `dbcrossbar-ts` to parse it.
