@@ -2,7 +2,7 @@
 
 use super::{
     super::Client,
-    jobs::{run_job, Job, JobConfigurationExtract, TableReference},
+    jobs::{run_job, Job, JobConfigurationExtract, Labels, TableReference},
 };
 
 use crate::common::*;
@@ -13,6 +13,7 @@ pub(crate) async fn extract(
     ctx: &Context,
     source_table: &TableName,
     dest_gs_url: &Url,
+    labels: &Labels,
 ) -> Result<()> {
     trace!(ctx.log(), "extract {} into {}", source_table, dest_gs_url);
 
@@ -28,7 +29,7 @@ pub(crate) async fn extract(
         ctx,
         &client,
         source_table.project(),
-        Job::new_extract(config),
+        Job::new_extract(config, labels.to_owned()),
     )
     .await?;
     Ok(())

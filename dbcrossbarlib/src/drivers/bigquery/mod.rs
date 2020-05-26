@@ -130,8 +130,9 @@ impl LocatorStatic for BigQueryLocator {
                 | LocatorFeatures::WriteLocalData
                 | LocatorFeatures::Count,
             write_schema_if_exists: EnumSet::empty(),
-            source_args: SourceArgumentsFeatures::WhereClause.into(),
-            dest_args: EnumSet::empty(),
+            source_args: SourceArgumentsFeatures::DriverArgs
+                | SourceArgumentsFeatures::WhereClause,
+            dest_args: DestinationArgumentsFeatures::DriverArgs.into(),
             dest_if_exists: IfExistsFeatures::Error
                 | IfExistsFeatures::Overwrite
                 | IfExistsFeatures::Append

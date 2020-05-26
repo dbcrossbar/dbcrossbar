@@ -5,7 +5,7 @@ use crate::clouds::gcloud::bigquery;
 use crate::common::*;
 use crate::drivers::{
     bigquery::BigQueryLocator,
-    bigquery_shared::{BqTable, Usage},
+    bigquery_shared::{BqTable, GCloudDriverArguments, Usage},
 };
 
 /// Copy `source` to `dest` using `schema`.
@@ -40,6 +40,14 @@ pub(crate) async fn write_remote_data_helper(
     let temporary_storage = shared_args.temporary_storage();
     let if_exists = dest_args.if_exists().to_owned();
 
+    // Get our billing labels.
+    let job_labels = source_args
+        .driver_args()
+        .deserialize::<GCloudDriverArguments>()
+        .context("error parsing --from-args")?
+        .job_labels
+        .to_owned();
+
     // Construct a `BqTable` describing our source table.
     let source_table = BqTable::for_table_name_and_columns(
         source_table_name.clone(),
@@ -71,6 +79,7 @@ pub(crate) async fn write_remote_data_helper(
         &export_sql,
         &temp_table_name,
         &IfExists::Overwrite,
+        &job_labels,
     )
     .await?;
 
@@ -79,9 +88,9 @@ pub(crate) async fn write_remote_data_helper(
         .await?;
 
     // Build and run a `bq extract` command.
-    bigquery::extract(&ctx, &temp_table_name, dest.as_url()).await?;
+    bigquery::extract(&ctx, &temp_table_name, dest.as_url(), &job_labels).await?;
 
     // Delete temp table.
-    bigquery::drop_table(&ctx, &temp_table_name).await?;
+    bigquery::drop_table(&ctx, &temp_table_name, &job_labels).await?;
     Ok(vec![dest.boxed()])
 }

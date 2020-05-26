@@ -6,8 +6,8 @@ use std::convert::TryFrom;
 use super::{
     super::client::{percent_encode, Client},
     jobs::{
-        run_job, CreateDisposition, Job, JobConfigurationQuery, TableReference,
-        WriteDisposition,
+        run_job, CreateDisposition, Job, JobConfigurationQuery, Labels,
+        TableReference, WriteDisposition,
     },
     TableSchema,
 };
@@ -19,11 +19,18 @@ pub(crate) async fn execute_sql(
     ctx: &Context,
     project: &str,
     sql: &str,
+    labels: &Labels,
 ) -> Result<()> {
     trace!(ctx.log(), "executing SQL: {}", sql);
     let config = JobConfigurationQuery::new(sql);
     let client = Client::new(ctx).await?;
-    run_job(ctx, &client, project, Job::new_query(config)).await?;
+    run_job(
+        ctx,
+        &client,
+        project,
+        Job::new_query(config, labels.to_owned()),
+    )
+    .await?;
     Ok(())
 }
 
@@ -34,6 +41,7 @@ pub(crate) async fn query_to_table(
     sql: &str,
     dest_table: &TableName,
     if_exists: &IfExists,
+    labels: &Labels,
 ) -> Result<()> {
     trace!(ctx.log(), "writing query to {}: {}", dest_table, sql);
 
@@ -45,7 +53,13 @@ pub(crate) async fn query_to_table(
 
     // Run our query.
     let client = Client::new(ctx).await?;
-    run_job(ctx, &client, project, Job::new_query(config)).await?;
+    run_job(
+        ctx,
+        &client,
+        project,
+        Job::new_query(config, labels.to_owned()),
+    )
+    .await?;
     Ok(())
 }
 
@@ -147,13 +161,20 @@ async fn query_all_json(
     ctx: &Context,
     project: &str,
     sql: &str,
+    labels: &Labels,
 ) -> Result<Vec<serde_json::Value>> {
     trace!(ctx.log(), "executing SQL: {}", sql);
 
     // Run our query.
     let config = JobConfigurationQuery::new(sql);
     let client = Client::new(ctx).await?;
-    let job = run_job(ctx, &client, project, Job::new_query(config)).await?;
+    let job = run_job(
+        ctx,
+        &client,
+        project,
+        Job::new_query(config, labels.to_owned()),
+    )
+    .await?;
 
     // Look up our query results.
     let reference = job.reference()?;
@@ -180,11 +201,12 @@ pub(crate) async fn query_all<T>(
     ctx: &Context,
     project: &str,
     sql: &str,
+    labels: &Labels,
 ) -> Result<Vec<T>>
 where
     T: DeserializeOwned,
 {
-    let output = query_all_json(ctx, project, sql).await?;
+    let output = query_all_json(ctx, project, sql, labels).await?;
     let rows = output
         .into_iter()
         .map(serde_json::from_value::<T>)
@@ -194,11 +216,16 @@ where
 }
 
 /// Run a query that should return exactly one record, and deserialize it.
-pub(crate) async fn query_one<T>(ctx: &Context, project: &str, sql: &str) -> Result<T>
+pub(crate) async fn query_one<T>(
+    ctx: &Context,
+    project: &str,
+    sql: &str,
+    labels: &Labels,
+) -> Result<T>
 where
     T: DeserializeOwned,
 {
-    let mut rows = query_all(ctx, project, sql).await?;
+    let mut rows = query_all(ctx, project, sql, labels).await?;
     if rows.len() == 1 {
         Ok(rows.remove(0))
     } else {

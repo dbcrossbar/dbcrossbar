@@ -82,6 +82,7 @@ fn cp_csv_to_bigquery_to_csv() {
             &format!("--temporary={}", gs_temp_dir),
             &format!("--temporary={}", bq_temp_ds),
             &format!("--schema=postgres-sql:{}", schema.display()),
+            "--to-arg=job_labels[dbcrossbar_test]=true",
             &format!("csv:{}", src.display()),
             &bq_table,
         ])
@@ -96,6 +97,7 @@ fn cp_csv_to_bigquery_to_csv() {
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
             &format!("--temporary={}", bq_temp_ds),
+            "--from-arg=job_labels[dbcrossbar_test]=true",
             &bq_table,
             "csv:out/",
         ])

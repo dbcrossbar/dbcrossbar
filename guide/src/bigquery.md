@@ -19,6 +19,11 @@ The following command-line options will usually need to be specified for both so
 - `--temporary=gs://$GS_TEMP_BUCKET`: A Google Cloud Storage bucket to use for staging data in both directions.
 - `--temporary=bigquery:$GCLOUD_PROJECT:temp_dataset`
 
+You can also specify Google Cloud resource labels to apply to all BigQuery jobs. Labels are often used to track query costs.
+
+- `--from-arg=job_labels[department]=marketing`
+- `--to-arg=job_labels[project]=project1`
+
 ## Supported features
 
 ```txt
