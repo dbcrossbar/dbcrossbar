@@ -154,9 +154,23 @@
                         <h1><a class="header" href="#changelog" id="changelog">Changelog</a></h1>
 <p>All notable changes to this project will be documented in this file.</p>
 <p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>, and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a> for the <code>dbcrossbar</code> CLI tool. (The <code>dbcrossbarlib</code> is an internal-only dependency with no versioning policy at this time.)</p>
+<h2><a class="header" href="#040-alpha7---2020-05-22" id="040-alpha7---2020-05-22">0.4.0-alpha.7 - 2020-05-22</a></h2>
+<p>This release adds support for labeling BigQuery jobs.</p>
+<h3><a class="header" href="#added" id="added">Added</a></h3>
+<ul>
+<li>bigquery: Optionally specify billing labels for jobs. See the manual for details.</li>
+<li>Allow driver argument names to be specified as either <code>x.y</code> or <code>x[y]</code>, interchangeably. This makes <code>job_labels</code> look nicer.</li>
+<li>Hide URL passwords from (most) logs using a dedicated wrapper type.</li>
+</ul>
+<h3><a class="header" href="#changed" id="changed">Changed</a></h3>
+<ul>
+<li>We now have test cases that make sure we catch duplicate driver arguments and raise an error.</li>
+<li>redshift: Authentication argument names may no longer include <code>-</code> characters. I'm not even sure whether these are valid, but they won't work with the new scheme for parsing driver arguments.</li>
+<li><code>DriverArguments::from_cli_args</code> now takes an iterator instead of a slice.</li>
+</ul>
 <h2><a class="header" href="#040-alpha6---2020-05-22" id="040-alpha6---2020-05-22">0.4.0-alpha.6 - 2020-05-22</a></h2>
 <p>This release improves the example <code>shopify.ts</code> schema, and adds new features to <code>dbcrossbar-ts</code> to parse it.</p>
-<h3><a class="header" href="#added" id="added">Added</a></h3>
+<h3><a class="header" href="#added-1" id="added-1">Added</a></h3>
 <ul>
 <li>dbcrossbar-ts:
 <ul>
@@ -172,17 +186,17 @@
 <li>shopify: The example <code>shopify.ts</code> schema has been updated to use <code>Date</code> and <code>int64</code> in many places. <code>Address</code> and <code>CustomerAddress</code> are now distinct types, and several other minor issues have been fixed.</li>
 </ul>
 <h2><a class="header" href="#040-alpha5---2020-05-21" id="040-alpha5---2020-05-21">0.4.0-alpha.5 - 2020-05-21</a></h2>
-<h3><a class="header" href="#added-1" id="added-1">Added</a></h3>
+<h3><a class="header" href="#added-2" id="added-2">Added</a></h3>
 <ul>
 <li>BigQuery: Support <code>--if-exists=error</code>.</li>
 </ul>
-<h3><a class="header" href="#changed" id="changed">Changed</a></h3>
+<h3><a class="header" href="#changed-1" id="changed-1">Changed</a></h3>
 <ul>
 <li>Require <code>--enable-unstable</code> to use <code>dbcrossbar-ts</code> or <code>shopify</code> locators, which are unstable.</li>
 <li>AWS credentials must now always be passed via <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>, <code>AWS_SESSION_TOKEN</code> (optional) and <code>AWS_REGION</code> (optional). This lays the groundwork for replacing the <code>aws</code> CLI tool with native Rust code, so that we will someday be able to remove our last CLI dependency.</li>
 </ul>
 <h2><a class="header" href="#040-alpha4---2020-05-19" id="040-alpha4---2020-05-19">0.4.0-alpha.4 - 2020-05-19</a></h2>
-<h3><a class="header" href="#added-2" id="added-2">Added</a></h3>
+<h3><a class="header" href="#added-3" id="added-3">Added</a></h3>
 <ul>
 <li>BigQuery now imports and exports decimal (aka NUMERIC) values everywhere.</li>
 <li>The <code>dbcrossbar-ts</code> driver now supports magic type aliases that will convert to the corresponding <code>dbcrossbar</code> types:
@@ -194,7 +208,7 @@
 </ul>
 </li>
 </ul>
-<h3><a class="header" href="#changed-1" id="changed-1">Changed</a></h3>
+<h3><a class="header" href="#changed-2" id="changed-2">Changed</a></h3>
 <ul>
 <li>The sample <code>shopify.ts</code> schema now uses <code>decimal</code> instead of <code>string</code> when appropriate. It does not attempt to use <code>int64</code> yet.</li>
 </ul>
@@ -202,7 +216,7 @@
 <p>YANKED.</p>
 <h2><a class="header" href="#040-alpha2---2020-05-19" id="040-alpha2---2020-05-19">0.4.0-alpha.2 - 2020-05-19</a></h2>
 <p>This is a significant release, with support for &quot;struct&quot; types.</p>
-<h3><a class="header" href="#added-3" id="added-3">Added</a></h3>
+<h3><a class="header" href="#added-4" id="added-4">Added</a></h3>
 <ul>
 <li>The portable schema now supports a <code>DataType::Struct(fields)</code> type that can be used to represent BigQuery STRUCT values (as long as they have unique, named fields) and JSON objects with known keys.</li>
 <li>The BigQuery driver now supports importing and exporting <code>STRUCT</code> fields using the new <code>DataType::Struct(fields)</code> type.</li>
@@ -211,7 +225,7 @@
 <li>We now have support for fancy parser error messages, which we use with the <code>dbcrossbar-ts</code> parser.</li>
 <li>We now support a CLI-editable config file using commands like <code>dbcrossbar config add temporary s3://example/temp/</code>.</li>
 </ul>
-<h3><a class="header" href="#changed-2" id="changed-2">Changed</a></h3>
+<h3><a class="header" href="#changed-3" id="changed-3">Changed</a></h3>
 <ul>
 <li>BREAKING: Some corner cases involving struct types and JSON may have changed subtly.</li>
 <li>We've upgraded to the latest <code>rust-peg</code> parser syntax everywhere.</li>
@@ -224,7 +238,7 @@
 <li>Various obsolete casting libraries have been removed.</li>
 </ul>
 <h2><a class="header" href="#040-alpha1---2020-04-07" id="040-alpha1---2020-04-07">0.4.0-alpha.1 - 2020-04-07</a></h2>
-<h3><a class="header" href="#changed-3" id="changed-3">Changed</a></h3>
+<h3><a class="header" href="#changed-4" id="changed-4">Changed</a></h3>
 <ul>
 <li>Replace <code>gcloud auth</code>, <code>gsutil</code> and <code>bq</code> with native Rust. This changes how we authenticate to Google Cloud. In particular, we now support <code>GCLOUD_CLIENT_SECRET</code>, <code>~/.config/dbcrossbar/gcloud_client_secret.json</code>, <code>GCLOUD_SERVICE_ACCOUNT_KEY</code> or <code>~/.config/dbcrossbar/gcloud_service_account_key.json</code>, as <a href="https://www.dbcrossbar.org/gs.html#configuration--authentication">explained in the manual</a>. We no longer use <code>gcloud auth</code>, and the Google Cloud SDK tools are no longer required. In the current alpha version, uploads and deletions are probably slower than before.</li>
 </ul>
@@ -235,7 +249,7 @@
 <li>bigquery: Detect &quot;`&quot; quotes in the CLI form of table names, and report an error.</li>
 </ul>
 <h2><a class="header" href="#033---2020-03-30" id="033---2020-03-30">0.3.3 - 2020-03-30</a></h2>
-<h3><a class="header" href="#added-4" id="added-4">Added</a></h3>
+<h3><a class="header" href="#added-5" id="added-5">Added</a></h3>
 <ul>
 <li>BigML: Honor BIGML_DOMAIN, allowing the user to point the BigML driver to a custom VPC instance of BigML.</li>
 </ul>
@@ -246,11 +260,11 @@
 <li>Fix an error that caused <code>bigquery_upsert</code> test to fail.</li>
 </ul>
 <h2><a class="header" href="#031---2020-03-29" id="031---2020-03-29">0.3.1 - 2020-03-29</a></h2>
-<h3><a class="header" href="#added-5" id="added-5">Added</a></h3>
+<h3><a class="header" href="#added-6" id="added-6">Added</a></h3>
 <ul>
 <li>Write a new <a href="https://www.dbcrossbar.org/">manual</a>!</li>
 </ul>
-<h3><a class="header" href="#changed-4" id="changed-4">Changed</a></h3>
+<h3><a class="header" href="#changed-5" id="changed-5">Changed</a></h3>
 <ul>
 <li>Encapsulate all calls to <code>bq</code> and <code>gsutil</code></li>
 <li>Improve performance of <code>--stream-size</code></li>
@@ -260,12 +274,12 @@
 <li>BigQuery: Honor NOT NULL on import (fixes #45)</li>
 </ul>
 <h2><a class="header" href="#030---2020-03-26" id="030---2020-03-26">0.3.0 - 2020-03-26</a></h2>
-<h3><a class="header" href="#added-6" id="added-6">Added</a></h3>
+<h3><a class="header" href="#added-7" id="added-7">Added</a></h3>
 <ul>
 <li>Use <code>cargo deny</code> to enforce license and duplicate dependency policies</li>
 <li>Add notes about license and contribution policies</li>
 </ul>
-<h3><a class="header" href="#changed-5" id="changed-5">Changed</a></h3>
+<h3><a class="header" href="#changed-6" id="changed-6">Changed</a></h3>
 <ul>
 <li>Update to tokio 0.2 and the latest stable Rust</li>
 <li>Replace <code>wkb</code> with <code>postgis</code> for licensing reasons</li>
