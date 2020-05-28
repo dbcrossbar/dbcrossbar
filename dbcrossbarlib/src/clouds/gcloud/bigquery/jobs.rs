@@ -311,7 +311,9 @@ pub(crate) async fn run_job(
         "https://bigquery.googleapis.com/bigquery/v2/projects/{}/jobs",
         project_id,
     );
-    job = client.post::<Job, _, _>(ctx, &insert_url, job).await?;
+    job = client
+        .post::<Job, _, _, _>(ctx, &insert_url, NoQuery, job)
+        .await?;
 
     // Get the URL for polling the job.
     let job_url = job.url()?;
