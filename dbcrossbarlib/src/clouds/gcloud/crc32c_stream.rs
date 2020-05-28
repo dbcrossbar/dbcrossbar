@@ -9,7 +9,7 @@ use crate::common::*;
 
 /// A GCloud-compatible CRC32C hasher.
 ///
-/// This uses the popular Rust `Hasher` API to wrap a lower-level library.
+/// This uses a popular Rust `Hasher`-style API to wrap a lower-level library.
 #[derive(Clone, Debug)]
 pub(crate) struct Hasher {
     state: u32,
@@ -28,8 +28,8 @@ impl Hasher {
 
     /// Finish hashing and return our underlying value.
     ///
-    /// This consumes `self` because that's how some other Rust `Hasher` types
-    /// work.
+    /// This consumes `self` because that's how some other Rust `Hasher`-like
+    /// types work.
     pub(crate) fn finish(self) -> u32 {
         self.state
     }
@@ -92,7 +92,19 @@ where
     S: TryStream<Error = Error> + Send + Unpin + 'static,
     S::Ok: AsRef<[u8]>,
 {
-    /// Create a new `Crc32Stream` wrapping `inner`.
+    /// Create a new `Crc32Stream` wrapping `inner`. Returns the wrapped stream,
+    /// and a one-shot channel that will receive the final hash of all the data
+    /// sent over this stream.
+    ///
+    /// We use this weird out-of-band approach to communicate our CRC32C hash
+    /// because most internal `dbcrossbar` APIs try to take ownership of any
+    /// streams they're passed.
+    ///
+    /// We return the `Hasher` instead of the computed CRC32C result because
+    /// someday we dream of supporting `haser1.combine(&hasher2)`, which would
+    /// allow us to provide something like [`crc32c_combine`][combine].
+    ///
+    /// [combine]: https://github.com/werekraken/libcrc32trim/blob/a903b95c7975e0375b597bb88a609fd681494183/crc32trim.c#L61
     pub(crate) fn new(inner: S) -> (Self, oneshot::Receiver<Hasher>) {
         let hasher = Hasher::new();
         let (sender, receiver) = oneshot::channel();
@@ -107,6 +119,11 @@ where
     }
 }
 
+// Implementing `Stream` requires a bunch of knowledge of async Rust. Especially
+// if we try to keep the type `D` generic. So this is excessively cryptic.
+//
+// It's possible to avoid this using `inner.map` to build a new stream, but this
+// is probably the fastest possible implementation.
 impl<S, D> Stream for Crc32cStream<S>
 where
     // We need a slightly more complicated version of these bounds here.
