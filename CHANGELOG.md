@@ -4,7 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` is an internal-only dependency with no versioning policy at this time.)
 
-## 0.4.0-alpha.7 - 2020-05-22
+## 0.4.0-beta.1 - 2020-05-28
+
+We're finally ready to start preparing for an 0.4.0 release! This beta will be deployed to several production systems to help verify that there are no surprising regressions.
+
+### Changed
+
+- gs: We now verify CRC32C checksums when uploading.
+- gs: We specify `isGenerationMatch` on many operations to make sure that nothing has been created or overridden that we didn't expect.
+
+## 0.4.0-alpha.7 - 2020-05-26
 
 This release adds support for labeling BigQuery jobs.
 
