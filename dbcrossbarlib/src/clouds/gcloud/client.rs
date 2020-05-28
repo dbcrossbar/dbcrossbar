@@ -35,20 +35,6 @@ pub(crate) enum Alt {
     Proto,
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct AltQuery {
-    /// What format should we return?
-    pub(crate) alt: Alt,
-}
-
-impl AltQuery {
-    /// Create an `alt=media` query.
-    pub(crate) fn media() -> AltQuery {
-        AltQuery { alt: Alt::Media }
-    }
-}
-
 /// A Google Cloud REST client using OAuth2.
 pub(crate) struct Client {
     /// An authenticator that provides OAuth2 tokens.
@@ -130,18 +116,20 @@ impl Client {
     }
 
     /// Make an HTTP POST request with the specified URL and body.
-    pub(crate) async fn post<Output, U, Body>(
+    pub(crate) async fn post<Output, U, Query, Body>(
         &self,
         ctx: &Context,
         url: U,
+        query: Query,
         body: Body,
     ) -> Result<Output>
     where
         Output: fmt::Debug + DeserializeOwned,
         U: IntoUrl,
+        Query: fmt::Debug + Serialize,
         Body: fmt::Debug + Serialize,
     {
-        let url = url.into_url()?;
+        let url = build_url(url, query)?;
         trace!(ctx.log(), "POST {} {:?}", url, body);
         trace!(ctx.log(), "serialied {}", serde_json::to_string(&body)?);
         let token = self.token().await?;

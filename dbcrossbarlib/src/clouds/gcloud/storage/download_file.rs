@@ -4,17 +4,28 @@ use bytes::BufMut;
 use futures::stream;
 use headers::{ContentRange, Header, HeaderMapExt, Range};
 use reqwest::header::{HeaderMap, HeaderValue, IF_MATCH};
+use serde::Serialize;
 use std::{cmp::min, convert::TryFrom, ops};
 use tokio::spawn;
 
 use super::{
-    super::{percent_encode, AltQuery, Client},
+    super::{percent_encode, Alt, Client},
     parse_gs_url, StorageObject, CHUNK_SIZE,
 };
 use crate::common::*;
 
 /// Maximum number of parallel downloads.
 const PARALLEL_DOWNLOADS: usize = 5;
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DownloadQuery {
+    /// What format should we return?
+    alt: Alt,
+
+    /// What object generation do we expect to download?
+    if_generation_match: i64,
+}
 
 /// Download the file at the specified URL as a stream.
 pub(crate) async fn download_file(
@@ -36,10 +47,17 @@ pub(crate) async fn download_file(
 
     // Build a stream of download tasks.
     let ctx = ctx.to_owned();
-    let stream = stream::iter(chunk_ranges(CHUNK_SIZE, item.size()?))
+    let generation = item.generation;
+    let stream = stream::iter(chunk_ranges(CHUNK_SIZE, item.size))
         .map(move |range| {
-            download_range(ctx.clone(), url.clone(), common_headers.clone(), range)
-                .boxed()
+            download_range(
+                ctx.clone(),
+                url.clone(),
+                generation,
+                common_headers.clone(),
+                range,
+            )
+            .boxed()
         })
         // Use `tokio` magic to download up to `PARALLEL_DOWNLOADS` chunks in parallel.
         .buffered(PARALLEL_DOWNLOADS)
@@ -56,6 +74,7 @@ pub(crate) async fn download_file(
 async fn download_range(
     ctx: Context,
     url: String,
+    generation: i64,
     mut headers: HeaderMap,
     range: ops::Range<u64>,
 ) -> Result<BytesMut> {
@@ -74,9 +93,11 @@ async fn download_range(
         // Make our request.
         let client = Client::new(&ctx).await?;
         headers.typed_insert(Range::bytes(range.clone())?);
-        let response = client
-            .get_response(&ctx, &url, AltQuery::media(), headers)
-            .await?;
+        let query = DownloadQuery {
+            alt: Alt::Media,
+            if_generation_match: generation,
+        };
+        let response = client.get_response(&ctx, &url, query, headers).await?;
 
         // Make sure we're downloading the range we expect.
         let content_range = get_header::<ContentRange>(&response)?;

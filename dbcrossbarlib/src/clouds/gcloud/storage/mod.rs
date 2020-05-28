@@ -1,6 +1,10 @@
 //! Interfaces to Google Cloud Storage.
 
-use serde::Deserialize;
+use serde::{
+    de::{self, Deserializer, Visitor},
+    Deserialize,
+};
+use std::{fmt, marker::PhantomData, str::FromStr};
 
 use crate::common::*;
 
@@ -60,7 +64,16 @@ pub(crate) struct StorageObject {
     /// The etag of this object. This is used to make sure it doesn't change unexpectedly.
     pub(crate) etag: String,
     /// The size of this oject, in bytes.
-    pub(crate) size: String,
+    #[serde(deserialize_with = "deserialize_int::<'_, u64, _>")]
+    pub(crate) size: u64,
+    /// A CRC32C sum of this object, used for checking integrity.
+    pub(crate) crc32c: String,
+    /// The generation number for this object's data.
+    #[serde(deserialize_with = "deserialize_int::<'_, i64, _>")]
+    pub(crate) generation: i64,
+    /// The generation number for this object's metadata.
+    #[serde(deserialize_with = "deserialize_int::<'_, i64, _>")]
+    pub(crate) metageneration: i64,
 }
 
 impl StorageObject {
@@ -68,12 +81,40 @@ impl StorageObject {
     pub(crate) fn to_url_string(&self) -> String {
         format!("gs://{}/{}", self.bucket, self.name)
     }
+}
 
-    /// Parse the `size` field that gets returned as a string.
-    pub(crate) fn size(&self) -> Result<u64> {
-        Ok(self
-            .size
-            .parse::<u64>()
-            .context("could not parse object size")?)
+/// A helper function which can deserialize integers represented as either
+/// numbers or strings.
+fn deserialize_int<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+where
+    T: FromStr,
+    <T as FromStr>::Err: fmt::Display,
+    D: Deserializer<'de>,
+{
+    // We deserialize this using a visitor as described at
+    // https://serde.rs/impl-deserialize.html because we may want to add support
+    // for transparently handling a mix of strings and floats, if we ever get
+    // that back from any API.
+    struct IntVisitor<T>(PhantomData<T>);
+
+    impl<'de, T> Visitor<'de> for IntVisitor<T>
+    where
+        T: FromStr,
+        <T as FromStr>::Err: fmt::Display,
+    {
+        type Value = T;
+
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("a string containing an integer")
+        }
+
+        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            v.parse::<T>().map_err(E::custom)
+        }
     }
+
+    deserializer.deserialize_any(IntVisitor(PhantomData))
 }
