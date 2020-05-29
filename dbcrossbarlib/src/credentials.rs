@@ -88,7 +88,7 @@ impl CredentialsManager {
             EnvMapping::required("access_key_id", "AWS_ACCESS_KEY_ID"),
             EnvMapping::required("secret_access_key", "AWS_SECRET_ACCESS_KEY"),
             EnvMapping::optional("session_token", "AWS_SESSION_TOKEN"),
-            EnvMapping::optional("region", "AWS_REGION"),
+            EnvMapping::required("default_region", "AWS_DEFAULT_REGION"),
         ]);
         sources.insert("aws".to_owned(), Mutex::new(aws.boxed()));
 

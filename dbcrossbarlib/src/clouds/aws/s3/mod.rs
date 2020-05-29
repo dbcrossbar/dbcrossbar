@@ -38,11 +38,7 @@ pub(self) async fn aws_s3_command() -> Result<Command> {
     } else {
         command.env_remove("AWS_SESSION_TOKEN");
     }
-    if let Some(region) = creds.get_optional("region") {
-        command.env("AWS_REGION", region);
-    } else {
-        command.env_remove("AWS_REGION");
-    }
+    command.env("AWS_DEFAULT_REGION", creds.get_required("default_region")?);
     command.arg("s3");
     Ok(command)
 }
