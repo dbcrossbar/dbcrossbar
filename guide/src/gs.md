@@ -33,8 +33,6 @@ For a service account, you can use the following permissions:
 
 There's probably a more limited set of permissions which will work if you set them up manually.
 
-**0.3.x and earlier:** All authentication is handled using `gcloud auth` from the [Google Cloud SDK](https://cloud.google.com/sdk/).
-
 ## Supported features
 
 ```txt
