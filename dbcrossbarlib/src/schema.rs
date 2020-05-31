@@ -234,6 +234,15 @@ fn data_type_serialization_examples() {
 }
 
 #[test]
+fn parse_schema_from_manual() {
+    // We use this schema as an example in our manual, so make sure it parses.
+    serde_json::from_str::<Table>(include_str!(
+        "../../dbcrossbar/fixtures/dbcrossbar_schema.json"
+    ))
+    .unwrap();
+}
+
+#[test]
 fn data_type_roundtrip() {
     let data_types = vec![
         DataType::Array(Box::new(DataType::Text)),

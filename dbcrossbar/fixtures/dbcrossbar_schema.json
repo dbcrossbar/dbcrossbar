@@ -1,0 +1,45 @@
+{
+    "name": "images",
+    "columns": [
+        {
+            "name": "id",
+            "is_nullable": false,
+            "data_type": "uuid"
+        },
+        {
+            "name": "url",
+            "is_nullable": false,
+            "data_type": "text"
+        },
+        {
+            "name": "metadata",
+            "is_nullable": true,
+            "data_type": "json"
+        },
+        {
+            "name": "thumbnails",
+            "is_nullable": true,
+            "data_type": {
+                "array": {
+                    "struct": [
+                        {
+                            "name": "url",
+                            "is_nullable": false,
+                            "data_type": "text"
+                        },
+                        {
+                            "name": "width",
+                            "data_type": "float64",
+                            "is_nullable": false
+                        },
+                        {
+                            "name": "height",
+                            "data_type": "float64",
+                            "is_nullable": false
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}
