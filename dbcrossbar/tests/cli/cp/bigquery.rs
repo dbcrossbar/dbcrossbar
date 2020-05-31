@@ -233,7 +233,7 @@ create table {dataset_name}.{table_name} AS (
     // Try exporting the schema.
     let output = testdir
         .cmd()
-        .args(&["conv", &locator, "postgres-sql:out.sql"])
+        .args(&["schema", "conv", &locator, "postgres-sql:out.sql"])
         .tee_output()
         .expect_success();
     output.stdout_str().contains(r#""record" jsonb"#);
@@ -354,7 +354,7 @@ fn bigquery_honors_not_null_for_complex_inserts() {
     // Extract the final schema.
     testdir
         .cmd()
-        .args(&["conv", &bq_table, "bigquery-schema:output.json"])
+        .args(&["schema", "conv", &bq_table, "bigquery-schema:output.json"])
         .expect_success();
 
     // Make sure it contains REQUIRED columns.
@@ -469,6 +469,7 @@ fn bigquery_roundtrips_structs() {
     testdir
         .cmd()
         .args(&[
+            "schema",
             "conv",
             "--if-exists=overwrite",
             &bq_table,

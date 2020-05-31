@@ -38,7 +38,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     // messing up later tests.)
     testdir
         .cmd()
-        .args(&["conv", &pg_table, "postgres-sql:pg.sql"])
+        .args(&["schema", "conv", &pg_table, "postgres-sql:pg.sql"])
         .stdout(Stdio::piped())
         .tee_output()
         .expect_success();
