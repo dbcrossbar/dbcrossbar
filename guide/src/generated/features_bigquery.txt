@@ -1,8 +1,9 @@
 bigquery features:
 - conv FROM
 - count
-  --where=$SQL_EXPR
+  --from-arg=$NAME=$VALUE --where=$SQL_EXPR
 - cp FROM:
-  --where=$SQL_EXPR
+  --from-arg=$NAME=$VALUE --where=$SQL_EXPR
 - cp TO:
-  --if-exists=append --if-exists=overwrite --if-exists=upsert-on:col
+  --to-arg=$NAME=$VALUE
+  --if-exists=error --if-exists=append --if-exists=overwrite --if-exists=upsert-on:col

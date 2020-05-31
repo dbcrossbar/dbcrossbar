@@ -1,8 +1,7 @@
-dbcrossbar-conv 0.3.0
 Convert table schemas from one format to another
 
 USAGE:
-    dbcrossbar conv [OPTIONS] <from-locator> <to-locator>
+    dbcrossbar schema conv [OPTIONS] <from-locator> <to-locator>
 
 FLAGS:
     -h, --help       Prints help information

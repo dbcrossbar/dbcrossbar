@@ -1,4 +1,3 @@
-dbcrossbar-count 0.3.0
 Count records
 
 USAGE:

@@ -13,5 +13,5 @@ These schema formats are typically used in one of two ways:
 - As an argument to the [`conv` subcommand](./conv.html), which allows you to convert between different schema formats.
 
   ```sh
-  dbcrossbar conv postgres-sql:table.sql bigquery-schema:table.json
+  dbcrossbar schema conv postgres-sql:table.sql bigquery-schema:table.json
   ```

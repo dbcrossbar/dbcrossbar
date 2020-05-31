@@ -17,7 +17,10 @@ const INPUT_SQL: &str = include_str!(
 #[test]
 fn conv_help_flag() {
     let testdir = TestDir::new("dbcrossbar", "conv_help_flag");
-    let output = testdir.cmd().args(&["conv", "--help"]).expect_success();
+    let output = testdir
+        .cmd()
+        .args(&["schema", "conv", "--help"])
+        .expect_success();
     assert!(output.stdout_str().contains("EXAMPLE LOCATORS:"));
 }
 
@@ -26,7 +29,7 @@ fn conv_pg_sql_to_pg_sql() {
     let testdir = TestDir::new("dbcrossbar", "conv_pg_sql_to_pg_sql");
     let output = testdir
         .cmd()
-        .args(&["conv", "postgres-sql:-", "postgres-sql:-"])
+        .args(&["schema", "conv", "postgres-sql:-", "postgres-sql:-"])
         .output_with_stdin(EXAMPLE_SQL)
         .expect_success();
     assert!(output.stdout_str().contains("CREATE TABLE"));
@@ -37,12 +40,12 @@ fn conv_pg_sql_to_dbcrossbar_schema_to_pg_sql() {
     let testdir = TestDir::new("dbcrossbar", "conv_pg_sql_to_pg_sql");
     let output1 = testdir
         .cmd()
-        .args(&["conv", "postgres-sql:-", "dbcrossbar-schema:-"])
+        .args(&["schema", "conv", "postgres-sql:-", "dbcrossbar-schema:-"])
         .output_with_stdin(EXAMPLE_SQL)
         .expect_success();
     let output2 = testdir
         .cmd()
-        .args(&["conv", "dbcrossbar-schema:-", "postgres-sql:-"])
+        .args(&["schema", "conv", "dbcrossbar-schema:-", "postgres-sql:-"])
         .output_with_stdin(output1.stdout_str())
         .expect_success();
     assert!(output2.stdout_str().contains("CREATE TABLE"));
@@ -50,7 +53,7 @@ fn conv_pg_sql_to_dbcrossbar_schema_to_pg_sql() {
     // And make sure it round-trips.
     let output3 = testdir
         .cmd()
-        .args(&["conv", "postgres-sql:-", "dbcrossbar-schema:-"])
+        .args(&["schema", "conv", "postgres-sql:-", "dbcrossbar-schema:-"])
         .output_with_stdin(output2.stdout_str())
         .expect_success();
     assert_eq!(output3.stdout_str(), output1.stdout_str());
@@ -62,7 +65,12 @@ fn conv_csv_to_pg_sql() {
     let src = testdir.src_path("fixtures/example.csv");
     let output = testdir
         .cmd()
-        .args(&["conv", &format!("csv:{}", src.display()), "postgres-sql:-"])
+        .args(&[
+            "schema",
+            "conv",
+            &format!("csv:{}", src.display()),
+            "postgres-sql:-",
+        ])
         .output()
         .expect_success();
     assert!(output.stdout_str().contains("CREATE TABLE"));
@@ -76,7 +84,7 @@ fn conv_pg_sql_to_bq_schema() {
     let testdir = TestDir::new("dbcrossbar", "conv_pg_sql_to_bq_schema");
     let output = testdir
         .cmd()
-        .args(&["conv", "postgres-sql:-", "bigquery-schema:-"])
+        .args(&["schema", "conv", "postgres-sql:-", "bigquery-schema:-"])
         .output_with_stdin(INPUT_SQL)
         .expect_success();
     assert!(output.stdout_str().contains("GEOGRAPHY"));
@@ -91,6 +99,7 @@ fn conv_bq_schema_to_pg_sql() {
     testdir
         .cmd()
         .args(&[
+            "schema",
             "conv",
             &format!("bigquery-schema:{}", input_json.display()),
             "postgres-sql:output.sql",
@@ -110,6 +119,7 @@ fn conv_ts_to_portable() {
         .cmd()
         .args(&[
             "--enable-unstable",
+            "schema",
             "conv",
             &format!("dbcrossbar-ts:{}#Shape", input_ts.display()),
             &format!("dbcrossbar-schema:{}", output_json.display()),

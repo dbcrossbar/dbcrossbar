@@ -8,10 +8,10 @@ use structopt_derive::StructOpt;
 use crate::logging::LogFormat;
 
 pub(crate) mod config;
-pub(crate) mod conv;
 pub(crate) mod count;
 pub(crate) mod cp;
 pub(crate) mod features;
+pub(crate) mod schema;
 
 /// Command-line options, parsed using `structopt`.
 #[derive(Debug, StructOpt)]
@@ -48,18 +48,6 @@ pub(crate) enum Command {
         command: config::Opt,
     },
 
-    /// Convert table schemas from one format to another.
-    #[structopt(name = "conv")]
-    #[structopt(after_help = r#"EXAMPLE LOCATORS:
-    postgres-sql:table.sql
-    postgres://localhost:5432/db#table
-    bigquery-schema:table.json
-"#)]
-    Conv {
-        #[structopt(flatten)]
-        command: conv::Opt,
-    },
-
     /// Count records.
     #[structopt(name = "count")]
     #[structopt(after_help = r#"EXAMPLE LOCATORS:
@@ -88,14 +76,18 @@ pub(crate) enum Command {
         #[structopt(flatten)]
         command: features::Opt,
     },
+
+    /// Schema-related commands.
+    Schema {
+        #[structopt(flatten)]
+        command: schema::Opt,
+    },
 }
 
 pub(crate) fn run(ctx: Context, config: Configuration, opt: Opt) -> BoxFuture<()> {
     match opt.cmd {
         Command::Config { command } => config::run(ctx, config, command).boxed(),
-        Command::Conv { command } => {
-            conv::run(ctx, config, opt.enable_unstable, command).boxed()
-        }
+
         Command::Count { command } => {
             count::run(ctx, config, opt.enable_unstable, command).boxed()
         }
@@ -104,6 +96,9 @@ pub(crate) fn run(ctx: Context, config: Configuration, opt: Opt) -> BoxFuture<()
         }
         Command::Features { command } => {
             features::run(ctx, config, opt.enable_unstable, command).boxed()
+        }
+        Command::Schema { command } => {
+            schema::run(ctx, config, opt.enable_unstable, command).boxed()
         }
     }
 }

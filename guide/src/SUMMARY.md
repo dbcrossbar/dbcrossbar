@@ -11,7 +11,7 @@
 - [Commands](./commands.md)
   - [`cp`: Copying tables](./cp.md)
   - [`count`: Counting records](./count.md)
-  - [`conv`: Transforming schemas](./conv.md)
+  - [`schema conv`: Transforming schemas](./conv.md)
 - [Drivers](./drivers.md)
   - [BigML](./bigml.md)
   - [BigQuery](./bigquery.md)

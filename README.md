@@ -34,10 +34,10 @@ It can also convert between table schema formats, including PostgreSQL `CREATE T
 
 ```sh
 # Convert a PostgreSQL `CREATE TABLE` statement to a BigQuery JSON schema.
-dbcrossbar conv postgres-sql:my_table.sql bigquery-schema:my_table.json
+dbcrossbar schema conv postgres-sql:my_table.sql bigquery-schema:my_table.json
 
 # Extract a schema from a CSV file and convert to Postgres `CREATE TABLE`.
-dbcrossbar conv csv:data.csv postgres-sql:schema.sql
+dbcrossbar schema conv csv:data.csv postgres-sql:schema.sql
 ```
 
 For more information, see the [documentation][docs].

@@ -7,11 +7,11 @@ set -euo pipefail
 cargo build
 
 function dbxb {
-    ../../../target/debug/dbcrossbar "$@" 2>&1
+    ../../../target/debug/dbcrossbar --enable-unstable "$@" 2>&1
 }
 
-for c in cp count conv; do
-    dbxb $c --help > ${c}_help.txt
+for c in cp count "schema conv"; do
+    dbxb $c --help | tail -n +2 > "$(echo "$c" | sed 's/ /_/g')"_help.txt
 done
 
 dbxb features > features.txt

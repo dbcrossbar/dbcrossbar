@@ -4,7 +4,7 @@
 
 - `dbcrossbar cp`: Copy tabular data.
 - `dbcrossbar count`: Count records.
-- `dbcrossbar conv`: Convert table schemas between databases.
+- `dbcrossbar schema conv`: Convert table schemas between databases.
 
 For more information, type `dbcrossbar --help` or `dbcrossbar $CMD --help`.
 
