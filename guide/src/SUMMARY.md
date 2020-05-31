@@ -21,6 +21,11 @@
   - [RedShift](./redshift.md)
   - [S3](./s3.md)
   - [Shopify (UNSTABLE)](./shopify.md)
+- [Specifying table schemas](./schemas.md)
+  - [Postgres `CREATE TABLE`](postgres-sql.md)
+  - [BigQuery JSON schemas](bigquery-schema.md)
+  - [Native `dbcrossbar` schemas](dbcrossbar-schema.md)
+  - [TypeScript schemas (UNSTABLE)](dbcrossbar-ts.md)
 - [Changes](./changes.md)
 
 [Credits and contributors](./credits.md)
