@@ -6,7 +6,7 @@ Internally, `dbcrossbar` converts all data into CSV streams. For many standard t
 {{#include ../../dbcrossbar/fixtures/exact_output.csv}}
 ```
 
-For more complex types such as arrays, JSON columns and GeoJSON data, we embed JSON into the CSV file:
+For more complex types such as arrays, structs, JSON, and GeoJSON data, we embed JSON into the CSV file:
 
 ```csv
 {{#include ../../dbcrossbar/fixtures/many_types.csv}}

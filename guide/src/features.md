@@ -9,7 +9,7 @@
 `dbcrossbar` offers a number of handy features:
 
 - A single static binary on Linux, with no dependencies.
-- A stream-based architecture that limits the use of RAM and requires no temporary files. (Note that the current version relies on the Google Cloud SDK, which _does_ have RAM-usage problems.)
+- A stream-based architecture that limits the use of RAM and requires no temporary files.
 - Support for appending, overwriting or upserting into existing tables.
 - Support for selecting records using `--where`.
 

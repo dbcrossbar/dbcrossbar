@@ -66,7 +66,7 @@ If we want to use this data to update an existing table in BigQuery, we can upse
 
 This will stream the data out of PostgreSQL, upload it to `$GS_TEMP_BUCKET`, import it into a temporary BigQuery table, and run an appropriate `MERGE` command. The `config add temporary` commands tell `dbcrossbar` what cloud bucket and BigQuery dataset should be used for temporary files and tables, respectively.
 
-Notice that we don't need to specify `--schema`, because `dbcrossbar` will automatically translate the PostgreSQL column types to corresponding BigQuery types. The `--temporary` arguments specify what bucket to use for loading the CSV files, and what BigQuery data set to use for the temporary table used as input to the `MERGE`.
+Notice that we don't need to specify `--schema`, because `dbcrossbar` will automatically translate the PostgreSQL column types to corresponding BigQuery types.
 
 ## Credits
 

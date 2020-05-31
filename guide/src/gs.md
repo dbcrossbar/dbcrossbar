@@ -17,8 +17,6 @@ At this point, we do not support single-file output to a cloud bucket. This is r
 
 ## Configuration & authentication
 
-**0.3.x and earlier:** All authentication is handled using `gcloud auth` from the [Google Cloud SDK](https://cloud.google.com/sdk/).
-
 **0.4.x and later:** You can authenticate using either a client secret or a service key, which you can create using the [console credentials page](https://console.cloud.google.com/apis/credentials).
 
 - Client secrets can be stored in `$DBCROSSBAR_CONFIG_DIR/gcloud_client_secret.json` or in `GCLOUD_CLIENT_SECRET`. These are strongly recommended for interactive use.
@@ -34,6 +32,8 @@ For a service account, you can use the following permissions:
 - BigQuery User (BigQuery driver only)
 
 There's probably a more limited set of permissions which will work if you set them up manually.
+
+**0.3.x and earlier:** All authentication is handled using `gcloud auth` from the [Google Cloud SDK](https://cloud.google.com/sdk/).
 
 ## Supported features
 
