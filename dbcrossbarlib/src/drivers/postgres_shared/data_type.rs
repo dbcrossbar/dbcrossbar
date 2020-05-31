@@ -159,7 +159,6 @@ impl PgScalarDataType {
             DataType::Int32 => Ok(PgScalarDataType::Int),
             DataType::Int64 => Ok(PgScalarDataType::Bigint),
             DataType::Json => Ok(PgScalarDataType::Jsonb),
-            DataType::Other(_) => Ok(PgScalarDataType::Text),
             DataType::Struct(_) => Ok(PgScalarDataType::Jsonb),
             DataType::Text => Ok(PgScalarDataType::Text),
             DataType::TimestampWithoutTimeZone => {

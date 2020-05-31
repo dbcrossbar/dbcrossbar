@@ -135,8 +135,6 @@ pub enum DataType {
     /// JSON data. This includes both Postgres `json` and `jsonb` types, the
     /// differences between which don't usually matter when converting schemas.
     Json,
-    /// A data type which isn't in this list.
-    Other(String),
     /// A text type.
     Text,
     /// A structure with a known set of named fields.
@@ -169,7 +167,6 @@ impl DataType {
             | DataType::Int16
             | DataType::Int32
             | DataType::Int64
-            | DataType::Other(_)
             | DataType::Text
             | DataType::TimestampWithoutTimeZone
             | DataType::TimestampWithTimeZone
@@ -211,10 +208,6 @@ fn data_type_serialization_examples() {
         (DataType::Int64, json!("int64")),
         (DataType::Json, json!("json")),
         (
-            DataType::Other("custom".to_owned()),
-            json!({"other":"custom"}),
-        ),
-        (
             DataType::Struct(vec![StructField {
                 name: "x".to_owned(),
                 is_nullable: false,
@@ -253,7 +246,6 @@ fn data_type_roundtrip() {
         DataType::Int32,
         DataType::Int64,
         DataType::Json,
-        DataType::Other("custom".to_owned()),
         DataType::Struct(vec![StructField {
             name: "x".to_owned(),
             is_nullable: false,

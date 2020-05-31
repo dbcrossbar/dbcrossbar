@@ -278,8 +278,6 @@ impl BqNonArrayDataType {
             DataType::Int32 => Ok(BqNonArrayDataType::Int64),
             DataType::Int64 => Ok(BqNonArrayDataType::Int64),
             DataType::Json => Ok(BqNonArrayDataType::Stringified(DataType::Json)),
-            // Unknown types will become strings.
-            DataType::Other(_unknown_type) => Ok(BqNonArrayDataType::String),
             DataType::Struct(_) if usage == Usage::CsvLoad => {
                 Ok(BqNonArrayDataType::String)
             }
