@@ -2,7 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` is an internal-only dependency with no versioning policy at this time.)
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` crate is an internal-only dependency with no versioning policy at this time.)
+
+## 0.4.0-rc.1 - 2020-05-31
+
+This is a release candidate for v0.4.0. If no issues are discovered, this will be published as 0.4.0.
+
+This release contains a last few breaking changes that we want to include before we publicize `dbcrossbar` more widely. When migrating, particular attention to the `conv` subcommand and `AWS_DEFAULT_REGION` below, which have significant breaking changes.
+
+### Changed
+
+- Rename `dbcrossbar conv` to `dbcrossbar schema conv`.
+- s3: Require `AWS_DEFAULT_REGION` instead of optionally using `AWS_REGION`. This is more compatiable with the `aws` CLI command, and it doesn't rely on undocumented region defaults or `aws` configuration files.
+
+### Documented
+
+- Document our portable schema format.
+- Document schema-only drivers.
+- Improve the documentation in other minor ways.
+
+### Removed
+
+- Remove `DataType::Other(_)`, which was not actually used by any of our drivers.
 
 ## 0.4.0-beta.1 - 2020-05-28
 
@@ -71,9 +92,9 @@ This release improves the example `shopify.ts` schema, and adds new features to 
 
 - The sample `shopify.ts` schema now uses `decimal` instead of `string` when appropriate. It does not attempt to use `int64` yet.
 
-## 0.4.0-alpha.3 - 2020-05-19
+## 0.4.0-alpha.3 - 2020-05-19 0 YANKED
 
-YANKED.
+This release was yanked because it was missing several things it should have included.
 
 ## 0.4.0-alpha.2 - 2020-05-19
 
