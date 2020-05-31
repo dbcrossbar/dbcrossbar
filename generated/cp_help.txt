@@ -1,4 +1,3 @@
-dbcrossbar-cp 0.3.0
 Copy tables from one location to another
 
 USAGE:

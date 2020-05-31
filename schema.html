@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div id="sidebar-scrollbox" class="sidebar-scrollbox">
-                <ol class="chapter"><li class="expanded affix "><a href="intro.html">dbcrossbar Guide</a></li><li class="expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features &amp; philosophy</a></li><li class="expanded "><a href="installing.html"><strong aria-hidden="true">2.</strong> Installing</a></li><li class="expanded "><a href="how.html"><strong aria-hidden="true">3.</strong> How it works</a></li><li><ol class="section"><li class="expanded "><a href="csv_interchange.html"><strong aria-hidden="true">3.1.</strong> CSV interchange format</a></li><li class="expanded "><a href="schema.html" class="active"><strong aria-hidden="true">3.2.</strong> Portable table schema</a></li></ol></li><li class="expanded "><a href="config.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li class="expanded "><a href="commands.html"><strong aria-hidden="true">5.</strong> Commands</a></li><li><ol class="section"><li class="expanded "><a href="cp.html"><strong aria-hidden="true">5.1.</strong> cp: Copying tables</a></li><li class="expanded "><a href="count.html"><strong aria-hidden="true">5.2.</strong> count: Counting records</a></li><li class="expanded "><a href="conv.html"><strong aria-hidden="true">5.3.</strong> conv: Transforming schemas</a></li></ol></li><li class="expanded "><a href="drivers.html"><strong aria-hidden="true">6.</strong> Drivers</a></li><li><ol class="section"><li class="expanded "><a href="bigml.html"><strong aria-hidden="true">6.1.</strong> BigML</a></li><li class="expanded "><a href="bigquery.html"><strong aria-hidden="true">6.2.</strong> BigQuery</a></li><li class="expanded "><a href="csv.html"><strong aria-hidden="true">6.3.</strong> CSV</a></li><li class="expanded "><a href="gs.html"><strong aria-hidden="true">6.4.</strong> Google Cloud Storage</a></li><li class="expanded "><a href="postgres.html"><strong aria-hidden="true">6.5.</strong> PostgreSQL</a></li><li class="expanded "><a href="redshift.html"><strong aria-hidden="true">6.6.</strong> RedShift</a></li><li class="expanded "><a href="s3.html"><strong aria-hidden="true">6.7.</strong> S3</a></li><li class="expanded "><a href="shopify.html"><strong aria-hidden="true">6.8.</strong> Shopify (UNSTABLE)</a></li></ol></li><li class="expanded "><a href="changes.html"><strong aria-hidden="true">7.</strong> Changes</a></li><li class="expanded affix "><a href="credits.html">Credits and contributors</a></li></ol>
+                <ol class="chapter"><li class="expanded affix "><a href="intro.html">dbcrossbar Guide</a></li><li class="expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features &amp; philosophy</a></li><li class="expanded "><a href="installing.html"><strong aria-hidden="true">2.</strong> Installing</a></li><li class="expanded "><a href="how.html"><strong aria-hidden="true">3.</strong> How it works</a></li><li><ol class="section"><li class="expanded "><a href="csv_interchange.html"><strong aria-hidden="true">3.1.</strong> CSV interchange format</a></li><li class="expanded "><a href="schema.html" class="active"><strong aria-hidden="true">3.2.</strong> Portable table schema</a></li></ol></li><li class="expanded "><a href="config.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li class="expanded "><a href="commands.html"><strong aria-hidden="true">5.</strong> Commands</a></li><li><ol class="section"><li class="expanded "><a href="cp.html"><strong aria-hidden="true">5.1.</strong> cp: Copying tables</a></li><li class="expanded "><a href="count.html"><strong aria-hidden="true">5.2.</strong> count: Counting records</a></li><li class="expanded "><a href="conv.html"><strong aria-hidden="true">5.3.</strong> schema conv: Transforming schemas</a></li></ol></li><li class="expanded "><a href="drivers.html"><strong aria-hidden="true">6.</strong> Drivers</a></li><li><ol class="section"><li class="expanded "><a href="bigml.html"><strong aria-hidden="true">6.1.</strong> BigML</a></li><li class="expanded "><a href="bigquery.html"><strong aria-hidden="true">6.2.</strong> BigQuery</a></li><li class="expanded "><a href="csv.html"><strong aria-hidden="true">6.3.</strong> CSV</a></li><li class="expanded "><a href="gs.html"><strong aria-hidden="true">6.4.</strong> Google Cloud Storage</a></li><li class="expanded "><a href="postgres.html"><strong aria-hidden="true">6.5.</strong> PostgreSQL</a></li><li class="expanded "><a href="redshift.html"><strong aria-hidden="true">6.6.</strong> RedShift</a></li><li class="expanded "><a href="s3.html"><strong aria-hidden="true">6.7.</strong> S3</a></li><li class="expanded "><a href="shopify.html"><strong aria-hidden="true">6.8.</strong> Shopify (UNSTABLE)</a></li></ol></li><li class="expanded "><a href="schemas.html"><strong aria-hidden="true">7.</strong> Specifying table schemas</a></li><li><ol class="section"><li class="expanded "><a href="postgres-sql.html"><strong aria-hidden="true">7.1.</strong> Postgres CREATE TABLE</a></li><li class="expanded "><a href="bigquery-schema.html"><strong aria-hidden="true">7.2.</strong> BigQuery JSON schemas</a></li><li class="expanded "><a href="dbcrossbar-schema.html"><strong aria-hidden="true">7.3.</strong> Native dbcrossbar schemas</a></li><li class="expanded "><a href="dbcrossbar-ts.html"><strong aria-hidden="true">7.4.</strong> TypeScript schemas (UNSTABLE)</a></li></ol></li><li class="expanded "><a href="changes.html"><strong aria-hidden="true">8.</strong> Changes</a></li><li class="expanded affix "><a href="credits.html">Credits and contributors</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -152,12 +152,97 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#portable-table-schema" id="portable-table-schema">Portable table schema</a></h1>
-<p>Internally, <code>dbcrossbar</code> uses a portable table &quot;schema&quot; format. This provides a common ground between PostgreSQL's <code>CREATE TABLE</code> statements, <a href="https://cloud.google.com/bigquery/docs/schemas">BigQuery's JSON schemas</a>, and equivalent formats for other databases. Right now, this is only documented in the library documentation:</p>
+<p>Internally, <code>dbcrossbar</code> uses a portable table &quot;schema&quot; format. This provides a common ground between PostgreSQL's <code>CREATE TABLE</code> statements, <a href="https://cloud.google.com/bigquery/docs/schemas">BigQuery's JSON schemas</a>, and equivalent formats for other databases. For more information, see:</p>
 <ul>
 <li><a href="https://docs.rs/dbcrossbarlib/latest/dbcrossbarlib/schema/index.html">The <code>dbcrossbar</code> schema format</a>.</li>
 <li><a href="https://docs.rs/dbcrossbarlib/latest/dbcrossbarlib/schema/enum.DataType.html">The <code>dbcrossbar</code> column types</a>.</li>
 </ul>
 <p>All table schemas and column types are converted into the portable format and then into the appropriate destination format.</p>
+<p>Normally, you won't need to work with this schema format directly, because <code>dbcrossbar</code> can parse BigQuery schemas, PostgreSQL <code>CREATE TABLE</code> statments, and several other popular schema formats. It can also read schemas directly from some databases. See the <a href="./conv.html"><code>conv</code> command</a> for details.</p>
+<h2><a class="header" href="#example-schema" id="example-schema">Example schema</a></h2>
+<pre><code class="language-json">{
+    &quot;name&quot;: &quot;images&quot;,
+    &quot;columns&quot;: [
+        {
+            &quot;name&quot;: &quot;id&quot;,
+            &quot;is_nullable&quot;: false,
+            &quot;data_type&quot;: &quot;uuid&quot;
+        },
+        {
+            &quot;name&quot;: &quot;url&quot;,
+            &quot;is_nullable&quot;: false,
+            &quot;data_type&quot;: &quot;text&quot;
+        },
+        {
+            &quot;name&quot;: &quot;metadata&quot;,
+            &quot;is_nullable&quot;: true,
+            &quot;data_type&quot;: &quot;json&quot;
+        },
+        {
+            &quot;name&quot;: &quot;thumbnails&quot;,
+            &quot;is_nullable&quot;: true,
+            &quot;data_type&quot;: {
+                &quot;array&quot;: {
+                    &quot;struct&quot;: [
+                        {
+                            &quot;name&quot;: &quot;url&quot;,
+                            &quot;is_nullable&quot;: false,
+                            &quot;data_type&quot;: &quot;text&quot;
+                        },
+                        {
+                            &quot;name&quot;: &quot;width&quot;,
+                            &quot;data_type&quot;: &quot;float64&quot;,
+                            &quot;is_nullable&quot;: false
+                        },
+                        {
+                            &quot;name&quot;: &quot;height&quot;,
+                            &quot;data_type&quot;: &quot;float64&quot;,
+                            &quot;is_nullable&quot;: false
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}
+</code></pre>
+<h2><a class="header" href="#table-properties" id="table-properties">Table properties</a></h2>
+<ul>
+<li><code>name</code>: The name of this table. This is normally only used when serializing to schema formats that require a table name.</li>
+<li><code>columns</code>: A list of columns in the table.</li>
+</ul>
+<h2><a class="header" href="#column-properties" id="column-properties">Column properties</a></h2>
+<ul>
+<li><code>name</code>: The name of the column.</li>
+<li><code>is_nullable</code>: Can the column contain <code>NULL</code> values?</li>
+<li><code>data_type</code>: The type of data stored in the column.</li>
+</ul>
+<h2><a class="header" href="#data-types" id="data-types">Data types</a></h2>
+<p>The <code>data_type</code> field can contain any of:</p>
+<ul>
+<li><code>{ &quot;array&quot;: element_type }</code>: An array of <code>element_type</code> values.</li>
+<li><code>&quot;bool&quot;</code>: A boolean value.</li>
+<li><code>&quot;date&quot;</code>: A date, with no associated time value.</li>
+<li><code>&quot;decimal&quot;</code>: A decimal integer (can represent currency, etc., without rounding errors).</li>
+<li><code>&quot;float32&quot;</code>: A 32-bit floating point number.</li>
+<li><code>&quot;float64&quot;</code>: A 64-bit floating point number.</li>
+<li><code>{ &quot;geojson&quot;: srid }</code>: Geodata in GeoJSON format, using the specified <a href="https://en.wikipedia.org/wiki/Spatial_reference_system">SRID</a>, to specify the spatial reference system.</li>
+<li><code>&quot;int16&quot;</code>: A 16-bit signed integer.</li>
+<li><code>&quot;int32&quot;</code>: A 32-bit signed integer.</li>
+<li><code>&quot;int64&quot;</code>: A 64-bit signed integer.</li>
+<li><code>&quot;json&quot;</code>: An arbitrary JSON value.</li>
+<li><code>{ &quot;struct&quot;: fields }</code>: A structure with a list of specific, named fields. Each field has the following properties:
+<ul>
+<li><code>name</code>: The name of the field.</li>
+<li><code>is_nullable</code>: Can the field contain <code>NULL</code> values?</li>
+<li><code>data_type</code>: The type of data stored in the field.</li>
+</ul>
+</li>
+<li><code>&quot;text&quot;</code>: A string.</li>
+<li><code>&quot;timestamp_without_time_zone&quot;</code>: A date and time without an associated timezone.</li>
+<li><code>&quot;timestamp_with_time_zone&quot;</code>: A date and time with an associated timezone.</li>
+<li><code>&quot;uuid&quot;</code>: A UUID value.</li>
+</ul>
 
                     </main>
 

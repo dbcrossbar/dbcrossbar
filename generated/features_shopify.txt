@@ -1,2 +1,4 @@
 shopify features:
 - cp FROM:
+
+This driver is UNSTABLE and may change without warning.

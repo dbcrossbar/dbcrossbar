@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Google Cloud Storage - Using dbcrossbar</title>
+        <title>Specifying table schemas - Using dbcrossbar</title>
         
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div id="sidebar-scrollbox" class="sidebar-scrollbox">
-                <ol class="chapter"><li class="expanded affix "><a href="intro.html">dbcrossbar Guide</a></li><li class="expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features &amp; philosophy</a></li><li class="expanded "><a href="installing.html"><strong aria-hidden="true">2.</strong> Installing</a></li><li class="expanded "><a href="how.html"><strong aria-hidden="true">3.</strong> How it works</a></li><li><ol class="section"><li class="expanded "><a href="csv_interchange.html"><strong aria-hidden="true">3.1.</strong> CSV interchange format</a></li><li class="expanded "><a href="schema.html"><strong aria-hidden="true">3.2.</strong> Portable table schema</a></li></ol></li><li class="expanded "><a href="config.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li class="expanded "><a href="commands.html"><strong aria-hidden="true">5.</strong> Commands</a></li><li><ol class="section"><li class="expanded "><a href="cp.html"><strong aria-hidden="true">5.1.</strong> cp: Copying tables</a></li><li class="expanded "><a href="count.html"><strong aria-hidden="true">5.2.</strong> count: Counting records</a></li><li class="expanded "><a href="conv.html"><strong aria-hidden="true">5.3.</strong> schema conv: Transforming schemas</a></li></ol></li><li class="expanded "><a href="drivers.html"><strong aria-hidden="true">6.</strong> Drivers</a></li><li><ol class="section"><li class="expanded "><a href="bigml.html"><strong aria-hidden="true">6.1.</strong> BigML</a></li><li class="expanded "><a href="bigquery.html"><strong aria-hidden="true">6.2.</strong> BigQuery</a></li><li class="expanded "><a href="csv.html"><strong aria-hidden="true">6.3.</strong> CSV</a></li><li class="expanded "><a href="gs.html" class="active"><strong aria-hidden="true">6.4.</strong> Google Cloud Storage</a></li><li class="expanded "><a href="postgres.html"><strong aria-hidden="true">6.5.</strong> PostgreSQL</a></li><li class="expanded "><a href="redshift.html"><strong aria-hidden="true">6.6.</strong> RedShift</a></li><li class="expanded "><a href="s3.html"><strong aria-hidden="true">6.7.</strong> S3</a></li><li class="expanded "><a href="shopify.html"><strong aria-hidden="true">6.8.</strong> Shopify (UNSTABLE)</a></li></ol></li><li class="expanded "><a href="schemas.html"><strong aria-hidden="true">7.</strong> Specifying table schemas</a></li><li><ol class="section"><li class="expanded "><a href="postgres-sql.html"><strong aria-hidden="true">7.1.</strong> Postgres CREATE TABLE</a></li><li class="expanded "><a href="bigquery-schema.html"><strong aria-hidden="true">7.2.</strong> BigQuery JSON schemas</a></li><li class="expanded "><a href="dbcrossbar-schema.html"><strong aria-hidden="true">7.3.</strong> Native dbcrossbar schemas</a></li><li class="expanded "><a href="dbcrossbar-ts.html"><strong aria-hidden="true">7.4.</strong> TypeScript schemas (UNSTABLE)</a></li></ol></li><li class="expanded "><a href="changes.html"><strong aria-hidden="true">8.</strong> Changes</a></li><li class="expanded affix "><a href="credits.html">Credits and contributors</a></li></ol>
+                <ol class="chapter"><li class="expanded affix "><a href="intro.html">dbcrossbar Guide</a></li><li class="expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features &amp; philosophy</a></li><li class="expanded "><a href="installing.html"><strong aria-hidden="true">2.</strong> Installing</a></li><li class="expanded "><a href="how.html"><strong aria-hidden="true">3.</strong> How it works</a></li><li><ol class="section"><li class="expanded "><a href="csv_interchange.html"><strong aria-hidden="true">3.1.</strong> CSV interchange format</a></li><li class="expanded "><a href="schema.html"><strong aria-hidden="true">3.2.</strong> Portable table schema</a></li></ol></li><li class="expanded "><a href="config.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li class="expanded "><a href="commands.html"><strong aria-hidden="true">5.</strong> Commands</a></li><li><ol class="section"><li class="expanded "><a href="cp.html"><strong aria-hidden="true">5.1.</strong> cp: Copying tables</a></li><li class="expanded "><a href="count.html"><strong aria-hidden="true">5.2.</strong> count: Counting records</a></li><li class="expanded "><a href="conv.html"><strong aria-hidden="true">5.3.</strong> schema conv: Transforming schemas</a></li></ol></li><li class="expanded "><a href="drivers.html"><strong aria-hidden="true">6.</strong> Drivers</a></li><li><ol class="section"><li class="expanded "><a href="bigml.html"><strong aria-hidden="true">6.1.</strong> BigML</a></li><li class="expanded "><a href="bigquery.html"><strong aria-hidden="true">6.2.</strong> BigQuery</a></li><li class="expanded "><a href="csv.html"><strong aria-hidden="true">6.3.</strong> CSV</a></li><li class="expanded "><a href="gs.html"><strong aria-hidden="true">6.4.</strong> Google Cloud Storage</a></li><li class="expanded "><a href="postgres.html"><strong aria-hidden="true">6.5.</strong> PostgreSQL</a></li><li class="expanded "><a href="redshift.html"><strong aria-hidden="true">6.6.</strong> RedShift</a></li><li class="expanded "><a href="s3.html"><strong aria-hidden="true">6.7.</strong> S3</a></li><li class="expanded "><a href="shopify.html"><strong aria-hidden="true">6.8.</strong> Shopify (UNSTABLE)</a></li></ol></li><li class="expanded "><a href="schemas.html" class="active"><strong aria-hidden="true">7.</strong> Specifying table schemas</a></li><li><ol class="section"><li class="expanded "><a href="postgres-sql.html"><strong aria-hidden="true">7.1.</strong> Postgres CREATE TABLE</a></li><li class="expanded "><a href="bigquery-schema.html"><strong aria-hidden="true">7.2.</strong> BigQuery JSON schemas</a></li><li class="expanded "><a href="dbcrossbar-schema.html"><strong aria-hidden="true">7.3.</strong> Native dbcrossbar schemas</a></li><li class="expanded "><a href="dbcrossbar-ts.html"><strong aria-hidden="true">7.4.</strong> TypeScript schemas (UNSTABLE)</a></li></ol></li><li class="expanded "><a href="changes.html"><strong aria-hidden="true">8.</strong> Changes</a></li><li class="expanded affix "><a href="credits.html">Credits and contributors</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -151,54 +151,38 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#google-cloud-storage" id="google-cloud-storage">Google Cloud Storage</a></h1>
-<p>Google Cloud Storage is a bucket-based storage system similar to Amazon's S3. It's frequently used in connection with BigQuery and other Google Cloud services.</p>
-<h2><a class="header" href="#example-locators" id="example-locators">Example locators</a></h2>
-<p>Source locators:</p>
+                        <h1><a class="header" href="#schema-drivers" id="schema-drivers">Schema drivers</a></h1>
+<p><code>dbcrossbar</code> allows you to specify a table's column names and types in a number of different ways. You can use <a href="./postgres-sql.html">Postgres <code>CREATE TABLE</code> statements</a>, or <a href="./bigquery-schema.html">BigQuery schema JSON</a>, or <a href="./dbcrossbar-schema.html"><code>dbcrossbar</code>'s internal schema format</a>.</p>
+<p>These schema formats are typically used in one of two ways:</p>
 <ul>
-<li><code>gs://bucket/dir/file.csv</code></li>
-<li><code>gs://bucket/dir/</code></li>
-</ul>
-<p>Destination locators:</p>
-<ul>
-<li><code>gs://bucket/dir/</code></li>
-</ul>
-<p>At this point, we do not support single-file output to a cloud bucket. This is relatively easy to add, but has not yet been implemented.</p>
-<h2><a class="header" href="#configuration--authentication" id="configuration--authentication">Configuration &amp; authentication</a></h2>
-<p><strong>0.4.x and later:</strong> You can authenticate using either a client secret or a service key, which you can create using the <a href="https://console.cloud.google.com/apis/credentials">console credentials page</a>.</p>
-<ul>
-<li>Client secrets can be stored in <code>$DBCROSSBAR_CONFIG_DIR/gcloud_client_secret.json</code> or in <code>GCLOUD_CLIENT_SECRET</code>. These are strongly recommended for interactive use.</li>
-<li>Service account keys can be stored in <code>$DBCROSSBAR_CONFIG_DIR/gcloud_service_account_key.json</code> or in <code>GCLOUD_SERVICE_ACCOUNT_KEY</code>. These are recommended for server and container use.</li>
-</ul>
-<p>For more information on <code>DBCROSSBAR_CONFIG_DIR</code>, see <a href="./config.html">Configuration</a>.</p>
-<p>For a service account, you can use the following permissions:</p>
-<ul>
-<li>Storage Object Admin (Cloud Storage and BigQuery drivers)</li>
-<li>BigQuery Data Editor (BigQuery driver only)</li>
-<li>BigQuery Job User (BigQuery driver only)</li>
-<li>BigQuery User (BigQuery driver only)</li>
-</ul>
-<p>There's probably a more limited set of permissions which will work if you set them up manually.</p>
-<p><strong>0.3.x and earlier:</strong> All authentication is handled using <code>gcloud auth</code> from the <a href="https://cloud.google.com/sdk/">Google Cloud SDK</a>.</p>
-<h2><a class="header" href="#supported-features" id="supported-features">Supported features</a></h2>
-<pre><code class="language-txt">gs features:
-- cp FROM:
-- cp TO:
-  --if-exists=overwrite
+<li>
+<p>As a <code>--schema</code> argument to the <a href="./cp.html"><code>cp</code> subcommand</a>.</p>
+<pre><code class="language-sh">dbcrossbar cp \
+  --if-exists=overwrite \
+  --schema=postgres-sql:my_table.sql \
+  csv:my_table.csv \
+  'postgres://postgres@127.0.0.1:5432/postgres#my_table'
 </code></pre>
+</li>
+<li>
+<p>As an argument to the <a href="./conv.html"><code>conv</code> subcommand</a>, which allows you to convert between different schema formats.</p>
+<pre><code class="language-sh">dbcrossbar schema conv postgres-sql:table.sql bigquery-schema:table.json
+</code></pre>
+</li>
+</ul>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="csv.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="shopify.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
                         
-                            <a rel="next" href="postgres.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="postgres-sql.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -210,13 +194,13 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="csv.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="shopify.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a rel="next" href="postgres.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="postgres-sql.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 

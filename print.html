@@ -83,7 +83,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div id="sidebar-scrollbox" class="sidebar-scrollbox">
-                <ol class="chapter"><li class="expanded affix "><a href="intro.html">dbcrossbar Guide</a></li><li class="expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features &amp; philosophy</a></li><li class="expanded "><a href="installing.html"><strong aria-hidden="true">2.</strong> Installing</a></li><li class="expanded "><a href="how.html"><strong aria-hidden="true">3.</strong> How it works</a></li><li><ol class="section"><li class="expanded "><a href="csv_interchange.html"><strong aria-hidden="true">3.1.</strong> CSV interchange format</a></li><li class="expanded "><a href="schema.html"><strong aria-hidden="true">3.2.</strong> Portable table schema</a></li></ol></li><li class="expanded "><a href="config.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li class="expanded "><a href="commands.html"><strong aria-hidden="true">5.</strong> Commands</a></li><li><ol class="section"><li class="expanded "><a href="cp.html"><strong aria-hidden="true">5.1.</strong> cp: Copying tables</a></li><li class="expanded "><a href="count.html"><strong aria-hidden="true">5.2.</strong> count: Counting records</a></li><li class="expanded "><a href="conv.html"><strong aria-hidden="true">5.3.</strong> conv: Transforming schemas</a></li></ol></li><li class="expanded "><a href="drivers.html"><strong aria-hidden="true">6.</strong> Drivers</a></li><li><ol class="section"><li class="expanded "><a href="bigml.html"><strong aria-hidden="true">6.1.</strong> BigML</a></li><li class="expanded "><a href="bigquery.html"><strong aria-hidden="true">6.2.</strong> BigQuery</a></li><li class="expanded "><a href="csv.html"><strong aria-hidden="true">6.3.</strong> CSV</a></li><li class="expanded "><a href="gs.html"><strong aria-hidden="true">6.4.</strong> Google Cloud Storage</a></li><li class="expanded "><a href="postgres.html"><strong aria-hidden="true">6.5.</strong> PostgreSQL</a></li><li class="expanded "><a href="redshift.html"><strong aria-hidden="true">6.6.</strong> RedShift</a></li><li class="expanded "><a href="s3.html"><strong aria-hidden="true">6.7.</strong> S3</a></li><li class="expanded "><a href="shopify.html"><strong aria-hidden="true">6.8.</strong> Shopify (UNSTABLE)</a></li></ol></li><li class="expanded "><a href="changes.html"><strong aria-hidden="true">7.</strong> Changes</a></li><li class="expanded affix "><a href="credits.html">Credits and contributors</a></li></ol>
+                <ol class="chapter"><li class="expanded affix "><a href="intro.html">dbcrossbar Guide</a></li><li class="expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features &amp; philosophy</a></li><li class="expanded "><a href="installing.html"><strong aria-hidden="true">2.</strong> Installing</a></li><li class="expanded "><a href="how.html"><strong aria-hidden="true">3.</strong> How it works</a></li><li><ol class="section"><li class="expanded "><a href="csv_interchange.html"><strong aria-hidden="true">3.1.</strong> CSV interchange format</a></li><li class="expanded "><a href="schema.html"><strong aria-hidden="true">3.2.</strong> Portable table schema</a></li></ol></li><li class="expanded "><a href="config.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li class="expanded "><a href="commands.html"><strong aria-hidden="true">5.</strong> Commands</a></li><li><ol class="section"><li class="expanded "><a href="cp.html"><strong aria-hidden="true">5.1.</strong> cp: Copying tables</a></li><li class="expanded "><a href="count.html"><strong aria-hidden="true">5.2.</strong> count: Counting records</a></li><li class="expanded "><a href="conv.html"><strong aria-hidden="true">5.3.</strong> schema conv: Transforming schemas</a></li></ol></li><li class="expanded "><a href="drivers.html"><strong aria-hidden="true">6.</strong> Drivers</a></li><li><ol class="section"><li class="expanded "><a href="bigml.html"><strong aria-hidden="true">6.1.</strong> BigML</a></li><li class="expanded "><a href="bigquery.html"><strong aria-hidden="true">6.2.</strong> BigQuery</a></li><li class="expanded "><a href="csv.html"><strong aria-hidden="true">6.3.</strong> CSV</a></li><li class="expanded "><a href="gs.html"><strong aria-hidden="true">6.4.</strong> Google Cloud Storage</a></li><li class="expanded "><a href="postgres.html"><strong aria-hidden="true">6.5.</strong> PostgreSQL</a></li><li class="expanded "><a href="redshift.html"><strong aria-hidden="true">6.6.</strong> RedShift</a></li><li class="expanded "><a href="s3.html"><strong aria-hidden="true">6.7.</strong> S3</a></li><li class="expanded "><a href="shopify.html"><strong aria-hidden="true">6.8.</strong> Shopify (UNSTABLE)</a></li></ol></li><li class="expanded "><a href="schemas.html"><strong aria-hidden="true">7.</strong> Specifying table schemas</a></li><li><ol class="section"><li class="expanded "><a href="postgres-sql.html"><strong aria-hidden="true">7.1.</strong> Postgres CREATE TABLE</a></li><li class="expanded "><a href="bigquery-schema.html"><strong aria-hidden="true">7.2.</strong> BigQuery JSON schemas</a></li><li class="expanded "><a href="dbcrossbar-schema.html"><strong aria-hidden="true">7.3.</strong> Native dbcrossbar schemas</a></li><li class="expanded "><a href="dbcrossbar-ts.html"><strong aria-hidden="true">7.4.</strong> TypeScript schemas (UNSTABLE)</a></li></ol></li><li class="expanded "><a href="changes.html"><strong aria-hidden="true">8.</strong> Changes</a></li><li class="expanded affix "><a href="credits.html">Credits and contributors</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -185,7 +185,7 @@ dbcrossbar cp \
     bigquery:$GCLOUD_PROJECT:my_dataset.my_table
 </code></pre>
 <p>This will stream the data out of PostgreSQL, upload it to <code>$GS_TEMP_BUCKET</code>, import it into a temporary BigQuery table, and run an appropriate <code>MERGE</code> command. The <code>config add temporary</code> commands tell <code>dbcrossbar</code> what cloud bucket and BigQuery dataset should be used for temporary files and tables, respectively.</p>
-<p>Notice that we don't need to specify <code>--schema</code>, because <code>dbcrossbar</code> will automatically translate the PostgreSQL column types to corresponding BigQuery types. The <code>--temporary</code> arguments specify what bucket to use for loading the CSV files, and what BigQuery data set to use for the temporary table used as input to the <code>MERGE</code>.</p>
+<p>Notice that we don't need to specify <code>--schema</code>, because <code>dbcrossbar</code> will automatically translate the PostgreSQL column types to corresponding BigQuery types.</p>
 <h2><a class="header" href="#credits" id="credits">Credits</a></h2>
 <p><code>dbcrossbar</code> is generously supported by <a href="http://faraday.io/">Faraday</a> and by open source contributors. Please see the <a href="./credits.html">credits</a> for more information.</p>
 <h1><a class="header" href="#features--philosophy" id="features--philosophy">Features &amp; philosophy</a></h1>
@@ -198,7 +198,7 @@ dbcrossbar cp \
 <p><code>dbcrossbar</code> offers a number of handy features:</p>
 <ul>
 <li>A single static binary on Linux, with no dependencies.</li>
-<li>A stream-based architecture that limits the use of RAM and requires no temporary files. (Note that the current version relies on the Google Cloud SDK, which <em>does</em> have RAM-usage problems.)</li>
+<li>A stream-based architecture that limits the use of RAM and requires no temporary files.</li>
 <li>Support for appending, overwriting or upserting into existing tables.</li>
 <li>Support for selecting records using <code>--where</code>.</li>
 </ul>
@@ -268,7 +268,7 @@ cargo build --release
 2,f,2001-01-01,32767,2147483647,9223372036854775807,,,,,,
 3,,,,,,,,,,,
 </code></pre>
-<p>For more complex types such as arrays, JSON columns and GeoJSON data, we embed JSON into the CSV file:</p>
+<p>For more complex types such as arrays, structs, JSON, and GeoJSON data, we embed JSON into the CSV file:</p>
 <pre><code class="language-csv">test_null,test_not_null,test_bool,test_bool_array,test_date,test_date_array,test_float32,test_float32_array,test_float64,test_float64_array,test_geojson,test_geojson_3857,test_int16,test_int16_array,test_int32,test_int32_array,test_int64,test_int64_array,test_json,test_text,test_text_array,test_timestamp_without_time_zone,test_timestamp_without_time_zone_array,test_timestamp_with_time_zone,test_timestamp_with_time_zone_array,test_uuid,test_uuid_array
 ,hi,t,&quot;[true,false]&quot;,1969-07-20,&quot;[&quot;&quot;1969-07-20&quot;&quot;]&quot;,1e+37,&quot;[1e-37,0,100.125,1e+37]&quot;,1e+37,&quot;[1e-37,0,1000.125,1e+37]&quot;,&quot;{&quot;&quot;type&quot;&quot;:&quot;&quot;Point&quot;&quot;,&quot;&quot;coordinates&quot;&quot;:[-71,42]}&quot;,&quot;{&quot;&quot;type&quot;&quot;:&quot;&quot;Point&quot;&quot;,&quot;&quot;coordinates&quot;&quot;:[-71,42]}&quot;,16,&quot;[-32768,0,32767]&quot;,32,&quot;[-2147483648,0,2147483647]&quot;,64,&quot;[&quot;&quot;-9223372036854775808&quot;&quot;,&quot;&quot;0&quot;&quot;,&quot;&quot;9223372036854775807&quot;&quot;]&quot;,&quot;{&quot;&quot;x&quot;&quot;: 1, &quot;&quot;y&quot;&quot;: 2}&quot;,hello,&quot;[&quot;&quot;hello&quot;&quot;,&quot;&quot;&quot;&quot;]&quot;,1969-07-20T20:17:39.5,&quot;[&quot;&quot;1969-07-20T20:17:39.5&quot;&quot;]&quot;,1969-07-20T20:17:39.5Z,&quot;[&quot;&quot;1969-07-20T20:17:39.5Z&quot;&quot;]&quot;,084ec3bb-3193-4ffb-8b74-99a288e8432c,&quot;[&quot;&quot;084ec3bb-3193-4ffb-8b74-99a288e8432c&quot;&quot;]&quot;
 </code></pre>
@@ -276,12 +276,97 @@ cargo build --release
 <p>If your input CSV files use an incompatible format, there are several things that might help. If your CSV files are invalid, non-standard, or full of junk, then you may be able to use <a href="https://github.com/faradayio/scrubcsv"><code>scrubcsv</code></a> or <a href="https://github.com/BurntSushi/xsv"><code>xsv</code></a> to fix the worst problems.</p>
 <p>If you need to clean up your data manually, then you may want to consider using <code>dbcrossbar</code> to load your data into BigQuery, and set your columns to type <code>STRING</code>. Once this is done, you can parse and normalize your data quickly using SQL queries.</p>
 <h1><a class="header" href="#portable-table-schema" id="portable-table-schema">Portable table schema</a></h1>
-<p>Internally, <code>dbcrossbar</code> uses a portable table &quot;schema&quot; format. This provides a common ground between PostgreSQL's <code>CREATE TABLE</code> statements, <a href="https://cloud.google.com/bigquery/docs/schemas">BigQuery's JSON schemas</a>, and equivalent formats for other databases. Right now, this is only documented in the library documentation:</p>
+<p>Internally, <code>dbcrossbar</code> uses a portable table &quot;schema&quot; format. This provides a common ground between PostgreSQL's <code>CREATE TABLE</code> statements, <a href="https://cloud.google.com/bigquery/docs/schemas">BigQuery's JSON schemas</a>, and equivalent formats for other databases. For more information, see:</p>
 <ul>
 <li><a href="https://docs.rs/dbcrossbarlib/latest/dbcrossbarlib/schema/index.html">The <code>dbcrossbar</code> schema format</a>.</li>
 <li><a href="https://docs.rs/dbcrossbarlib/latest/dbcrossbarlib/schema/enum.DataType.html">The <code>dbcrossbar</code> column types</a>.</li>
 </ul>
 <p>All table schemas and column types are converted into the portable format and then into the appropriate destination format.</p>
+<p>Normally, you won't need to work with this schema format directly, because <code>dbcrossbar</code> can parse BigQuery schemas, PostgreSQL <code>CREATE TABLE</code> statments, and several other popular schema formats. It can also read schemas directly from some databases. See the <a href="./conv.html"><code>conv</code> command</a> for details.</p>
+<h2><a class="header" href="#example-schema" id="example-schema">Example schema</a></h2>
+<pre><code class="language-json">{
+    &quot;name&quot;: &quot;images&quot;,
+    &quot;columns&quot;: [
+        {
+            &quot;name&quot;: &quot;id&quot;,
+            &quot;is_nullable&quot;: false,
+            &quot;data_type&quot;: &quot;uuid&quot;
+        },
+        {
+            &quot;name&quot;: &quot;url&quot;,
+            &quot;is_nullable&quot;: false,
+            &quot;data_type&quot;: &quot;text&quot;
+        },
+        {
+            &quot;name&quot;: &quot;metadata&quot;,
+            &quot;is_nullable&quot;: true,
+            &quot;data_type&quot;: &quot;json&quot;
+        },
+        {
+            &quot;name&quot;: &quot;thumbnails&quot;,
+            &quot;is_nullable&quot;: true,
+            &quot;data_type&quot;: {
+                &quot;array&quot;: {
+                    &quot;struct&quot;: [
+                        {
+                            &quot;name&quot;: &quot;url&quot;,
+                            &quot;is_nullable&quot;: false,
+                            &quot;data_type&quot;: &quot;text&quot;
+                        },
+                        {
+                            &quot;name&quot;: &quot;width&quot;,
+                            &quot;data_type&quot;: &quot;float64&quot;,
+                            &quot;is_nullable&quot;: false
+                        },
+                        {
+                            &quot;name&quot;: &quot;height&quot;,
+                            &quot;data_type&quot;: &quot;float64&quot;,
+                            &quot;is_nullable&quot;: false
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}
+</code></pre>
+<h2><a class="header" href="#table-properties" id="table-properties">Table properties</a></h2>
+<ul>
+<li><code>name</code>: The name of this table. This is normally only used when serializing to schema formats that require a table name.</li>
+<li><code>columns</code>: A list of columns in the table.</li>
+</ul>
+<h2><a class="header" href="#column-properties" id="column-properties">Column properties</a></h2>
+<ul>
+<li><code>name</code>: The name of the column.</li>
+<li><code>is_nullable</code>: Can the column contain <code>NULL</code> values?</li>
+<li><code>data_type</code>: The type of data stored in the column.</li>
+</ul>
+<h2><a class="header" href="#data-types" id="data-types">Data types</a></h2>
+<p>The <code>data_type</code> field can contain any of:</p>
+<ul>
+<li><code>{ &quot;array&quot;: element_type }</code>: An array of <code>element_type</code> values.</li>
+<li><code>&quot;bool&quot;</code>: A boolean value.</li>
+<li><code>&quot;date&quot;</code>: A date, with no associated time value.</li>
+<li><code>&quot;decimal&quot;</code>: A decimal integer (can represent currency, etc., without rounding errors).</li>
+<li><code>&quot;float32&quot;</code>: A 32-bit floating point number.</li>
+<li><code>&quot;float64&quot;</code>: A 64-bit floating point number.</li>
+<li><code>{ &quot;geojson&quot;: srid }</code>: Geodata in GeoJSON format, using the specified <a href="https://en.wikipedia.org/wiki/Spatial_reference_system">SRID</a>, to specify the spatial reference system.</li>
+<li><code>&quot;int16&quot;</code>: A 16-bit signed integer.</li>
+<li><code>&quot;int32&quot;</code>: A 32-bit signed integer.</li>
+<li><code>&quot;int64&quot;</code>: A 64-bit signed integer.</li>
+<li><code>&quot;json&quot;</code>: An arbitrary JSON value.</li>
+<li><code>{ &quot;struct&quot;: fields }</code>: A structure with a list of specific, named fields. Each field has the following properties:
+<ul>
+<li><code>name</code>: The name of the field.</li>
+<li><code>is_nullable</code>: Can the field contain <code>NULL</code> values?</li>
+<li><code>data_type</code>: The type of data stored in the field.</li>
+</ul>
+</li>
+<li><code>&quot;text&quot;</code>: A string.</li>
+<li><code>&quot;timestamp_without_time_zone&quot;</code>: A date and time without an associated timezone.</li>
+<li><code>&quot;timestamp_with_time_zone&quot;</code>: A date and time with an associated timezone.</li>
+<li><code>&quot;uuid&quot;</code>: A UUID value.</li>
+</ul>
 <h1><a class="header" href="#configuring-dbcrossbar" id="configuring-dbcrossbar">Configuring <code>dbcrossbar</code></a></h1>
 <p><code>dbcrossbar</code> can read information from a configuration directory. By default, this can be found at:</p>
 <ul>
@@ -301,7 +386,7 @@ dbcrossbar config rm temporary s3://example/temp/
 <ul>
 <li><code>dbcrossbar cp</code>: Copy tabular data.</li>
 <li><code>dbcrossbar count</code>: Count records.</li>
-<li><code>dbcrossbar conv</code>: Convert table schemas between databases.</li>
+<li><code>dbcrossbar schema conv</code>: Convert table schemas between databases.</li>
 </ul>
 <p>For more information, type <code>dbcrossbar --help</code> or <code>dbcrossbar $CMD --help</code>.</p>
 <p>Not all drivers support all the features of each command. To see the available drivers and what commands they support, run <code>dbcrossbar features</code> and <code>dbcrossbar features $DRIVER_NAME</code>.</p>
@@ -322,8 +407,7 @@ dbcrossbar cp \
     bigquery:$GCLOUD_PROJECT:my_dataset.my_table
 </code></pre>
 <h2><a class="header" href="#command-line-help" id="command-line-help">Command-line help</a></h2>
-<pre><code class="language-txt">dbcrossbar-cp 0.3.0
-Copy tables from one location to another
+<pre><code class="language-txt">Copy tables from one location to another
 
 USAGE:
     dbcrossbar cp [FLAGS] [OPTIONS] &lt;from-locator&gt; &lt;to-locator&gt;
@@ -416,8 +500,7 @@ EXAMPLE LOCATORS:
 <h1><a class="header" href="#count-counting-records" id="count-counting-records">count: Counting records</a></h1>
 <p>This command mostly works like the <a href="./cp.html"><code>cp</code></a> command, except that it prints out a number of rows. Check your driver to see if it supports <code>count</code>.</p>
 <h2><a class="header" href="#command-line-help-1" id="command-line-help-1">Command-line help</a></h2>
-<pre><code class="language-txt">dbcrossbar-count 0.3.0
-Count records
+<pre><code class="language-txt">Count records
 
 USAGE:
     dbcrossbar count [OPTIONS] &lt;locator&gt;
@@ -447,20 +530,19 @@ EXAMPLE LOCATORS:
     postgres://localhost:5432/db#table
     bigquery:project:dataset.table
 </code></pre>
-<h1><a class="header" href="#conv-transforming-schemas" id="conv-transforming-schemas"><code>conv</code>: Transforming schemas</a></h1>
-<p>The <code>conv</code> command can be used to convert between different database schemas. To convert from a PostgreSQL <code>CREATE TABLE</code> statement to a BigQuery schema, run:</p>
-<pre><code class="language-sh">dbcrossbar conv postgres-sql:table.sql bigquery-schema:table.json
+<h1><a class="header" href="#schema-conv-transforming-schemas" id="schema-conv-transforming-schemas"><code>schema conv</code>: Transforming schemas</a></h1>
+<p>The <code>schema conv</code> command can be used to convert between different database schemas. To convert from a PostgreSQL <code>CREATE TABLE</code> statement to a BigQuery schema, run:</p>
+<pre><code class="language-sh">dbcrossbar schema conv postgres-sql:table.sql bigquery-schema:table.json
 </code></pre>
 <p>As a handy trick, you can also use a CSV source, which will generate a <code>CREATE TABLE</code> where all columns have the type <code>TEXT</code>:</p>
-<pre><code class="language-sh">dbcrossbar conv csv:data.csv postgres-sql:table.sql
+<pre><code class="language-sh">dbcrossbar schema conv csv:data.csv postgres-sql:table.sql
 </code></pre>
 <p>This can then be edited to specify appropriate column types.</p>
 <h2><a class="header" href="#command-line-help-2" id="command-line-help-2">Command-line help</a></h2>
-<pre><code class="language-txt">dbcrossbar-conv 0.3.0
-Convert table schemas from one format to another
+<pre><code class="language-txt">Convert table schemas from one format to another
 
 USAGE:
-    dbcrossbar conv [OPTIONS] &lt;from-locator&gt; &lt;to-locator&gt;
+    dbcrossbar schema conv [OPTIONS] &lt;from-locator&gt; &lt;to-locator&gt;
 
 FLAGS:
     -h, --help       Prints help information
@@ -549,11 +631,12 @@ EXAMPLE LOCATORS:
 <pre><code class="language-txt">bigquery features:
 - conv FROM
 - count
-  --where=$SQL_EXPR
+  --from-arg=$NAME=$VALUE --where=$SQL_EXPR
 - cp FROM:
-  --where=$SQL_EXPR
+  --from-arg=$NAME=$VALUE --where=$SQL_EXPR
 - cp TO:
-  --if-exists=append --if-exists=overwrite --if-exists=upsert-on:col
+  --to-arg=$NAME=$VALUE
+  --if-exists=error --if-exists=append --if-exists=overwrite --if-exists=upsert-on:col
 </code></pre>
 <h1><a class="header" href="#csv" id="csv">CSV</a></h1>
 <p><code>dbcrossbar</code> works with valid CSV files in our <a href="./csv_interchange.html">CSV interchange format</a>. For invalid CSV files, take a look at <a href="https://github.com/faradayio/scrubcsv"><code>scrubcsv</code></a>. For CSV files which need further transformation and parsing, considering loading them into BigQuery and cleaning them up using SQL. This works very well even for large datasets.</p>
@@ -593,7 +676,6 @@ EXAMPLE LOCATORS:
 </ul>
 <p>At this point, we do not support single-file output to a cloud bucket. This is relatively easy to add, but has not yet been implemented.</p>
 <h2><a class="header" href="#configuration--authentication-3" id="configuration--authentication-3">Configuration &amp; authentication</a></h2>
-<p><strong>0.3.x and earlier:</strong> All authentication is handled using <code>gcloud auth</code> from the <a href="https://cloud.google.com/sdk/">Google Cloud SDK</a>.</p>
 <p><strong>0.4.x and later:</strong> You can authenticate using either a client secret or a service key, which you can create using the <a href="https://console.cloud.google.com/apis/credentials">console credentials page</a>.</p>
 <ul>
 <li>Client secrets can be stored in <code>$DBCROSSBAR_CONFIG_DIR/gcloud_client_secret.json</code> or in <code>GCLOUD_CLIENT_SECRET</code>. These are strongly recommended for interactive use.</li>
@@ -608,6 +690,7 @@ EXAMPLE LOCATORS:
 <li>BigQuery User (BigQuery driver only)</li>
 </ul>
 <p>There's probably a more limited set of permissions which will work if you set them up manually.</p>
+<p><strong>0.3.x and earlier:</strong> All authentication is handled using <code>gcloud auth</code> from the <a href="https://cloud.google.com/sdk/">Google Cloud SDK</a>.</p>
 <h2><a class="header" href="#supported-features-3" id="supported-features-3">Supported features</a></h2>
 <pre><code class="language-txt">gs features:
 - cp FROM:
@@ -681,10 +764,12 @@ EXAMPLE LOCATORS:
 </ul>
 <p>At this point, we do not support single-file output to a cloud bucket. This is relatively easy to add, but has not yet been implemented.</p>
 <h2><a class="header" href="#configuration--authentication-6" id="configuration--authentication-6">Configuration &amp; authentication</a></h2>
-<p>The following environment variables are required:</p>
+<p>The following environment variables are used to authenticate:</p>
 <ul>
-<li><code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code>: Set these to your AWS credentials.</li>
+<li><code>AWS_ACCESS_KEY_ID</code> (required): The ID for your AWS credentials.</li>
+<li><code>AWS_SECRET_ACCESS_KEY</code> (required): The secret part of your AWS credentials.</li>
 <li><code>AWS_SESSION_TOKEN</code> (optional): Set this to use temporary AWS crdentials.</li>
+<li><code>AWS_DEFAULT_REGION</code> (required): Set this to your AWS region.</li>
 </ul>
 <h2><a class="header" href="#supported-features-6" id="supported-features-6">Supported features</a></h2>
 <pre><code class="language-txt">s3 features:
@@ -713,13 +798,161 @@ EXAMPLE LOCATORS:
 <h2><a class="header" href="#supported-features-7" id="supported-features-7">Supported features</a></h2>
 <pre><code class="language-txt">shopify features:
 - cp FROM:
+
+This driver is UNSTABLE and may change without warning.
 </code></pre>
+<h1><a class="header" href="#schema-drivers" id="schema-drivers">Schema drivers</a></h1>
+<p><code>dbcrossbar</code> allows you to specify a table's column names and types in a number of different ways. You can use <a href="./postgres-sql.html">Postgres <code>CREATE TABLE</code> statements</a>, or <a href="./bigquery-schema.html">BigQuery schema JSON</a>, or <a href="./dbcrossbar-schema.html"><code>dbcrossbar</code>'s internal schema format</a>.</p>
+<p>These schema formats are typically used in one of two ways:</p>
+<ul>
+<li>
+<p>As a <code>--schema</code> argument to the <a href="./cp.html"><code>cp</code> subcommand</a>.</p>
+<pre><code class="language-sh">dbcrossbar cp \
+  --if-exists=overwrite \
+  --schema=postgres-sql:my_table.sql \
+  csv:my_table.csv \
+  'postgres://postgres@127.0.0.1:5432/postgres#my_table'
+</code></pre>
+</li>
+<li>
+<p>As an argument to the <a href="./conv.html"><code>conv</code> subcommand</a>, which allows you to convert between different schema formats.</p>
+<pre><code class="language-sh">dbcrossbar schema conv postgres-sql:table.sql bigquery-schema:table.json
+</code></pre>
+</li>
+</ul>
+<h1><a class="header" href="#postgres-create-table-statements" id="postgres-create-table-statements">Postgres <code>CREATE TABLE</code> statements</a></h1>
+<p>To specify the column names and types for table in SQL format, use:</p>
+<pre><code class="language-txt">--schema postgres-sql:my_table.sql
+</code></pre>
+<p>The file <code>my_table.sql</code> can contain a single <code>CREATE TABLE</code> statement using a subset of PostgreSQL's syntax:</p>
+<pre><code class="language-sql">CREATE TABLE my_table (
+    id INT NOT NULL,
+    name TEXT NOT NULL,
+    quantity INT NOT NULL
+);
+</code></pre>
+<h2><a class="header" href="#limitations" id="limitations">Limitations</a></h2>
+<p>This schema format offers support for singly-nested array types, and it doesn't support structure types at all.</p>
+<h1><a class="header" href="#bigquery-json-schemas" id="bigquery-json-schemas">BigQuery JSON schemas</a></h1>
+<p>To specify the column names and types for table in BigQuery JSON format, use:</p>
+<pre><code class="language-txt">--schema bigquery-schema:my_table.json
+</code></pre>
+<p>The file <code>my_table.json</code> should be a <a href="https://cloud.google.com/bigquery/docs/schemas">BigQuery JSON schema file</a>:</p>
+<pre><code class="language-json">[
+  {
+    &quot;name&quot;: &quot;id&quot;,
+    &quot;type&quot;: &quot;INT64&quot;,
+    &quot;mode&quot;: &quot;REQUIRED&quot;
+  },
+  {
+    &quot;name&quot;: &quot;name&quot;,
+    &quot;type&quot;: &quot;STRING&quot;,
+    &quot;mode&quot;: &quot;REQUIRED&quot;
+  },
+  {
+    &quot;name&quot;: &quot;quantity&quot;,
+    &quot;type&quot;: &quot;INT64&quot;,
+    &quot;mode&quot;: &quot;REQUIRED&quot;
+  }
+]
+</code></pre>
+<h2><a class="header" href="#limitations-1" id="limitations-1">Limitations</a></h2>
+<p>This schema format supports a small number of general types. For example, all integer types are represented as <code>INT64</code>, all floating-point types are represented as <code>FLOAT64</code>, and both JSON values and UUIDs are represented as <code>STRING</code>.</p>
+<h1><a class="header" href="#native-dbcrossbar-schemas" id="native-dbcrossbar-schemas">Native <code>dbcrossbar</code> schemas</a></h1>
+<p><code>dbcrossbar</code> supports a <a href="./schema.html">native schema format</a> that exactly represents all types supported by <code>dbcrossbar</code>. It can be used as follows:</p>
+<pre><code class="language-txt">--schema dbcrossbar-schema:my_table.json
+</code></pre>
+<p>For more details and example, see the chaper on <a href="./schema.html">portable table schemas</a>.</p>
+<h2><a class="header" href="#typical-uses" id="typical-uses">Typical uses</a></h2>
+<p>This format is cumbersome to edit by hand, but it is fairly useful in a number of circumstances:</p>
+<ul>
+<li>Specifying column types that can't be exactly represented by other schema formats.</li>
+<li>Reading or editing schemas using scripts.</li>
+</ul>
+<h1><a class="header" href="#typescript-schemas-unstable" id="typescript-schemas-unstable">TypeScript schemas (UNSTABLE)</a></h1>
+<p><strong>WARNING:</strong> This is highly experimental and subject to change. To use it, you must enable it using the <code>--enable-unstable</code> flag.</p>
+<p>To specify the column names and types for table using a subset of TypeScript, use:</p>
+<pre><code class="language-txt">--schema &quot;dbcrossbar-ts:my_table.ts#MyTable&quot;
+</code></pre>
+<p>The file <code>my_table.ts</code> can contain one or more <code>interface</code> definitions:</p>
+<pre><code class="language-ts">interface MyTable {
+    id: string,
+    name: string,
+    quantity: number,
+}
+</code></pre>
+<h2><a class="header" href="#magic-types" id="magic-types">&quot;Magic&quot; types</a></h2>
+<p>Certain <code>dbcrossbar</code> types can be specified by adding the following declarations to a TypeScript file:</p>
+<pre><code class="language-ts">// Decimal numbers which can exactly represent
+// currency values with no rounding.
+type decimal = number | string;
+
+// Integers of various sizes.
+type int16 = number | string;
+type int32 = number | string;
+type int64 = number | string;
+</code></pre>
+<p>These may then be used as follows:</p>
+<pre><code class="language-ts">interface OrderItem {
+    id: int64,
+    sku: string,
+    unit_price: decimal,
+    quantity: int16,
+}
+</code></pre>
+<p>When the TypeScript schema is converted to a portable <code>dbcrossbar</code> schema, the &quot;magic&quot; types will be replaced with the corresponding portable type.</p>
+<h3><a class="header" href="#advanced-features" id="advanced-features">Advanced features</a></h3>
+<p>We also support nullable values, arrays and nested structures:</p>
+<pre><code class="language-ts">type decimal = number | string;
+type int16 = number | string;
+type int32 = number | string;
+type int64 = number | string;
+
+interface Order {
+    id: int64,
+    line_items: OrderItem[],
+    note: string | null,
+}
+
+interface OrderItem {
+    id: int64,
+    sku: string,
+    unit_price: decimal,
+    quantity: int16,
+}
+</code></pre>
+<p>Nested arrays and structs will translate to appropriate database-specific types, such as BigQuery <code>ARRAY</code> and <code>STRUCT</code> types.</p>
+<h2><a class="header" href="#limitations-2" id="limitations-2">Limitations</a></h2>
+<p>This schema format has a number of limitations:</p>
+<ul>
+<li>There's no way to convert other schema formats into this one (yet).</li>
+<li>Some portable <code>dbcrossbar</code> types can't be represented in this format.</li>
+<li>Only a small subset of TypeScript is supported (but we try to give good error messages).</li>
+</ul>
 <h1><a class="header" href="#changelog" id="changelog">Changelog</a></h1>
 <p>All notable changes to this project will be documented in this file.</p>
-<p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>, and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a> for the <code>dbcrossbar</code> CLI tool. (The <code>dbcrossbarlib</code> is an internal-only dependency with no versioning policy at this time.)</p>
+<p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>, and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a> for the <code>dbcrossbar</code> CLI tool. (The <code>dbcrossbarlib</code> crate is an internal-only dependency with no versioning policy at this time.)</p>
+<h2><a class="header" href="#040-rc1---2020-05-31" id="040-rc1---2020-05-31">0.4.0-rc.1 - 2020-05-31</a></h2>
+<p>This is a release candidate for v0.4.0. If no issues are discovered, this will be published as 0.4.0.</p>
+<p>This release contains a last few breaking changes that we want to include before we publicize <code>dbcrossbar</code> more widely. When migrating, particular attention to the <code>conv</code> subcommand and <code>AWS_DEFAULT_REGION</code> below, which have significant breaking changes.</p>
+<h3><a class="header" href="#changed" id="changed">Changed</a></h3>
+<ul>
+<li>Rename <code>dbcrossbar conv</code> to <code>dbcrossbar schema conv</code>.</li>
+<li>s3: Require <code>AWS_DEFAULT_REGION</code> instead of optionally using <code>AWS_REGION</code>. This is more compatiable with the <code>aws</code> CLI command, and it doesn't rely on undocumented region defaults or <code>aws</code> configuration files.</li>
+</ul>
+<h3><a class="header" href="#documented" id="documented">Documented</a></h3>
+<ul>
+<li>Document our portable schema format.</li>
+<li>Document schema-only drivers.</li>
+<li>Improve the documentation in other minor ways.</li>
+</ul>
+<h3><a class="header" href="#removed" id="removed">Removed</a></h3>
+<ul>
+<li>Remove <code>DataType::Other(_)</code>, which was not actually used by any of our drivers.</li>
+</ul>
 <h2><a class="header" href="#040-beta1---2020-05-28" id="040-beta1---2020-05-28">0.4.0-beta.1 - 2020-05-28</a></h2>
 <p>We're finally ready to start preparing for an 0.4.0 release! This beta will be deployed to several production systems to help verify that there are no surprising regressions.</p>
-<h3><a class="header" href="#changed" id="changed">Changed</a></h3>
+<h3><a class="header" href="#changed-1" id="changed-1">Changed</a></h3>
 <ul>
 <li>gs: We now verify CRC32C checksums when uploading.</li>
 <li>gs: We specify <code>isGenerationMatch</code> on many operations to make sure that nothing has been created or overridden that we didn't expect.</li>
@@ -732,7 +965,7 @@ EXAMPLE LOCATORS:
 <li>Allow driver argument names to be specified as either <code>x.y</code> or <code>x[y]</code>, interchangeably. This makes <code>job_labels</code> look nicer.</li>
 <li>Hide URL passwords from (most) logs using a dedicated wrapper type.</li>
 </ul>
-<h3><a class="header" href="#changed-1" id="changed-1">Changed</a></h3>
+<h3><a class="header" href="#changed-2" id="changed-2">Changed</a></h3>
 <ul>
 <li>We now have test cases that make sure we catch duplicate driver arguments and raise an error.</li>
 <li>redshift: Authentication argument names may no longer include <code>-</code> characters. I'm not even sure whether these are valid, but they won't work with the new scheme for parsing driver arguments.</li>
@@ -760,7 +993,7 @@ EXAMPLE LOCATORS:
 <ul>
 <li>BigQuery: Support <code>--if-exists=error</code>.</li>
 </ul>
-<h3><a class="header" href="#changed-2" id="changed-2">Changed</a></h3>
+<h3><a class="header" href="#changed-3" id="changed-3">Changed</a></h3>
 <ul>
 <li>Require <code>--enable-unstable</code> to use <code>dbcrossbar-ts</code> or <code>shopify</code> locators, which are unstable.</li>
 <li>AWS credentials must now always be passed via <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>, <code>AWS_SESSION_TOKEN</code> (optional) and <code>AWS_REGION</code> (optional). This lays the groundwork for replacing the <code>aws</code> CLI tool with native Rust code, so that we will someday be able to remove our last CLI dependency.</li>
@@ -778,12 +1011,12 @@ EXAMPLE LOCATORS:
 </ul>
 </li>
 </ul>
-<h3><a class="header" href="#changed-3" id="changed-3">Changed</a></h3>
+<h3><a class="header" href="#changed-4" id="changed-4">Changed</a></h3>
 <ul>
 <li>The sample <code>shopify.ts</code> schema now uses <code>decimal</code> instead of <code>string</code> when appropriate. It does not attempt to use <code>int64</code> yet.</li>
 </ul>
-<h2><a class="header" href="#040-alpha3---2020-05-19" id="040-alpha3---2020-05-19">0.4.0-alpha.3 - 2020-05-19</a></h2>
-<p>YANKED.</p>
+<h2><a class="header" href="#040-alpha3---2020-05-19-0-yanked" id="040-alpha3---2020-05-19-0-yanked">0.4.0-alpha.3 - 2020-05-19 0 YANKED</a></h2>
+<p>This release was yanked because it was missing several things it should have included.</p>
 <h2><a class="header" href="#040-alpha2---2020-05-19" id="040-alpha2---2020-05-19">0.4.0-alpha.2 - 2020-05-19</a></h2>
 <p>This is a significant release, with support for &quot;struct&quot; types.</p>
 <h3><a class="header" href="#added-4" id="added-4">Added</a></h3>
@@ -795,7 +1028,7 @@ EXAMPLE LOCATORS:
 <li>We now have support for fancy parser error messages, which we use with the <code>dbcrossbar-ts</code> parser.</li>
 <li>We now support a CLI-editable config file using commands like <code>dbcrossbar config add temporary s3://example/temp/</code>.</li>
 </ul>
-<h3><a class="header" href="#changed-4" id="changed-4">Changed</a></h3>
+<h3><a class="header" href="#changed-5" id="changed-5">Changed</a></h3>
 <ul>
 <li>BREAKING: Some corner cases involving struct types and JSON may have changed subtly.</li>
 <li>We've upgraded to the latest <code>rust-peg</code> parser syntax everywhere.</li>
@@ -808,7 +1041,7 @@ EXAMPLE LOCATORS:
 <li>Various obsolete casting libraries have been removed.</li>
 </ul>
 <h2><a class="header" href="#040-alpha1---2020-04-07" id="040-alpha1---2020-04-07">0.4.0-alpha.1 - 2020-04-07</a></h2>
-<h3><a class="header" href="#changed-5" id="changed-5">Changed</a></h3>
+<h3><a class="header" href="#changed-6" id="changed-6">Changed</a></h3>
 <ul>
 <li>Replace <code>gcloud auth</code>, <code>gsutil</code> and <code>bq</code> with native Rust. This changes how we authenticate to Google Cloud. In particular, we now support <code>GCLOUD_CLIENT_SECRET</code>, <code>~/.config/dbcrossbar/gcloud_client_secret.json</code>, <code>GCLOUD_SERVICE_ACCOUNT_KEY</code> or <code>~/.config/dbcrossbar/gcloud_service_account_key.json</code>, as <a href="https://www.dbcrossbar.org/gs.html#configuration--authentication">explained in the manual</a>. We no longer use <code>gcloud auth</code>, and the Google Cloud SDK tools are no longer required. In the current alpha version, uploads and deletions are probably slower than before.</li>
 </ul>
@@ -834,7 +1067,7 @@ EXAMPLE LOCATORS:
 <ul>
 <li>Write a new <a href="https://www.dbcrossbar.org/">manual</a>!</li>
 </ul>
-<h3><a class="header" href="#changed-6" id="changed-6">Changed</a></h3>
+<h3><a class="header" href="#changed-7" id="changed-7">Changed</a></h3>
 <ul>
 <li>Encapsulate all calls to <code>bq</code> and <code>gsutil</code></li>
 <li>Improve performance of <code>--stream-size</code></li>
@@ -849,7 +1082,7 @@ EXAMPLE LOCATORS:
 <li>Use <code>cargo deny</code> to enforce license and duplicate dependency policies</li>
 <li>Add notes about license and contribution policies</li>
 </ul>
-<h3><a class="header" href="#changed-7" id="changed-7">Changed</a></h3>
+<h3><a class="header" href="#changed-8" id="changed-8">Changed</a></h3>
 <ul>
 <li>Update to tokio 0.2 and the latest stable Rust</li>
 <li>Replace <code>wkb</code> with <code>postgis</code> for licensing reasons</li>
@@ -861,7 +1094,7 @@ EXAMPLE LOCATORS:
 <li>PostgreSQL: Fix upserts with mixed-case column names</li>
 <li>BigQuery: Correctly output NULL values in Boolean columns (#104)</li>
 </ul>
-<h3><a class="header" href="#removed" id="removed">Removed</a></h3>
+<h3><a class="header" href="#removed-1" id="removed-1">Removed</a></h3>
 <ul>
 <li>BREAKING: BigQuery: Remove code that tried to rename column names to make them valid (fixes #84)</li>
 </ul>
