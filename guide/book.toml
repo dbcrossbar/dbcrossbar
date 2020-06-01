@@ -11,3 +11,4 @@ command = "mdbook-graphviz"
 [output.html]
 git-repository-url = "https://github.com/dbcrossbar/dbcrossbar"
 git-repository-icon = "fa-github"
+theme = "src/theme"
