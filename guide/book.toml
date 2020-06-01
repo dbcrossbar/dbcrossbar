@@ -4,6 +4,7 @@ language = "en"
 multilingual = false
 src = "src"
 title = "Using dbcrossbar"
+description = "dbcrossbar copies tabular data between PostgreSQL, BigQuery, CSV and many other databases and formats."
 
 [preprocessor.graphviz]
 command = "mdbook-graphviz"
