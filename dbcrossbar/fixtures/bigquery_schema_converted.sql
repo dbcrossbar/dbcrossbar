@@ -27,5 +27,5 @@ CREATE TABLE "unnamed" (
     "test_uuid" text,
     "test_uuid_array" text[],
     "record" jsonb,
-    "records" jsonb
+    "records" jsonb[]
 );

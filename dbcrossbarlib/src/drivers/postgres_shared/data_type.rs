@@ -27,29 +27,18 @@ impl PgDataType {
     pub(crate) fn from_data_type(ty: &DataType) -> Result<PgDataType> {
         match ty {
             DataType::Array(nested) => {
-                match nested.as_ref() {
-                    // This is controversial philosophical decision, but Seamus argues
-                    // strongly that nobody ever wants to see `jsonb[]`. So
-                    // we turn arrays of JSON values into JSON array values, yielding
-                    // `jsonb`.
-                    DataType::Json | DataType::Struct(_) => {
-                        Ok(PgDataType::Scalar(PgScalarDataType::Jsonb))
-                    }
-                    _ => {
-                        // Iterate over our nested child array types, figuring out how
-                        // many array dimensions we have before we hit a scalar type.
-                        let mut dimension_count = 1;
-                        let mut nested = nested.as_ref();
-                        while let DataType::Array(next) = nested {
-                            dimension_count += 1;
-                            nested = next.as_ref();
-                        }
-                        Ok(PgDataType::Array {
-                            dimension_count,
-                            ty: PgScalarDataType::from_data_type(nested)?,
-                        })
-                    }
+                // Iterate over our nested child array types, figuring out how
+                // many array dimensions we have before we hit a scalar type.
+                let mut dimension_count = 1;
+                let mut nested = nested.as_ref();
+                while let DataType::Array(next) = nested {
+                    dimension_count += 1;
+                    nested = next.as_ref();
                 }
+                Ok(PgDataType::Array {
+                    dimension_count,
+                    ty: PgScalarDataType::from_data_type(nested)?,
+                })
             }
             scalar => Ok(PgDataType::Scalar(PgScalarDataType::from_data_type(
                 scalar,
