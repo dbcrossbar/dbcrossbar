@@ -1,59 +1,67 @@
 <!DOCTYPE HTML>
-<html lang="en" class="sidebar-visible no-js light">
+<html lang="{{ language }}" class="sidebar-visible no-js {{ default_theme }}">
 
 <head>
     <!-- Book generated using mdBook -->
     <meta charset="UTF-8">
-    <title>Drivers - Using dbcrossbar</title>
-    
+    <title>{{ title }}</title>
+    {{#if is_print }}
+    <meta name="robots" content="noindex" />
+    {{/if}}
 
     <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
-    <meta name="description" content="dbcrossbar copies tabular data between PostgreSQL, BigQuery, CSV and many other databases and formats.">
+    <meta name="description" content="{{ description }}">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#ffffff" />
 
     <!-- dbcrossbar metadata for social media "unfurling" -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://www.dbcrossbar.org/">
-    <meta property="og:title" content="Drivers - Using dbcrossbar">
-    <meta property="og:description" content="dbcrossbar copies tabular data between PostgreSQL, BigQuery, CSV and many other databases and formats.">
+    <meta property="og:title" content="{{ title }}">
+    <meta property="og:description" content="{{ description }}">
     <meta property="og:image" content="https://www.dbcrossbar.org/dbcrossbar_intro.png">
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:domain" content="www.dbcrossbar.org">
-    <meta property="twitter:title" content="Drivers - Using dbcrossbar">
-    <meta property="twitter:description" content="dbcrossbar copies tabular data between PostgreSQL, BigQuery, CSV and many other databases and formats.">
+    <meta property="twitter:title" content="{{ title }}">
+    <meta property="twitter:description" content="{{ description }}">
     <meta property="twitter:image" content="https://www.dbcrossbar.org/dbcrossbar_intro.png">
     <meta property="twitter:url" content="https://www.dbcrossbar.org/">
 
-    <link rel="shortcut icon" href="favicon.png">
-    <link rel="stylesheet" href="css/variables.css">
-    <link rel="stylesheet" href="css/general.css">
-    <link rel="stylesheet" href="css/chrome.css">
-    <link rel="stylesheet" href="css/print.css" media="print">
+    <link rel="shortcut icon" href="{{ path_to_root }}{{ favicon }}">
+    <link rel="stylesheet" href="{{ path_to_root }}css/variables.css">
+    <link rel="stylesheet" href="{{ path_to_root }}css/general.css">
+    <link rel="stylesheet" href="{{ path_to_root }}css/chrome.css">
+    <link rel="stylesheet" href="{{ path_to_root }}css/print.css" media="print">
 
     <!-- Fonts -->
-    <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+    <link rel="stylesheet" href="{{ path_to_root }}FontAwesome/css/font-awesome.css">
     <link
         href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800"
         rel="stylesheet" type="text/css">
     <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
 
     <!-- Highlight.js Stylesheets -->
-    <link rel="stylesheet" href="highlight.css">
-    <link rel="stylesheet" href="tomorrow-night.css">
-    <link rel="stylesheet" href="ayu-highlight.css">
+    <link rel="stylesheet" href="{{ path_to_root }}highlight.css">
+    <link rel="stylesheet" href="{{ path_to_root }}tomorrow-night.css">
+    <link rel="stylesheet" href="{{ path_to_root }}ayu-highlight.css">
 
     <!-- Custom theme stylesheets -->
-    
+    {{#each additional_css}}
+    <link rel="stylesheet" href="{{ ../path_to_root }}{{ this }}">
+    {{/each}}
 
-    
+    {{#if mathjax_support}}
+    <!-- MathJax -->
+    <script async type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    {{/if}}
 </head>
 
 <body>
     <!-- Provide site root to javascript -->
     <script type="text/javascript">
-        var path_to_root = "";
-        var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
+        var path_to_root = "{{ path_to_root }}";
+        var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "{{ preferred_dark_theme }}" : "{{ default_theme }}";
     </script>
 
     <!-- Work around some values being stored in localStorage wrapped in quotes -->
@@ -79,7 +87,7 @@
         if (theme === null || theme === undefined) { theme = default_theme; }
         var html = document.querySelector('html');
         html.classList.remove('no-js')
-        html.classList.remove('light')
+        html.classList.remove('{{ default_theme }}')
         html.classList.add(theme);
         html.classList.add('js');
     </script>
@@ -98,7 +106,7 @@
 
     <nav id="sidebar" class="sidebar" aria-label="Table of contents">
         <div class="sidebar-scrollbox">
-            <ol class="chapter"><li class="expanded affix "><a href="intro.html">dbcrossbar Guide</a></li><li class="expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features &amp; philosophy</a></li><li class="expanded "><a href="installing.html"><strong aria-hidden="true">2.</strong> Installing</a></li><li class="expanded "><a href="how.html"><strong aria-hidden="true">3.</strong> How it works</a></li><li><ol class="section"><li class="expanded "><a href="csv_interchange.html"><strong aria-hidden="true">3.1.</strong> CSV interchange format</a></li><li class="expanded "><a href="schema.html"><strong aria-hidden="true">3.2.</strong> Portable table schema</a></li></ol></li><li class="expanded "><a href="config.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li class="expanded "><a href="commands.html"><strong aria-hidden="true">5.</strong> Commands</a></li><li><ol class="section"><li class="expanded "><a href="cp.html"><strong aria-hidden="true">5.1.</strong> cp: Copying tables</a></li><li class="expanded "><a href="count.html"><strong aria-hidden="true">5.2.</strong> count: Counting records</a></li><li class="expanded "><a href="conv.html"><strong aria-hidden="true">5.3.</strong> schema conv: Transforming schemas</a></li></ol></li><li class="expanded "><a href="drivers.html" class="active"><strong aria-hidden="true">6.</strong> Drivers</a></li><li><ol class="section"><li class="expanded "><a href="bigml.html"><strong aria-hidden="true">6.1.</strong> BigML</a></li><li class="expanded "><a href="bigquery.html"><strong aria-hidden="true">6.2.</strong> BigQuery</a></li><li class="expanded "><a href="csv.html"><strong aria-hidden="true">6.3.</strong> CSV</a></li><li class="expanded "><a href="gs.html"><strong aria-hidden="true">6.4.</strong> Google Cloud Storage</a></li><li class="expanded "><a href="postgres.html"><strong aria-hidden="true">6.5.</strong> PostgreSQL</a></li><li class="expanded "><a href="redshift.html"><strong aria-hidden="true">6.6.</strong> RedShift</a></li><li class="expanded "><a href="s3.html"><strong aria-hidden="true">6.7.</strong> S3</a></li><li class="expanded "><a href="shopify.html"><strong aria-hidden="true">6.8.</strong> Shopify (UNSTABLE)</a></li></ol></li><li class="expanded "><a href="schemas.html"><strong aria-hidden="true">7.</strong> Specifying table schemas</a></li><li><ol class="section"><li class="expanded "><a href="postgres-sql.html"><strong aria-hidden="true">7.1.</strong> Postgres CREATE TABLE</a></li><li class="expanded "><a href="bigquery-schema.html"><strong aria-hidden="true">7.2.</strong> BigQuery JSON schemas</a></li><li class="expanded "><a href="dbcrossbar-schema.html"><strong aria-hidden="true">7.3.</strong> Native dbcrossbar schemas</a></li><li class="expanded "><a href="dbcrossbar-ts.html"><strong aria-hidden="true">7.4.</strong> TypeScript schemas (UNSTABLE)</a></li></ol></li><li class="expanded "><a href="changes.html"><strong aria-hidden="true">8.</strong> Changes</a></li><li class="expanded affix "><a href="credits.html">Credits and contributors</a></li></ol>
+            {{#toc}}{{/toc}}
         </div>
         <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
     </nav>
@@ -106,7 +114,7 @@
     <div id="page-wrapper" class="page-wrapper">
 
         <div class="page">
-            
+            {{> header}}
             <div id="menu-bar-hover-placeholder"></div>
             <div id="menu-bar" class="menu-bar sticky bordered">
                 <div class="left-buttons">
@@ -120,40 +128,40 @@
                     </button>
                     <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
                         <li role="none"><button role="menuitem" class="theme"
-                                id="light">Light (default)</button></li>
+                                id="light">{{ theme_option "Light" }}</button></li>
                         <li role="none"><button role="menuitem" class="theme"
-                                id="rust">Rust</button></li>
+                                id="rust">{{ theme_option "Rust" }}</button></li>
                         <li role="none"><button role="menuitem" class="theme"
-                                id="coal">Coal</button></li>
+                                id="coal">{{ theme_option "Coal" }}</button></li>
                         <li role="none"><button role="menuitem" class="theme"
-                                id="navy">Navy</button></li>
-                        <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button>
+                                id="navy">{{ theme_option "Navy" }}</button></li>
+                        <li role="none"><button role="menuitem" class="theme" id="ayu">{{ theme_option "Ayu" }}</button>
                         </li>
                     </ul>
-                    
+                    {{#if search_enabled}}
                     <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)"
                         aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S"
                         aria-controls="searchbar">
                         <i class="fa fa-search"></i>
                     </button>
-                    
+                    {{/if}}
                 </div>
 
-                <h1 class="menu-title">Using dbcrossbar</h1>
+                <h1 class="menu-title">{{ book_title }}</h1>
 
                 <div class="right-buttons">
-                    <a href="print.html" title="Print this book" aria-label="Print this book">
+                    <a href="{{ path_to_root }}print.html" title="Print this book" aria-label="Print this book">
                         <i id="print-button" class="fa fa-print"></i>
                     </a>
-                    
-                    <a href="https://github.com/dbcrossbar/dbcrossbar" title="Git repository" aria-label="Git repository">
-                        <i id="git-repository-button" class="fa fa-github"></i>
+                    {{#if git_repository_url}}
+                    <a href="{{git_repository_url}}" title="Git repository" aria-label="Git repository">
+                        <i id="git-repository-button" class="fa {{git_repository_icon}}"></i>
                     </a>
-                    
+                    {{/if}}
                 </div>
             </div>
 
-            
+            {{#if search_enabled}}
             <div id="search-wrapper" class="hidden">
                 <form id="searchbar-outer" class="searchbar-outer">
                     <input type="search" name="search" id="searchbar" name="searchbar"
@@ -166,7 +174,7 @@
                     </ul>
                 </div>
             </div>
-            
+            {{/if}}
 
             <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
             <script type="text/javascript">
@@ -179,26 +187,24 @@
 
             <div id="content" class="content">
                 <main>
-                    <h1><a class="header" href="#drivers" id="drivers">Drivers</a></h1>
-<p><code>dbcrossbar</code> uses built-in &quot;drivers&quot; to read and write CSV data and table schemas.</p>
-
+                    {{{ content }}}
                 </main>
 
                 <nav class="nav-wrapper" aria-label="Page navigation">
                     <!-- Mobile navigation buttons -->
-                    
-                    <a rel="prev" href="conv.html" class="mobile-nav-chapters previous"
+                    {{#previous}}
+                    <a rel="prev" href="{{ path_to_root }}{{link}}" class="mobile-nav-chapters previous"
                         title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
-                    
+                    {{/previous}}
 
-                    
-                    <a rel="next" href="bigml.html" class="mobile-nav-chapters next"
+                    {{#next}}
+                    <a rel="next" href="{{ path_to_root }}{{link}}" class="mobile-nav-chapters next"
                         title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
-                    
+                    {{/next}}
 
                     <div style="clear: both"></div>
                 </nav>
@@ -206,51 +212,113 @@
         </div>
 
         <nav class="nav-wide-wrapper" aria-label="Page navigation">
-            
-            <a rel="prev" href="conv.html" class="nav-chapters previous" title="Previous chapter"
+            {{#previous}}
+            <a rel="prev" href="{{ path_to_root }}{{link}}" class="nav-chapters previous" title="Previous chapter"
                 aria-label="Previous chapter" aria-keyshortcuts="Left">
                 <i class="fa fa-angle-left"></i>
             </a>
-            
+            {{/previous}}
 
-            
-            <a rel="next" href="bigml.html" class="nav-chapters next" title="Next chapter"
+            {{#next}}
+            <a rel="next" href="{{ path_to_root }}{{link}}" class="nav-chapters next" title="Next chapter"
                 aria-label="Next chapter" aria-keyshortcuts="Right">
                 <i class="fa fa-angle-right"></i>
             </a>
-            
+            {{/next}}
         </nav>
 
     </div>
 
-    
+    {{#if livereload}}
+    <!-- Livereload script (if served using the cli tool) -->
+    <script type="text/javascript">
+        var socket = new WebSocket("{{{livereload}}}");
+        socket.onmessage = function (event) {
+            if (event.data === "reload") {
+                socket.close();
+                location.reload();
+            }
+        };
 
-    
+        window.onbeforeunload = function () {
+            socket.close();
+        }
+    </script>
+    {{/if}}
 
-    
+    {{#if google_analytics}}
+    <!-- Google Analytics Tag -->
+    <script type="text/javascript">
+        var localAddrs = ["localhost", "127.0.0.1", ""];
 
-    
+        // make sure we don't activate google analytics if the developer is
+        // inspecting the book locally...
+        if (localAddrs.indexOf(document.location.hostname) === -1) {
+            (function (i, s, o, g, r, a, m) {
+                i['GoogleAnalyticsObject'] = r; i[r] = i[r] || function () {
+                    (i[r].q = i[r].q || []).push(arguments)
+                }, i[r].l = 1 * new Date(); a = s.createElement(o),
+                    m = s.getElementsByTagName(o)[0]; a.async = 1; a.src = g; m.parentNode.insertBefore(a, m)
+            })(window, document, 'script', 'https://www.google-analytics.com/analytics.js', 'ga');
+
+            ga('create', '{{google_analytics}}', 'auto');
+            ga('send', 'pageview');
+        }
+    </script>
+    {{/if}}
+
+    {{#if playpen_line_numbers}}
+    <script type="text/javascript">
+        window.playpen_line_numbers = true;
+    </script>
+    {{/if}}
+
+    {{#if playpen_copyable}}
     <script type="text/javascript">
         window.playpen_copyable = true;
     </script>
-    
+    {{/if}}
 
-    
+    {{#if playpen_js}}
+    <script src="{{ path_to_root }}ace.js" type="text/javascript" charset="utf-8"></script>
+    <script src="{{ path_to_root }}editor.js" type="text/javascript" charset="utf-8"></script>
+    <script src="{{ path_to_root }}mode-rust.js" type="text/javascript" charset="utf-8"></script>
+    <script src="{{ path_to_root }}theme-dawn.js" type="text/javascript" charset="utf-8"></script>
+    <script src="{{ path_to_root }}theme-tomorrow_night.js" type="text/javascript" charset="utf-8"></script>
+    {{/if}}
 
-    
-    <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
-    <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
-    <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
-    
+    {{#if search_js}}
+    <script src="{{ path_to_root }}elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="{{ path_to_root }}mark.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="{{ path_to_root }}searcher.js" type="text/javascript" charset="utf-8"></script>
+    {{/if}}
 
-    <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
-    <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
-    <script src="book.js" type="text/javascript" charset="utf-8"></script>
+    <script src="{{ path_to_root }}clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="{{ path_to_root }}highlight.js" type="text/javascript" charset="utf-8"></script>
+    <script src="{{ path_to_root }}book.js" type="text/javascript" charset="utf-8"></script>
 
     <!-- Custom JS scripts -->
-    
+    {{#each additional_js}}
+    <script type="text/javascript" src="{{ ../path_to_root }}{{this}}"></script>
+    {{/each}}
 
-    
+    {{#if is_print}}
+    {{#if mathjax_support}}
+    <script type="text/javascript">
+        window.addEventListener('load', function () {
+            MathJax.Hub.Register.StartupHook('End', function () {
+                window.setTimeout(window.print, 100);
+            });
+        });
+    </script>
+    {{else}}
+    <script type="text/javascript">
+        window.addEventListener('load', function () {
+            window.setTimeout(window.print, 100);
+        });
+    </script>
+    {{/if}}
+    {{/if}}
 
 </body>
 
