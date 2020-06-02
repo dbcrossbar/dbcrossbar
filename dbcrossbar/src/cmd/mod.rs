@@ -11,6 +11,7 @@ pub(crate) mod config;
 pub(crate) mod count;
 pub(crate) mod cp;
 pub(crate) mod features;
+pub(crate) mod license;
 pub(crate) mod schema;
 
 /// Command-line options, parsed using `structopt`.
@@ -77,6 +78,13 @@ pub(crate) enum Command {
         command: features::Opt,
     },
 
+    /// Display license information.
+    #[structopt(name = "license")]
+    License {
+        #[structopt(flatten)]
+        command: license::Opt,
+    },
+
     /// Schema-related commands.
     Schema {
         #[structopt(flatten)]
@@ -96,6 +104,9 @@ pub(crate) fn run(ctx: Context, config: Configuration, opt: Opt) -> BoxFuture<()
         }
         Command::Features { command } => {
             features::run(ctx, config, opt.enable_unstable, command).boxed()
+        }
+        Command::License { command } => {
+            license::run(ctx, config, opt.enable_unstable, command).boxed()
         }
         Command::Schema { command } => {
             schema::run(ctx, config, opt.enable_unstable, command).boxed()
