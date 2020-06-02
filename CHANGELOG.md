@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` crate is an internal-only dependency with no versioning policy at this time.)
 
-## UNRELEASED
+## 0.4.0 - 2020-06-02
 
 This is a summary of all the major changes since the 0.3.3 release. For more details and minor changes, see the individual CHANGELOG entries for the 0.4.0 preleases.
 
@@ -14,6 +14,7 @@ This is a summary of all the major changes since the 0.3.3 release. For more det
 - We now support a CLI-editable config file using commands like `dbcrossbar config add temporary s3://example/temp/`.
 - Parsing-related error messages should now include context.
 - bigquery: Users can now specify billing labels for jobs.
+- `dbcrossbar license` will display the licences for all dependencies.
 - Unstable features can now be hidden behind the `--enable-unstable` flag, including two new drivers:
   - UNSTABLE: We now support specifying schemas using a subset of TypeScript.
   - UNSTABLE: We now support reading data from Shopify's REST API. This is a testbed for new struct and JSON-related features.

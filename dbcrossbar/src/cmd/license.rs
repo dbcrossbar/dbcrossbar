@@ -20,7 +20,7 @@ pub(crate) struct Opt {
 // things.
 include_flate::flate!(
     /// Compile our license text into the binary.
-    static LICENSE: [u8] from "../ALL_LICENSES.html"
+    static LICENSE: [u8] from "ALL_LICENSES.html"
 );
 
 /// Perform our schema conversion.
