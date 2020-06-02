@@ -957,7 +957,7 @@ interface OrderItem {
 <h1><a class="header" href="#changelog" id="changelog">Changelog</a></h1>
 <p>All notable changes to this project will be documented in this file.</p>
 <p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>, and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a> for the <code>dbcrossbar</code> CLI tool. (The <code>dbcrossbarlib</code> crate is an internal-only dependency with no versioning policy at this time.)</p>
-<h2><a class="header" href="#unreleased" id="unreleased">UNRELEASED</a></h2>
+<h2><a class="header" href="#040---2020-06-02" id="040---2020-06-02">0.4.0 - 2020-06-02</a></h2>
 <p>This is a summary of all the major changes since the 0.3.3 release. For more details and minor changes, see the individual CHANGELOG entries for the 0.4.0 preleases.</p>
 <h2><a class="header" href="#added" id="added">Added</a></h2>
 <ul>
@@ -965,6 +965,7 @@ interface OrderItem {
 <li>We now support a CLI-editable config file using commands like <code>dbcrossbar config add temporary s3://example/temp/</code>.</li>
 <li>Parsing-related error messages should now include context.</li>
 <li>bigquery: Users can now specify billing labels for jobs.</li>
+<li><code>dbcrossbar license</code> will display the licences for all dependencies.</li>
 <li>Unstable features can now be hidden behind the <code>--enable-unstable</code> flag, including two new drivers:
 <ul>
 <li>UNSTABLE: We now support specifying schemas using a subset of TypeScript.</li>
