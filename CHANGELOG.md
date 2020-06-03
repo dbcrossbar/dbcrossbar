@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 This is a summary of all the major changes since the 0.3.3 release. For more details and minor changes, see the individual CHANGELOG entries for the 0.4.0 preleases.
 
-## Added
+### Added
 
 - `dbcrossbar` now supports "struct" types, which have a fixed set of named fields. These will be automatically translated to BigQuery STRUCT types or to JSON columns, depending on the destination database.
 - We now support a CLI-editable config file using commands like `dbcrossbar config add temporary s3://example/temp/`.
@@ -19,14 +19,14 @@ This is a summary of all the major changes since the 0.3.3 release. For more det
   - UNSTABLE: We now support specifying schemas using a subset of TypeScript.
   - UNSTABLE: We now support reading data from Shopify's REST API. This is a testbed for new struct and JSON-related features.
 
-## Changed
+### Changed
 
 - `dbcrossbar conv` is now `dbcrossbar schema conv`.
 - Because of the new STRUCT support, some corner cases involving struct types and JSON may have changed subtly.
 - We replaced `gcloud auth`, `gsutil` and `bq` with native Rust. This simplifies installation and configuration substantially, and fixes a number of BigQuery-related issues.
 - AWS credentials must now always be passed via `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` (optional) and `AWS_DEFAULT_REGION` (required). This lays the groundwork for replacing the `aws` CLI tool with native Rust code, so that we will someday be able to remove our last CLI dependency.
 
-## Fixed
+### Fixed
 
 - Lots of issues.
 
