@@ -1,8 +1,5 @@
 //! Implementation of `BigQueryLocator::write_remote_data`.
 
-use std::fs::File;
-use tempdir::TempDir;
-
 use super::BigQueryLocator;
 use crate::clouds::gcloud::bigquery;
 use crate::common::*;
@@ -92,18 +89,6 @@ pub(crate) async fn write_remote_data_helper(
             Usage::FinalTable
         },
     )?;
-
-    // Write our schema to a temp file. This actually needs to be somewhere on
-    // disk, and `bq` uses various hueristics to detect that it's a file
-    // containing a schema, and not just a string with schema text. (Note this
-    // code is synchronous, but that's not a huge deal.)
-    //
-    // We use `use_temp` to decide whether to generate the final schema or a
-    // temporary schema that we'll fix later.
-    let tmp_dir = TempDir::new("bq_load")?;
-    let initial_schema_path = tmp_dir.path().join("schema.json");
-    let mut initial_schema_file = File::create(&initial_schema_path)?;
-    initial_table.write_json_schema(&mut initial_schema_file)?;
 
     // Decide how to handle overwrites of the initial table.
     let if_initial_table_exists = if use_temp {

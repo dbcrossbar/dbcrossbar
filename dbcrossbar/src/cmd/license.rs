@@ -5,7 +5,6 @@ use dbcrossbarlib::{config::Configuration, tokio_glue::spawn_blocking, Context};
 use failure::ResultExt;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
-use tempdir::TempDir;
 use tokio::{fs, io::AsyncWriteExt};
 
 /// License output arguments.
@@ -35,7 +34,7 @@ pub(crate) async fn run(
     } else {
         // Create a temporary file (that we don't clean up).
         let out_html: PathBuf = spawn_blocking(|| {
-            TempDir::new("dbcrossbar-license")
+            tempfile::TempDir::new()
                 .context("could not create temporary directory")
                 .map_err(|e| e.into())
         })

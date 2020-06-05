@@ -222,8 +222,12 @@ impl Configuration {
 
 #[test]
 fn temporaries_can_be_added_and_removed() {
-    let temp = tempdir::TempDir::new("dbcrossbar_test").unwrap();
-    let path = temp.path().join("dbcrossbar.toml");
+    let temp = tempfile::Builder::new()
+        .prefix("dbcrossbar")
+        .suffix(".toml")
+        .tempfile()
+        .unwrap();
+    let path = temp.path();
     let mut config = Configuration::from_path(&path).unwrap();
     let key = Key::global("temporary");
     assert_eq!(config.temporaries().unwrap(), Vec::<String>::new());

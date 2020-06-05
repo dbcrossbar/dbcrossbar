@@ -40,7 +40,7 @@ slog-json = "2.3.0"
 slog-term = "2.4.0"
 structopt = "0.3.1"
 structopt-derive = "0.4"
-tempdir = "0.3.7"
+tempfile = "3.1.0"
 tokio = { version = "0.2.6", features = ["fs", "io-std", "io-util", "process", "stream", "sync", "time"] }
 tokio-util = { version = "0.2.0", features = ["codec"] }
 url = "2.1.0"
