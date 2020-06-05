@@ -316,7 +316,7 @@ fn var(name: &str) -> Result<String> {
     match try_var(name)? {
         Some(value) => Ok(value),
         None => Err(format_err!(
-            "expected evironment variable {} to be set",
+            "expected environment variable {} to be set",
             name,
         )),
     }
