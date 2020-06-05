@@ -45,9 +45,11 @@ async fn service_account_key() -> Result<ServiceAccountKey> {
 
 /// Build an authenticator using service account credentials.
 async fn service_account_authenticator() -> Result<Authenticator> {
+    let service_account_key = service_account_key().await?;
+    let token_file_path = token_file_path().await?;
     Ok(
-        yup_oauth2::ServiceAccountAuthenticator::builder(service_account_key().await?)
-            .persist_tokens_to_disk(token_file_path().await?)
+        yup_oauth2::ServiceAccountAuthenticator::builder(service_account_key)
+            .persist_tokens_to_disk(token_file_path)
             .build()
             .await
             .context("failed to create authenticator")?,
@@ -72,11 +74,13 @@ async fn application_secret() -> Result<ApplicationSecret> {
 
 /// Build an interactive authenticator for a CLI tool.
 async fn installed_flow_authenticator() -> Result<Authenticator> {
+    let application_secret = application_secret().await?;
+    let token_file_path = token_file_path().await?;
     Ok(yup_oauth2::InstalledFlowAuthenticator::builder(
-        application_secret().await?,
+        application_secret,
         InstalledFlowReturnMethod::HTTPRedirect,
     )
-    .persist_tokens_to_disk(token_file_path().await?)
+    .persist_tokens_to_disk(token_file_path)
     .build()
     .await
     .context("failed to create authenticator")?)
