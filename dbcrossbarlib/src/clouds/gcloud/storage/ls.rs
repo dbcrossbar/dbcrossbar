@@ -17,7 +17,7 @@ struct ListQuery<'a> {
     prefix: &'a str,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    next_page_token: Option<String>,
+    page_token: Option<String>,
 }
 
 /// Response body.
@@ -92,12 +92,12 @@ pub(crate) async fn ls(
             "https://storage.googleapis.com/storage/v1/b/{}/o",
             percent_encode(&bucket),
         );
-        let mut next_page_token = None;
+        let mut page_token = None;
         loop {
             // Set up our request.
             let query = ListQuery {
                 prefix: &object,
-                next_page_token,
+                page_token: page_token.clone(),
             };
 
             // Make our request.
@@ -105,7 +105,14 @@ pub(crate) async fn ls(
                 .get::<ListResponse, _, _>(&worker_ctx, &req_url, query)
                 .await;
             let mut res = try_and_forward_errors!(worker_ctx, get_result, sender);
-            next_page_token = res.next_page_token.take();
+            let next_page_token = res.next_page_token.take();
+            if page_token.is_some() && page_token == next_page_token {
+                return Err(format_err!(
+                    "tried to list page {:?} of files twice",
+                    page_token
+                ));
+            }
+            page_token = next_page_token;
 
             // Forward the listed objects to the stream.
             for item in res.items {
@@ -138,7 +145,7 @@ pub(crate) async fn ls(
             }
 
             // Exit if this is the last page of results.
-            if next_page_token.is_none() {
+            if page_token.is_none() {
                 break;
             }
         }
