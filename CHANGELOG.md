@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` crate is an internal-only dependency with no versioning policy at this time.)
 
+## 0.4.1 - 2020-06-16
+
+A bug fix to `gs`, and other minor improvements.
+
+### Changed
+
+- Replace deprecated `tempdir` with `tempfile`.
+
+### Fixed
+
+- gs: Correctly pass `page_token` when listing.
+- Fix new Rust 0.44.0 warnings.
+
 ## 0.4.0 - 2020-06-02
 
 This is a summary of all the major changes since the 0.3.3 release. For more details and minor changes, see the individual CHANGELOG entries for the 0.4.0 preleases.
