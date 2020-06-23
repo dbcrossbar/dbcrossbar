@@ -228,7 +228,9 @@ impl Configuration {
                 return Ok(());
             }
         }
-        raw_array.push(value);
+        raw_array.push(value).map_err(|_| {
+            format_err!("cannot append to {} because value types don't match", key)
+        })?;
         raw_array.fmt();
         Ok(())
     }

@@ -68,7 +68,7 @@ strum = "0.18.0"
 strum_macros = "0.18.0"
 termcolor = "1.1.0"
 tokio = { version = "0.2.6", features = ["fs", "io-std", "io-util", "process", "stream", "sync", "time"] }
-toml_edit = "0.1.5"
+toml_edit = "0.2.0"
 url = "2.1.0"
 uuid = "0.8.1"
 walkdir = "2.2.9"
