@@ -11,6 +11,45 @@ use toml_edit::{Array, Document, Item, Value};
 
 use crate::common::*;
 
+/// Return `dirs::config_dir()`.
+#[cfg(not(target_os = "macos"))]
+fn system_config_dir() -> Option<PathBuf> {
+    dirs::config_dir()
+}
+
+/// (Mac only.) Return `dirs::preference_dir()` if contains a `dbcrossbar`
+/// directory, or `dirs::config_dir()` otherwise.
+///
+/// See https://github.com/dirs-dev/directories-rs/issues/62 for an explanation
+/// of why this changed.
+///
+/// TODO: We should really use xdg directories on all platforms.
+#[cfg(target_os = "macos")]
+fn system_config_dir() -> Option<PathBuf> {
+    if let Some(preference_dir) = dirs::preference_dir() {
+        let old_config_dir = preference_dir.join("dbcrossbar");
+        if old_config_dir.is_dir() {
+            // Warn the user only once per run.
+            use std::sync::Once;
+            static ONCE: Once = Once::new();
+            ONCE.call_once(|| {
+                // Deprecate the old location.
+                if let Some(system_config_dir) = dirs::config_dir() {
+                    let new_config_dir = system_config_dir.join("dbcrossbar");
+                    eprintln!(
+                        "DEPRECATION WARNING: Please move `{}` to `{}`",
+                        old_config_dir.display(),
+                        new_config_dir.display(),
+                    );
+                }
+            });
+
+            return Some(preference_dir);
+        }
+    }
+    dirs::config_dir()
+}
+
 /// Find the path to our configuration directory.
 pub(crate) fn config_dir() -> Result<PathBuf> {
     // Use `var_os` instead of `var`, because if it returns a non-Unicode path,
@@ -19,7 +58,7 @@ pub(crate) fn config_dir() -> Result<PathBuf> {
         // The user specified a config directory, so use that.
         Some(dir) => Ok(PathBuf::from(dir)),
         // Use `dbcrossbar/` in the system configuration directory.
-        None => Ok(dirs::config_dir()
+        None => Ok(system_config_dir()
             // AFAIK, this only fails under weird conditions, such as no home
             // directory.
             .ok_or_else(|| format_err!("could not find user config dir"))?
