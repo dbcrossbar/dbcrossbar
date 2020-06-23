@@ -14,7 +14,7 @@ A bug fix to `gs`, and other minor improvements.
 
 ### Fixed
 
-- gs: Correctly pass `page_token` when listing.
+- gs: Correctly pass `page_token` when listing. This prevents an infinite loop in large directories.
 - Fix new Rust 0.44.0 warnings.
 
 ## 0.4.0 - 2020-06-02
