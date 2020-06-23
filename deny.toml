@@ -43,6 +43,8 @@ skip = [
     { name = "miow", version = "0.2.1" },
     # clap v2.33.0 still uses an older version.
     { name = "strsim", version = "0.8.0" },
+    # headers v0.3.2 still uses an older version.
+    { name = "sha-1", version = "0.8.2" },
 ]
 
 skip-tree = [
