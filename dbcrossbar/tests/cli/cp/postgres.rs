@@ -97,11 +97,11 @@ fn postgres_upsert() {
     let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "postgres_upsert");
     let srcs = &[
-        testdir.src_path("fixtures/upsert_1.csv"),
-        testdir.src_path("fixtures/upsert_2.csv"),
+        testdir.src_path("fixtures/upsert/upsert_1.csv"),
+        testdir.src_path("fixtures/upsert/upsert_2.csv"),
     ];
-    let expected = testdir.src_path("fixtures/upsert_result.csv");
-    let schema = testdir.src_path("fixtures/upsert.sql");
+    let expected = testdir.src_path("fixtures/upsert/upsert_result.csv");
+    let schema = testdir.src_path("fixtures/upsert/upsert.sql");
     let pg_table = post_test_table_url("postgres_upsert");
 
     // CSVes to Postgres.

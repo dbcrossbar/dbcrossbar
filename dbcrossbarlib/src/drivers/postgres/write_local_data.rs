@@ -6,7 +6,7 @@ use std::{collections::HashSet, io::prelude::*, iter::FromIterator, str};
 
 use super::{connect, csv_to_binary::copy_csv_to_pg_binary, Client, PostgresLocator};
 use crate::common::*;
-use crate::drivers::postgres_shared::{CheckCatalog, Ident, PgCreateTable, TableName};
+use crate::drivers::postgres_shared::{CheckCatalog, Ident, PgCreateTable};
 use crate::tokio_glue::try_forward;
 use crate::transform::spawn_sync_transform;
 
@@ -16,13 +16,16 @@ async fn drop_table_if_exists(
     client: &mut Client,
     table: &PgCreateTable,
 ) -> Result<()> {
-    debug!(ctx.log(), "deleting table {} if exists", table.name);
-    let drop_sql = format!("DROP TABLE IF EXISTS {}", TableName(&table.name));
+    debug!(
+        ctx.log(),
+        "deleting table {} if exists",
+        table.name.quoted(),
+    );
+    let drop_sql = format!("DROP TABLE IF EXISTS {}", &table.name.quoted());
     let drop_stmt = client.prepare(&drop_sql).await?;
-    client
-        .execute(&drop_stmt, &[])
-        .await
-        .with_context(|_| format!("error deleting existing {}", table.name))?;
+    client.execute(&drop_stmt, &[]).await.with_context(|_| {
+        format!("error deleting existing {}", table.name.quoted())
+    })?;
     Ok(())
 }
 
@@ -32,31 +35,26 @@ async fn create_table(
     client: &mut Client,
     table: &PgCreateTable,
 ) -> Result<()> {
-    debug!(ctx.log(), "create table {}", table.name);
+    debug!(ctx.log(), "create table {}", table.name.quoted());
     let create_sql = format!("{}", table);
     debug!(ctx.log(), "CREATE TABLE SQL: {}", create_sql);
     let create_stmt = client.prepare(&create_sql).await?;
     client
         .execute(&create_stmt, &[])
         .await
-        .with_context(|_| format!("error creating {}", &table.name))?;
+        .with_context(|_| format!("error creating {}", &table.name.quoted()))?;
     Ok(())
 }
 
 /// Create a temporary table based on `table`, but using a different name. This
 /// table will only live as long as the `client`.
-async fn create_temp_table_for(
+pub(crate) async fn create_temp_table_for(
     ctx: &Context,
     client: &mut Client,
     table: &PgCreateTable,
 ) -> Result<PgCreateTable> {
     let mut temp_table = table.to_owned();
-    let temp_name = {
-        // Temporary table names aren't allowed to include namespaces.
-        let name = TableName(&table.name);
-        let (_, base_name) = name.split()?;
-        format!("{}_temp_{}", base_name, TemporaryStorage::random_tag())
-    };
+    let temp_name = table.name.temporary_table_name()?;
     temp_table.name = temp_name;
     temp_table.if_not_exists = false;
     temp_table.temporary = true;
@@ -109,7 +107,7 @@ pub(crate) async fn prepare_table(
 /// multiple `COPY` statements.
 fn copy_from_sql(table: &PgCreateTable, data_format: &str) -> Result<String> {
     let mut copy_sql_buff = vec![];
-    writeln!(&mut copy_sql_buff, "COPY {} (", TableName(&table.name),)?;
+    writeln!(&mut copy_sql_buff, "COPY {} (", table.name.quoted())?;
     for (idx, col) in table.columns.iter().enumerate() {
         if idx + 1 == table.columns.len() {
             writeln!(&mut copy_sql_buff, "    {}", Ident(&col.name))?;
@@ -139,13 +137,41 @@ async fn copy_from_stream<'a>(
     let sink = client
         .copy_in::<_, BytesMut>(&stmt)
         .await
-        .with_context(|_| format!("error copying data into {}", dest.name))?;
+        .with_context(|_| format!("error copying data into {}", dest.name.quoted()))?;
 
     // `CopyInSink` is a weird sink, and we have to "pin" it directly into our
     // stack in order to forward data to it.
     pin_mut!(sink);
     try_forward(ctx, stream, sink).await?;
     Ok(())
+}
+
+/// Given a table and list of upsert columns, return a list
+pub(crate) fn columns_to_update_for_upsert<'a>(
+    dest_table: &'a PgCreateTable,
+    upsert_keys: &[String],
+) -> Result<Vec<&'a str>> {
+    // Build a set of our upsert keys. We could probably implement this linear
+    // search with no significant loss of performance.
+    let upsert_keys_set: HashSet<&str> =
+        HashSet::from_iter(upsert_keys.iter().map(|k| &k[..]));
+
+    // Build our list of columns to update.
+    let mut update_cols = vec![];
+    for c in &dest_table.columns {
+        if upsert_keys_set.contains(&c.name[..]) {
+            // Verify that it's actually safe to use this as an upsert key.
+            if c.is_nullable {
+                return Err(format_err!(
+                    "cannot upsert on column {} because it isn't declared NOT NULL",
+                    Ident(&c.name),
+                ));
+            }
+        } else {
+            update_cols.push(&c.name[..]);
+        }
+    }
+    Ok(update_cols)
 }
 
 /// Generate SQL to perform an UPSERT from `src_table_name` into `dest_table`
@@ -156,19 +182,7 @@ fn upsert_sql(
     upsert_keys: &[String],
 ) -> Result<String> {
     // Figure out which of our columns are "value" (non-key) columns.
-    let upsert_keys_set: HashSet<&str> =
-        HashSet::from_iter(upsert_keys.iter().map(|k| &k[..]));
-    let value_keys = dest_table
-        .columns
-        .iter()
-        .filter_map(|c| {
-            if upsert_keys_set.contains(&c.name[..]) {
-                None
-            } else {
-                Some(&c.name[..])
-            }
-        })
-        .collect::<Vec<_>>();
+    let value_keys = columns_to_update_for_upsert(dest_table, upsert_keys)?;
 
     // TODO: Do we need to check for NULLable key columns which might
     // produce duplicate rows on upsert, like we do for BigQuery?
@@ -182,8 +196,8 @@ ON CONFLICT ({key_columns})
 DO UPDATE SET
     {value_updates}
 "#,
-        dest_table = Ident(&dest_table.name),
-        src_table = Ident(&src_table.name),
+        dest_table = dest_table.name.quoted(),
+        src_table = src_table.name.quoted(),
         all_columns = dest_table.columns.iter().map(|c| Ident(&c.name)).join(", "),
         key_columns = upsert_keys.iter().map(|k| Ident(k)).join(", "),
         value_updates = value_keys
@@ -204,13 +218,17 @@ pub(crate) async fn upsert_from(
     let sql = upsert_sql(src_table, dest_table, upsert_keys)?;
     debug!(
         ctx.log(),
-        "upserting from {} to {} with {}", src_table.name, dest_table.name, sql,
+        "upserting from {} to {} with {}",
+        src_table.name.quoted(),
+        dest_table.name.quoted(),
+        sql,
     );
     let stmt = client.prepare(&sql).await?;
     client.execute(&stmt, &[]).await.with_context(|_| {
         format!(
             "error upserting from {} to {}",
-            src_table.name, dest_table.name,
+            src_table.name.quoted(),
+            dest_table.name.quoted(),
         )
     })?;
     Ok(())
@@ -234,10 +252,12 @@ pub(crate) async fn write_local_data_helper(
 
     let url = dest.url.clone();
     let table_name = dest.table_name.clone();
-    let ctx = ctx.child(o!("table" => table_name.clone()));
+    let ctx = ctx.child(o!("table" => table_name.unquoted()));
     debug!(
         ctx.log(),
-        "writing data streams to {} table {}", url, table_name,
+        "writing data streams to {} table {}",
+        url,
+        table_name.quoted(),
     );
 
     // Try to look up our destination table schema in the database.

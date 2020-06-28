@@ -1,12 +1,14 @@
 //! Schema-only driver for reading and writing PostgreSQL `CREATE TABLE` schema.
 
+use lazy_static::lazy_static;
+use regex::Regex;
 use std::{
     fmt,
     str::{self, FromStr},
 };
 
 use crate::common::*;
-use crate::drivers::postgres_shared::PgCreateTable;
+use crate::drivers::postgres_shared::{PgCreateTable, TableName};
 
 /// An SQL file containing a `CREATE TABLE` statement using Postgres syntax.
 #[derive(Clone, Debug)]
@@ -93,8 +95,9 @@ async fn write_schema_helper(
     // TODO: We use the existing `table.name` here, but this might produce
     // odd results if the input table comes from BigQuery or another
     // database with a very different naming scheme.
+    let table_name = sanitize_table_name(&table.name)?.parse::<TableName>()?;
     let pg_create_table =
-        PgCreateTable::from_name_and_columns(table.name.clone(), &table.columns)?;
+        PgCreateTable::from_name_and_columns(table_name, &table.columns)?;
     let mut out = dest.path.create_async(ctx, if_exists).await?;
     buffer_sync_write_and_copy_to_async(&mut out, |buff| {
         write!(buff, "{}", pg_create_table)
@@ -103,4 +106,26 @@ async fn write_schema_helper(
     .with_context(|_| format!("error writing {}", dest.path))?;
     out.flush().await?;
     Ok(())
+}
+
+/// Make sure a table name is legal for PostgreSQL.
+///
+/// This will use an valid-looking table name if it can find one somewhere in
+/// the string, or it will return a default value.
+fn sanitize_table_name(table_name: &str) -> Result<String> {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(
+            r"(?x)
+                ([_a-zA-Z][_a-zA-Z0-9]*\.)?
+                ([_a-zA-Z][_a-zA-Z0-9]*)
+            $"
+        )
+        .expect("could not compile regex in source");
+    }
+    if let Some(cap) = RE.captures(table_name) {
+        Ok(cap[0].to_owned())
+    } else {
+        // Just use a generic table name.
+        Ok("data".to_owned())
+    }
 }

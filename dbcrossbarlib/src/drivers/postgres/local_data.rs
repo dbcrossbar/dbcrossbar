@@ -5,13 +5,13 @@ use failure::Fail;
 
 use super::{connect, PostgresLocator};
 use crate::common::*;
-use crate::drivers::postgres_shared::{CheckCatalog, PgCreateTable};
+use crate::drivers::postgres_shared::{CheckCatalog, PgCreateTable, TableName};
 
 /// Copy the specified table from the database, returning a `CsvStream`.
 pub(crate) async fn local_data_helper(
     ctx: Context,
     url: UrlWithHiddenPassword,
-    table_name: String,
+    table_name: TableName,
     shared_args: SharedArguments<Unverified>,
     source_args: SourceArguments<Unverified>,
 ) -> Result<Option<BoxStream<CsvStream>>> {
@@ -22,9 +22,15 @@ pub(crate) async fn local_data_helper(
     let schema = shared_args.schema();
 
     // Set up our logger.
-    let ctx =
-        ctx.child(o!("stream" => table_name.clone(), "table" => table_name.clone()));
-    debug!(ctx.log(), "reading data from {} table {}", url, table_name);
+    let ctx = ctx.child(
+        o!("stream" => table_name.unquoted(), "table" => table_name.unquoted()),
+    );
+    debug!(
+        ctx.log(),
+        "reading data from {} table {}",
+        url,
+        table_name.quoted()
+    );
 
     // Try to look up our table schema in the database.
     let pg_create_table = PgCreateTable::from_pg_catalog_or_default(
@@ -60,7 +66,7 @@ pub(crate) async fn local_data_helper(
         .map_err(|err| err.context("error reading data from PostgreSQL").into());
 
     let csv_stream = CsvStream {
-        name: table_name.clone(),
+        name: table_name.unquoted(),
         data: rdr.boxed(),
     };
     let box_stream = stream::once(async { Ok(csv_stream) }).boxed();

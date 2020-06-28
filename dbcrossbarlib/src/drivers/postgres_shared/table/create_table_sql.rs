@@ -10,7 +10,7 @@
 //!
 //! [peg]: https://github.com/kevinmehall/rust-peg
 
-use super::super::{PgColumn, PgCreateTable, PgDataType, PgScalarDataType};
+use super::super::{PgColumn, PgCreateTable, PgDataType, PgScalarDataType, TableName};
 use crate::schema::Srid;
 
 pub use create_table_grammar::create_table as parse;
@@ -19,7 +19,7 @@ peg::parser! {
     grammar create_table_grammar() for str {
         /// A `CREATE TABLE` expression.
         pub rule create_table() -> PgCreateTable
-            = ws()? i("CREATE") ws() (i("UNLOGGED") ws())? i("TABLE") ws() name:identifier() ws()? "("
+            = ws()? i("CREATE") ws() (i("UNLOGGED") ws())? i("TABLE") ws() name:table_name() ws()? "("
                 ws()? columns:(column() ** (ws()? "," ws()?)) ws()?
             ")" ws()? (";" ws()?)?
             {
@@ -99,6 +99,15 @@ peg::parser! {
         /// A GeoJSON SRID number, used to identify a coordinate system.
         rule srid() -> u32
             = srid:$(['0'..='9']+) { srid.parse().expect("should always parse") }
+
+        /// The name of a table.
+        rule table_name() -> TableName
+            = table:identifier() {
+                TableName::new(None, table)
+            }
+            / schema:identifier() "." table:identifier() {
+                TableName::new(schema, table)
+            }
 
         /// An SQL identifier.
         rule identifier() -> String

@@ -1,10 +1,15 @@
 //! Implementation of `RedshiftLocator::write_remote_data`.
 
+use itertools::Itertools;
+
 use super::{credentials_sql, RedshiftLocator};
 use crate::common::*;
 use crate::drivers::{
-    postgres::{connect, prepare_table},
-    postgres_shared::{pg_quote, CheckCatalog, PgCreateTable, TableName},
+    postgres::{
+        columns_to_update_for_upsert, connect, create_temp_table_for, prepare_table,
+        Client,
+    },
+    postgres_shared::{pg_quote, CheckCatalog, Ident, PgCreateTable, TableName},
     s3::S3Locator,
 };
 use crate::schema::{Column, DataType};
@@ -56,19 +61,156 @@ pub(crate) async fn write_remote_data_helper(
     // Connect to Redshift and prepare our table.
     let mut client = connect(&ctx, dest.url()).await?;
     prepare_table(&ctx, &mut client, pg_create_table.clone(), &if_exists).await?;
+    if let IfExists::Upsert(upsert_keys) = &if_exists {
+        // Create a temporary table to hold our imported data.
+        let temp_table =
+            create_temp_table_for(&ctx, &mut client, &pg_create_table).await?;
 
-    // Ask RedShift to import from S3.
+        // Copy data into our temporary table.
+        copy_in(&ctx, &client, &source_url, &temp_table.name, to_args).await?;
+
+        // Build our upsert SQL.
+        upsert_from_temp_table(
+            &ctx,
+            &mut client,
+            &temp_table,
+            &pg_create_table,
+            upsert_keys,
+        )
+        .await?;
+    } else {
+        copy_in(&ctx, &client, &source_url, &table_name, to_args).await?;
+    }
+
+    Ok(vec![dest.boxed()])
+}
+
+/// Copy data from S3 into a RedShift table.
+async fn copy_in(
+    ctx: &Context,
+    client: &Client,
+    source_s3_url: &Url,
+    dest_table: &TableName,
+    to_args: &DriverArguments,
+) -> Result<()> {
+    debug!(
+        ctx.log(),
+        "Copying into {} from {}",
+        dest_table.unquoted(),
+        source_s3_url.as_str(),
+    );
     let copy_sql = format!(
         "COPY {dest} FROM {source}\n{credentials}FORMAT CSV\nIGNOREHEADER 1\nDATEFORMAT 'auto'\nTIMEFORMAT 'auto'",
-        dest = TableName(table_name),
-        source = pg_quote(source_url.as_str()), // `$1` doesn't work here.
+        dest = dest_table.quoted(),
+        source = pg_quote(source_s3_url.as_str()), // `$1` doesn't work here.
         credentials = credentials_sql(to_args)?,
     );
     let copy_stmt = client.prepare(&copy_sql).await?;
     client.execute(&copy_stmt, &[]).await.with_context(|_| {
-        format!("error copying {} from {}", pg_create_table.name, source_url)
+        format!(
+            "error copying to {} from {}",
+            dest_table.quoted(),
+            source_s3_url
+        )
     })?;
-    Ok(vec![dest.boxed()])
+    Ok(())
+}
+
+/// Upsert from `temp_table` into `dest_table`, using the columns `upsert_keys`.
+async fn upsert_from_temp_table(
+    ctx: &Context,
+    client: &mut Client,
+    temp_table: &PgCreateTable,
+    dest_table: &PgCreateTable,
+    upsert_keys: &[String],
+) -> Result<()> {
+    let transaction = client.transaction().await?;
+
+    let upsert_sql = upsert_sql(&temp_table, &dest_table, upsert_keys)?;
+    for (idx, sql) in upsert_sql.iter().enumerate() {
+        debug!(
+            ctx.log(),
+            "upsert SQL ({}/{}): {}",
+            idx + 1,
+            upsert_sql.len(),
+            sql,
+        );
+        transaction.execute(&sql[..], &[]).await.with_context(|_| {
+            format!(
+                "error upserting into {} from {}",
+                dest_table.name.quoted(),
+                temp_table.name.quoted(),
+            )
+        })?;
+    }
+
+    debug!(ctx.log(), "commiting upsert");
+    transaction.commit().await?;
+    Ok(())
+}
+
+/// Generate the SQL needed to perform an upsert.
+///
+/// This will destructively modify and then delete `temp_table`.
+fn upsert_sql(
+    temp_table: &PgCreateTable,
+    dest_table: &PgCreateTable,
+    upsert_keys: &[String],
+) -> Result<Vec<String>> {
+    let value_cols = columns_to_update_for_upsert(dest_table, upsert_keys)?;
+    let dest_table_name = dest_table.name.quoted();
+    let temp_table_name = temp_table.name.quoted();
+    let keys_match = upsert_keys
+        .iter()
+        .map(|k| {
+            format!(
+                "{dest_table}.{name} = {temp_table}.{name}",
+                name = Ident(&k),
+                dest_table = dest_table_name,
+                temp_table = temp_table_name,
+            )
+        })
+        .join(" AND\n    ");
+    Ok(vec![
+        format!(
+            r"-- Update matching rows in dest table using source table.
+UPDATE {dest_table} 
+SET {value_updates} 
+FROM {temp_table}
+WHERE {keys_match}",
+            dest_table = dest_table_name,
+            temp_table = temp_table_name,
+            keys_match = keys_match,
+            value_updates = value_cols
+                .iter()
+                .map(|k| format!(
+                    "{name} = {temp_table}.{name}",
+                    name = Ident(&k),
+                    temp_table = temp_table_name,
+                ))
+                .join(",\n    "),
+        ),
+        format!(
+            r"-- Remove updated rows from temp table.
+DELETE FROM {temp_table}
+USING {dest_table}
+WHERE {keys_match}",
+            dest_table = dest_table_name,
+            temp_table = temp_table_name,
+            keys_match = keys_match,
+        ),
+        format!(
+            r"-- Insert new rows into dest table.
+INSERT INTO {dest_table} ({all_columns}) (
+    SELECT {all_columns}
+    FROM {temp_table}
+)",
+            dest_table = dest_table_name,
+            temp_table = temp_table_name,
+            all_columns = dest_table.columns.iter().map(|c| Ident(&c.name)).join(", "),
+        ),
+        format!(r"DROP TABLE {temp_table}", temp_table = temp_table_name),
+    ])
 }
 
 /// Extension trait for verifying Redshift compatibility.

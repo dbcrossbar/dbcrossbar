@@ -10,7 +10,10 @@ use std::{
 
 use crate::common::*;
 use crate::drivers::postgres::PostgresLocator;
-use crate::drivers::{postgres_shared::pg_quote, s3::S3Locator};
+use crate::drivers::{
+    postgres_shared::{pg_quote, TableName},
+    s3::S3Locator,
+};
 
 mod local_data;
 mod write_local_data;
@@ -34,7 +37,7 @@ impl RedshiftLocator {
     }
 
     /// The table name for this locator.
-    pub(crate) fn table_name(&self) -> &str {
+    pub(crate) fn table_name(&self) -> &TableName {
         self.postgres_locator.table_name()
     }
 }
@@ -138,7 +141,10 @@ impl LocatorStatic for RedshiftLocator {
             source_args: SourceArgumentsFeatures::DriverArgs
                 | SourceArgumentsFeatures::WhereClause,
             dest_args: DestinationArgumentsFeatures::DriverArgs.into(),
-            dest_if_exists: IfExistsFeatures::Overwrite | IfExistsFeatures::Append,
+            dest_if_exists: IfExistsFeatures::Append
+                | IfExistsFeatures::Error
+                | IfExistsFeatures::Overwrite
+                | IfExistsFeatures::Upsert,
             _placeholder: (),
         }
     }
