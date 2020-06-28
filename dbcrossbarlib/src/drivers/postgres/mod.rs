@@ -14,7 +14,7 @@ pub use tokio_postgres::Client;
 use tokio_postgres::Config;
 
 use crate::common::*;
-use crate::drivers::postgres_shared::PgCreateTable;
+use crate::drivers::postgres_shared::{PgCreateTable, TableName};
 
 pub mod citus;
 mod count;
@@ -26,7 +26,9 @@ use self::count::count_helper;
 use self::local_data::local_data_helper;
 use self::write_local_data::write_local_data_helper;
 
-pub(crate) use write_local_data::prepare_table;
+pub(crate) use write_local_data::{
+    columns_to_update_for_upsert, create_temp_table_for, prepare_table,
+};
 
 /// Connect to the database, using SSL if possible.
 pub(crate) async fn connect(
@@ -64,7 +66,7 @@ pub(crate) async fn connect(
 #[derive(Clone, Debug)]
 pub struct PostgresLocator {
     url: UrlWithHiddenPassword,
-    table_name: String,
+    table_name: TableName,
 }
 
 impl PostgresLocator {
@@ -74,7 +76,7 @@ impl PostgresLocator {
     }
 
     /// The table name associated with this locator.
-    pub(crate) fn table_name(&self) -> &str {
+    pub(crate) fn table_name(&self) -> &TableName {
         &self.table_name
     }
 }
@@ -82,7 +84,9 @@ impl PostgresLocator {
 impl fmt::Display for PostgresLocator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut full_url = self.url.clone();
-        full_url.as_url_mut().set_fragment(Some(&self.table_name));
+        full_url
+            .as_url_mut()
+            .set_fragment(Some(&self.table_name.unquoted()));
         full_url.fmt(f)
     }
 }
@@ -109,7 +113,7 @@ impl FromStr for PostgresLocator {
                 .ok_or_else(|| {
                     format_err!("{} needs to be followed by #table_name", url)
                 })?
-                .to_owned();
+                .parse::<TableName>()?;
             url.set_fragment(None);
             let url = UrlWithHiddenPassword::new(url);
             Ok(PostgresLocator { url, table_name })
@@ -130,7 +134,7 @@ fn from_str_parses_schemas() {
     for &(url, table_name) in examples {
         assert_eq!(
             PostgresLocator::from_str(url).unwrap().table_name,
-            table_name,
+            table_name.parse::<TableName>().unwrap(),
         );
     }
 }

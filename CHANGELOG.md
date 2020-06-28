@@ -4,14 +4,30 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` crate is an internal-only dependency with no versioning policy at this time.)
 
+## UNRELEASED
+
+### Added
+
+- redshift: Support `--if-exists=upsert-on:key1,key2`.
+- redshift: Enable `--if-exists=error`.
+
+### Changed
+
+- postgres: Temporary tables now use the same schema (i.e. namespace) as the tables they're linked to. This shouldn't be a breaking change unless you've set up your database permissions to forbid it.
+
+### Fixed
+
+- postgres: Fixed likely bug upserting into tables with a non-"public" schema.
+- postgres: Verify that upsert columns are NOT NULL to prevent possible incorrect upserts. This may be a breaking change, but it also prevents a possible bug.
+
 ## 0.4.2-beta.1 - 2020-06-23
 
-## Changed
+### Changed
 
 - Mac: Move configuration directory from `~/Library/Preferences/dbcrossbar` to `~/Library/Application Support/dbcrossbar`. If we detect a config directory in the old location, we should print a deprecation warning and use it.
 - Many dependencies have been updated.
 
-## Fixed
+### Fixed
 
 - We should now handle multiple sets of Google Cloud OAuth2 credentials correctly.
 

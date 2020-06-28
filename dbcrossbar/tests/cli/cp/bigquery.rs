@@ -264,11 +264,11 @@ fn bigquery_upsert() {
     let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "bigquery_upsert");
     let srcs = &[
-        testdir.src_path("fixtures/upsert_1.csv"),
-        testdir.src_path("fixtures/upsert_2.csv"),
+        testdir.src_path("fixtures/upsert/upsert_1.csv"),
+        testdir.src_path("fixtures/upsert/upsert_2.csv"),
     ];
-    let expected = testdir.src_path("fixtures/upsert_result.csv");
-    let schema = testdir.src_path("fixtures/upsert.sql");
+    let expected = testdir.src_path("fixtures/upsert/upsert_result.csv");
+    let schema = testdir.src_path("fixtures/upsert/upsert.sql");
     let bq_temp_ds = bq_temp_dataset();
     let gs_temp_dir = gs_test_dir_url("bigquery_upsert");
     let bq_table = bq_test_table("bigquery_upsert");

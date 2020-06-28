@@ -1,6 +1,6 @@
 //! Code shared between various PostgreSQL-related drivers.
 
-use std::fmt;
+use std::{fmt, str::FromStr};
 
 use crate::common::*;
 
@@ -48,37 +48,91 @@ impl<'a> fmt::Display for Ident<'a> {
     }
 }
 
-/// A PostgreSQL table name, including a possible namespace. This will be
-/// formatted with correct quotes.
-pub(crate) struct TableName<'a>(pub(crate) &'a str);
+/// A PostgreSQL table name, including a possible scheme (i.e., a namespace).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct TableName {
+    schema: Option<String>,
+    table: String,
+}
 
-impl<'a> TableName<'a> {
-    /// Split this `TableName` into an optional namespace and an actual table
-    /// name.
-    pub(crate) fn split(&self) -> Result<(Option<&str>, &str)> {
-        let components = self.0.splitn(2, '.').collect::<Vec<_>>();
+impl TableName {
+    /// Create a new `TableName`.
+    pub(crate) fn new<S, T>(schema: S, table: T) -> Self
+    where
+        S: Into<Option<String>>,
+        T: Into<String>,
+    {
+        Self {
+            schema: schema.into(),
+            table: table.into(),
+        }
+    }
+
+    /// The schema (namespace) portion of the table name, or `None` if none was provided.
+    pub(crate) fn schema(&self) -> Option<&str> {
+        self.schema.as_ref().map(|s| &s[..])
+    }
+
+    /// The table portion of the table name, not including the schema.
+    pub(crate) fn table(&self) -> &str {
+        &self.table
+    }
+
+    /// Format this table name as an unquoted string.
+    pub(crate) fn unquoted(&self) -> String {
+        if let Some(schema) = &self.schema {
+            format!("{}.{}", schema, self.table)
+        } else {
+            self.table.clone()
+        }
+    }
+
+    /// Properly quote a table name for use in SQL. Returns a value that
+    /// implements `Display`.
+    pub(crate) fn quoted(&self) -> TableNameQuoted<'_> {
+        TableNameQuoted(self)
+    }
+
+    /// Create a temporary table name based on this table name.
+    pub(crate) fn temporary_table_name(&self) -> Result<TableName> {
+        Ok(Self {
+            // We leave this as `None` because that's what we used to do for
+            // PostgreSQL. It would probably be fine to use `self.namespace`
+            // here.
+            schema: None,
+            table: format!("{}_temp_{}", self.table, TemporaryStorage::random_tag()),
+        })
+    }
+}
+
+impl FromStr for TableName {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let components = s.splitn(2, '.').collect::<Vec<_>>();
         match components.len() {
-            1 => Ok((None, components[0])),
-            2 => Ok((Some(components[0]), components[1])),
-            _ => Err(format_err!("cannot parse table name {:?}", self.0)),
+            1 => Ok(Self {
+                schema: None,
+                table: components[0].to_owned(),
+            }),
+            2 => Ok(Self {
+                schema: Some(components[0].to_owned()),
+                table: components[1].to_owned(),
+            }),
+            _ => Err(format_err!("cannot parse table name {:?}", s)),
         }
     }
 }
 
-impl<'a> fmt::Display for TableName<'a> {
+/// A wrapper for `TableName` that implemented `Display`.
+pub(crate) struct TableNameQuoted<'a>(&'a TableName);
+
+impl fmt::Display for TableNameQuoted<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let components = self.split().map_err(|err| {
-            // TODO: This should use a log, but we can't get access to our
-            // logger here without switching away from `slog` or jumping through
-            // tons of hoops.
-            eprintln!("{}", err);
-            fmt::Error
-        })?;
-        match components {
-            (Some(namespace), table) => {
-                write!(f, "{}.{}", Ident(namespace), Ident(table))?
-            }
-            (None, table) => write!(f, "{}", Ident(table))?,
+        if let Some(schema) = self.0.schema() {
+            write!(f, "{}.{}", Ident(schema), Ident(&self.0.table))?
+        } else {
+            write!(f, "{}", Ident(&self.0.table))?
         }
         Ok(())
     }
@@ -86,6 +140,26 @@ impl<'a> fmt::Display for TableName<'a> {
 
 #[test]
 fn table_name_is_quoted_correctly() {
-    let formatted = format!("{}", TableName("testme1.lat-\"lon"));
-    assert_eq!(formatted, "\"testme1\".\"lat-\"\"lon\"");
+    assert_eq!(
+        format!("{}", TableName::from_str("example").unwrap().quoted()),
+        "\"example\""
+    );
+    assert_eq!(
+        format!(
+            "{}",
+            TableName::from_str("schema.example").unwrap().quoted()
+        ),
+        "\"schema\".\"example\""
+    );
+
+    // Don't parse this one, because we haven't decided how to parse weird names
+    // like this yet.
+    let with_quote = TableName {
+        schema: Some("testme1".to_owned()),
+        table: "lat-\"lon".to_owned(),
+    };
+    assert_eq!(
+        format!("{}", with_quote.quoted()),
+        "\"testme1\".\"lat-\"\"lon\""
+    );
 }

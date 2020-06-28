@@ -14,7 +14,7 @@ use diesel::{
 };
 use std::collections::HashMap;
 
-use super::{PgColumn, PgCreateTable, PgDataType, PgScalarDataType};
+use super::{PgColumn, PgCreateTable, PgDataType, PgScalarDataType, TableName};
 use crate::common::*;
 use crate::schema::Srid;
 
@@ -75,17 +75,19 @@ impl PgColumnSchema {
 /// Returns `None` if no matching table exists.
 pub(crate) fn fetch_from_url(
     database_url: &UrlWithHiddenPassword,
-    full_table_name: &str,
+    table_name: &TableName,
 ) -> Result<Option<PgCreateTable>> {
     let conn = PgConnection::establish(database_url.with_password().as_str())
         .context("error connecting to PostgreSQL")?;
-    let (table_schema, table_name) = parse_full_table_name(full_table_name);
+
+    let schema = table_name.schema().unwrap_or("public");
+    let table = table_name.table();
 
     // Check to see if we have a table with this name.
     let table_count = tables::table
         .select(count_star())
-        .filter(tables::table_schema.eq(table_schema))
-        .filter(tables::table_name.eq(table_name))
+        .filter(tables::table_schema.eq(schema))
+        .filter(tables::table_name.eq(table))
         .first::<i64>(&conn)?;
     if table_count == 0 {
         return Ok(None);
@@ -93,8 +95,8 @@ pub(crate) fn fetch_from_url(
 
     // Look up column information.
     let pg_columns = columns::table
-        .filter(columns::table_schema.eq(table_schema))
-        .filter(columns::table_name.eq(table_name))
+        .filter(columns::table_schema.eq(schema))
+        .filter(columns::table_name.eq(table))
         .order(columns::ordinal_position)
         .load::<PgColumnSchema>(&conn)?;
 
@@ -106,8 +108,8 @@ pub(crate) fn fetch_from_url(
     // Look up SRIDs for our geometry columns.
     let srid_map = if need_srids {
         columns::table
-            .filter(columns::table_schema.eq(table_schema))
-            .filter(columns::table_name.eq(table_name))
+            .filter(columns::table_schema.eq(schema))
+            .filter(columns::table_name.eq(table))
             .filter(columns::data_type.eq("USER-DEFINED"))
             .filter(columns::udt_name.eq("geometry"))
             .select((
@@ -159,27 +161,11 @@ pub(crate) fn fetch_from_url(
     }
 
     Ok(Some(PgCreateTable {
-        name: full_table_name.to_owned(),
+        name: table_name.to_owned(),
         columns,
         temporary: false,
         if_not_exists: false,
     }))
-}
-
-/// Given a name of the form `mytable` or `myschema.mytable`, split it into
-/// a `table_schema` and `table_name`.
-fn parse_full_table_name(full_table_name: &str) -> (&str, &str) {
-    if let Some(pos) = full_table_name.find('.') {
-        (&full_table_name[..pos], &full_table_name[pos + 1..])
-    } else {
-        ("public", full_table_name)
-    }
-}
-
-#[test]
-fn parsing_full_table_name() {
-    assert_eq!(parse_full_table_name("mytable"), ("public", "mytable"));
-    assert_eq!(parse_full_table_name("other.mytable"), ("other", "mytable"));
 }
 
 /// Choose an appropriate `DataType`.

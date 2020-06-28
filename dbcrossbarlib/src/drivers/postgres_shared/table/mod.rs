@@ -1,5 +1,6 @@
 //! A PostgreSQL `CREATE TABLE` declaration.
 
+use itertools::Itertools;
 use std::{collections::HashMap, fmt, iter::FromIterator, sync::Arc};
 
 use super::{catalog, PgColumn, TableName};
@@ -41,7 +42,7 @@ impl From<&IfExists> for CheckCatalog {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PgCreateTable {
     /// The name of the table.
-    pub(crate) name: String,
+    pub(crate) name: TableName,
     /// The columns in the table.
     pub(crate) columns: Vec<PgColumn>,
     /// Only create the table if it doesn't already exist.
@@ -80,7 +81,7 @@ impl PgCreateTable {
     /// We set `if_not_exists` to false, but the caller can change this directly
     /// once once the `PgCreateTable` has been created.
     pub(crate) fn from_name_and_columns(
-        name: String,
+        table_name: TableName,
         columns: &[Column],
     ) -> Result<PgCreateTable> {
         let pg_columns = columns
@@ -88,7 +89,7 @@ impl PgCreateTable {
             .map(|c| PgColumn::from_column(c))
             .collect::<Result<Vec<PgColumn>>>()?;
         Ok(PgCreateTable {
-            name,
+            name: table_name,
             columns: pg_columns,
             if_not_exists: false,
             temporary: false,
@@ -101,14 +102,12 @@ impl PgCreateTable {
     /// Returns `None` if no matching table exists.
     pub(crate) async fn from_pg_catalog(
         database_url: &UrlWithHiddenPassword,
-        full_table_name: &str,
+        table_name: &TableName,
     ) -> Result<Option<PgCreateTable>> {
         let database_url = database_url.to_owned();
-        let full_table_name = full_table_name.to_owned();
-        spawn_blocking(move || {
-            catalog::fetch_from_url(&database_url, &full_table_name)
-        })
-        .await
+        let table_name = table_name.to_owned();
+        spawn_blocking(move || catalog::fetch_from_url(&database_url, &table_name))
+            .await
     }
 
     /// Look up `full_table_name` in the database, and return a new
@@ -119,12 +118,12 @@ impl PgCreateTable {
     pub(crate) async fn from_pg_catalog_or_default(
         check_catalog: CheckCatalog,
         database_url: &UrlWithHiddenPassword,
-        full_table_name: &str,
+        table_name: &TableName,
         default: &Table,
     ) -> Result<PgCreateTable> {
         // If we can't find a catalog in the database, use this one.
         let default_dest_table = PgCreateTable::from_name_and_columns(
-            full_table_name.to_owned(),
+            table_name.to_owned(),
             &default.columns,
         )?;
 
@@ -136,8 +135,7 @@ impl PgCreateTable {
             // See if the table is listed in the catalog.
             CheckCatalog::Yes => {
                 let opt_dest_table =
-                    PgCreateTable::from_pg_catalog(database_url, full_table_name)
-                        .await?;
+                    PgCreateTable::from_pg_catalog(database_url, table_name).await?;
                 Ok(match opt_dest_table {
                     Some(dest_table) => {
                         dest_table.aligned_with(&default_dest_table)?
@@ -156,7 +154,7 @@ impl PgCreateTable {
             .map(|c| c.to_column())
             .collect::<Result<Vec<Column>>>()?;
         Ok(Table {
-            name: self.name.clone(),
+            name: self.name.unquoted(),
             columns,
         })
     }
@@ -185,8 +183,9 @@ impl PgCreateTable {
                         Ok(col.to_owned())
                     } else {
                         Err(format_err!(
-                            "could not find column {} in destination table",
-                            c.name
+                            "could not find column {} in destination table: {}",
+                            c.name,
+                            column_map.keys().join(", "),
                         ))
                     }
                 })
@@ -223,7 +222,7 @@ impl PgCreateTable {
             write!(f, "{}", sep.display())?;
             col.write_export_select_expr(f)?;
         }
-        write!(f, " FROM {}", TableName(&self.name))?;
+        write!(f, " FROM {}", &self.name.quoted())?;
         if let Some(where_clause) = source_args.where_clause() {
             write!(f, " WHERE ({})", where_clause)?;
         }
@@ -237,7 +236,7 @@ impl PgCreateTable {
         source_args: &SourceArguments<Verified>,
     ) -> Result<()> {
         writeln!(f, "SELECT COUNT(*)")?;
-        writeln!(f, " FROM {}", TableName(&self.name))?;
+        writeln!(f, " FROM {}", &self.name.quoted())?;
         if let Some(where_clause) = source_args.where_clause() {
             writeln!(f, " WHERE ({})", where_clause)?;
         }
@@ -255,7 +254,7 @@ impl fmt::Display for PgCreateTable {
         if self.if_not_exists {
             write!(f, " IF NOT EXISTS")?;
         }
-        writeln!(f, " {} (", TableName(&self.name))?;
+        writeln!(f, " {} (", &self.name.quoted())?;
         for (idx, col) in self.columns.iter().enumerate() {
             write!(f, "    {}", col)?;
             if idx + 1 == self.columns.len() {
