@@ -167,7 +167,7 @@ fn upsert_sql(
                 "{dest_table}.{name} = {temp_table}.{name}",
                 name = Ident(&k),
                 dest_table = dest_table_name,
-                temp_table = temp_table.name.quoted(),
+                temp_table = temp_table_name,
             )
         })
         .join(" AND\n    ");
@@ -186,7 +186,7 @@ WHERE {keys_match}",
                 .map(|k| format!(
                     "{name} = {temp_table}.{name}",
                     name = Ident(&k),
-                    temp_table = temp_table.name.quoted(),
+                    temp_table = temp_table_name,
                 ))
                 .join(",\n    "),
         ),
@@ -202,8 +202,8 @@ WHERE {keys_match}",
         format!(
             r"-- Insert new rows into dest table.
 INSERT INTO {dest_table} ({all_columns}) (
-SELECT {all_columns}
-FROM {temp_table}
+    SELECT {all_columns}
+    FROM {temp_table}
 )",
             dest_table = dest_table_name,
             temp_table = temp_table_name,
