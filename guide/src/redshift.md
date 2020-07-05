@@ -19,7 +19,7 @@ The following environment variables are required.
 
 The following `--temporary` flag is required:
 
-- `--temporary=s3://$S3_TEMP_BUCKET`: Specify where to stage files for loading or unloading data.
+- `--temporary=s3://$S3_TEMP_BUCKET`: Specify where to stage files for loading or unloading data. The bucket must be in the same region as the Redshift cluster.
 
 [Authentication credentials for `COPY`][copyauth] may be passed using `--to-arg`. For example:
 
@@ -34,4 +34,15 @@ This may require some experimentation.
 
 ```txt
 {{#include generated/features_redshift.txt}}
+```
+
+## Example
+
+```
+dbcrossbar cp \
+  csv:mytable.csv \
+  redshift://myuser:XXXXXX@redshift-cluster-1.YYYYYYY.us-west-2.redshift.amazonaws.com:5439/mydb#mytable  \
+  --temporary=s3://mybucket-in-us-west-2/ \
+  --if-exists=upsert-on:id \
+  --to-arg=credentials="aws_access_key_id=$AWS_ACCESS_KEY_ID;aws_secret_access_key=$AWS_SECRET_ACCESS_KEY;token=$AWS_SESSION_TOKEN"
 ```
