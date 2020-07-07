@@ -3,9 +3,11 @@
 use bytes::Bytes;
 use failure::Fail;
 
-use super::{connect, PostgresLocator};
+use super::PostgresLocator;
 use crate::common::*;
-use crate::drivers::postgres_shared::{CheckCatalog, PgCreateTable, TableName};
+use crate::drivers::postgres_shared::{
+    connect, CheckCatalog, PgCreateTable, TableName,
+};
 
 /// Copy the specified table from the database, returning a `CsvStream`.
 pub(crate) async fn local_data_helper(
@@ -34,6 +36,7 @@ pub(crate) async fn local_data_helper(
 
     // Try to look up our table schema in the database.
     let pg_create_table = PgCreateTable::from_pg_catalog_or_default(
+        &ctx,
         CheckCatalog::Yes,
         &url,
         &table_name,

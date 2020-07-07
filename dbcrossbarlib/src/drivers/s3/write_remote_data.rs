@@ -3,8 +3,7 @@
 use super::{prepare_as_destination_helper, S3Locator};
 use crate::common::*;
 use crate::drivers::{
-    postgres::connect,
-    postgres_shared::{pg_quote, CheckCatalog, PgCreateTable},
+    postgres_shared::{connect, pg_quote, CheckCatalog, PgCreateTable},
     redshift::{credentials_sql, RedshiftLocator},
 };
 
@@ -45,6 +44,7 @@ pub(crate) async fn write_remote_data_helper(
     let pg_create_table = PgCreateTable::from_pg_catalog_or_default(
         // Always check the catalog, because `if_exists` is for our S3
         // destination, not for Redshift source.
+        &ctx,
         CheckCatalog::Yes,
         source.url(),
         table_name,

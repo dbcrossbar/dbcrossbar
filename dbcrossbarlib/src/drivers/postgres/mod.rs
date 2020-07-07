@@ -3,20 +3,14 @@
 // See https://github.com/diesel-rs/diesel/issues/1785
 #![allow(missing_docs, proc_macro_derive_resolution_fallback)]
 
-use failure::Fail;
-use native_tls::TlsConnector;
-use postgres_native_tls::MakeTlsConnector;
 use std::{
     fmt,
     str::{self, FromStr},
 };
-pub use tokio_postgres::Client;
-use tokio_postgres::Config;
 
 use crate::common::*;
-use crate::drivers::postgres_shared::{PgCreateTable, TableName};
+use crate::drivers::postgres_shared::{Client, PgCreateTable, TableName};
 
-pub mod citus;
 mod count;
 mod csv_to_binary;
 mod local_data;
@@ -29,35 +23,6 @@ use self::write_local_data::write_local_data_helper;
 pub(crate) use write_local_data::{
     columns_to_update_for_upsert, create_temp_table_for, prepare_table,
 };
-
-/// Connect to the database, using SSL if possible.
-pub(crate) async fn connect(
-    ctx: &Context,
-    url: &UrlWithHiddenPassword,
-) -> Result<Client> {
-    let mut base_url = url.clone();
-    base_url.as_url_mut().set_fragment(None);
-
-    // Build a basic config from our URL args.
-    let config = Config::from_str(base_url.with_password().as_str())
-        .context("could not configure PostgreSQL connection")?;
-    let tls_connector = TlsConnector::builder()
-        .build()
-        .context("could not build PostgreSQL TLS connector")?;
-    let (client, connection) = config
-        .connect(MakeTlsConnector::new(tls_connector))
-        .await
-        .context("could not connect to PostgreSQL")?;
-
-    // The docs say we need to run this connection object in the background.
-    ctx.spawn_worker(
-        connection.map_err(|e| -> Error {
-            e.context("error on PostgreSQL connection").into()
-        }),
-    );
-
-    Ok(client)
-}
 
 /// A Postgres database URL and a table name.
 ///
@@ -144,11 +109,11 @@ impl Locator for PostgresLocator {
         self
     }
 
-    fn schema(&self, _ctx: Context) -> BoxFuture<Option<Table>> {
+    fn schema(&self, ctx: Context) -> BoxFuture<Option<Table>> {
         let source = self.to_owned();
         async move {
             let table =
-                PgCreateTable::from_pg_catalog(&source.url, &source.table_name)
+                PgCreateTable::from_pg_catalog(&ctx, &source.url, &source.table_name)
                     .await?
                     .ok_or_else(|| format_err!("no such table {}", source))?;
             Ok(Some(table.to_table()?))

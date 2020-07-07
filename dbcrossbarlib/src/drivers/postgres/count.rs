@@ -1,8 +1,8 @@
 //! Implementation of `count`, but as a real `async` function.
 
-use super::{connect, PostgresLocator};
+use super::PostgresLocator;
 use crate::common::*;
-use crate::drivers::postgres_shared::{CheckCatalog, PgCreateTable};
+use crate::drivers::postgres_shared::{connect, CheckCatalog, PgCreateTable};
 
 /// Implementation of `count`, but as a real `async` function.
 pub(crate) async fn count_helper(
@@ -23,6 +23,7 @@ pub(crate) async fn count_helper(
 
     // Convert our schema to a native PostgreSQL schema.
     let pg_create_table = PgCreateTable::from_pg_catalog_or_default(
+        &ctx,
         // No need to look at the catalog, since we don't care about columns.
         CheckCatalog::No,
         &url,
