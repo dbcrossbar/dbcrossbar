@@ -5,19 +5,15 @@
 //! Basically, this is old `schemaconv` code that we imported with minimal
 //! changes.
 
-use diesel::{
-    dsl::count_star,
-    pg::PgConnection,
-    prelude::*,
-    sql_function,
-    sql_types::{Integer, Text},
-};
 use std::collections::HashMap;
 
-use super::{PgColumn, PgCreateTable, PgDataType, PgScalarDataType, TableName};
+use super::{
+    connect, PgColumn, PgCreateTable, PgDataType, PgScalarDataType, TableName,
+};
 use crate::common::*;
 use crate::schema::Srid;
 
+/*
 sql_function! {
     /// Given the PostgreSQL schema name, table name and column name of a
     /// PostGIS geoemtry column (which must have been correctly set up using
@@ -48,15 +44,10 @@ table! {
         udt_name -> VarChar,
     }
 }
+*/
 
-#[derive(Queryable)]
-#[allow(dead_code)]
 struct PgColumnSchema {
-    table_catalog: String,
-    table_schema: String,
-    table_name: String,
     column_name: String,
-    ordinal_position: i32,
     is_nullable: String,
     data_type: String,
     udt_schema: String,
@@ -73,32 +64,51 @@ impl PgColumnSchema {
 /// Fetch information about a table from the database.
 ///
 /// Returns `None` if no matching table exists.
-pub(crate) fn fetch_from_url(
+pub(crate) async fn fetch_from_url(
+    ctx: &Context,
     database_url: &UrlWithHiddenPassword,
     table_name: &TableName,
 ) -> Result<Option<PgCreateTable>> {
-    let conn = PgConnection::establish(database_url.with_password().as_str())
-        .context("error connecting to PostgreSQL")?;
-
+    let client = connect(ctx, database_url).await?;
     let schema = table_name.schema().unwrap_or("public");
     let table = table_name.table();
 
     // Check to see if we have a table with this name.
-    let table_count = tables::table
-        .select(count_star())
-        .filter(tables::table_schema.eq(schema))
-        .filter(tables::table_name.eq(table))
-        .first::<i64>(&conn)?;
+    let count_matching_tables_sql = r#"
+SELECT COUNT(*) AS count
+FROM information_schema.tables
+WHERE
+    table_schema = $1 AND
+    table_name = $2
+"#;
+    let row = client
+        .query_one(count_matching_tables_sql, &[&schema, &table])
+        .await?;
+    let table_count: i64 = row.get("count");
     if table_count == 0 {
         return Ok(None);
     }
 
     // Look up column information.
-    let pg_columns = columns::table
-        .filter(columns::table_schema.eq(schema))
-        .filter(columns::table_name.eq(table))
-        .order(columns::ordinal_position)
-        .load::<PgColumnSchema>(&conn)?;
+    let columns_sql = r#"
+SELECT column_name, is_nullable, data_type, udt_schema, udt_name 
+FROM information_schema.columns
+WHERE
+    table_schema = $1 AND
+    table_name = $2
+ORDER BY ordinal_position
+"#;
+    let rows = client.query(columns_sql, &[&schema, &table]).await?;
+    let pg_columns = rows
+        .into_iter()
+        .map(|row| PgColumnSchema {
+            column_name: row.get("column_name"),
+            is_nullable: row.get("is_nullable"),
+            data_type: row.get("data_type"),
+            udt_schema: row.get("udt_schema"),
+            udt_name: row.get("udt_name"),
+        })
+        .collect::<Vec<PgColumnSchema>>();
 
     // Do we have any PostGIS geometry columns?
     let need_srids = pg_columns
@@ -107,25 +117,31 @@ pub(crate) fn fetch_from_url(
 
     // Look up SRIDs for our geometry columns.
     let srid_map = if need_srids {
-        columns::table
-            .filter(columns::table_schema.eq(schema))
-            .filter(columns::table_name.eq(table))
-            .filter(columns::data_type.eq("USER-DEFINED"))
-            .filter(columns::udt_name.eq("geometry"))
-            .select((
-                columns::column_name,
-                find_srid(
-                    columns::table_schema,
-                    columns::table_name,
-                    columns::column_name,
-                ),
-            ))
-            .load::<(String, i32)>(&conn)?
-            // Now do some Rust iterator magic to construct `Srid` objects, to
-            // handle integer range errors, and to convert everything into a
-            // nice `HashMap`.
-            .into_iter()
-            .map(|(name, srid)| Ok((name, Srid::new(u32::try_from(srid)?))))
+        // This SQL will fail if `Find_SRID` isn't defined. But `Find_SRID` is
+        // part of the PostGIS extension, and we've confirmed that we have
+        // geometry columns, so we should be fine.
+        let srid_sql = r#"
+SELECT
+    column_name,
+    Find_SRID(
+        table_schema::TEXT,
+        table_name::TEXT,
+        column_name::TEXT
+    ) AS srid
+FROM information_schema.columns
+WHERE
+    table_schema = $1 AND
+    table_name = $2 AND
+    data_type = 'USER-DEFINED' AND
+    udt_name = 'geometry'
+"#;
+        let rows = client.query(srid_sql, &[&schema, &table]).await?;
+        rows.into_iter()
+            .map(|row| {
+                let name = row.get("column_name");
+                let srid: i32 = row.get("srid");
+                Ok((name, Srid::new(u32::try_from(srid)?)))
+            })
             .collect::<Result<HashMap<String, Srid>>>()?
     } else {
         // If we don't have any geometry columns, then we don't want to run the

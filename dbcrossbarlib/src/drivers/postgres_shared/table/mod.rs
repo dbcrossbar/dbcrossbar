@@ -101,13 +101,11 @@ impl PgCreateTable {
     ///
     /// Returns `None` if no matching table exists.
     pub(crate) async fn from_pg_catalog(
+        ctx: &Context,
         database_url: &UrlWithHiddenPassword,
         table_name: &TableName,
     ) -> Result<Option<PgCreateTable>> {
-        let database_url = database_url.to_owned();
-        let table_name = table_name.to_owned();
-        spawn_blocking(move || catalog::fetch_from_url(&database_url, &table_name))
-            .await
+        catalog::fetch_from_url(ctx, database_url, table_name).await
     }
 
     /// Look up `full_table_name` in the database, and return a new
@@ -116,6 +114,7 @@ impl PgCreateTable {
     /// If this fails, use `full_table_name` and `default` to construct a new
     /// table.
     pub(crate) async fn from_pg_catalog_or_default(
+        ctx: &Context,
         check_catalog: CheckCatalog,
         database_url: &UrlWithHiddenPassword,
         table_name: &TableName,
@@ -135,7 +134,8 @@ impl PgCreateTable {
             // See if the table is listed in the catalog.
             CheckCatalog::Yes => {
                 let opt_dest_table =
-                    PgCreateTable::from_pg_catalog(database_url, table_name).await?;
+                    PgCreateTable::from_pg_catalog(ctx, database_url, table_name)
+                        .await?;
                 Ok(match opt_dest_table {
                     Some(dest_table) => {
                         dest_table.aligned_with(&default_dest_table)?

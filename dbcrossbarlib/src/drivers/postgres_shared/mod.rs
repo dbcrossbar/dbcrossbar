@@ -1,6 +1,11 @@
 //! Code shared between various PostgreSQL-related drivers.
 
+use failure::Fail;
+use native_tls::TlsConnector;
+use postgres_native_tls::MakeTlsConnector;
 use std::{fmt, str::FromStr};
+pub use tokio_postgres::Client;
+use tokio_postgres::Config;
 
 use crate::common::*;
 
@@ -12,6 +17,35 @@ mod table;
 pub(crate) use self::column::PgColumn;
 pub(crate) use self::data_type::{PgDataType, PgScalarDataType};
 pub(crate) use self::table::{CheckCatalog, PgCreateTable};
+
+/// Connect to the database, using SSL if possible.
+pub(crate) async fn connect(
+    ctx: &Context,
+    url: &UrlWithHiddenPassword,
+) -> Result<Client> {
+    let mut base_url = url.clone();
+    base_url.as_url_mut().set_fragment(None);
+
+    // Build a basic config from our URL args.
+    let config = Config::from_str(base_url.with_password().as_str())
+        .context("could not configure PostgreSQL connection")?;
+    let tls_connector = TlsConnector::builder()
+        .build()
+        .context("could not build PostgreSQL TLS connector")?;
+    let (client, connection) = config
+        .connect(MakeTlsConnector::new(tls_connector))
+        .await
+        .context("could not connect to PostgreSQL")?;
+
+    // The docs say we need to run this connection object in the background.
+    ctx.spawn_worker(
+        connection.map_err(|e| -> Error {
+            e.context("error on PostgreSQL connection").into()
+        }),
+    );
+
+    Ok(client)
+}
 
 /// Escape and quote a PostgreSQL string literal. See the [docs][]. We need this
 /// because PostgreSQL doesn't accept `$1`-style escapes in certain places in

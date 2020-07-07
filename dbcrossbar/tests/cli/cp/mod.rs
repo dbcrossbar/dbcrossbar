@@ -126,7 +126,7 @@ pub(crate) fn assert_cp_to_exact_csv(test_name: &str, locator: &str) {
     let schema = testdir.src_path("fixtures/exact_output.sql");
     let gs_temp_dir = gs_test_dir_url(test_name);
     let bq_temp_ds = bq_temp_dataset();
-    let s3_temp_dir = s3_test_dir_url("cp_csv_to_bigml_dataset_to_csv");
+    let s3_temp_dir = s3_test_dir_url(test_name);
 
     // CSV to locator.
     let output = testdir

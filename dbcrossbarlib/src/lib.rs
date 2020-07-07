@@ -19,11 +19,6 @@
 // We handle this using `cargo deny` instead.
 #![allow(clippy::multiple_crate_versions)]
 
-// We keep one `macro_use` here, because `diesel`'s macros do not yet play
-// nicely with the new Rust 2018 macro importing features.
-#[macro_use]
-extern crate diesel;
-
 use std::result;
 
 pub(crate) mod args;

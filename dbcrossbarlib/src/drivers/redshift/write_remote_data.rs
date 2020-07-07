@@ -5,11 +5,10 @@ use itertools::Itertools;
 use super::{credentials_sql, RedshiftLocator};
 use crate::common::*;
 use crate::drivers::{
-    postgres::{
-        columns_to_update_for_upsert, connect, create_temp_table_for, prepare_table,
-        Client,
+    postgres::{columns_to_update_for_upsert, create_temp_table_for, prepare_table},
+    postgres_shared::{
+        connect, pg_quote, CheckCatalog, Client, Ident, PgCreateTable, TableName,
     },
-    postgres_shared::{pg_quote, CheckCatalog, Ident, PgCreateTable, TableName},
     s3::S3Locator,
 };
 use crate::schema::{Column, DataType};
@@ -51,6 +50,7 @@ pub(crate) async fn write_remote_data_helper(
     schema.verify_redshift_can_import_from_csv()?;
     let table_name = dest.table_name();
     let pg_create_table = PgCreateTable::from_pg_catalog_or_default(
+        &ctx,
         CheckCatalog::from(&if_exists),
         dest.url(),
         &table_name,

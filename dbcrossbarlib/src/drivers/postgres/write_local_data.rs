@@ -4,9 +4,9 @@ use futures::pin_mut;
 use itertools::Itertools;
 use std::{collections::HashSet, io::prelude::*, iter::FromIterator, str};
 
-use super::{connect, csv_to_binary::copy_csv_to_pg_binary, Client, PostgresLocator};
+use super::{csv_to_binary::copy_csv_to_pg_binary, Client, PostgresLocator};
 use crate::common::*;
-use crate::drivers::postgres_shared::{CheckCatalog, Ident, PgCreateTable};
+use crate::drivers::postgres_shared::{connect, CheckCatalog, Ident, PgCreateTable};
 use crate::tokio_glue::try_forward;
 use crate::transform::spawn_sync_transform;
 
@@ -262,6 +262,7 @@ pub(crate) async fn write_local_data_helper(
 
     // Try to look up our destination table schema in the database.
     let dest_table = PgCreateTable::from_pg_catalog_or_default(
+        &ctx,
         CheckCatalog::from(&if_exists),
         dest.url(),
         dest.table_name(),
