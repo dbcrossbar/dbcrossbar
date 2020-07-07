@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` crate is an internal-only dependency with no versioning policy at this time.)
 
+## 0.4.2-beta.3 - 2020-07-07
+
+### Changed
+
+- postgres: Our last `diesel` code has been removed, and replaced with `tokio-postgres` (which we use elsewhere).
+
+### Fixed
+
+- postgres: Fixed [#148](https://github.com/dbcrossbar/dbcrossbar/issues/148) to improve support for PostGIS under PostgreSQL 12.
+
+### Removed
+
+- The experimental `citus`-related APIs have been removed from `dbcrossbarlib`, because they used `diesel`. This is technically a breaking change for `dbcrosslib`, but we don't claim to honor semver for `dbcrossbarlib` 0.x.y releases.
+
 ## 0.4.2-beta.2 - 2020-06-28
 
 ### Added
