@@ -532,6 +532,7 @@ dependencies = [
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "main_error 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mime 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "native-tls 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parse_link_header 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "peg 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",

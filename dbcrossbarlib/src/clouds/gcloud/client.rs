@@ -1,10 +1,16 @@
 //! A Google Cloud REST client.
 
+use bigml::wait::{wait, BackoffType, WaitOptions, WaitStatus};
 use failure::ResultExt;
+use mime::{self, Mime};
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
-use reqwest::{self, header::HeaderMap, IntoUrl};
+use reqwest::{
+    self,
+    header::{HeaderMap, CONTENT_TYPE},
+    IntoUrl,
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{error, fmt};
+use std::{error, fmt, time::Duration};
 
 use super::auth::{authenticator, AccessToken, Authenticator};
 use crate::common::*;
@@ -64,14 +70,53 @@ impl Client {
     ) -> Result<reqwest::Response> {
         trace!(ctx.log(), "GET {}", url);
         let token = self.token().await?;
-        Ok(self
-            .client
-            .get(url.as_str())
-            .bearer_auth(token.as_str())
-            .headers(headers)
-            .send()
-            .await
-            .with_context(|_| format!("could not GET {}", url))?)
+        let wait_options = WaitOptions::default()
+            .backoff_type(BackoffType::Exponential)
+            .retry_interval(Duration::from_secs(10))
+            // Don't retry too much because we're probably classifying some
+            // permanent errors as temporary.
+            .allowed_errors(3);
+        wait(&wait_options, move || {
+            let token = token.clone();
+            let headers = headers.clone();
+            async move {
+                let resp_result = self
+                    .client
+                    .get(url.as_str())
+                    .bearer_auth(token.as_str())
+                    .headers(headers)
+                    .send()
+                    .await;
+                match resp_result {
+                    // The HTTP request failed outright, because of something
+                    // like a DNS error or whatever.
+                    Err(err) => {
+                        // Request and timeout errors look like the kind of
+                        // things we should probably retry. But this is based on
+                        // guesswork not experience.
+                        let temporary = err.is_request() || err.is_timeout();
+                        let err: Error = err.into();
+                        let err = err.context(format!("could not GET {}", url));
+                        if temporary {
+                            WaitStatus::FailedTemporarily(err.into())
+                        } else {
+                            WaitStatus::FailedPermanently(err.into())
+                        }
+                    }
+                    // We talked to the server and it returned a server-side
+                    // error (50-599). There's a chance that things might work
+                    // next time, we hope.
+                    Ok(resp) if resp.status().is_server_error() => {
+                        WaitStatus::FailedTemporarily(
+                            self.handle_error(ctx, "GET", url, resp).await,
+                        )
+                    }
+                    Ok(resp) => WaitStatus::Finished(resp),
+                }
+            }
+            .boxed()
+        })
+        .await
     }
 
     /// Make an HTTP GET request with the specified URL and query parameters,
@@ -111,7 +156,7 @@ impl Client {
         if http_resp.status().is_success() {
             Ok(http_resp)
         } else {
-            self.handle_error(ctx, "GET", &url, http_resp).await
+            Err(self.handle_error(ctx, "GET", &url, http_resp).await)
         }
     }
 
@@ -172,7 +217,7 @@ impl Client {
         if http_resp.status().is_success() {
             Ok(())
         } else {
-            self.handle_error(&ctx, "POST", &url, http_resp).await
+            Err(self.handle_error(&ctx, "POST", &url, http_resp).await)
         }
     }
 
@@ -235,30 +280,54 @@ impl Client {
             trace!(ctx.log(), "{} returned {:?}", method, resp);
             Ok(resp)
         } else {
-            self.handle_error(ctx, method, url, http_resp).await
+            Err(self.handle_error(ctx, method, url, http_resp).await)
         }
     }
 
     /// Handle an HTPP error response.
-    ///
-    /// This can never return `Ok`. The return type is declared as
-    /// `Result<Any>`, but once the [never][] type stabilizes, it should return
-    /// `Result<!>`.
-    ///
-    /// [never]: https://doc.rust-lang.org/std/primitive.never.html
-    async fn handle_error<Any>(
+    async fn handle_error(
         &self,
         ctx: &Context,
         method: &str,
         url: &Url,
         http_resp: reqwest::Response,
-    ) -> Result<Any> {
-        let resp = http_resp.json::<ErrorResponse>().await.with_context(|_| {
-            format!("error fetching JSON error response from {}", url)
-        })?;
-        trace!(ctx.log(), "{} error {:?}", method, resp);
-        let err: Error = resp.error.into();
-        Err(err.context(format!("{} error {}", method, url)).into())
+    ) -> Error {
+        // Decide if we should even try to parse this response as JSON before we
+        // consume our http_resp.
+        let should_parse_as_json = response_claims_to_be_json(ctx, &http_resp);
+
+        // Fetch the error body.
+        let err_body_result = http_resp
+            .bytes()
+            .await
+            .with_context(|_| format!("error fetching error response from {}", url));
+        let err_body = match err_body_result {
+            Ok(err_body) => err_body,
+            Err(err) => return err.into(),
+        };
+
+        // Try to return a nice JSON error.
+        if should_parse_as_json {
+            if let Ok(resp) = serde_json::from_slice::<ErrorResponse>(&err_body) {
+                trace!(ctx.log(), "{} error {:?}", method, resp);
+                let err: Error = resp.error.into();
+                return err.context(format!("{} error {}", method, url)).into();
+            }
+        }
+
+        // We've run afoul of
+        // https://github.com/googleapis/google-cloud-ruby/issues/5180 or
+        // something equally terrible, so just report whatever we have.
+        let raw_err = String::from_utf8_lossy(&err_body);
+        trace!(
+            ctx.log(),
+            "{} {}: expected JSON describing error, but got {:?}",
+            method,
+            url,
+            raw_err,
+        );
+        let err = format_err!("expected JSON describing error, but got {:?}", raw_err);
+        err.context(format!("{} error {}", method, url)).into()
     }
 }
 
@@ -314,4 +383,37 @@ pub(crate) struct ErrorDetail {
 /// Percent-encode a string for use as a URL path component.
 pub(crate) fn percent_encode<'a>(s: &'a str) -> impl fmt::Display + 'a {
     utf8_percent_encode(s, NON_ALPHANUMERIC)
+}
+
+/// Returns `true` if `http_response` claims to be a JSON response.
+pub(crate) fn response_claims_to_be_json(
+    ctx: &Context,
+    http_resp: &reqwest::Response,
+) -> bool {
+    let content_type = match http_resp.headers().get(CONTENT_TYPE) {
+        Some(content_type) => content_type,
+        None => return false,
+    };
+    let content_type_str = match content_type.to_str() {
+        Ok(content_type_str) => content_type_str,
+        Err(err) => {
+            error!(
+                ctx.log(),
+                "Non-ASCII content type {:?}: {}", content_type, err,
+            );
+            return false;
+        }
+    };
+    let content_type_mime = match content_type_str.parse::<Mime>() {
+        Ok(content_type_mime) => content_type_mime,
+        Err(err) => {
+            error!(
+                ctx.log(),
+                "Could not parse content type {:?}: {}", content_type_str, err,
+            );
+            return false;
+        }
+    };
+    content_type_mime.type_() == mime::APPLICATION
+        && content_type_mime.subtype() == mime::JSON
 }
