@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` crate is an internal-only dependency with no versioning policy at this time.)
 
+## 0.4.2-beta.5 - 2020-08-01
+
+### Fixed
+
+- gcloud: We now print more useful error messages when Google doesn't send JSON-formatted errors.
+- gcloud: We now retry Google Cloud GET requests automatically a few times if it looks like it might help. We'd also love to retry POST requests, but that will require the ability to try to restart streams.
+
 ## 0.4.2-beta.4 - 2020-07-07
 
 ### Changed
