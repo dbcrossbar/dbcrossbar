@@ -182,6 +182,12 @@
                     <h1><a class="header" href="#changelog" id="changelog">Changelog</a></h1>
 <p>All notable changes to this project will be documented in this file.</p>
 <p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>, and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a> for the <code>dbcrossbar</code> CLI tool. (The <code>dbcrossbarlib</code> crate is an internal-only dependency with no versioning policy at this time.)</p>
+<h2><a class="header" href="#042-beta5---2020-08-01" id="042-beta5---2020-08-01">0.4.2-beta.5 - 2020-08-01</a></h2>
+<h3><a class="header" href="#fixed" id="fixed">Fixed</a></h3>
+<ul>
+<li>gcloud: We now print more useful error messages when Google doesn't send JSON-formatted errors.</li>
+<li>gcloud: We now retry Google Cloud GET requests automatically a few times if it looks like it might help. We'd also love to retry POST requests, but that will require the ability to try to restart streams.</li>
+</ul>
 <h2><a class="header" href="#042-beta4---2020-07-07" id="042-beta4---2020-07-07">0.4.2-beta.4 - 2020-07-07</a></h2>
 <h3><a class="header" href="#changed" id="changed">Changed</a></h3>
 <ul>
@@ -192,7 +198,7 @@
 <ul>
 <li>postgres: Our last <code>diesel</code> code has been removed, and replaced with <code>tokio-postgres</code> (which we use elsewhere).</li>
 </ul>
-<h3><a class="header" href="#fixed" id="fixed">Fixed</a></h3>
+<h3><a class="header" href="#fixed-1" id="fixed-1">Fixed</a></h3>
 <ul>
 <li>postgres: Fixed <a href="https://github.com/dbcrossbar/dbcrossbar/issues/148">#148</a> to improve support for PostGIS under PostgreSQL 12.</li>
 </ul>
@@ -210,7 +216,7 @@
 <ul>
 <li>postgres: Temporary tables now use the same schema (i.e. namespace) as the tables they're linked to. This shouldn't be a breaking change unless you've set up your database permissions to forbid it.</li>
 </ul>
-<h3><a class="header" href="#fixed-1" id="fixed-1">Fixed</a></h3>
+<h3><a class="header" href="#fixed-2" id="fixed-2">Fixed</a></h3>
 <ul>
 <li>postgres: Fixed likely bug upserting into tables with a non-&quot;public&quot; schema.</li>
 <li>postgres: Verify that upsert columns are NOT NULL to prevent possible incorrect upserts. This may be a breaking change, but it also prevents a possible bug.</li>
@@ -221,7 +227,7 @@
 <li>Mac: Move configuration directory from <code>~/Library/Preferences/dbcrossbar</code> to <code>~/Library/Application Support/dbcrossbar</code>. If we detect a config directory in the old location, we should print a deprecation warning and use it.</li>
 <li>Many dependencies have been updated.</li>
 </ul>
-<h3><a class="header" href="#fixed-2" id="fixed-2">Fixed</a></h3>
+<h3><a class="header" href="#fixed-3" id="fixed-3">Fixed</a></h3>
 <ul>
 <li>We should now handle multiple sets of Google Cloud OAuth2 credentials correctly.</li>
 </ul>
@@ -231,7 +237,7 @@
 <ul>
 <li>Replace deprecated <code>tempdir</code> with <code>tempfile</code>.</li>
 </ul>
-<h3><a class="header" href="#fixed-3" id="fixed-3">Fixed</a></h3>
+<h3><a class="header" href="#fixed-4" id="fixed-4">Fixed</a></h3>
 <ul>
 <li>gs: Correctly pass <code>page_token</code> when listing. This prevents an infinite loop in large directories.</li>
 <li>Fix new Rust 0.44.0 warnings.</li>
@@ -259,7 +265,7 @@
 <li>We replaced <code>gcloud auth</code>, <code>gsutil</code> and <code>bq</code> with native Rust. This simplifies installation and configuration substantially, and fixes a number of BigQuery-related issues.</li>
 <li>AWS credentials must now always be passed via <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>, <code>AWS_SESSION_TOKEN</code> (optional) and <code>AWS_DEFAULT_REGION</code> (required). This lays the groundwork for replacing the <code>aws</code> CLI tool with native Rust code, so that we will someday be able to remove our last CLI dependency.</li>
 </ul>
-<h3><a class="header" href="#fixed-4" id="fixed-4">Fixed</a></h3>
+<h3><a class="header" href="#fixed-5" id="fixed-5">Fixed</a></h3>
 <ul>
 <li>Lots of issues.</li>
 </ul>
@@ -325,7 +331,7 @@
 </li>
 <li>postgres-sql: Use new format for parse errors.</li>
 </ul>
-<h3><a class="header" href="#fixed-5" id="fixed-5">Fixed</a></h3>
+<h3><a class="header" href="#fixed-6" id="fixed-6">Fixed</a></h3>
 <ul>
 <li>shopify: The example <code>shopify.ts</code> schema has been updated to use <code>Date</code> and <code>int64</code> in many places. <code>Address</code> and <code>CustomerAddress</code> are now distinct types, and several other minor issues have been fixed.</li>
 </ul>
@@ -374,7 +380,7 @@
 <li>BREAKING: Some corner cases involving struct types and JSON may have changed subtly.</li>
 <li>We've upgraded to the latest <code>rust-peg</code> parser syntax everywhere.</li>
 </ul>
-<h3><a class="header" href="#fixed-6" id="fixed-6">Fixed</a></h3>
+<h3><a class="header" href="#fixed-7" id="fixed-7">Fixed</a></h3>
 <ul>
 <li><code>--if-exists=overwrite</code> now overwrites when writing to local files (instead of appending).</li>
 <li>We automatically create <code>~/.local/share</code> if it does not exist.</li>
@@ -386,7 +392,7 @@
 <ul>
 <li>Replace <code>gcloud auth</code>, <code>gsutil</code> and <code>bq</code> with native Rust. This changes how we authenticate to Google Cloud. In particular, we now support <code>GCLOUD_CLIENT_SECRET</code>, <code>~/.config/dbcrossbar/gcloud_client_secret.json</code>, <code>GCLOUD_SERVICE_ACCOUNT_KEY</code> or <code>~/.config/dbcrossbar/gcloud_service_account_key.json</code>, as <a href="https://www.dbcrossbar.org/gs.html#configuration--authentication">explained in the manual</a>. We no longer use <code>gcloud auth</code>, and the Google Cloud SDK tools are no longer required. In the current alpha version, uploads and deletions are probably slower than before.</li>
 </ul>
-<h3><a class="header" href="#fixed-7" id="fixed-7">Fixed</a></h3>
+<h3><a class="header" href="#fixed-8" id="fixed-8">Fixed</a></h3>
 <ul>
 <li>gs: Avoid download stalls when backpressure is applied (<a href="https://github.com/dbcrossbar/dbcrossbar/issues/102">#103</a>).</li>
 <li>bigquery: Display error messages more reliably (<a href="https://github.com/dbcrossbar/dbcrossbar/issues/110">#110</a>).</li>
@@ -398,7 +404,7 @@
 <li>BigML: Honor BIGML_DOMAIN, allowing the user to point the BigML driver to a custom VPC instance of BigML.</li>
 </ul>
 <h2><a class="header" href="#032---2020-03-30" id="032---2020-03-30">0.3.2 - 2020-03-30</a></h2>
-<h3><a class="header" href="#fixed-8" id="fixed-8">Fixed</a></h3>
+<h3><a class="header" href="#fixed-9" id="fixed-9">Fixed</a></h3>
 <ul>
 <li>Correctly quote BigQuery column names again (which regressed in 0.3.0), and added test cases to prevent further regressions.</li>
 <li>Fix an error that caused <code>bigquery_upsert</code> test to fail.</li>
@@ -413,7 +419,7 @@
 <li>Encapsulate all calls to <code>bq</code> and <code>gsutil</code></li>
 <li>Improve performance of <code>--stream-size</code></li>
 </ul>
-<h3><a class="header" href="#fixed-9" id="fixed-9">Fixed</a></h3>
+<h3><a class="header" href="#fixed-10" id="fixed-10">Fixed</a></h3>
 <ul>
 <li>BigQuery: Honor NOT NULL on import (fixes #45)</li>
 </ul>
@@ -429,7 +435,7 @@
 <li>Replace <code>wkb</code> with <code>postgis</code> for licensing reasons</li>
 <li>BigML: Fail immediately if no S3 temporary bucket provided (fixes #101)</li>
 </ul>
-<h3><a class="header" href="#fixed-10" id="fixed-10">Fixed</a></h3>
+<h3><a class="header" href="#fixed-11" id="fixed-11">Fixed</a></h3>
 <ul>
 <li>BigQuery: Handle mixed-case column names using BigQuery semantics (fixes #84)</li>
 <li>PostgreSQL: Fix upserts with mixed-case column names</li>
