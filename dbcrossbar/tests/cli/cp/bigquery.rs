@@ -333,8 +333,8 @@ fn bigquery_honors_not_null_for_complex_inserts() {
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
     let bq_temp_ds = bq_temp_dataset();
-    let gs_temp_dir = gs_test_dir_url("cp_csv_to_bigquery_to_csv");
-    let bq_table = bq_test_table("cp_csv_to_bigquery_to_csv");
+    let gs_temp_dir = gs_test_dir_url("bigquery_honors_not_null_for_complex_inserts");
+    let bq_table = bq_test_table("bigquery_honors_not_null_for_complex_inserts");
 
     // CSV to BigQuery.
     testdir

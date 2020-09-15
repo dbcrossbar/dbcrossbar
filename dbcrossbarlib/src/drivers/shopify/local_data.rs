@@ -1,5 +1,6 @@
 //! Fetch data from Shopify and convert to CSV.
 
+use bigml::wait::{wait, BackoffType, WaitOptions, WaitStatus};
 use common_failures::display::DisplayCausesAndBacktraceExt;
 use itertools::Itertools;
 use reqwest::Client;
@@ -43,13 +44,30 @@ pub(crate) async fn local_data_helper(
         let client = Client::new();
         let mut next_url = url.clone();
         loop {
-            // Query Shopify and forward any errors to our consumer
-            let result = get_shopify_response(
-                &worker_ctx,
-                &client,
-                next_url,
-                auth_token.to_owned(),
-            )
+            // Query Shopify and forward any errors to our consumer. We allow a
+            // few retries to deal with transient errors, but not too many,
+            // because we're not distinguishing between permanent and temporary
+            // errors carefully.
+            let wait_options = WaitOptions::default()
+                .backoff_type(BackoffType::Exponential)
+                .retry_interval(Duration::from_secs(5))
+                .allowed_errors(3);
+            let result = wait(&wait_options, || {
+                let next_url = next_url.clone();
+                async {
+                    let result = get_shopify_response(
+                        &worker_ctx,
+                        &client,
+                        next_url,
+                        auth_token.to_owned(),
+                    )
+                    .await;
+                    match result {
+                        Ok(resp) => WaitStatus::Finished(resp),
+                        Err(err) => WaitStatus::FailedTemporarily(err),
+                    }
+                }
+            })
             .await;
             let resp = match result {
                 Ok(resp) => resp,
