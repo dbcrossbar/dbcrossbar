@@ -128,6 +128,7 @@ pub(crate) enum PgScalarDataType {
     TimestampWithoutTimeZone,
     TimestampWithTimeZone,
     Uuid,
+    Inet
 }
 
 impl PgScalarDataType {
@@ -181,6 +182,7 @@ impl PgScalarDataType {
                 Ok(DataType::TimestampWithTimeZone)
             }
             PgScalarDataType::Uuid => Ok(DataType::Uuid),
+            PgScalarDataType::Inet => Ok(DataType::Text)
         }
     }
 

@@ -241,6 +241,7 @@ fn pg_data_type(
                 Ok(PgScalarDataType::TimestampWithoutTimeZone)
             }
             "uuid" => Ok(PgScalarDataType::Uuid),
+            "inet" => Ok(PgScalarDataType::Inet),
             other => Err(format_err!("unknown data type {:?}", other)),
         }?;
         Ok(PgDataType::Scalar(ty))
