@@ -206,7 +206,6 @@ fn pg_data_type(
             "_timestamp" => PgScalarDataType::TimestampWithoutTimeZone,
             "_timestamptz" => PgScalarDataType::TimestampWithTimeZone,
             "_uuid" => PgScalarDataType::Uuid,
-            "_varchar" => PgScalarDataType::Text,
             _ => return Err(format_err!("unknown array element {:?}", udt_name)),
         };
         Ok(PgDataType::Array {
@@ -335,10 +334,6 @@ fn parsing_pg_data_type() {
         ),
         (
             ("ARRAY", "pg_catalog", "_text"),
-            array(PgScalarDataType::Text),
-        ),
-        (
-            ("ARRAY", "pg_catalog", "_varchar"),
             array(PgScalarDataType::Text),
         ),
         (
