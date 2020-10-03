@@ -1,5 +1,5 @@
-use core::fmt;
 use super::EsDataType;
+use core::fmt;
 
 /// A field in an Elasticsearch index.
 #[derive(Clone, Debug, Eq, PartialEq)]

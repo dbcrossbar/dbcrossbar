@@ -1,8 +1,8 @@
 //! Implementation of `count`, but as a real `async` function.
 
-use crate::{Context, SharedArguments, SourceArguments, Unverified};
-use crate::drivers::elasticsearch::ElasticsearchLocator;
 use crate::common::*;
+use crate::drivers::elasticsearch::ElasticsearchLocator;
+use crate::{Context, SharedArguments, SourceArguments, Unverified};
 use serde::Deserialize;
 
 /// Implementation of `count`, but as a real `async` function.
@@ -21,7 +21,9 @@ pub(crate) async fn count_helper(
 
     // Generate HTTP request for query
     let base = url.with_password().clone();
-    let url = base.join(&format!("{}/_count", &index.index)).context("joining up paths")?;
+    let url = base
+        .join(&format!("{}/_count", &index.index))
+        .context("joining up paths")?;
     let response = reqwest::get(url).await?;
     let count = response.json::<CountResponse>().await?;
 

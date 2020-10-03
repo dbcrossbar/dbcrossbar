@@ -1,12 +1,12 @@
 //! A driver for working with Elasticsearch.
 
 use crate::common::*;
-use std::str::FromStr;
 use core::fmt;
+use std::str::FromStr;
 
+mod count;
 mod data_type;
 mod field;
-mod count;
 
 pub(crate) use self::data_type::EsDataType;
 pub(crate) use self::field::EsField;
@@ -38,7 +38,7 @@ impl FromStr for IndexName {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(IndexName {
-            index: s.to_owned()
+            index: s.to_owned(),
         })
     }
 }
@@ -52,19 +52,20 @@ impl FromStr for ElasticsearchLocator {
             Err(format_err!("expected URL scheme elasticsearch: {:?}", s))
         } else {
             // Extract index name from URL.
-            let index_name = url
-                .path()[1..]
-                .parse::<IndexName>()?;
-
+            let index_name = url.path()[1..].parse::<IndexName>()?;
 
             // TODO: http vs https
             let scheme = "http";
             let port = url.port().unwrap_or(9200);
 
             let host = url.host().unwrap();
-            let new_url = Url::parse(&format!("{}://{}:{}", scheme, host, port)).unwrap();
+            let new_url =
+                Url::parse(&format!("{}://{}:{}", scheme, host, port)).unwrap();
             let url = UrlWithHiddenPassword::new(new_url);
-            Ok(ElasticsearchLocator { url, index: index_name })
+            Ok(ElasticsearchLocator {
+                url,
+                index: index_name,
+            })
         }
     }
 }
@@ -73,20 +74,16 @@ impl FromStr for ElasticsearchLocator {
 fn from_str_parses_schemas() {
     let examples = &[
         ("elasticsearch://user:pass@host/db", "http", 9200, "db"),
-        ("elasticsearch://user:pass@host:443/db", "http", 443, "db")
+        ("elasticsearch://user:pass@host:443/db", "http", 443, "db"),
     ];
     for &(url, scheme, port, index) in examples {
         let loc = ElasticsearchLocator::from_str(url).unwrap();
         assert_eq!(loc.url.with_password().scheme(), scheme);
-        assert_eq!(
-            loc.index,
-            index.parse::<IndexName>().unwrap(),
-        );
+        assert_eq!(loc.index, index.parse::<IndexName>().unwrap(),);
         assert_eq!(loc.url.with_password().port().unwrap(), port);
         assert_eq!(loc.url.with_password().path(), "/");
     }
 }
-
 
 impl Locator for ElasticsearchLocator {
     fn as_any(&self) -> &dyn Any {
@@ -102,7 +99,7 @@ impl Locator for ElasticsearchLocator {
                 columns: Vec::new(),
             }))
         }
-            .boxed()
+        .boxed()
     }
 
     fn count(
@@ -130,7 +127,7 @@ impl Locator for ElasticsearchLocator {
         _shared_args: SharedArguments<Unverified>,
         _dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<BoxStream<BoxFuture<BoxLocator>>> {
-       unimplemented!();
+        unimplemented!();
     }
 }
 
@@ -154,7 +151,6 @@ impl LocatorStatic for ElasticsearchLocator {
     }
 }
 
-
 /// An Elasticsearch index declaration.
 ///
 /// This is marked as `pub` and not `pub(crate)` because of a limitation of the
@@ -169,4 +165,3 @@ pub struct EsCreateIndex {
     /// The columns in the table.
     pub(crate) fields: Vec<EsField>,
 }
-
