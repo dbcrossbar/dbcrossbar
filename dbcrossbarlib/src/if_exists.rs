@@ -63,10 +63,7 @@ pub enum IfExists {
 impl IfExists {
     /// Are we supposed to perform an upsert?
     pub(crate) fn is_upsert(&self) -> bool {
-        match self {
-            IfExists::Upsert(_) => true,
-            _ => false,
-        }
+        matches!(self, IfExists::Upsert(_))
     }
 
     /// Convert to an `tokio::OpenOptions` value, returning an error for

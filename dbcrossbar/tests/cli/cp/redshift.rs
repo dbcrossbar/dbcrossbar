@@ -147,7 +147,7 @@ fn redshift_upsert() {
     let normalize_csv = |path: &Path| -> String {
         let text = fs::read_to_string(&path).unwrap();
         let mut lines = text.lines().collect::<Vec<_>>();
-        lines.sort();
+        lines.sort_unstable();
         lines.join("\n")
     };
     let expected = normalize_csv(&expected);

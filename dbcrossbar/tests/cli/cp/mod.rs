@@ -104,7 +104,7 @@ pub(crate) fn normalize_csv_data(csv_data: &str) -> String {
     let mut iter = csv_data.lines();
     let header = iter.next().expect("no CSV headers").to_owned();
     let mut lines = iter.collect::<Vec<_>>();
-    lines.sort();
+    lines.sort_unstable();
     format!("{}\n{}\n", header, lines.join("\n"))
 }
 
