@@ -18,6 +18,8 @@
 )]
 // We handle this using `cargo deny` instead.
 #![allow(clippy::multiple_crate_versions)]
+// This has false positives on trivial code.
+#![allow(clippy::needless_collect)]
 
 use std::result;
 

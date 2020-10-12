@@ -354,26 +354,17 @@ pub(crate) struct Type {
 impl Type {
     /// Is this type equivalent to an SQL NULL?
     fn is_sql_null(&self) -> bool {
-        match &self.details {
-            TypeDetails::Null => true,
-            _ => false,
-        }
+        matches!(&self.details, TypeDetails::Null)
     }
 
     /// Is this a string type?
     fn is_string(&self) -> bool {
-        match &self.details {
-            TypeDetails::String => true,
-            _ => false,
-        }
+        matches!(&self.details, TypeDetails::String)
     }
 
     /// Is this a numeric type?
     fn is_number(&self) -> bool {
-        match &self.details {
-            TypeDetails::Number => true,
-            _ => false,
-        }
+        matches!(&self.details, TypeDetails::Number)
     }
 
     /// If this type is `x | null` or `null | x`, return `(true, x)`. Otherwise,

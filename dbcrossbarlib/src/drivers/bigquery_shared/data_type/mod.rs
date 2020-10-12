@@ -90,10 +90,7 @@ impl BqDataType {
 
     /// Can BigQuery import this type from a CSV file?
     pub(crate) fn bigquery_can_import_from_csv(&self) -> bool {
-        match self {
-            BqDataType::Array(_) => true,
-            _ => false,
-        }
+        matches!(self, BqDataType::Array(_))
     }
 
     /// Can this type be safely represented as a JSON value?
