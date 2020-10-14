@@ -1,6 +1,6 @@
 # RedShift
 
-Amazon's [Redshift](https://aws.amazon.com/redshift/) is a cloud-based data warehouse designed to support analytical queries. This driver receives less testing than our BigQuery driver, because the cheapest possible RedShift test system costs over $100/month. Sponsors are welcome!
+Amazon's [Redshift](https://aws.amazon.com/redshift/) is a cloud-based data warehouse designed to support analytical queries. This driver receives less testing than our BigQuery driver, because the cheapest possible RedShift test system costs over \$100/month. Sponsors are welcome!
 
 ## Example locators
 
@@ -27,6 +27,10 @@ The following `--temporary` flag is required:
 - `--to-arg=region=$REGION`
 
 This may require some experimentation.
+
+If you need to generate "-- partner:" SQL comments for an AWS RedShift partner program, you can do it as follows:
+
+- `--to-arg=partner="myapp v1.0"`
 
 [copyauth]: https://docs.aws.amazon.com/redshift/latest/dg/loading-data-access-permissions.html
 

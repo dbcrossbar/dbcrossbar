@@ -2,6 +2,7 @@
 
 use lazy_static::lazy_static;
 use regex::Regex;
+use serde::Deserialize;
 use std::{
     collections::HashMap,
     fmt,
@@ -150,19 +151,49 @@ impl LocatorStatic for RedshiftLocator {
     }
 }
 
-/// Given a `DriverArgs` structure, convert it into Redshift credentials SQL.
-pub(crate) fn credentials_sql(args: &DriverArguments) -> Result<String> {
-    let mut out = vec![];
-    let map = args.deserialize::<HashMap<String, String>>()?;
-    for (k, v) in &map {
-        lazy_static! {
-            static ref KEY_RE: Regex =
-                Regex::new("^[_A-Za-z0-9]+$").expect("invalid regex in source code");
+/// Arguments passed to the RedShift driver.
+#[derive(Debug, Deserialize)]
+pub(crate) struct RedshiftDriverArguments {
+    // Insert this as a "-- partner: " comment in generated queries. AWS uses
+    // this to keep track of which tools generate which queries.
+    partner: Option<String>,
+    // Everything we don't recognize is treated as a credential, for backwards
+    // compatibility.
+    #[serde(flatten)]
+    credentials: HashMap<String, String>,
+}
+
+impl RedshiftDriverArguments {
+    /// Return a "-- partner: " SQL fragment if we need one, or "" if we don't.
+    pub(crate) fn partner_sql(&self) -> Result<String> {
+        match &self.partner {
+            Some(partner) => {
+                if partner.contains('\n') || partner.contains("--") {
+                    Err(format_err!(
+                        "unsupported characters in partner: {:?}",
+                        partner
+                    ))
+                } else {
+                    Ok(format!("-- partner: {}\n", partner))
+                }
+            }
+            None => Ok("".to_owned()),
         }
-        if !KEY_RE.is_match(k) {
-            return Err(format_err!("cannot pass {:?} as Redshift credential", k));
-        }
-        writeln!(&mut out, "{} {}", k, pg_quote(v))?;
     }
-    Ok(String::from_utf8(out).expect("found non-UTF-8 SQL"))
+
+    /// Given a `DriverArgs` structure, convert it into Redshift credentials SQL.
+    pub(crate) fn credentials_sql(&self) -> Result<String> {
+        let mut out = vec![];
+        for (k, v) in &self.credentials {
+            lazy_static! {
+                static ref KEY_RE: Regex = Regex::new("^[_A-Za-z0-9]+$")
+                    .expect("invalid regex in source code");
+            }
+            if !KEY_RE.is_match(k) {
+                return Err(format_err!("cannot pass {:?} as Redshift credential", k));
+            }
+            writeln!(&mut out, "{} {}", k, pg_quote(v))?;
+        }
+        Ok(String::from_utf8(out).expect("found non-UTF-8 SQL"))
+    }
 }

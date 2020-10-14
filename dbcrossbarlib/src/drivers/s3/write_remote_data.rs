@@ -4,7 +4,7 @@ use super::{prepare_as_destination_helper, S3Locator};
 use crate::common::*;
 use crate::drivers::{
     postgres_shared::{connect, pg_quote, CheckCatalog, PgCreateTable},
-    redshift::{credentials_sql, RedshiftLocator},
+    redshift::{RedshiftDriverArguments, RedshiftLocator},
 };
 
 /// Copy `source` to `dest` using `schema`.
@@ -32,7 +32,9 @@ pub(crate) async fn write_remote_data_helper(
 
     // Look up our arguments.
     let schema = shared_args.schema();
-    let from_args = source_args.driver_args();
+    let from_args = source_args
+        .driver_args()
+        .deserialize::<RedshiftDriverArguments>()?;
     let if_exists = dest_args.if_exists().to_owned();
 
     // Delete the existing output, if it exists.
@@ -61,10 +63,11 @@ pub(crate) async fn write_remote_data_helper(
     // Export as CSV.
     let client = connect(&ctx, source.url()).await?;
     let unload_sql = format!(
-        "UNLOAD ({source}) TO {dest}\n{credentials}HEADER FORMAT CSV",
+        "{partner}UNLOAD ({source}) TO {dest}\n{credentials}HEADER FORMAT CSV",
+        partner = from_args.partner_sql()?,
         source = pg_quote(&select_sql),
         dest = pg_quote(dest.as_url().as_str()),
-        credentials = credentials_sql(from_args)?,
+        credentials = from_args.credentials_sql()?,
     );
     let unload_stmt = client.prepare(&unload_sql).await?;
     client.execute(&unload_stmt, &[]).await.with_context(|_| {
