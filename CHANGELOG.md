@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` crate is an internal-only dependency with no versioning policy at this time.)
 
+## 0.4.2-beta.7 - 2020-10-14
+
+### Added
+
+- shopify: Added a "partner" argument which can be used to include a "-- partner:" comment in all generated RedShift SQL for use by RedShift partners.
+
 ## 0.4.2-beta.6 - 2020-09-15
 
 ### Fixed
