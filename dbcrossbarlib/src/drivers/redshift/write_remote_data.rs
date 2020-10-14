@@ -2,7 +2,7 @@
 
 use itertools::Itertools;
 
-use super::{credentials_sql, RedshiftLocator};
+use super::{RedshiftDriverArguments, RedshiftLocator};
 use crate::common::*;
 use crate::drivers::{
     postgres::{columns_to_update_for_upsert, create_temp_table_for, prepare_table},
@@ -43,7 +43,9 @@ pub(crate) async fn write_remote_data_helper(
 
     // Look up our arguments.
     let schema = shared_args.schema();
-    let to_args = dest_args.driver_args();
+    let to_args = dest_args
+        .driver_args()
+        .deserialize::<RedshiftDriverArguments>()?;
     let if_exists = dest_args.if_exists().to_owned();
 
     // Try to look up our table schema in the database.
@@ -67,7 +69,7 @@ pub(crate) async fn write_remote_data_helper(
             create_temp_table_for(&ctx, &mut client, &pg_create_table).await?;
 
         // Copy data into our temporary table.
-        copy_in(&ctx, &client, &source_url, &temp_table.name, to_args).await?;
+        copy_in(&ctx, &client, &source_url, &temp_table.name, &to_args).await?;
 
         // Build our upsert SQL.
         upsert_from_temp_table(
@@ -79,7 +81,7 @@ pub(crate) async fn write_remote_data_helper(
         )
         .await?;
     } else {
-        copy_in(&ctx, &client, &source_url, &table_name, to_args).await?;
+        copy_in(&ctx, &client, &source_url, &table_name, &to_args).await?;
     }
 
     Ok(vec![dest.boxed()])
@@ -91,7 +93,7 @@ async fn copy_in(
     client: &Client,
     source_s3_url: &Url,
     dest_table: &TableName,
-    to_args: &DriverArguments,
+    to_args: &RedshiftDriverArguments,
 ) -> Result<()> {
     debug!(
         ctx.log(),
@@ -100,10 +102,11 @@ async fn copy_in(
         source_s3_url.as_str(),
     );
     let copy_sql = format!(
-        "COPY {dest} FROM {source}\n{credentials}FORMAT CSV\nIGNOREHEADER 1\nDATEFORMAT 'auto'\nTIMEFORMAT 'auto'",
+        "{partner}COPY {dest} FROM {source}\n{credentials}FORMAT CSV\nIGNOREHEADER 1\nDATEFORMAT 'auto'\nTIMEFORMAT 'auto'",
+        partner = to_args.partner_sql()?,
         dest = dest_table.quoted(),
         source = pg_quote(source_s3_url.as_str()), // `$1` doesn't work here.
-        credentials = credentials_sql(to_args)?,
+        credentials = to_args.credentials_sql()?,
     );
     let copy_stmt = client.prepare(&copy_sql).await?;
     client.execute(&copy_stmt, &[]).await.with_context(|_| {

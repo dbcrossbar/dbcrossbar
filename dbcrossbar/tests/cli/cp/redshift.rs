@@ -117,6 +117,10 @@ fn redshift_upsert() {
                 if_exists,
                 &format!("--temporary={}", s3_dir),
                 &format!("--schema=postgres-sql:{}", schema.display()),
+                concat!(
+                    "--to-arg=partner=dbcrossbar test v",
+                    env!("CARGO_PKG_VERSION")
+                ),
                 &format!("--to-arg=iam_role={}", iam_role),
                 &format!("--to-arg=region={}", region),
                 &format!("csv:{}", src.display()),
@@ -135,6 +139,10 @@ fn redshift_upsert() {
             &format!("--temporary={}", s3_dir),
             &format!("--from-arg=iam_role={}", iam_role),
             &format!("--from-arg=region={}", region),
+            concat!(
+                "--from-arg=partner=dbcrossbar test v",
+                env!("CARGO_PKG_VERSION")
+            ),
             &redshift_table,
             "csv:out.csv",
         ])
