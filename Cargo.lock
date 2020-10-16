@@ -541,7 +541,7 @@ dependencies = [
 
 [[package]]
 name = "dbcrossbar"
-version = "0.4.2-beta.7"
+version = "0.4.2-beta.8"
 dependencies = [
  "clap",
  "cli_test_dir",
@@ -575,7 +575,7 @@ dependencies = [
 
 [[package]]
 name = "dbcrossbarlib"
-version = "0.4.2-beta.7"
+version = "0.4.2-beta.8"
 dependencies = [
  "async-trait",
  "base64 0.13.0",
