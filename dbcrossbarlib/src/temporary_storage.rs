@@ -44,10 +44,12 @@ impl TemporaryStorage {
     /// Generate a random alphanumeric tag for use in temporary directory names.
     pub fn random_tag() -> String {
         let mut rng = thread_rng();
-        iter::repeat(())
+        let bytes = iter::repeat(())
             .map(|()| rng.sample(Alphanumeric))
             .take(10)
-            .collect::<String>()
+            .collect::<Vec<u8>>();
+        String::from_utf8(bytes)
+            .expect("random alphanumeric value should always be valid UTF-8")
     }
 }
 
