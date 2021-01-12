@@ -74,7 +74,12 @@ pub use tokio_glue::{run_futures_with_runtime, ConsumeWithParallelism};
 #[allow(unused_imports)]
 pub(crate) mod common {
     pub(crate) use bytes::BytesMut;
-    pub(crate) use enumset::{EnumSet, EnumSetType};
+    // `big_enum_set` is more-or-less a drop-in replacement for `enumset`, but
+    // it supports more bitflags and it fixes a dependency on private `syn`
+    // APIs: https://github.com/Lymia/enumset/issues/17
+    pub(crate) use big_enum_set::{
+        BigEnumSet as EnumSet, BigEnumSetType as EnumSetType,
+    };
     pub(crate) use failure::{format_err, ResultExt};
     pub(crate) use futures::{
         join, stream, try_join, Future, FutureExt, Stream, StreamExt, TryFutureExt,
