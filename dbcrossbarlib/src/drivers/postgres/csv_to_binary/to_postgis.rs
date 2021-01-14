@@ -69,6 +69,8 @@ impl ToPostgis for gt::Geometry<f64> {
             gt::Geometry::Polygon(polygon) => {
                 ewkb::GeometryT::Polygon(polygon.to_postgis())
             }
+            gt::Geometry::Rect(rect) => ewkb::GeometryT::Polygon(rect.to_postgis()),
+            gt::Geometry::Triangle(tri) => ewkb::GeometryT::Polygon(tri.to_postgis()),
             gt::Geometry::MultiPoint(multi_point) => {
                 ewkb::GeometryT::MultiPoint(multi_point.to_postgis())
             }
@@ -135,6 +137,26 @@ impl ToPostgis for gt::Polygon<f64> {
         rings.push(self.exterior().to_postgis());
         rings.extend(self.interiors().iter().map(|i| i.to_postgis()));
         ewkb::Polygon { rings, srid: None }
+    }
+}
+
+impl ToPostgis for gt::Rect<f64> {
+    type PostgisType = ewkb::Polygon;
+
+    fn to_postgis(&self) -> Self::PostgisType {
+        // We might be able to convert this faster if did it directly instead of
+        // going through a polygon, but then we'd have to test it more.
+        self.to_polygon().to_postgis()
+    }
+}
+
+impl ToPostgis for gt::Triangle<f64> {
+    type PostgisType = ewkb::Polygon;
+
+    fn to_postgis(&self) -> Self::PostgisType {
+        // We might be able to convert this faster if did it directly instead of
+        // going through a polygon, but then we'd have to test it more.
+        self.to_polygon().to_postgis()
     }
 }
 

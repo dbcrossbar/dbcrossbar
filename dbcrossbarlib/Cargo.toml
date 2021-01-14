@@ -36,8 +36,8 @@ csv = "1.0.5"
 dirs = "3.0"
 failure = "0.1.2"
 futures = "0.3.1"
-geo-types = "0.5"
-geojson = { version = "0.18.0", features = ["geo-types"] }
+geo-types = "0.6.0"
+geojson = { version = "0.21.0", features = ["geo-types"] }
 headers = "0.3.2"
 hex = "0.4.0"
 hmac = "0.10.1"
