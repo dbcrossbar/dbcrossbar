@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use std::process::Stdio;
 use tokio::io::BufReader;
+use tokio_stream::wrappers::LinesStream;
 
 use super::aws_s3_command;
 use crate::common::*;
@@ -31,19 +32,19 @@ pub(crate) async fn ls(
     // switching from `aws s3` to native S3 API calls from Rust.
     let ctx = ctx.to_owned();
     let url = url.to_owned();
-    let lines = BufReader::with_capacity(BUFFER_SIZE, child_stdout)
-        .lines()
-        .map_err(|e| format_err!("error reading `aws s3 ls` output: {}", e))
-        .and_then(move |line| {
-            let ctx = ctx.clone();
-            let url = url.clone();
-            async move {
-                trace!(ctx.log(), "`aws s3 ls` line: {}", line);
-                let bucket_url = bucket_url(&url)?;
-                let path = path_from_line(&line)?;
-                Ok(bucket_url.join(&path)?)
-            }
-        });
+    let lines =
+        LinesStream::new(BufReader::with_capacity(BUFFER_SIZE, child_stdout).lines())
+            .map_err(|e| format_err!("error reading `aws s3 ls` output: {}", e))
+            .and_then(move |line| {
+                let ctx = ctx.clone();
+                let url = url.clone();
+                async move {
+                    trace!(ctx.log(), "`aws s3 ls` line: {}", line);
+                    let bucket_url = bucket_url(&url)?;
+                    let path = path_from_line(&line)?;
+                    Ok(bucket_url.join(&path)?)
+                }
+            });
 
     Ok(lines.boxed())
 }

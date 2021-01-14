@@ -31,6 +31,7 @@ pub(crate) async fn upload_file<'a>(
 
     // Wait for `aws s3` to finish.
     let status = child
+        .wait()
         .await
         .with_context(|_| format!("error finishing upload to {}", file_url))?;
     if status.success() {

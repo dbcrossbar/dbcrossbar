@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, convert::TryFrom};
-use tokio::time::{delay_for, Duration};
+use tokio::time::{sleep, Duration};
 
 use super::{
     super::{Client, NoQuery},
@@ -328,7 +328,7 @@ pub(crate) async fn run_job(
         }
 
         // Wait for a while.
-        delay_for(sleep_duration).await;
+        sleep(sleep_duration).await;
         if sleep_duration < Duration::from_secs(16) {
             sleep_duration *= 2;
         }

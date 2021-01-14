@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
 
 use super::{
     super::{percent_encode, Client},
@@ -74,7 +75,7 @@ pub(crate) async fn ls(
     // Set up a background worker which forwards list output to `sender`. This
     // should also forward all errors to `sender`, except errors that occur when
     // fowarding other errors.
-    let (mut sender, receiver) = mpsc::channel::<Result<StorageObject>>(1);
+    let (sender, receiver) = mpsc::channel::<Result<StorageObject>>(1);
     let worker_ctx = ctx.child(o!("worker" => "gcloud storage ls"));
     let worker: BoxFuture<()> = async move {
         // Make our client.
@@ -153,5 +154,5 @@ pub(crate) async fn ls(
     }
     .boxed();
     ctx.spawn_worker(worker);
-    Ok(receiver)
+    Ok(ReceiverStream::new(receiver))
 }

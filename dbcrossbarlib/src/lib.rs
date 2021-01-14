@@ -91,7 +91,13 @@ pub(crate) mod common {
         convert::{TryFrom, TryInto},
         io::{Read, Write},
     };
-    pub(crate) use tokio::{prelude::*, sync::mpsc};
+    pub(crate) use tokio::{
+        io::{
+            self, AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite,
+            AsyncWriteExt,
+        },
+        sync::mpsc,
+    };
     pub(crate) use url::Url;
 
     pub(crate) use crate::{

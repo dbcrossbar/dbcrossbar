@@ -61,6 +61,8 @@ pub(crate) fn concatenate_csv_streams(
 
 #[test]
 fn concatenate_csv_streams_strips_all_but_first_header() {
+    use tokio_stream::wrappers::ReceiverStream;
+
     let input_1 = b"a,b\n1,2\n";
     let input_2 = b"a,b\n3,4\n";
     let expected = b"a,b\n1,2\n3,4\n";
@@ -71,7 +73,7 @@ fn concatenate_csv_streams_strips_all_but_first_header() {
         debug!(ctx.log(), "testing concatenate_csv_streams");
 
         // Build our `BoxStream<CsvStream>`.
-        let (mut sender, receiver) = mpsc::channel::<Result<CsvStream>>(2);
+        let (sender, receiver) = mpsc::channel::<Result<CsvStream>>(2);
         sender
             .send(Ok(CsvStream::from_bytes(&input_1[..]).await))
             .await
@@ -82,7 +84,7 @@ fn concatenate_csv_streams_strips_all_but_first_header() {
             .await
             .map_send_err()
             .unwrap();
-        let csv_streams = receiver.boxed();
+        let csv_streams = ReceiverStream::new(receiver).boxed();
 
         // Close our sender so that our receiver knows we're done.
         drop(sender);
@@ -173,7 +175,7 @@ fn strip_csv_header(
 }
 
 // Send `err` using `sender`.
-async fn send_err(mut sender: Sender<Result<BytesMut>>, err: Error) -> Result<()> {
+async fn send_err(sender: Sender<Result<BytesMut>>, err: Error) -> Result<()> {
     sender
         .send(Err(err))
         .await

@@ -23,7 +23,7 @@ impl CsvStream {
         B: Into<BytesMut>,
     {
         use crate::tokio_glue::bytes_channel;
-        let (mut sender, receiver) = bytes_channel(1);
+        let (sender, receiver) = bytes_channel(1);
         sender
             .send(Ok(bytes.into()))
             .await

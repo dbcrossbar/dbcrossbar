@@ -9,6 +9,7 @@ use futures::{
 };
 use std::{cmp::min, error, fmt, panic, pin::Pin, result};
 use tokio::{io, process::Child, sync::mpsc, task};
+use tokio_stream::wrappers::ReceiverStream;
 
 use crate::common::*;
 
@@ -52,7 +53,7 @@ pub(crate) fn bytes_channel(
     impl Stream<Item = Result<BytesMut>> + Send + Unpin + 'static,
 ) {
     let (sender, receiver) = mpsc::channel(buffer);
-    (sender, receiver)
+    (sender, ReceiverStream::new(receiver))
 }
 
 /// Copy `stream` into `sink`. If `stream` returns an `Err` value, stop
@@ -165,7 +166,7 @@ pub(crate) fn copy_reader_to_stream<R>(
 where
     R: AsyncRead + Send + Unpin + 'static,
 {
-    let (mut sender, receiver) = bytes_channel(1);
+    let (sender, receiver) = bytes_channel(1);
     let worker: BoxFuture<()> = async move {
         let mut buffer = vec![0u8; 64 * 1024];
         loop {
@@ -382,8 +383,7 @@ pub fn run_futures_with_runtime(
     };
 
     // Pass `combined_fut` to our `tokio` runtime, and wait for it to finish.
-    let mut runtime =
-        tokio::runtime::Runtime::new().expect("Unable to create a runtime");
+    let runtime = tokio::runtime::Runtime::new().expect("Unable to create a runtime");
     runtime.block_on(combined_fut.boxed())?;
     Ok(())
 }
@@ -544,8 +544,8 @@ pub(crate) fn idiomatic_bytes_stream(
     .boxed();
     ctx.spawn_worker(forwarder);
 
-    let stream = receiver.map_err(|err| -> Box<dyn error::Error + Send + Sync> {
-        Box::new(err.compat())
-    });
+    let stream = ReceiverStream::new(receiver).map_err(
+        |err| -> Box<dyn error::Error + Send + Sync> { Box::new(err.compat()) },
+    );
     Box::pin(stream)
 }

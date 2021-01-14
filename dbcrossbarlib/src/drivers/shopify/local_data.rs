@@ -9,7 +9,7 @@ use serde_json::Value;
 use std::{collections::HashMap, str::FromStr};
 use tokio::{
     sync::mpsc::Sender,
-    time::{delay_for, Duration},
+    time::{sleep, Duration},
 };
 
 use super::{json_to_csv::write_rows, ShopifyLocator};
@@ -103,7 +103,7 @@ pub(crate) async fn local_data_helper(
                 // If we're starting to overheat, wait a full second, giving enough
                 // time regenerate at least 2 API calls worth of credit.
                 if resp.call_limit.should_wait() {
-                    delay_for(Duration::from_millis(1000)).await;
+                    sleep(Duration::from_millis(1000)).await;
                 }
             } else {
                 // No more pages of data to fetch!

@@ -3,6 +3,7 @@
 use futures::executor::block_on;
 use std::{cell::Cell, cmp::min, io, rc::Rc};
 use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
 
 use crate::common::*;
 use crate::concat::concatenate_csv_streams;
@@ -26,7 +27,7 @@ pub fn rechunk_csvs(
 
     // Create a channel to which we can write `CsvStream` values once we've
     // created them.
-    let (mut csv_stream_sender, csv_stream_receiver) =
+    let (csv_stream_sender, csv_stream_receiver) =
         mpsc::channel::<Result<CsvStream>>(1);
 
     // Run a synchronous background worker thread that parsers our sync CSV
@@ -124,7 +125,7 @@ pub fn rechunk_csvs(
     });
     ctx.spawn_worker(worker_fut.boxed());
 
-    let csv_streams = csv_stream_receiver.boxed();
+    let csv_streams = ReceiverStream::new(csv_stream_receiver).boxed();
     Ok(csv_streams)
 }
 
@@ -142,7 +143,7 @@ fn rechunk_csvs_honors_chunk_size() {
         debug!(ctx.log(), "testing rechunk_csvs");
 
         // Build our `BoxStream<CsvStream>`.
-        let (mut sender, receiver) = mpsc::channel::<Result<CsvStream>>(2);
+        let (sender, receiver) = mpsc::channel::<Result<CsvStream>>(2);
         for &input in inputs {
             sender
                 .send(Ok(CsvStream::from_bytes(input).await))
@@ -151,7 +152,7 @@ fn rechunk_csvs_honors_chunk_size() {
                 .expect("could not write to stream");
         }
         drop(sender);
-        let csv_streams = receiver.boxed();
+        let csv_streams = ReceiverStream::new(receiver).boxed();
 
         let rechunked_csv_streams = rechunk_csvs(ctx.clone(), 7, csv_streams).unwrap();
 

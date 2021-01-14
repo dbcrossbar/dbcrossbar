@@ -2,6 +2,7 @@
 
 use slog::{OwnedKV, SendSyncRefUnwindSafeKV};
 use tokio::process::Child;
+use tokio_stream::wrappers::ReceiverStream;
 
 use crate::common::*;
 
@@ -20,7 +21,8 @@ impl Context {
     /// returning `()` if they all succeed, or an `Error` as soon as one of them
     /// fails.
     pub fn create(log: Logger) -> (Self, BoxFuture<()>) {
-        let (error_sender, mut receiver) = mpsc::channel(1);
+        let (error_sender, receiver) = mpsc::channel(1);
+        let mut receiver = ReceiverStream::new(receiver);
         let context = Context { log, error_sender };
         let worker_future = async move {
             match receiver.next().await {
@@ -77,7 +79,7 @@ impl Context {
         W: Future<Output = Result<()>> + Send + 'static,
     {
         let log = self.log.clone();
-        let mut error_sender = self.error_sender.clone();
+        let error_sender = self.error_sender.clone();
         tokio::spawn(
             async move {
                 if let Err(err) = worker.await {
@@ -93,9 +95,9 @@ impl Context {
 
     /// Monitor an asynchrnous child process, and report any errors or non-zero
     /// exit codes that occur.
-    pub fn spawn_process(&self, name: String, child: Child) {
+    pub fn spawn_process(&self, name: String, mut child: Child) {
         let worker = async move {
-            match child.await {
+            match child.wait().await {
                 Ok(ref status) if status.success() => Ok(()),
                 Ok(status) => Err(format_err!("{} failed with {}", name, status)),
                 Err(err) => Err(format_err!("{} failed with error: {}", name, err)),
