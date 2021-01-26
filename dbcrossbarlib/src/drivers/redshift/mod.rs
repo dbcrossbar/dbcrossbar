@@ -12,7 +12,7 @@ use std::{
 use crate::common::*;
 use crate::drivers::postgres::PostgresLocator;
 use crate::drivers::{
-    postgres_shared::{pg_quote, TableName},
+    postgres_shared::{pg_quote, PgName},
     s3::S3Locator,
 };
 
@@ -38,7 +38,7 @@ impl RedshiftLocator {
     }
 
     /// The table name for this locator.
-    pub(crate) fn table_name(&self) -> &TableName {
+    pub(crate) fn table_name(&self) -> &PgName {
         self.postgres_locator.table_name()
     }
 }
@@ -78,7 +78,7 @@ impl Locator for RedshiftLocator {
         self
     }
 
-    fn schema(&self, ctx: Context) -> BoxFuture<Option<Table>> {
+    fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
         self.postgres_locator.schema(ctx)
     }
 

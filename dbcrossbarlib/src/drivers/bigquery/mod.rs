@@ -59,7 +59,7 @@ impl Locator for BigQueryLocator {
         self
     }
 
-    fn schema(&self, ctx: Context) -> BoxFuture<Option<Table>> {
+    fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
         schema_helper(ctx, self.to_owned()).boxed()
     }
 

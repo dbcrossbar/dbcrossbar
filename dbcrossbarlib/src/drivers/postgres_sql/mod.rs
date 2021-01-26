@@ -8,7 +8,7 @@ use std::{
 };
 
 use crate::common::*;
-use crate::drivers::postgres_shared::{PgCreateTable, TableName};
+use crate::drivers::postgres_shared::{PgName, PgSchema};
 
 /// An SQL file containing a `CREATE TABLE` statement using Postgres syntax.
 #[derive(Clone, Debug)]
@@ -36,17 +36,17 @@ impl Locator for PostgresSqlLocator {
         self
     }
 
-    fn schema(&self, ctx: Context) -> BoxFuture<Option<Table>> {
+    fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
         schema_helper(ctx, self.to_owned()).boxed()
     }
 
     fn write_schema(
         &self,
         ctx: Context,
-        table: Table,
+        schema: Schema,
         if_exists: IfExists,
     ) -> BoxFuture<()> {
-        write_schema_helper(ctx, self.to_owned(), table, if_exists).boxed()
+        write_schema_helper(ctx, self.to_owned(), schema, if_exists).boxed()
     }
 }
 
@@ -71,7 +71,7 @@ impl LocatorStatic for PostgresSqlLocator {
 async fn schema_helper(
     _ctx: Context,
     source: PostgresSqlLocator,
-) -> Result<Option<Table>> {
+) -> Result<Option<Schema>> {
     let input = source
         .path
         .open_async()
@@ -80,27 +80,26 @@ async fn schema_helper(
     let sql = async_read_to_string(input)
         .await
         .with_context(|_| format!("error reading {}", source.path))?;
-    let pg_create_table = PgCreateTable::parse(source.path.to_string(), sql)?;
-    let table = pg_create_table.to_table()?;
-    Ok(Some(table))
+    let pg_schema = PgSchema::parse(source.path.to_string(), sql)?;
+    let schema = pg_schema.to_schema()?;
+    Ok(Some(schema))
 }
 
 /// Implementation of `write_schema`, but as a real `async` function.
 async fn write_schema_helper(
     ctx: Context,
     dest: PostgresSqlLocator,
-    table: Table,
+    schema: Schema,
     if_exists: IfExists,
 ) -> Result<()> {
     // TODO: We use the existing `table.name` here, but this might produce
     // odd results if the input table comes from BigQuery or another
     // database with a very different naming scheme.
-    let table_name = sanitize_table_name(&table.name)?.parse::<TableName>()?;
-    let pg_create_table =
-        PgCreateTable::from_name_and_columns(table_name, &table.columns)?;
+    let table_name = sanitize_table_name(&schema.table.name)?.parse::<PgName>()?;
+    let pg_schema = PgSchema::from_schema_and_name(&ctx, &schema, &table_name)?;
     let mut out = dest.path.create_async(ctx, if_exists).await?;
     buffer_sync_write_and_copy_to_async(&mut out, |buff| {
-        write!(buff, "{}", pg_create_table)
+        write!(buff, "{}", pg_schema)
     })
     .await
     .with_context(|_| format!("error writing {}", dest.path))?;

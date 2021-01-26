@@ -37,13 +37,13 @@ impl fmt::Display for CreateTableType {
 /// specific stuff.
 pub(crate) trait TableBigQueryExt {
     /// Can we import data into this table directly from a CSV file?
-    fn bigquery_can_import_from_csv(&self) -> Result<bool>;
+    fn bigquery_can_import_from_csv(&self, schema: &Schema) -> Result<bool>;
 }
 
 impl TableBigQueryExt for Table {
-    fn bigquery_can_import_from_csv(&self) -> Result<bool> {
+    fn bigquery_can_import_from_csv(&self, schema: &Schema) -> Result<bool> {
         for col in &self.columns {
-            if !col.bigquery_can_import_from_csv()? {
+            if !col.bigquery_can_import_from_csv(schema)? {
                 return Ok(false);
             }
         }
@@ -68,6 +68,7 @@ impl BqTable {
     /// using the table name from the database-independent `Table` has tended to
     /// be a source of bugs in the past.
     pub(crate) fn for_table_name_and_columns(
+        schema: &Schema,
         name: TableName,
         columns: &[Column],
         usage: Usage,
@@ -87,7 +88,7 @@ impl BqTable {
                         col_name
                     ))
                 } else {
-                    BqColumn::for_column(col_name, c, usage)
+                    BqColumn::for_column(schema, col_name, c, usage)
                 }
             })
             .collect::<Result<Vec<BqColumn>>>()?;

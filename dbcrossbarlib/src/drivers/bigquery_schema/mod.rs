@@ -31,17 +31,17 @@ impl Locator for BigQuerySchemaLocator {
         self
     }
 
-    fn schema(&self, ctx: Context) -> BoxFuture<Option<Table>> {
+    fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
         schema_helper(ctx, self.to_owned()).boxed()
     }
 
     fn write_schema(
         &self,
         ctx: Context,
-        table: Table,
+        schema: Schema,
         if_exists: IfExists,
     ) -> BoxFuture<()> {
-        write_schema_helper(ctx, self.to_owned(), table, if_exists).boxed()
+        write_schema_helper(ctx, self.to_owned(), schema, if_exists).boxed()
     }
 }
 
@@ -66,7 +66,7 @@ impl LocatorStatic for BigQuerySchemaLocator {
 async fn schema_helper(
     _ctx: Context,
     source: BigQuerySchemaLocator,
-) -> Result<Option<Table>> {
+) -> Result<Option<Schema>> {
     // Read our input.
     let input = source.path.open_async().await?;
     let data = async_read_to_end(input)
@@ -85,14 +85,14 @@ async fn schema_helper(
     };
     let mut table = bq_table.to_table()?;
     table.name = "unnamed".to_owned();
-    Ok(Some(table))
+    Ok(Some(Schema::from_table(table)?))
 }
 
 /// Implementation of `write_schema`, but as a real `async` function.
 async fn write_schema_helper(
     ctx: Context,
     dest: BigQuerySchemaLocator,
-    table: Table,
+    schema: Schema,
     if_exists: IfExists,
 ) -> Result<()> {
     // The BigQuery table name doesn't matter here, because our BigQuery schema
@@ -103,8 +103,9 @@ async fn write_schema_helper(
 
     // Convert our schema to a BigQuery table.
     let bq_table = BqTable::for_table_name_and_columns(
+        &schema,
         arbitrary_name,
-        &table.columns,
+        &schema.table.columns,
         Usage::FinalTable,
     )?;
 

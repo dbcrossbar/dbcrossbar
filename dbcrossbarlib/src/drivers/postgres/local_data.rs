@@ -5,15 +5,13 @@ use failure::Fail;
 
 use super::PostgresLocator;
 use crate::common::*;
-use crate::drivers::postgres_shared::{
-    connect, CheckCatalog, PgCreateTable, TableName,
-};
+use crate::drivers::postgres_shared::{connect, CheckCatalog, PgName, PgSchema};
 
 /// Copy the specified table from the database, returning a `CsvStream`.
 pub(crate) async fn local_data_helper(
     ctx: Context,
     url: UrlWithHiddenPassword,
-    table_name: TableName,
+    table_name: PgName,
     shared_args: SharedArguments<Unverified>,
     source_args: SourceArguments<Unverified>,
 ) -> Result<Option<BoxStream<CsvStream>>> {
@@ -35,7 +33,7 @@ pub(crate) async fn local_data_helper(
     );
 
     // Try to look up our table schema in the database.
-    let pg_create_table = PgCreateTable::from_pg_catalog_or_default(
+    let pg_schema = PgSchema::from_pg_catalog_or_default(
         &ctx,
         CheckCatalog::Yes,
         &url,
@@ -46,7 +44,7 @@ pub(crate) async fn local_data_helper(
 
     // Generate SQL for query.
     let mut sql_bytes: Vec<u8> = vec![];
-    pg_create_table.write_export_sql(&mut sql_bytes, &source_args)?;
+    pg_schema.write_export_sql(&mut sql_bytes, &source_args)?;
     let sql = String::from_utf8(sql_bytes).expect("should always be UTF-8");
     debug!(ctx.log(), "export SQL: {}", sql);
 

@@ -8,14 +8,23 @@ use crate::schema::DataType;
 /// Local extensions to the BigQuery [`Optype`] type.
 pub(crate) trait OptypeExt {
     /// Convert a portable `DateType` into a BigML-specific one.
-    fn for_data_type(data_type: &DataType, optype_for_text: Optype) -> Result<Optype>;
+    fn for_data_type(
+        schema: &Schema,
+        data_type: &DataType,
+        optype_for_text: Optype,
+    ) -> Result<Optype>;
 
     /// Convert a BigML-specific type into a portable one.
     fn to_data_type(&self) -> Result<DataType>;
 }
 
 impl OptypeExt for Optype {
-    fn for_data_type(data_type: &DataType, optype_for_text: Optype) -> Result<Optype> {
+    /// Construct a BigML optype from a portable data type.
+    fn for_data_type(
+        schema: &Schema,
+        data_type: &DataType,
+        optype_for_text: Optype,
+    ) -> Result<Optype> {
         match data_type {
             DataType::Array(_) => Ok(Optype::Text),
             DataType::Bool => Ok(Optype::Categorical),
@@ -28,6 +37,11 @@ impl OptypeExt for Optype {
             DataType::Int32 => Ok(Optype::Numeric),
             DataType::Int64 => Ok(Optype::Numeric),
             DataType::Json => Ok(Optype::Text),
+            DataType::Named(name) => {
+                let ty = schema.data_type_for_name(name);
+                Optype::for_data_type(schema, &ty, optype_for_text)
+            }
+            DataType::OneOf(_) => Ok(Optype::Text),
             DataType::Struct(_) => Ok(Optype::Text),
             DataType::Text => Ok(optype_for_text),
             DataType::TimestampWithoutTimeZone => Ok(Optype::DateTime),
@@ -36,6 +50,7 @@ impl OptypeExt for Optype {
         }
     }
 
+    /// Convert a BigML optype to a portable data type.
     fn to_data_type(&self) -> Result<DataType> {
         match self {
             Optype::Categorical | Optype::DateTime | Optype::Items | Optype::Text => {

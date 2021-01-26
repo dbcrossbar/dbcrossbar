@@ -2,7 +2,7 @@
 
 use super::PostgresLocator;
 use crate::common::*;
-use crate::drivers::postgres_shared::{connect, CheckCatalog, PgCreateTable};
+use crate::drivers::postgres_shared::{connect, CheckCatalog, PgSchema};
 
 /// Implementation of `count`, but as a real `async` function.
 pub(crate) async fn count_helper(
@@ -22,7 +22,7 @@ pub(crate) async fn count_helper(
     let schema = shared_args.schema();
 
     // Convert our schema to a native PostgreSQL schema.
-    let pg_create_table = PgCreateTable::from_pg_catalog_or_default(
+    let pg_schema = PgSchema::from_pg_catalog_or_default(
         &ctx,
         // No need to look at the catalog, since we don't care about columns.
         CheckCatalog::No,
@@ -34,7 +34,7 @@ pub(crate) async fn count_helper(
 
     // Generate SQL for query.
     let mut sql_bytes: Vec<u8> = vec![];
-    pg_create_table.write_count_sql(&mut sql_bytes, &source_args)?;
+    pg_schema.write_count_sql(&mut sql_bytes, &source_args)?;
     let sql = String::from_utf8(sql_bytes).expect("should always be UTF-8");
     debug!(ctx.log(), "count SQL: {}", sql);
 

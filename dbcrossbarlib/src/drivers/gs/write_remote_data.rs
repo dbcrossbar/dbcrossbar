@@ -50,8 +50,9 @@ pub(crate) async fn write_remote_data_helper(
 
     // Construct a `BqTable` describing our source table.
     let source_table = BqTable::for_table_name_and_columns(
+        schema,
         source_table_name.clone(),
-        &schema.columns,
+        &schema.table.columns,
         Usage::FinalTable,
     )?;
 

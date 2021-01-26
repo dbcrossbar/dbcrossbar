@@ -15,6 +15,7 @@ documentation = "https://docs.rs/dbcrossbarlib/"
 
 [dev-dependencies]
 main_error = "0.1.0"
+pretty_assertions = "0.6.1"
 slog-async = "2.3.0"
 slog-envlogger = "2.1.0"
 slog-term = "2.4.0"

@@ -4,7 +4,7 @@ use super::BigQueryLocator;
 use crate::clouds::gcloud::bigquery;
 use crate::common::*;
 use crate::drivers::{
-    bigquery_shared::{BqTable, GCloudDriverArguments, TableBigQueryExt, Usage},
+    bigquery_shared::{BqTable, GCloudDriverArguments, SchemaBigQueryExt, Usage},
     gs::GsLocator,
 };
 
@@ -81,8 +81,9 @@ pub(crate) async fn write_remote_data_helper(
 
     // Build the information we'll need about our initial table.
     let initial_table = BqTable::for_table_name_and_columns(
+        schema,
         initial_table_name,
-        &schema.columns,
+        &schema.table.columns,
         if use_temp {
             Usage::CsvLoad
         } else {
@@ -112,8 +113,9 @@ pub(crate) async fn write_remote_data_helper(
     if use_temp {
         // Build a `BqTable` for our final table.
         let dest_table = BqTable::for_table_name_and_columns(
+            schema,
             dest.table_name.clone(),
-            &schema.columns,
+            &schema.table.columns,
             Usage::FinalTable,
         )?;
         debug!(

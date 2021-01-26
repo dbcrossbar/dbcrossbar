@@ -65,7 +65,7 @@ impl Locator for DbcrossbarTsLocator {
         self
     }
 
-    fn schema(&self, ctx: Context) -> BoxFuture<Option<Table>> {
+    fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
         schema_helper(ctx, self.to_owned()).boxed()
     }
 }
@@ -96,7 +96,7 @@ impl LocatorStatic for DbcrossbarTsLocator {
 async fn schema_helper(
     _ctx: Context,
     source: DbcrossbarTsLocator,
-) -> Result<Option<Table>> {
+) -> Result<Option<Schema>> {
     // Read our input.
     let input = source.path.open_async().await?;
     let data = async_read_to_end(input)
@@ -105,8 +105,17 @@ async fn schema_helper(
     let data = String::from_utf8(data)
         .with_context(|_| format!("found non-UTF-8 data in {}", source.path))?;
 
+    // TODO(schema): Pass named supporting types through as named types in
+    // schema, so that `type Foo = "a" | "c"` becomes a `named_types` entry
+    // corresponding to `CREATE TYPE "foo" AS ENUM('a', 'b')`, and `interface
+    // Bar` becomes a `named_types` entry containing a struct definition.
+    //
+    // This driver is still behind `--experimental`, and the PostgreSQL driver
+    // might regress if we implemented this (because I don't _think_ it supports
+    // named types containing structs yet).
+
     // Parse it as a TypeScript file.
     let source_file = SourceFile::parse(source.path.to_string(), data)?;
     let table = source_file.definition_to_table(&source.fragment)?;
-    Ok(Some(table))
+    Ok(Some(Schema::from_table(table)?))
 }

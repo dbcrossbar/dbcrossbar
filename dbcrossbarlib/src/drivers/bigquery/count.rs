@@ -33,8 +33,9 @@ pub(crate) async fn count_helper(
     // Construct a `BqTable` describing our source table.
     let table_name = locator.as_table_name().to_owned();
     let table = BqTable::for_table_name_and_columns(
+        schema,
         table_name,
-        &schema.columns,
+        &schema.table.columns,
         Usage::FinalTable,
     )?;
 

@@ -7,8 +7,11 @@
 
 use std::collections::HashMap;
 
+use tokio_postgres::Client;
+
 use super::{
-    connect, PgColumn, PgCreateTable, PgDataType, PgScalarDataType, TableName,
+    connect, PgColumn, PgCreateTable, PgCreateType, PgCreateTypeDefinition,
+    PgDataType, PgName, PgScalarDataType, PgSchema,
 };
 use crate::common::*;
 use crate::schema::Srid;
@@ -67,11 +70,11 @@ impl PgColumnSchema {
 pub(crate) async fn fetch_from_url(
     ctx: &Context,
     database_url: &UrlWithHiddenPassword,
-    table_name: &TableName,
-) -> Result<Option<PgCreateTable>> {
+    table_name: &PgName,
+) -> Result<Option<PgSchema>> {
     let client = connect(ctx, database_url).await?;
-    let schema = table_name.schema().unwrap_or("public");
-    let table = table_name.table();
+    let schema = table_name.schema_or_public();
+    let table = table_name.name();
 
     // Check to see if we have a table with this name.
     let count_matching_tables_sql = r#"
@@ -176,18 +179,40 @@ WHERE
         })
     }
 
-    Ok(Some(PgCreateTable {
+    // Look up any types used by the table.
+    let mut types = vec![];
+    for col in &columns {
+        if let PgDataType::Scalar(PgScalarDataType::Named(type_name)) = &col.data_type
+        {
+            let pg_create_type = fetch_create_type(ctx, &client, type_name)
+                .await?
+                .ok_or_else(|| {
+                    format_err!(
+                        "cannot find definiton of user-defined type {} (perhaps it isn't supported?)",
+                        type_name.unquoted(),)
+                })?;
+            types.push(pg_create_type);
+        }
+    }
+
+    // Build our schema.
+    let pg_create_table = PgCreateTable {
         name: table_name.to_owned(),
         columns,
         temporary: false,
         if_not_exists: false,
-    }))
+    };
+    let pg_schema = PgSchema {
+        types,
+        tables: vec![pg_create_table],
+    };
+    Ok(Some(pg_schema))
 }
 
 /// Choose an appropriate `DataType`.
 fn pg_data_type(
     data_type: &str,
-    _udt_schema: &str,
+    udt_schema: &str,
     udt_name: &str,
 ) -> Result<PgDataType> {
     if data_type == "ARRAY" {
@@ -219,7 +244,13 @@ fn pg_data_type(
             "geometry" => Err(format_err!(
                 "cannot extract SRID for geometry columns without database connection"
             )),
-            other => Err(format_err!("unknown user-defined data type {:?}", other)),
+            // We don't actually know what this is, so let's just create a
+            // `Named` placeholder and let other code figure out if there's an
+            // appropriate `PgCreateType` value later.
+            _ => Ok(PgDataType::Scalar(PgScalarDataType::Named(PgName::new(
+                udt_schema.to_owned(),
+                udt_name.to_owned(),
+            )))),
         }
     } else {
         let ty = match data_type {
@@ -355,4 +386,78 @@ fn parsing_pg_data_type() {
             expected,
         );
     }
+}
+
+/// Look up `type_name`.
+///
+/// - If it is not defined, return `None`.
+/// - If it is defined as an enum, return the enum.
+/// - Otherwise, return an error.
+pub(crate) async fn fetch_create_type(
+    ctx: &Context,
+    client: &Client,
+    type_name: &PgName,
+) -> Result<Option<PgCreateType>> {
+    let schema = type_name.schema_or_public();
+    let base_name = type_name.name();
+
+    // Check to see if a user-defined type of this name exists, and figure out
+    // what kind of type it might be.
+    //
+    // https://www.postgresql.org/docs/9.2/catalog-pg-type.html
+    let typtype_sql = "\
+SELECT TEXT(t.typtype)
+FROM pg_type t
+    JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+WHERE n.nspname = $1 AND t.typname = $2 AND t.typtype = 'e'
+";
+    trace!(
+        ctx.log(),
+        "checking for type {}: {}",
+        type_name.unquoted(),
+        typtype_sql
+    );
+    let typtypes = client.query(typtype_sql, &[&schema, &base_name]).await?;
+    if typtypes.is_empty() {
+        // No matching type exists.
+        return Ok(None);
+    } else if typtypes.len() > 1 {
+        return Err(format_err!(
+            "found multiple types with name {}",
+            type_name.unquoted(),
+        ));
+    } else if typtypes[0].get::<_, &str>(0) != "e" {
+        return Err(format_err!(
+            "found unsupported custom type {}",
+            type_name.unquoted(),
+        ));
+    }
+
+    // We know we have an `enum`, so fetch the values.
+    let enum_values_sql = "\
+SELECT e.enumlabel AS value
+FROM pg_type t
+    JOIN pg_enum e ON t.oid = e.enumtypid
+    JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+WHERE n.nspname = $1 AND t.typname = $2
+ORDER BY e.enumsortorder
+";
+    trace!(
+        ctx.log(),
+        "fetching enum values {}: {}",
+        type_name.unquoted(),
+        enum_values_sql
+    );
+    let enum_values = client
+        .query(enum_values_sql, &[&schema, &base_name])
+        .await?
+        .into_iter()
+        .map(|r| r.get::<_, String>(0))
+        .collect::<Vec<_>>();
+    let pg_create_type = PgCreateType {
+        name: type_name.to_owned(),
+        definition: PgCreateTypeDefinition::Enum(enum_values),
+    };
+    trace!(ctx.log(), "looked up type definition {:?}", pg_create_type);
+    Ok(Some(pg_create_type))
 }

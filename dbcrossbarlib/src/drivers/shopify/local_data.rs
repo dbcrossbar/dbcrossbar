@@ -274,7 +274,7 @@ async fn get_shopify_response(
 /// Convert rows to CSV and send them.
 async fn convert_rows_to_csv_and_send(
     sender: &mut Sender<Result<BytesMut>>,
-    schema: &Table,
+    schema: &Schema,
     rows: Vec<Value>,
     include_headers: bool,
 ) -> Result<()> {

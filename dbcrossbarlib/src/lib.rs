@@ -24,6 +24,9 @@
 // more Rust knowledge to read, and it breaks as soon as there are private
 // fields. I don't think this warning is worthwhile.
 #![allow(clippy::field_reassign_with_default)]
+// Allow functions that can't fail to return `Result`. These could be simplified
+// if we wanted.
+#![allow(clippy::unnecessary_wraps)]
 
 use std::result;
 
@@ -119,7 +122,7 @@ pub(crate) mod common {
             LocatorStatic,
         },
         path_or_stdio::PathOrStdio,
-        schema::Table,
+        schema::{Schema, Table},
         temporary_storage::TemporaryStorage,
         tokio_glue::{
             async_read_to_end, async_read_to_string, box_stream_once,

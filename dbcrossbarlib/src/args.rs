@@ -54,7 +54,7 @@ impl ArgumentState for Verified {}
 #[derive(Clone, Debug)]
 pub struct SharedArguments<S: ArgumentState> {
     /// The portable data schema describing the table we're transfering.
-    schema: Table,
+    schema: Schema,
 
     /// Various locations that can be used to store temporary data during
     /// the transfer.
@@ -82,7 +82,7 @@ impl<S: ArgumentState> SharedArguments<S> {
 impl SharedArguments<Unverified> {
     /// Create a new `SharedArguments` structure.
     pub fn new(
-        schema: Table,
+        schema: Schema,
         temporary_storage: TemporaryStorage,
         max_streams: usize,
     ) -> Self {
@@ -113,7 +113,7 @@ impl SharedArguments<Unverified> {
 // These methods are only available in the `Verified` state.
 impl SharedArguments<Verified> {
     /// Get the table scheme used for this transfer.
-    pub fn schema(&self) -> &Table {
+    pub fn schema(&self) -> &Schema {
         &self.schema
     }
 

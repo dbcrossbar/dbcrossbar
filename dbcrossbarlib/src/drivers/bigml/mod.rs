@@ -4,7 +4,6 @@ use bigml::resource::{Dataset, Id, Source};
 use std::{fmt, str::FromStr};
 
 use crate::common::*;
-use crate::schema::Table;
 
 mod data_type;
 mod local_data;
@@ -161,7 +160,7 @@ impl Locator for BigMlLocator {
         self
     }
 
-    fn schema(&self, ctx: Context) -> BoxFuture<Option<Table>> {
+    fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
         schema_helper(ctx, self.to_owned()).boxed()
     }
 

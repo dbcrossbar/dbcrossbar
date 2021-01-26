@@ -52,7 +52,7 @@ impl Locator for CsvLocator {
         self
     }
 
-    fn schema(&self, _ctx: Context) -> BoxFuture<Option<Table>> {
+    fn schema(&self, _ctx: Context) -> BoxFuture<Option<Schema>> {
         // We're going to use a helper thread to do this, because `csv` is a
         // purely synchrnous library.
         let source = self.to_owned();
@@ -88,7 +88,7 @@ impl Locator for CsvLocator {
                         .unwrap_or_else(|| OsStr::new("data"))
                         .to_string_lossy()
                         .into_owned();
-                    Ok(Some(Table { name, columns }))
+                    Ok(Some(Schema::from_table(Table { name, columns })?))
                 }
             }
         })

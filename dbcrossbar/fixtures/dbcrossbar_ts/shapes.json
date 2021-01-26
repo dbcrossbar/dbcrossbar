@@ -1,25 +1,30 @@
 {
-    "name": "Shape",
-    "columns": [
+    "named_data_types": [],
+    "tables": [
         {
-            "name": "points",
-            "is_nullable": false,
-            "data_type": {
-                "array": {
-                    "struct": [
-                        {
-                            "name": "x",
-                            "is_nullable": false,
-                            "data_type": "float64"
-                        },
-                        {
-                            "name": "y",
-                            "is_nullable": false,
-                            "data_type": "float64"
+            "name": "Shape",
+            "columns": [
+                {
+                    "name": "points",
+                    "is_nullable": false,
+                    "data_type": {
+                        "array": {
+                            "struct": [
+                                {
+                                    "name": "x",
+                                    "is_nullable": false,
+                                    "data_type": "float64"
+                                },
+                                {
+                                    "name": "y",
+                                    "is_nullable": false,
+                                    "data_type": "float64"
+                                }
+                            ]
                         }
-                    ]
+                    }
                 }
-            }
+            ]
         }
     ]
 }
