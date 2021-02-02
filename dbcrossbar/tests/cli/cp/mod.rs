@@ -35,10 +35,10 @@ pub(crate) fn gs_url() -> String {
 pub(crate) fn gs_test_dir_url(dir_name: &str) -> String {
     let mut url = gs_url();
     if !url.ends_with('/') {
-        url.push_str("/");
+        url.push('/');
     }
     url.push_str(dir_name);
-    url.push_str("/");
+    url.push('/');
     url
 }
 
@@ -73,10 +73,10 @@ pub(crate) fn s3_url() -> String {
 pub(crate) fn s3_test_dir_url(dir_name: &str) -> String {
     let mut url = s3_url();
     if !url.ends_with('/') {
-        url.push_str("/");
+        url.push('/');
     }
     url.push_str(dir_name);
-    url.push_str("/");
+    url.push('/');
     url
 }
 

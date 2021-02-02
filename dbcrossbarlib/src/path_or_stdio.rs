@@ -27,8 +27,8 @@ impl PathOrStdio {
         locator: &str,
     ) -> Result<PathOrStdio> {
         assert!(scheme.ends_with(':'));
-        if locator.starts_with(scheme) {
-            PathOrStdio::from_str(&locator[scheme.len()..])
+        if let Some(locator_path) = locator.strip_prefix(scheme) {
+            PathOrStdio::from_str(locator_path)
         } else {
             Err(format_err!("expected {} to start with {}", locator, scheme))
         }

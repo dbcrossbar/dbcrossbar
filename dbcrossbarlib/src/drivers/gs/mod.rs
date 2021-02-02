@@ -132,9 +132,9 @@ pub(crate) fn find_gs_temp_dir(
         .ok_or_else(|| format_err!("need `--temporary=gs://...` argument"))?
         .to_owned();
     if !temp.ends_with('/') {
-        temp.push_str("/");
+        temp.push('/');
     }
     temp.push_str(&TemporaryStorage::random_tag());
-    temp.push_str("/");
+    temp.push('/');
     GsLocator::from_str(&temp)
 }

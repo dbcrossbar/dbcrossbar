@@ -157,11 +157,11 @@ impl FromStr for IfExists {
                     .map(|s| s.to_owned())
                     .collect::<Vec<_>>();
                 if merge_keys.is_empty()
-                    || (merge_keys.len() == 1 && merge_keys[0] == "")
+                    || (merge_keys.len() == 1 && merge_keys[0].is_empty())
                 {
                     return Err(format_err!("must specify keys after `upsert-on:`"));
                 }
-                if merge_keys.iter().any(|k| k == "") {
+                if merge_keys.iter().any(|k| k.is_empty()) {
                     return Err(format_err!("`{}` contains an empty merge key", s));
                 }
                 Ok(IfExists::Upsert(merge_keys))

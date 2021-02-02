@@ -1,7 +1,7 @@
 //! A PostgreSQL `CREATE TABLE` declaration.
 
 use itertools::Itertools;
-use std::{collections::HashMap, fmt, iter::FromIterator, sync::Arc};
+use std::{collections::HashMap, fmt, sync::Arc};
 
 use super::{catalog, PgColumn, TableName};
 use crate::common::*;
@@ -170,9 +170,11 @@ impl PgCreateTable {
         &self,
         other_table: &PgCreateTable,
     ) -> Result<PgCreateTable> {
-        let column_map = HashMap::<&str, &PgColumn>::from_iter(
-            self.columns.iter().map(|c| (&c.name[..], c)),
-        );
+        let column_map = self
+            .columns
+            .iter()
+            .map(|c| (&c.name[..], c))
+            .collect::<HashMap<&str, &PgColumn>>();
         Ok(PgCreateTable {
             name: self.name.clone(),
             columns: other_table

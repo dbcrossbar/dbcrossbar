@@ -255,7 +255,7 @@ AS ((
         table_prefix: Option<&'static str>,
     ) -> Result<()> {
         let table_prefix = table_prefix.unwrap_or("");
-        assert!(table_prefix == "" || table_prefix.ends_with('.'));
+        assert!(table_prefix.is_empty() || table_prefix.ends_with('.'));
         match self.bq_data_type()? {
             BqDataType::Array(_)
             | BqDataType::NonArray(BqNonArrayDataType::Struct(_)) => {

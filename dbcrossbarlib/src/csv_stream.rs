@@ -82,6 +82,10 @@ impl CsvStream {
 /// Given a `base_path` refering to one of more CSV files, and a `file_path`
 /// refering to a single CSV file, figure out the best name to use for a
 /// `CsvStream` for that CSV file.
+///
+/// (We allow manual prefix stripping in this function because the logic makes
+/// `strip_prefix` inconvenient.)
+#[allow(clippy::manual_strip)]
 pub(crate) fn csv_stream_name<'a>(
     base_path: &str,
     file_path: &'a str,

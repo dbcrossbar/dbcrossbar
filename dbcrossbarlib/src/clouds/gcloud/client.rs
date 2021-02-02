@@ -381,7 +381,7 @@ pub(crate) struct ErrorDetail {
 }
 
 /// Percent-encode a string for use as a URL path component.
-pub(crate) fn percent_encode<'a>(s: &'a str) -> impl fmt::Display + 'a {
+pub(crate) fn percent_encode(s: &str) -> impl fmt::Display + '_ {
     utf8_percent_encode(s, NON_ALPHANUMERIC)
 }
 

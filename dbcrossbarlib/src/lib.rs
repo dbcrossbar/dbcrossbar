@@ -20,6 +20,10 @@
 #![allow(clippy::multiple_crate_versions)]
 // This has false positives on trivial code.
 #![allow(clippy::needless_collect)]
+// Honestly the `..Default::default()` notation is more verbose, it requires
+// more Rust knowledge to read, and it breaks as soon as there are private
+// fields. I don't think this warning is worthwhile.
+#![allow(clippy::field_reassign_with_default)]
 
 use std::result;
 

@@ -2,7 +2,7 @@
 
 use futures::pin_mut;
 use itertools::Itertools;
-use std::{collections::HashSet, io::prelude::*, iter::FromIterator, str};
+use std::{collections::HashSet, io::prelude::*, str};
 
 use super::{csv_to_binary::copy_csv_to_pg_binary, Client, PostgresLocator};
 use crate::common::*;
@@ -153,8 +153,10 @@ pub(crate) fn columns_to_update_for_upsert<'a>(
 ) -> Result<Vec<&'a str>> {
     // Build a set of our upsert keys. We could probably implement this linear
     // search with no significant loss of performance.
-    let upsert_keys_set: HashSet<&str> =
-        HashSet::from_iter(upsert_keys.iter().map(|k| &k[..]));
+    let upsert_keys_set = upsert_keys
+        .iter()
+        .map(|k| &k[..])
+        .collect::<HashSet<&str>>();
 
     // Build our list of columns to update.
     let mut update_cols = vec![];

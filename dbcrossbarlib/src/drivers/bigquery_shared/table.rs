@@ -5,7 +5,6 @@ use std::{
     collections::{HashMap, HashSet},
     convert::TryFrom,
     fmt,
-    iter::FromIterator,
 };
 
 use super::{BqColumn, ColumnBigQueryExt, ColumnName, TableName, Usage};
@@ -112,9 +111,11 @@ impl BqTable {
     /// types in the two tables, but for now, we're happy to let the database
     /// verify all that for us.
     pub(crate) fn aligned_with(&self, other_table: &BqTable) -> Result<BqTable> {
-        let column_map = HashMap::<&ColumnName, &BqColumn>::from_iter(
-            self.columns.iter().map(|c| (&c.name, c)),
-        );
+        let column_map = self
+            .columns
+            .iter()
+            .map(|c| (&c.name, c))
+            .collect::<HashMap<&ColumnName, &BqColumn>>();
         Ok(BqTable {
             name: self.name.clone(),
             columns: other_table
