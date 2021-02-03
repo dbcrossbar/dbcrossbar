@@ -1,11 +1,15 @@
 //! Authentication support for Google Cloud.
 
+use bigml::wait::{wait, BackoffType, WaitOptions, WaitStatus};
+use common_failures::display::DisplayCausesAndBacktraceExt;
+use failure::Fail;
 use hyper::{self, client::connect::HttpConnector};
 use hyper_rustls::HttpsConnector;
 use sha2::{Digest, Sha256};
 use std::{
     fmt::Write,
     path::{Path, PathBuf},
+    time::Duration,
 };
 use tokio::fs;
 pub(crate) use yup_oauth2::AccessToken;
@@ -84,13 +88,43 @@ async fn service_account_authenticator() -> Result<Authenticator> {
     })?;
     let token_file_path = token_file_path(key_id).await?;
     ensure_parent_directory(&token_file_path).await?;
-    Ok(
-        yup_oauth2::ServiceAccountAuthenticator::builder(service_account_key)
-            .persist_tokens_to_disk(token_file_path)
-            .build()
-            .await
-            .context("failed to create authenticator")?,
-    )
+
+    // Create our authenticator and retry any failures. (This will generally
+    // fail at least once in a 10 hour copy.)s
+    let opt = WaitOptions::default()
+        .backoff_type(BackoffType::Exponential)
+        .retry_interval(Duration::from_secs(1))
+        // I'd like to make this at least 5 but not until we can distinguish
+        // between temporary or permanent failures.
+        .allowed_errors(4);
+    let authenticator = wait(&opt, move || {
+        let service_account_key = service_account_key.clone();
+        let token_file_path = token_file_path.clone();
+        async move {
+            let result =
+                yup_oauth2::ServiceAccountAuthenticator::builder(service_account_key)
+                    .persist_tokens_to_disk(token_file_path)
+                    .build()
+                    .await;
+
+            match result {
+                Ok(value) => WaitStatus::Finished(value),
+                Err(err) => {
+                    // TODO: We should do a better job of distinguishing between
+                    // temporary and permanent failures here. Because we
+                    // classify all failures as temporary, something like a
+                    // "user does not exist" error will be retried repeatedly,
+                    // silently hanging the program for a while, even though
+                    // there is no chance that such as error would ever succeed.
+                    let err: Error =
+                        err.context("failed to create authenticator").into();
+                    WaitStatus::FailedTemporarily(err)
+                }
+            }
+        }
+    })
+    .await?;
+    Ok(authenticator)
 }
 
 /// Get the application secret needed to connect an interactive app to Google Cloud.
@@ -136,8 +170,8 @@ pub(crate) async fn authenticator(ctx: &Context) -> Result<Authenticator> {
         Err(err) => {
             trace!(
                 ctx.log(),
-                "no service account found, using interactive auth: {}",
-                err,
+                "trying \"installed flow\" auth because service account auth failed because: {}",
+                err.display_causes_and_backtrace(),
             );
             installed_flow_authenticator().await
         }
