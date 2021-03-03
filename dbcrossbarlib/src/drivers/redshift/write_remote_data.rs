@@ -7,8 +7,8 @@ use crate::common::*;
 use crate::drivers::{
     postgres::{columns_to_update_for_upsert, create_temp_table_for, prepare_table},
     postgres_shared::{
-        connect, pg_quote, CheckCatalog, Client, Ident, PgCreateTable, PgSchema,
-        PgName,
+        connect, pg_quote, CheckCatalog, Client, Ident, PgCreateTable, PgName,
+        PgSchema,
     },
     s3::S3Locator,
 };

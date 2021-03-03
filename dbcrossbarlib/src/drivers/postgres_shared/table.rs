@@ -6,7 +6,7 @@ use std::{
     fmt,
 };
 
-use super::{PgColumn, PgDataType, PgScalarDataType, PgName};
+use super::{PgColumn, PgDataType, PgName, PgScalarDataType};
 use crate::common::*;
 use crate::schema::Column;
 use crate::separator::Separator;
