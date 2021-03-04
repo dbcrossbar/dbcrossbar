@@ -4,7 +4,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` crate is an internal-only dependency with no versioning policy at this time.)
 
-## Unreleased
+## 0.5.0-alpha.1 - 2021-03-04
+
+This release contains a breaking change to the `dbcrossbar-schema` output format to enable supporting named types and enumeration types. See below.
 
 ### Added
 
@@ -15,7 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   CREATE TABLE "images" (
       "id" uuid NOT NULL,
       "url" text NOT NULL,
-      "format" "format",
+      "image_format" "format",
       "metadata" jsonb
   );
   ```
@@ -28,6 +30,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Changed
 
 - BREAKING: The `dbcrossbar-schema` output format has changed! It now has top level `named_types` and `tables` members, and the old top-level table definition is now available as `.tables[0]`. See [the manual](https://www.dbcrossbar.org/schema.html) for more details. However, `dbcrossbar` can still read the old input format with no problems, so this only affects other programs that parse native `dbcrossbar` schema.
+
+### Fixed
+
+- The suggested fixes for RUSTSEC-2020-0146, RUSTSEC-2021-0020 and RUSTSEC-2021-0023 have been applied.
 
 ## 0.4.2-beta.11 - 2021-02-03
 
