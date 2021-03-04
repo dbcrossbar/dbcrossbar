@@ -189,51 +189,78 @@
 <p>Normally, you won't need to work with this schema format directly, because <code>dbcrossbar</code> can parse BigQuery schemas, PostgreSQL <code>CREATE TABLE</code> statments, and several other popular schema formats. It can also read schemas directly from some databases. See the <a href="./conv.html"><code>conv</code> command</a> for details.</p>
 <h2><a class="header" href="#example-schema" id="example-schema">Example schema</a></h2>
 <pre><code class="language-json">{
-    &quot;name&quot;: &quot;images&quot;,
-    &quot;columns&quot;: [
+    &quot;named_data_types&quot;: [
         {
-            &quot;name&quot;: &quot;id&quot;,
-            &quot;is_nullable&quot;: false,
-            &quot;data_type&quot;: &quot;uuid&quot;
-        },
-        {
-            &quot;name&quot;: &quot;url&quot;,
-            &quot;is_nullable&quot;: false,
-            &quot;data_type&quot;: &quot;text&quot;
-        },
-        {
-            &quot;name&quot;: &quot;metadata&quot;,
-            &quot;is_nullable&quot;: true,
-            &quot;data_type&quot;: &quot;json&quot;
-        },
-        {
-            &quot;name&quot;: &quot;thumbnails&quot;,
-            &quot;is_nullable&quot;: true,
+            &quot;name&quot;: &quot;format&quot;,
             &quot;data_type&quot;: {
-                &quot;array&quot;: {
-                    &quot;struct&quot;: [
-                        {
-                            &quot;name&quot;: &quot;url&quot;,
-                            &quot;is_nullable&quot;: false,
-                            &quot;data_type&quot;: &quot;text&quot;
-                        },
-                        {
-                            &quot;name&quot;: &quot;width&quot;,
-                            &quot;data_type&quot;: &quot;float64&quot;,
-                            &quot;is_nullable&quot;: false
-                        },
-                        {
-                            &quot;name&quot;: &quot;height&quot;,
-                            &quot;data_type&quot;: &quot;float64&quot;,
-                            &quot;is_nullable&quot;: false
-                        }
-                    ]
-                }
+                &quot;one_of&quot;: [
+                    &quot;gif&quot;,
+                    &quot;jpeg&quot;
+                ]
             }
+        }
+    ],
+    &quot;tables&quot;: [
+        {
+            &quot;name&quot;: &quot;images&quot;,
+            &quot;columns&quot;: [
+                {
+                    &quot;name&quot;: &quot;id&quot;,
+                    &quot;is_nullable&quot;: false,
+                    &quot;data_type&quot;: &quot;uuid&quot;
+                },
+                {
+                    &quot;name&quot;: &quot;url&quot;,
+                    &quot;is_nullable&quot;: false,
+                    &quot;data_type&quot;: &quot;text&quot;
+                },
+                {
+                    &quot;name&quot;: &quot;format&quot;,
+                    &quot;is_nullable&quot;: true,
+                    &quot;data_type&quot;: {
+                        &quot;named&quot;: &quot;format&quot;
+                    }
+                },
+                {
+                    &quot;name&quot;: &quot;metadata&quot;,
+                    &quot;is_nullable&quot;: true,
+                    &quot;data_type&quot;: &quot;json&quot;
+                },
+                {
+                    &quot;name&quot;: &quot;thumbnails&quot;,
+                    &quot;is_nullable&quot;: true,
+                    &quot;data_type&quot;: {
+                        &quot;array&quot;: {
+                            &quot;struct&quot;: [
+                                {
+                                    &quot;name&quot;: &quot;url&quot;,
+                                    &quot;is_nullable&quot;: false,
+                                    &quot;data_type&quot;: &quot;text&quot;
+                                },
+                                {
+                                    &quot;name&quot;: &quot;width&quot;,
+                                    &quot;data_type&quot;: &quot;float64&quot;,
+                                    &quot;is_nullable&quot;: false
+                                },
+                                {
+                                    &quot;name&quot;: &quot;height&quot;,
+                                    &quot;data_type&quot;: &quot;float64&quot;,
+                                    &quot;is_nullable&quot;: false
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
         }
     ]
 }
 </code></pre>
+<h2><a class="header" href="#schema-properties" id="schema-properties">Schema properties</a></h2>
+<ul>
+<li><code>named_data_types</code> (experimental): Named data types. These are used to declare custom column types. They're analogous to a Postgres <code>CREATE TYPE</code> statement, or a TypeScript <code>interface</code> or <code>type</code> statement. Two types with different names but the same layout are considered to be different types (<a href="https://en.wikipedia.org/wiki/Nominal_type_system">nominal typing</a>). Many database drivers place restrictions on these types for now, but we hope to relax those restrictions in the future.</li>
+<li><code>tables</code>: A list of table definitions. For now, this must contain exactly one element.</li>
+</ul>
 <h2><a class="header" href="#table-properties" id="table-properties">Table properties</a></h2>
 <ul>
 <li><code>name</code>: The name of this table. This is normally only used when serializing to schema formats that require a table name.</li>
@@ -259,6 +286,8 @@
 <li><code>&quot;int32&quot;</code>: A 32-bit signed integer.</li>
 <li><code>&quot;int64&quot;</code>: A 64-bit signed integer.</li>
 <li><code>&quot;json&quot;</code>: An arbitrary JSON value.</li>
+<li><code>{ &quot;named&quot;: name }</code>: A named type from the <code>named_types</code> list in this schema.</li>
+<li><code>{ &quot;one_of&quot;: string_list }</code>: One of the specified string values. This may be represented a string enumeration by certain drivers, or as a &quot;categorical&quot; value in machine-learning systems (as opposed to a free-form textual value). <strong>NOTE:</strong> In many cases, it would be more efficient to have a separate table with an <code>(id, value)</code> entry for each enum value, and to refer to it using a foreign key. <code>one_of</code> is most useful when importing cleaned data, and when working with databases that support efficient string enumerations.</li>
 <li><code>{ &quot;struct&quot;: fields }</code>: A structure with a list of specific, named fields. Each field has the following properties:
 <ul>
 <li><code>name</code>: The name of the field.</li>
