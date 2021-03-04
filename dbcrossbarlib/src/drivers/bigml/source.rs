@@ -15,7 +15,7 @@ pub(crate) trait SourceExt {
     /// column types with the correct ones.
     fn calculate_column_type_fix(
         &self,
-        schema: &Table,
+        schema: &Schema,
         optype_for_text: Optype,
     ) -> Result<SourceUpdate>;
 }
@@ -23,16 +23,16 @@ pub(crate) trait SourceExt {
 impl SourceExt for Source {
     fn calculate_column_type_fix(
         &self,
-        schema: &Table,
+        schema: &Schema,
         optype_for_text: Optype,
     ) -> Result<SourceUpdate> {
         // Map column names to optypes.
         let mut field_optypes = HashMap::<&str, Optype>::new();
-        for col in &schema.columns {
+        for col in &schema.table.columns {
             // TODO: We may need to sanitize names for BigML compatibility here.
             field_optypes.insert(
                 &col.name,
-                Optype::for_data_type(&col.data_type, optype_for_text)?,
+                Optype::for_data_type(schema, &col.data_type, optype_for_text)?,
             );
         }
 

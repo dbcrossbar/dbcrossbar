@@ -19,8 +19,8 @@ pub(crate) struct PgColumn {
 
 impl PgColumn {
     /// Given a portable `Column`, construct a `PgColumn`.
-    pub(crate) fn from_column(col: &Column) -> Result<PgColumn> {
-        let data_type = PgDataType::from_data_type(&col.data_type)?;
+    pub(crate) fn from_column(schema: &Schema, col: &Column) -> Result<PgColumn> {
+        let data_type = PgDataType::from_data_type(schema, &col.data_type)?;
         Ok(PgColumn {
             name: col.name.clone(),
             data_type,

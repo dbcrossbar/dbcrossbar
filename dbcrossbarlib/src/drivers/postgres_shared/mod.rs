@@ -11,11 +11,15 @@ use crate::common::*;
 
 mod catalog;
 mod column;
+mod create_type;
 mod data_type;
+mod schema;
 mod table;
 
 pub(crate) use self::column::PgColumn;
+pub(crate) use self::create_type::{PgCreateType, PgCreateTypeDefinition};
 pub(crate) use self::data_type::{PgDataType, PgScalarDataType};
+pub(crate) use self::schema::PgSchema;
 pub(crate) use self::table::{CheckCatalog, PgCreateTable};
 
 /// Connect to the database, using SSL if possible.
@@ -82,23 +86,47 @@ impl<'a> fmt::Display for Ident<'a> {
     }
 }
 
-/// A PostgreSQL table name, including a possible scheme (i.e., a namespace).
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct TableName {
+/// A PostgreSQL table or type name, including a possible PostgreSQL schema (in
+/// the PostgreSQL sense of a namespace, not what `dbcrossbar` calls a
+/// "schema").
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub(crate) struct PgName {
+    /// A PostgreSQL namespace (not what `dbcrossbar` normally means by
+    /// "schema")!
     schema: Option<String>,
-    table: String,
+    /// Our underlying name.
+    name: String,
 }
 
-impl TableName {
+impl PgName {
     /// Create a new `TableName`.
-    pub(crate) fn new<S, T>(schema: S, table: T) -> Self
+    pub(crate) fn new<S, T>(schema: S, name: T) -> Self
     where
         S: Into<Option<String>>,
         T: Into<String>,
     {
         Self {
             schema: schema.into(),
-            table: table.into(),
+            name: name.into(),
+        }
+    }
+
+    /// Given the name of `NamedDataType`, construct a PostgreSQL `TableName`.
+    pub(crate) fn from_portable_type_name<T>(type_name: T) -> Result<Self>
+    where
+        T: Into<String>,
+    {
+        let type_name = type_name.into();
+        if type_name.contains('.') {
+            // We don't yet have a design for mapping portable enums to enums in
+            // PostgreSQL schemas other than `"public"`. Getting this right will
+            // require some thought, so just error out for now.
+            Err(format_err!(
+                "portable type names containing \".\" are not yet supported: {:?}",
+                type_name
+            ))
+        } else {
+            Ok(Self::new(None, type_name))
         }
     }
 
@@ -107,39 +135,60 @@ impl TableName {
         self.schema.as_ref().map(|s| &s[..])
     }
 
-    /// The table portion of the table name, not including the schema.
-    pub(crate) fn table(&self) -> &str {
-        &self.table
+    /// The schema (namespace) portion of the table name, or `"public""` if none was provided.
+    pub(crate) fn schema_or_public(&self) -> &str {
+        self.schema.as_ref().map_or_else(|| "public", |s| &s[..])
     }
 
-    /// Format this table name as an unquoted string.
+    /// The base portion of the name, not including the schema.
+    pub(crate) fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Format this name as an unquoted string.
     pub(crate) fn unquoted(&self) -> String {
         if let Some(schema) = &self.schema {
-            format!("{}.{}", schema, self.table)
+            format!("{}.{}", schema, self.name)
         } else {
-            self.table.clone()
+            self.name.clone()
         }
     }
 
-    /// Properly quote a table name for use in SQL. Returns a value that
-    /// implements `Display`.
+    /// Properly quote a name for use in SQL. Returns a value that implements
+    /// `Display`.
     pub(crate) fn quoted(&self) -> TableNameQuoted<'_> {
         TableNameQuoted(self)
     }
 
-    /// Create a temporary table name based on this table name.
-    pub(crate) fn temporary_table_name(&self) -> Result<TableName> {
+    /// Convert this name to a portable name, if we know how. For now, we err on
+    /// the side of refusing.
+    pub(crate) fn to_portable_name(&self) -> Result<String> {
+        match &self.schema {
+            None => Ok(self.name.clone()),
+            // If we're in the "public" PostgreSQL schema (which is a namespace,
+            // not what dbcrossbar calls a "schema"), we can just drop it to
+            // produce a cleaner portable name.
+            Some(schema) if schema == "public" => Ok(self.name.clone()),
+            Some(_) => Err(format_err!(
+                "don't know how to convert {} to portable name yet, because it has a schema",
+                self.quoted()
+            ))
+        }
+    }
+
+    /// Create a temporary table name based on this name.
+    pub(crate) fn temporary_table_name(&self) -> Result<PgName> {
         Ok(Self {
             // We leave this as `None` because that's what we used to do for
             // PostgreSQL. It would probably be fine to use `self.namespace`
             // here.
             schema: None,
-            table: format!("{}_temp_{}", self.table, TemporaryStorage::random_tag()),
+            name: format!("{}_temp_{}", self.name, TemporaryStorage::random_tag()),
         })
     }
 }
 
-impl FromStr for TableName {
+impl FromStr for PgName {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -147,50 +196,47 @@ impl FromStr for TableName {
         match components.len() {
             1 => Ok(Self {
                 schema: None,
-                table: components[0].to_owned(),
+                name: components[0].to_owned(),
             }),
             2 => Ok(Self {
                 schema: Some(components[0].to_owned()),
-                table: components[1].to_owned(),
+                name: components[1].to_owned(),
             }),
-            _ => Err(format_err!("cannot parse table name {:?}", s)),
+            _ => Err(format_err!("cannot parse PostgreSQL name {:?}", s)),
         }
     }
 }
 
 /// A wrapper for `TableName` that implemented `Display`.
-pub(crate) struct TableNameQuoted<'a>(&'a TableName);
+pub(crate) struct TableNameQuoted<'a>(&'a PgName);
 
 impl fmt::Display for TableNameQuoted<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(schema) = self.0.schema() {
-            write!(f, "{}.{}", Ident(schema), Ident(&self.0.table))?
+            write!(f, "{}.{}", Ident(schema), Ident(&self.0.name))?
         } else {
-            write!(f, "{}", Ident(&self.0.table))?
+            write!(f, "{}", Ident(&self.0.name))?
         }
         Ok(())
     }
 }
 
 #[test]
-fn table_name_is_quoted_correctly() {
+fn postgres_name_is_quoted_correctly() {
     assert_eq!(
-        format!("{}", TableName::from_str("example").unwrap().quoted()),
+        format!("{}", PgName::from_str("example").unwrap().quoted()),
         "\"example\""
     );
     assert_eq!(
-        format!(
-            "{}",
-            TableName::from_str("schema.example").unwrap().quoted()
-        ),
+        format!("{}", PgName::from_str("schema.example").unwrap().quoted()),
         "\"schema\".\"example\""
     );
 
     // Don't parse this one, because we haven't decided how to parse weird names
     // like this yet.
-    let with_quote = TableName {
+    let with_quote = PgName {
         schema: Some("testme1".to_owned()),
-        table: "lat-\"lon".to_owned(),
+        name: "lat-\"lon".to_owned(),
     };
     assert_eq!(
         format!("{}", with_quote.quoted()),

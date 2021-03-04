@@ -1,3 +1,5 @@
+CREATE TYPE color AS ENUM ('red', 'green', 'blue');
+
 CREATE TABLE many_types (
     test_null text,
     test_not_null text NOT NULL,
@@ -37,5 +39,10 @@ CREATE TABLE many_types (
     test_timestamp_with_time_zone timestamp WITH time zone,
     test_timestamp_with_time_zone_array timestamp WITH time zone[],
     test_uuid uuid,
-    test_uuid_array uuid[]
+    test_uuid_array uuid[],
+    test_enum color
+    -- This would require the ability to fetch PostgreSQL OIDs from the
+    -- database, which we don't have.
+    --
+    -- test_enum_array color[]
 )

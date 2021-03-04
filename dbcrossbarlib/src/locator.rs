@@ -49,7 +49,7 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     fn as_any(&self) -> &dyn Any;
 
     /// Return a table schema, if available.
-    fn schema(&self, _ctx: Context) -> BoxFuture<Option<Table>> {
+    fn schema(&self, _ctx: Context) -> BoxFuture<Option<Schema>> {
         async { Ok(None) }.boxed()
     }
 
@@ -58,7 +58,7 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     fn write_schema(
         &self,
         _ctx: Context,
-        _schema: Table,
+        _schema: Schema,
         _if_exists: IfExists,
     ) -> BoxFuture<()> {
         let err = format_err!("cannot write schema to {}", self);

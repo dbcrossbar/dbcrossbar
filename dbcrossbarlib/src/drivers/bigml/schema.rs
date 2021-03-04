@@ -8,7 +8,7 @@ use crate::schema::{Column, Table};
 pub(crate) async fn schema_helper(
     _ctx: Context,
     source: BigMlLocator,
-) -> Result<Option<Table>> {
+) -> Result<Option<Schema>> {
     let client = bigml::Client::new_from_env()?;
     if let BigMlAction::ReadDataset(id) = &source.action {
         let dataset = client.fetch(id).await?;
@@ -33,10 +33,10 @@ pub(crate) async fn schema_helper(
             });
         }
 
-        Ok(Some(Table {
+        Ok(Some(Schema::from_table(Table {
             name: "dataset".to_owned(),
             columns,
-        }))
+        })?))
     } else {
         Err(format_err!("cannot read schema from {}", source))
     }

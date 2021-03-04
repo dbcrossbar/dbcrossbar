@@ -2,7 +2,10 @@
 
 use std::{fmt, str::FromStr};
 
+use self::external_schema::ExternalSchema;
 use crate::common::*;
+
+pub(crate) mod external_schema;
 
 /// A JSON file containing a `dbcrossbar` native schema.
 #[derive(Clone, Debug)]
@@ -30,17 +33,17 @@ impl Locator for DbcrossbarSchemaLocator {
         self
     }
 
-    fn schema(&self, ctx: Context) -> BoxFuture<Option<Table>> {
+    fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
         schema_helper(ctx, self.to_owned()).boxed()
     }
 
     fn write_schema(
         &self,
         ctx: Context,
-        table: Table,
+        schema: Schema,
         if_exists: IfExists,
     ) -> BoxFuture<()> {
-        write_schema_helper(ctx, self.to_owned(), table, if_exists).boxed()
+        write_schema_helper(ctx, self.to_owned(), schema, if_exists).boxed()
     }
 }
 
@@ -65,7 +68,7 @@ impl LocatorStatic for DbcrossbarSchemaLocator {
 async fn schema_helper(
     _ctx: Context,
     source: DbcrossbarSchemaLocator,
-) -> Result<Option<Table>> {
+) -> Result<Option<Schema>> {
     // Read our input.
     let input = source.path.open_async().await?;
     let data = async_read_to_end(input)
@@ -73,22 +76,23 @@ async fn schema_helper(
         .with_context(|_| format!("error reading {}", source.path))?;
 
     // Parse our input as table JSON.
-    let table: Table = serde_json::from_slice(&data)
+    let external_schema: ExternalSchema = serde_json::from_slice(&data)
         .with_context(|_| format!("error parsing {}", source.path))?;
-    Ok(Some(table))
+    // TODO(schema): Allow selecting one of several values from `tables` here.
+    Ok(Some(external_schema.into_schema()?))
 }
 
 /// Implementation of `write_schema`, but as a real `async` function.
 async fn write_schema_helper(
     ctx: Context,
     dest: DbcrossbarSchemaLocator,
-    table: Table,
+    schema: Schema,
     if_exists: IfExists,
 ) -> Result<()> {
     // Generate our JSON.
     let mut f = dest.path.create_async(ctx, if_exists).await?;
     buffer_sync_write_and_copy_to_async(&mut f, |buff| {
-        serde_json::to_writer_pretty(buff, &table)
+        serde_json::to_writer_pretty(buff, &schema)
     })
     .await
     .with_context(|_| format!("error writing to {}", dest.path))?;

@@ -11,7 +11,7 @@ const EXAMPLE_SQL: &str = include_str!("../../fixtures/example.sql");
 /// means we don't fully test certain modes of the CLI (though we have unit
 /// tests for much of the related code).
 const INPUT_SQL: &str = include_str!(
-    "../../../dbcrossbarlib/src/drivers/postgres_shared/table/create_table_sql_example.sql"
+    "../../../dbcrossbarlib/src/drivers/postgres_shared/schema/schema_sql_example.sql"
 );
 
 #[test]
@@ -130,5 +130,55 @@ fn conv_ts_to_portable() {
     assert_eq!(
         serde_json::from_str::<serde_json::Value>(&output).unwrap(),
         serde_json::from_str::<serde_json::Value>(&expected).unwrap(),
+    );
+}
+
+#[test]
+fn conv_old_dbcrossbar_schema_to_new() {
+    let testdir = TestDir::new("dbcrossbar", "conv_old_dbcrossbar_schema_to_new");
+
+    static INPUT: &str = r#"
+{
+    "name": "images",
+    "columns": [
+        {
+            "name": "id",
+            "is_nullable": false,
+            "data_type": "uuid"
+        }
+    ]
+}
+"#;
+
+    static EXPECTED: &str = r#"
+{
+    "named_data_types": [],
+    "tables": [{
+        "name": "images",
+        "columns": [
+            {
+                "name": "id",
+                "is_nullable": false,
+                "data_type": "uuid"
+            }
+        ]
+    }]
+}
+"#;
+
+    let output = testdir
+        .cmd()
+        .args(&[
+            "schema",
+            "conv",
+            "dbcrossbar-schema:-",
+            "dbcrossbar-schema:-",
+        ])
+        .output_with_stdin(INPUT)
+        .expect_success();
+
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(output.stdout_str()).unwrap(),
+        serde_json::from_str::<serde_json::Value>(EXPECTED).unwrap(),
     );
 }

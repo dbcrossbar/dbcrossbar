@@ -9,14 +9,14 @@ use crate::schema::DataType;
 /// Write a series of JSON values as a CSV file.
 pub(crate) fn write_rows<W: Write>(
     wtr: &mut W,
-    schema: &Table,
+    schema: &Schema,
     rows: Vec<Value>,
     include_headers: bool,
 ) -> Result<()> {
     // Create a CSV writer and write our header.
     let mut wtr = csv::Writer::from_writer(wtr);
     if include_headers {
-        wtr.write_record(schema.columns.iter().map(|c| &c.name))?;
+        wtr.write_record(schema.table.columns.iter().map(|c| &c.name))?;
     }
 
     // Output our rows, using `buffer` as scratch space.
@@ -30,7 +30,7 @@ pub(crate) fn write_rows<W: Write>(
 /// Write a JSON row to a CSV document.
 fn write_row<W: Write>(
     wtr: &mut csv::Writer<W>,
-    schema: &Table,
+    schema: &Schema,
     row: Value,
     buffer: &mut Vec<u8>,
 ) -> Result<()> {
@@ -41,10 +41,10 @@ fn write_row<W: Write>(
     };
 
     // Look up each column and output it.
-    for col in &schema.columns {
+    for col in &schema.table.columns {
         let value = obj.get(&col.name).unwrap_or(&Value::Null);
         buffer.clear();
-        write_json_value(buffer, &col.data_type, &value)?;
+        write_json_value(buffer, schema, &col.data_type, &value)?;
         if !col.is_nullable && buffer.is_empty() {
             return Err(format_err!(
                 "unexpected NULL value in column {:?}",
@@ -63,10 +63,11 @@ fn write_row<W: Write>(
 /// Write the specified value.
 fn write_json_value<W: Write>(
     wtr: &mut W,
+    schema: &Schema,
     data_type: &DataType,
     value: &Value,
 ) -> Result<()> {
-    if data_type.serializes_as_json_for_csv() && !value.is_null() {
+    if data_type.serializes_as_json_for_csv(schema) && !value.is_null() {
         serde_json::to_writer(wtr, value)?;
     } else {
         match value {

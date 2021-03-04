@@ -20,39 +20,275 @@
 //! deserialized using [`serde`](https://serde.rs/).
 //!
 //! ```
-//! use dbcrossbarlib::schema::Table;
+//! use dbcrossbarlib::schema::Schema;
 //! use serde_json;
 //!
 //! let json = r#"
 //! {
-//!   "name": "example",
-//!   "columns": [
-//!     { "name": "a", "is_nullable": true,  "data_type": "text" },
-//!     { "name": "b", "is_nullable": true,  "data_type": "int32" },
-//!     { "name": "c", "is_nullable": false, "data_type": "uuid" },
-//!     { "name": "d", "is_nullable": true,  "data_type": "date" },
-//!     { "name": "e", "is_nullable": true,  "data_type": "float64" },
-//!     { "name": "f", "is_nullable": true,  "data_type": { "array": "text" } },
-//!     { "name": "h", "is_nullable": true,  "data_type": { "geo_json": 4326 } },
-//!     { "name": "g", "is_nullable": true,  "data_type": { "struct": [
-//!       { "name": "x", "data_type": "float64", "is_nullable": false },
-//!       { "name": "y", "data_type": "float64", "is_nullable": false }
-//!     ] } }
-//!   ]
+//!   "named_data_types": [{
+//!     "name": "color",
+//!     "data_type": { "one_of": ["red", "green", "blue"] }
+//!   }],
+//!   "tables": [{
+//!     "name": "example",
+//!     "columns": [
+//!       { "name": "a", "is_nullable": true,  "data_type": "text" },
+//!       { "name": "b", "is_nullable": true,  "data_type": "int32" },
+//!       { "name": "c", "is_nullable": false, "data_type": "uuid" },
+//!       { "name": "d", "is_nullable": true,  "data_type": "date" },
+//!       { "name": "e", "is_nullable": true,  "data_type": "float64" },
+//!       { "name": "f", "is_nullable": true,  "data_type": { "array": "text" } },
+//!       { "name": "g", "is_nullable": true,  "data_type": { "geo_json": 4326 } },
+//!       { "name": "h", "is_nullable": true,  "data_type": { "struct": [
+//!         { "name": "x", "data_type": "float64", "is_nullable": false },
+//!         { "name": "y", "data_type": "float64", "is_nullable": false }
+//!       ] } },
+//!       { "name": "i", "is_nullable": false, "data_type": { "named": "color" }}
+//!     ]
+//!   }]
 //! }
 //! "#;
 //!
-//! let table: Table = serde_json::from_str(json).expect("could not parse JSON");
+//! let schema = serde_json::from_str::<Schema>(json).expect("could not parse JSON");
 //! ```
 
-use serde_derive::{Deserialize, Serialize};
+use serde::{de::Error as _, Deserialize, Serialize};
 #[cfg(test)]
 use serde_json::json;
-use std::fmt;
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+};
+
+use crate::{common::*, drivers::dbcrossbar_schema::external_schema::ExternalSchema};
+
+/// Information about about a table and any supporting types. This is the "top
+/// level" of our JSON schema format.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub struct Schema {
+    /// Named type aliases. This is serialized as a list.
+    pub(crate) named_data_types: HashMap<String, NamedDataType>,
+
+    /// Tables. This is serialized as a list.
+    pub(crate) table: Table,
+}
+
+impl Schema {
+    /// Validate this schema. At a minimum, this should detect `DataType::Named`
+    /// values without a corresponding `NamedDataType`, and detect any infinite cycles.
+    fn validate(&self) -> Result<()> {
+        for ndt in self.named_data_types.values() {
+            ndt.data_type.validate(self)?;
+        }
+        for col in &self.table.columns {
+            col.data_type.validate(self)?;
+        }
+        Ok(())
+    }
+
+    /// Construct a `Schema` from a list of `NamedDataType` and a `Table`.
+    pub(crate) fn from_types_and_table(
+        types: Vec<NamedDataType>,
+        table: Table,
+    ) -> Result<Schema> {
+        let named_data_types = types
+            .into_iter()
+            .map(|ty| (ty.name.clone(), ty))
+            .collect::<HashMap<_, _>>();
+        let schema = Schema {
+            named_data_types,
+            table,
+        };
+        schema.validate()?;
+        Ok(schema)
+    }
+
+    /// Given a standalone table, create a new `` object containing just
+    /// that table. Returns an error if the resulting `Schema` would be invalid.
+    pub(crate) fn from_table(table: Table) -> Result<Schema> {
+        let schema = Schema {
+            named_data_types: HashMap::new(),
+            table,
+        };
+        schema.validate()?;
+        Ok(schema)
+    }
+
+    /// Look up the `DataType` associated with a name. We assume that `validate`
+    /// has already been called on this schema.
+    pub(crate) fn data_type_for_name(&self, name: &str) -> &DataType {
+        if let Some(named_data_type) = self.named_data_types.get(name) {
+            &named_data_type.data_type
+        } else {
+            panic!(
+                "data type {:?} is not defined, and this wasn't caught by `validate`",
+                name,
+            );
+        }
+    }
+
+    /// Create a dummy schema with a placeholder table and no named data types
+    /// for test purposes.
+    #[cfg(test)]
+    pub(crate) fn dummy_test_schema() -> Schema {
+        Schema {
+            named_data_types: HashMap::new(),
+            table: Table {
+                name: "placeholder".to_owned(),
+                columns: vec![],
+            },
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Schema {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let external = ExternalSchema::deserialize(deserializer)?;
+        external.into_schema().map_err(|err| {
+            D::Error::custom(format!("error validating schema: {}", err))
+        })
+    }
+}
+
+impl Serialize for Schema {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let external = ExternalSchema::from_schema(self.to_owned());
+        external.serialize(serializer)
+    }
+}
+
+#[test]
+fn rejects_undefined_type_names() {
+    let json = r#"
+    {
+      "named_data_types": [],
+      "table": {
+        "name": "example",
+        "columns": [
+          { "name": "i", "is_nullable": false, "data_type": { "named": "color" }}
+        ]
+      }
+    }
+    "#;
+    assert!(serde_json::from_str::<Schema>(json).is_err());
+}
+
+#[test]
+fn accepts_defined_type_names() {
+    let json = r#"
+    {
+      "named_data_types": [{
+        "name": "color",
+        "data_type": { "one_of": ["red", "green", "blue"] }
+      }],
+      "tables": [{
+        "name": "example",
+        "columns": [
+          { "name": "i", "is_nullable": false, "data_type": { "named": "color" }}
+        ]
+      }]
+    }
+    "#;
+    let schema = serde_json::from_str::<Schema>(json).expect("could not parse schema");
+    let mut expected_named_data_types = HashMap::new();
+    expected_named_data_types.insert(
+        "color".to_owned(),
+        NamedDataType {
+            name: "color".to_owned(),
+            data_type: DataType::OneOf(vec![
+                "red".to_owned(),
+                "green".to_owned(),
+                "blue".to_owned(),
+            ]),
+        },
+    );
+    assert_eq!(
+        schema,
+        Schema {
+            named_data_types: expected_named_data_types,
+            table: Table {
+                name: "example".to_owned(),
+                columns: vec![Column {
+                    name: "i".to_owned(),
+                    is_nullable: false,
+                    data_type: DataType::Named("color".to_owned()),
+                    comment: None,
+                }],
+            }
+        }
+    )
+}
+
+#[test]
+fn rejects_recursive_named_types() {
+    // Many recursive types are probably fine, but we haven't defined semantics
+    // yet, so we return an error rather than getting into unknown territory.
+    let json = r#"
+    {
+      "named_data_types": [{
+        "name": "colors",
+        "data_type": { "array": { "named": "colors" } }
+      }],
+      "table": {
+        "name": "example",
+        "columns": [
+          { "name": "i", "is_nullable": false, "data_type": { "named": "colors" }}
+        ]
+      }
+    }
+    "#;
+    assert!(serde_json::from_str::<Schema>(json).is_err());
+}
+
+#[test]
+fn round_trip_serialization() {
+    let mut named_data_types = HashMap::new();
+    named_data_types.insert(
+        "color".to_owned(),
+        NamedDataType {
+            name: "color".to_owned(),
+            data_type: DataType::OneOf(vec![
+                "red".to_owned(),
+                "green".to_owned(),
+                "blue".to_owned(),
+            ]),
+        },
+    );
+    let schema = Schema {
+        named_data_types,
+        table: Table {
+            name: "example".to_owned(),
+            columns: vec![Column {
+                name: "i".to_owned(),
+                is_nullable: false,
+                data_type: DataType::Named("color".to_owned()),
+                comment: None,
+            }],
+        },
+    };
+    let json = serde_json::to_string(&schema).expect("could not serialize schema");
+    let parsed =
+        serde_json::from_str::<Schema>(&json).expect("could not parse schema");
+    assert_eq!(parsed, schema);
+}
+
+/// A named data type or type alias. This is used for things like named Postgres
+/// enums.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct NamedDataType {
+    pub(crate) name: String,
+    pub(crate) data_type: DataType,
+}
 
 /// Information about a table.
-///
-/// This is the "top level" of our JSON schema format.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Table {
@@ -135,12 +371,24 @@ pub enum DataType {
     /// JSON data. This includes both Postgres `json` and `jsonb` types, the
     /// differences between which don't usually matter when converting schemas.
     Json,
-    /// A text type.
-    Text,
+    /// A named data type. This should correspond to a type defined in
+    /// [`Schema::named_data_types`].
+    Named(String),
+    /// One of a fixed list of strings. This represents an `enum` in some
+    /// databases, or a `"red" | "green" | "blue"`-style union type in
+    /// TypeScript, or a "categorical" value in a machine-learning system, or a
+    /// `CHECK (val IN ('red', ...))` column constraint in standard SQL.
+    ///
+    /// We treat this separately from `Text` because it's semantically important
+    /// in machine learning, and because enumeration types are an important
+    /// optimization for large tables in some databases.
+    OneOf(Vec<String>),
     /// A structure with a known set of named fields.
     ///
     /// Field names must be unique within a struct, and non-empty.
     Struct(Vec<StructField>),
+    /// A text type.
+    Text,
     /// A timestamp with no timezone. Ideally, this will would be in UTC, and
     /// some systems like BigQuery may automatically assume that.
     TimestampWithoutTimeZone,
@@ -151,8 +399,69 @@ pub enum DataType {
 }
 
 impl DataType {
+    /// Is this `DataType` valid? Specifically, do all `DataType::Named` values
+    /// point to a defined type, and are there no recursive types?
+    fn validate(&self, schema: &Schema) -> Result<()> {
+        let mut seen = HashSet::new();
+        self.validate_recursive(schema, &mut seen)?;
+        Ok(())
+    }
+
+    /// An internal helper function for `validate`.
+    fn validate_recursive(
+        &self,
+        schema: &Schema,
+        seen: &mut HashSet<String>,
+    ) -> Result<()> {
+        match self {
+            DataType::Bool
+            | DataType::Date
+            | DataType::Decimal
+            | DataType::Float32
+            | DataType::Float64
+            | DataType::GeoJson(_)
+            | DataType::Int16
+            | DataType::Int32
+            | DataType::Int64
+            | DataType::Json
+            | DataType::OneOf(_)
+            | DataType::Text
+            | DataType::TimestampWithoutTimeZone
+            | DataType::TimestampWithTimeZone
+            | DataType::Uuid => Ok(()),
+
+            DataType::Array(ty) => ty.validate_recursive(schema, seen),
+
+            DataType::Named(name) => {
+                // Look up the underlying type, make sure we're not in an
+                // infinitely recursive type, and validate recursively.
+                if let Some(named_data_type) = schema.named_data_types.get(name) {
+                    debug_assert_eq!(name, &named_data_type.name);
+                    if !seen.insert(name.to_owned()) {
+                        return Err(format_err!("the named type {:?} refers to itself recursively, which is not supported", name));
+                    }
+                    named_data_type.data_type.validate_recursive(schema, seen)?;
+                    seen.remove(name);
+                    Ok(())
+                } else {
+                    Err(format_err!(
+                        "named data type {:?} is not defined anywhere",
+                        name
+                    ))
+                }
+            }
+
+            DataType::Struct(fields) => {
+                for field in fields {
+                    field.data_type.validate_recursive(schema, seen)?;
+                }
+                Ok(())
+            }
+        }
+    }
+
     /// Should we serialize values of this type as JSON in a CSV file?
-    pub(crate) fn serializes_as_json_for_csv(&self) -> bool {
+    pub(crate) fn serializes_as_json_for_csv(&self, schema: &Schema) -> bool {
         match self {
             DataType::Array(_)
             | DataType::GeoJson(_)
@@ -167,10 +476,16 @@ impl DataType {
             | DataType::Int16
             | DataType::Int32
             | DataType::Int64
+            | DataType::OneOf(_)
             | DataType::Text
             | DataType::TimestampWithoutTimeZone
             | DataType::TimestampWithTimeZone
             | DataType::Uuid => false,
+
+            DataType::Named(name) => {
+                let dt = schema.data_type_for_name(name);
+                dt.serializes_as_json_for_csv(schema)
+            }
         }
     }
 }
@@ -208,6 +523,14 @@ fn data_type_serialization_examples() {
         (DataType::Int64, json!("int64")),
         (DataType::Json, json!("json")),
         (
+            DataType::Named("name".to_owned()),
+            json!({ "named": "name" }),
+        ),
+        (
+            DataType::OneOf(vec!["a".to_owned()]),
+            json!({ "one_of": ["a"] }),
+        ),
+        (
             DataType::Struct(vec![StructField {
                 name: "x".to_owned(),
                 is_nullable: false,
@@ -236,7 +559,7 @@ fn data_type_serialization_examples() {
 #[test]
 fn parse_schema_from_manual() {
     // We use this schema as an example in our manual, so make sure it parses.
-    serde_json::from_str::<Table>(include_str!(
+    serde_json::from_str::<Schema>(include_str!(
         "../../dbcrossbar/fixtures/dbcrossbar_schema.json"
     ))
     .unwrap();
@@ -255,6 +578,8 @@ fn data_type_roundtrip() {
         DataType::Int32,
         DataType::Int64,
         DataType::Json,
+        DataType::Named("name".to_owned()),
+        DataType::OneOf(vec!["a".to_owned()]),
         DataType::Struct(vec![StructField {
             name: "x".to_owned(),
             is_nullable: false,

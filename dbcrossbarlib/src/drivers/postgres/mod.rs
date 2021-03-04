@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::common::*;
-use crate::drivers::postgres_shared::{Client, PgCreateTable, TableName};
+use crate::drivers::postgres_shared::{Client, PgName, PgSchema};
 
 mod count;
 mod csv_to_binary;
@@ -31,7 +31,7 @@ pub(crate) use write_local_data::{
 #[derive(Clone, Debug)]
 pub struct PostgresLocator {
     url: UrlWithHiddenPassword,
-    table_name: TableName,
+    table_name: PgName,
 }
 
 impl PostgresLocator {
@@ -41,7 +41,7 @@ impl PostgresLocator {
     }
 
     /// The table name associated with this locator.
-    pub(crate) fn table_name(&self) -> &TableName {
+    pub(crate) fn table_name(&self) -> &PgName {
         &self.table_name
     }
 }
@@ -78,7 +78,7 @@ impl FromStr for PostgresLocator {
                 .ok_or_else(|| {
                     format_err!("{} needs to be followed by #table_name", url)
                 })?
-                .parse::<TableName>()?;
+                .parse::<PgName>()?;
             url.set_fragment(None);
             let url = UrlWithHiddenPassword::new(url);
             Ok(PostgresLocator { url, table_name })
@@ -99,7 +99,7 @@ fn from_str_parses_schemas() {
     for &(url, table_name) in examples {
         assert_eq!(
             PostgresLocator::from_str(url).unwrap().table_name,
-            table_name.parse::<TableName>().unwrap(),
+            table_name.parse::<PgName>().unwrap(),
         );
     }
 }
@@ -109,14 +109,14 @@ impl Locator for PostgresLocator {
         self
     }
 
-    fn schema(&self, ctx: Context) -> BoxFuture<Option<Table>> {
+    fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
         let source = self.to_owned();
         async move {
-            let table =
-                PgCreateTable::from_pg_catalog(&ctx, &source.url, &source.table_name)
+            let schema =
+                PgSchema::from_pg_catalog(&ctx, &source.url, &source.table_name)
                     .await?
                     .ok_or_else(|| format_err!("no such table {}", source))?;
-            Ok(Some(table.to_table()?))
+            Ok(Some(schema.to_schema()?))
         }
         .boxed()
     }

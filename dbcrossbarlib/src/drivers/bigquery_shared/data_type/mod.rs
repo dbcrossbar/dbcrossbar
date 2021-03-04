@@ -14,13 +14,13 @@ mod grammar;
 /// specific stuff.
 pub(crate) trait DataTypeBigQueryExt {
     /// Can BigQuery import this type from a CSV file?
-    fn bigquery_can_import_from_csv(&self) -> Result<bool>;
+    fn bigquery_can_import_from_csv(&self, schema: &Schema) -> Result<bool>;
 }
 
 impl DataTypeBigQueryExt for DataType {
-    fn bigquery_can_import_from_csv(&self) -> Result<bool> {
+    fn bigquery_can_import_from_csv(&self, schema: &Schema) -> Result<bool> {
         // Convert this to the corresponding BigQuery type and check that.
-        let bq_data_type = BqDataType::for_data_type(self, Usage::FinalTable)?;
+        let bq_data_type = BqDataType::for_data_type(schema, self, Usage::FinalTable)?;
         Ok(bq_data_type.bigquery_can_import_from_csv())
     }
 }
@@ -55,6 +55,7 @@ impl BqDataType {
     ///
     /// See https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types.
     pub(crate) fn for_data_type(
+        schema: &Schema,
         data_type: &DataType,
         usage: Usage,
     ) -> Result<BqDataType> {
@@ -70,11 +71,13 @@ impl BqDataType {
                         "cannot represent arrays of JSON in BigQuery yet"
                     ));
                 }
-                let bq_nested = BqNonArrayDataType::for_data_type(nested, usage)?;
+                let bq_nested =
+                    BqNonArrayDataType::for_data_type(schema, nested, usage)?;
                 Ok(BqDataType::Array(bq_nested))
             }
             (other, _) => {
-                let bq_other = BqNonArrayDataType::for_data_type(other, usage)?;
+                let bq_other =
+                    BqNonArrayDataType::for_data_type(schema, other, usage)?;
                 Ok(BqDataType::NonArray(bq_other))
             }
         }
@@ -242,6 +245,7 @@ impl BqNonArrayDataType {
     /// Getting (2) right is the whole reason for separating `BqDataType` and
     /// `BqNonArrayDataType`.
     fn for_data_type(
+        schema: &Schema,
         data_type: &DataType,
         usage: Usage,
     ) -> Result<BqNonArrayDataType> {
@@ -253,7 +257,8 @@ impl BqNonArrayDataType {
                 "should never encounter nested arrays in CSV mode"
             )),
             DataType::Array(nested) => {
-                let bq_nested = BqNonArrayDataType::for_data_type(nested, usage)?;
+                let bq_nested =
+                    BqNonArrayDataType::for_data_type(schema, nested, usage)?;
                 let field = BqStructField {
                     name: None,
                     ty: BqDataType::Array(bq_nested),
@@ -275,13 +280,18 @@ impl BqNonArrayDataType {
             DataType::Int32 => Ok(BqNonArrayDataType::Int64),
             DataType::Int64 => Ok(BqNonArrayDataType::Int64),
             DataType::Json => Ok(BqNonArrayDataType::Stringified(DataType::Json)),
+            DataType::Named(name) => {
+                let dt = schema.data_type_for_name(name);
+                BqNonArrayDataType::for_data_type(schema, dt, usage)
+            }
+            DataType::OneOf(_) => Ok(BqNonArrayDataType::String),
             DataType::Struct(_) if usage == Usage::CsvLoad => {
                 Ok(BqNonArrayDataType::String)
             }
             DataType::Struct(fields) => Ok(BqNonArrayDataType::Struct(
                 fields
                     .iter()
-                    .map(BqStructField::for_struct_field)
+                    .map(|f| BqStructField::for_struct_field(schema, f))
                     .collect::<Result<Vec<_>>>()?,
             )),
             DataType::Text => Ok(BqNonArrayDataType::String),
@@ -496,11 +506,11 @@ pub struct BqStructField {
 
 impl BqStructField {
     /// Create a `BqStructField` from a portable `StructField`.
-    fn for_struct_field(f: &StructField) -> Result<Self> {
+    fn for_struct_field(schema: &Schema, f: &StructField) -> Result<Self> {
         let name = ColumnName::try_from(&f.name)?;
         Ok(BqStructField {
             name: Some(name),
-            ty: BqDataType::for_data_type(&f.data_type, Usage::FinalTable)?,
+            ty: BqDataType::for_data_type(schema, &f.data_type, Usage::FinalTable)?,
         })
     }
 
@@ -535,16 +545,17 @@ impl fmt::Display for BqStructField {
 
 #[test]
 fn nested_arrays() {
+    let schema = Schema::dummy_test_schema();
     let input = DataType::Array(Box::new(DataType::Array(Box::new(DataType::Array(
         Box::new(DataType::Int32),
     )))));
 
     // What we expect when loading from a CSV file.
-    let bq = BqDataType::for_data_type(&input, Usage::CsvLoad).unwrap();
+    let bq = BqDataType::for_data_type(&schema, &input, Usage::CsvLoad).unwrap();
     assert_eq!(format!("{}", bq), "STRING");
 
     // What we expect in the final BigQuery table.
-    let bq = BqDataType::for_data_type(&input, Usage::FinalTable).unwrap();
+    let bq = BqDataType::for_data_type(&schema, &input, Usage::FinalTable).unwrap();
     assert_eq!(
         format!("{}", bq),
         "ARRAY<STRUCT<ARRAY<STRUCT<ARRAY<INT64>>>>>"

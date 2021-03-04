@@ -16,12 +16,12 @@ use crate::schema::Column;
 pub(crate) trait ColumnBigQueryExt {
     /// Can BigQuery import this column from a CSV file without special
     /// processing?
-    fn bigquery_can_import_from_csv(&self) -> Result<bool>;
+    fn bigquery_can_import_from_csv(&self, schema: &Schema) -> Result<bool>;
 }
 
 impl ColumnBigQueryExt for Column {
-    fn bigquery_can_import_from_csv(&self) -> Result<bool> {
-        self.data_type.bigquery_can_import_from_csv()
+    fn bigquery_can_import_from_csv(&self, schema: &Schema) -> Result<bool> {
+        self.data_type.bigquery_can_import_from_csv(schema)
     }
 }
 
@@ -61,11 +61,12 @@ impl BqColumn {
     ///
     /// Note that dashes and spaces are replaced with underscores to satisfy BigQuery naming rules.
     pub(crate) fn for_column(
+        schema: &Schema,
         name: ColumnName,
         col: &Column,
         usage: Usage,
     ) -> Result<BqColumn> {
-        let bq_data_type = BqDataType::for_data_type(&col.data_type, usage)?;
+        let bq_data_type = BqDataType::for_data_type(schema, &col.data_type, usage)?;
         let (ty, mode): (BqNonArrayDataType, Mode) = match bq_data_type {
             BqDataType::Array(ty) => (ty, Mode::Repeated),
             BqDataType::NonArray(ref ty) if col.is_nullable => {

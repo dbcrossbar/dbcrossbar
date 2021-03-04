@@ -5,6 +5,8 @@ use std::fmt;
 use crate::common::*;
 use crate::schema::{DataType, Srid};
 
+use super::PgName;
+
 /// A native PostgreSQL data type.
 ///
 /// This is obviously simplified, but feel free to "unsimplify" it by adding
@@ -24,7 +26,10 @@ pub(crate) enum PgDataType {
 
 impl PgDataType {
     /// Given a `DataType`, try to find a corresponding `PgDataType`.
-    pub(crate) fn from_data_type(ty: &DataType) -> Result<PgDataType> {
+    pub(crate) fn from_data_type(
+        schema: &Schema,
+        ty: &DataType,
+    ) -> Result<PgDataType> {
         match ty {
             DataType::Array(nested) => {
                 // Iterate over our nested child array types, figuring out how
@@ -37,11 +42,11 @@ impl PgDataType {
                 }
                 Ok(PgDataType::Array {
                     dimension_count,
-                    ty: PgScalarDataType::from_data_type(nested)?,
+                    ty: PgScalarDataType::from_data_type(schema, nested)?,
                 })
             }
             scalar => Ok(PgDataType::Scalar(PgScalarDataType::from_data_type(
-                scalar,
+                schema, scalar,
             )?)),
         }
     }
@@ -66,9 +71,10 @@ impl PgDataType {
 
 #[test]
 fn nested_array_conversions() {
+    let schema = Schema::dummy_test_schema();
     let original_ty =
         DataType::Array(Box::new(DataType::Array(Box::new(DataType::Int32))));
-    let pg_ty = PgDataType::from_data_type(&original_ty).unwrap();
+    let pg_ty = PgDataType::from_data_type(&schema, &original_ty).unwrap();
     assert_eq!(
         pg_ty,
         PgDataType::Array {
@@ -82,8 +88,9 @@ fn nested_array_conversions() {
 
 #[test]
 fn scalar_conversions() {
+    let schema = Schema::dummy_test_schema();
     let original_ty = DataType::Int32;
-    let pg_ty = PgDataType::from_data_type(&original_ty).unwrap();
+    let pg_ty = PgDataType::from_data_type(&schema, &original_ty).unwrap();
     assert_eq!(pg_ty, PgDataType::Scalar(PgScalarDataType::Int));
     let portable_ty = pg_ty.to_data_type().unwrap();
     assert_eq!(portable_ty, original_ty);
@@ -124,6 +131,8 @@ pub(crate) enum PgScalarDataType {
     Bigint,
     Json,
     Jsonb,
+    /// Named `ENUM` or other custom data type.
+    Named(PgName),
     Text,
     TimestampWithoutTimeZone,
     TimestampWithTimeZone,
@@ -133,7 +142,7 @@ pub(crate) enum PgScalarDataType {
 impl PgScalarDataType {
     /// Given a `DataType`, try to find a corresponding `PgScalarDataType`.
     /// Panics if called with a non-scalar type.
-    fn from_data_type(ty: &DataType) -> Result<PgScalarDataType> {
+    fn from_data_type(schema: &Schema, ty: &DataType) -> Result<PgScalarDataType> {
         match ty {
             DataType::Array(_) => {
                 unreachable!("should have been handled by PgDataType::from_data_type")
@@ -148,6 +157,30 @@ impl PgScalarDataType {
             DataType::Int32 => Ok(PgScalarDataType::Int),
             DataType::Int64 => Ok(PgScalarDataType::Bigint),
             DataType::Json => Ok(PgScalarDataType::Jsonb),
+            DataType::Named(name) => {
+                let dt = schema.data_type_for_name(name);
+                match dt {
+                    // We have a named type pointing at an enum. PostgreSQL can
+                    // handle this.
+                    DataType::OneOf(_) => Ok(PgScalarDataType::Named(
+                        PgName::from_portable_type_name(name)?,
+                    )),
+                    // We have some other type. We could just convert this, but
+                    // it's probably better to leave our options open until we
+                    // decide on the best behavior here, rather than breaking
+                    // compatibility in the future.
+                    _ => Err(format_err!(
+                        "cannot convert named type {:?} to PostgreSQL type",
+                        name
+                    )),
+                }
+            }
+            // Again, we can probably do something better here in the future,
+            // but we're not yet ready to decide on permanent semantics.
+            DataType::OneOf(values) => Err(format_err!(
+                "cannot convert anonymous enum type {:?} to PostgreSQL (try making it a named type)",
+                values,
+            )),
             DataType::Struct(_) => Ok(PgScalarDataType::Jsonb),
             DataType::Text => Ok(PgScalarDataType::Text),
             DataType::TimestampWithoutTimeZone => {
@@ -173,6 +206,9 @@ impl PgScalarDataType {
             PgScalarDataType::Int => Ok(DataType::Int32),
             PgScalarDataType::Bigint => Ok(DataType::Int64),
             PgScalarDataType::Jsonb | PgScalarDataType::Json => Ok(DataType::Json),
+            PgScalarDataType::Named(name) => {
+                Ok(DataType::Named(name.to_portable_name()?))
+            }
             PgScalarDataType::Text => Ok(DataType::Text),
             PgScalarDataType::TimestampWithoutTimeZone => {
                 Ok(DataType::TimestampWithoutTimeZone)
@@ -202,6 +238,10 @@ impl PgScalarDataType {
             PgScalarDataType::Bigint => Ok(20),
             PgScalarDataType::Json => Ok(114),
             PgScalarDataType::Jsonb => Ok(3802),
+            PgScalarDataType::Named(name) => Err(format_err!(
+                "don't know the PostgreSQL OID for type {}",
+                name.quoted(),
+            )),
             PgScalarDataType::Text => Ok(25),
             PgScalarDataType::TimestampWithoutTimeZone => Ok(1114),
             PgScalarDataType::TimestampWithTimeZone => Ok(1184),
@@ -226,6 +266,7 @@ impl fmt::Display for PgScalarDataType {
             PgScalarDataType::Bigint => write!(f, "bigint")?,
             PgScalarDataType::Json => write!(f, "json")?,
             PgScalarDataType::Jsonb => write!(f, "jsonb")?,
+            PgScalarDataType::Named(name) => write!(f, "{}", name.quoted())?,
             PgScalarDataType::Text => write!(f, "text")?,
             PgScalarDataType::TimestampWithoutTimeZone => {
                 write!(f, "timestamp without time zone")?

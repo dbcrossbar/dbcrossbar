@@ -1,15 +1,15 @@
 //! A PostgreSQL `CREATE TABLE` declaration.
 
 use itertools::Itertools;
-use std::{collections::HashMap, fmt, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+};
 
-use super::{catalog, PgColumn, TableName};
+use super::{PgColumn, PgDataType, PgName, PgScalarDataType};
 use crate::common::*;
-use crate::parse_error::{Annotation, FileInfo, ParseError};
 use crate::schema::Column;
 use crate::separator::Separator;
-
-mod create_table_sql;
 
 /// Should we check the PostgreSQL catalog for a schema, or just use the one we
 /// were given?
@@ -42,7 +42,7 @@ impl From<&IfExists> for CheckCatalog {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PgCreateTable {
     /// The name of the table.
-    pub(crate) name: TableName,
+    pub(crate) name: PgName,
     /// The columns in the table.
     pub(crate) columns: Vec<PgColumn>,
     /// Only create the table if it doesn't already exist.
@@ -52,24 +52,6 @@ pub struct PgCreateTable {
 }
 
 impl PgCreateTable {
-    /// Parse a source file containing a PostgreSQL `CREATE TABLE` statement.
-    pub(crate) fn parse(
-        file_name: String,
-        file_contents: String,
-    ) -> Result<Self, ParseError> {
-        let file_info = Arc::new(FileInfo::new(file_name, file_contents));
-        create_table_sql::parse(&file_info.contents).map_err(|err| {
-            ParseError::new(
-                file_info,
-                vec![Annotation::primary(
-                    err.location.offset,
-                    format!("expected {}", err.expected),
-                )],
-                "error parsing Postgres CREATE TABLE",
-            )
-        })
-    }
-
     /// Given a table name and a list of portable columns, construct a
     /// corresponding `PgCreateTable`.
     ///
@@ -81,12 +63,13 @@ impl PgCreateTable {
     /// We set `if_not_exists` to false, but the caller can change this directly
     /// once once the `PgCreateTable` has been created.
     pub(crate) fn from_name_and_columns(
-        table_name: TableName,
+        schema: &Schema,
+        table_name: PgName,
         columns: &[Column],
     ) -> Result<PgCreateTable> {
         let pg_columns = columns
             .iter()
-            .map(|c| PgColumn::from_column(c))
+            .map(|c| PgColumn::from_column(schema, c))
             .collect::<Result<Vec<PgColumn>>>()?;
         Ok(PgCreateTable {
             name: table_name,
@@ -94,56 +77,6 @@ impl PgCreateTable {
             if_not_exists: false,
             temporary: false,
         })
-    }
-
-    /// Look up `full_table_name` in the database, and return a new
-    /// `PgCreateTable` based on what we find in `pg_catalog`.
-    ///
-    /// Returns `None` if no matching table exists.
-    pub(crate) async fn from_pg_catalog(
-        ctx: &Context,
-        database_url: &UrlWithHiddenPassword,
-        table_name: &TableName,
-    ) -> Result<Option<PgCreateTable>> {
-        catalog::fetch_from_url(ctx, database_url, table_name).await
-    }
-
-    /// Look up `full_table_name` in the database, and return a new
-    /// `PgCreateTable` based on what we find in `pg_catalog`.
-    ///
-    /// If this fails, use `full_table_name` and `default` to construct a new
-    /// table.
-    pub(crate) async fn from_pg_catalog_or_default(
-        ctx: &Context,
-        check_catalog: CheckCatalog,
-        database_url: &UrlWithHiddenPassword,
-        table_name: &TableName,
-        default: &Table,
-    ) -> Result<PgCreateTable> {
-        // If we can't find a catalog in the database, use this one.
-        let default_dest_table = PgCreateTable::from_name_and_columns(
-            table_name.to_owned(),
-            &default.columns,
-        )?;
-
-        // Should we check the catalog to see if the table schema exists?
-        match check_catalog {
-            // Nope, we just want to use the default.
-            CheckCatalog::No => Ok(default_dest_table),
-
-            // See if the table is listed in the catalog.
-            CheckCatalog::Yes => {
-                let opt_dest_table =
-                    PgCreateTable::from_pg_catalog(ctx, database_url, table_name)
-                        .await?;
-                Ok(match opt_dest_table {
-                    Some(dest_table) => {
-                        dest_table.aligned_with(&default_dest_table)?
-                    }
-                    None => default_dest_table,
-                })
-            }
-        }
     }
 
     /// Given a `PgCreateTable`, convert it to a portable `Table`.
@@ -174,7 +107,7 @@ impl PgCreateTable {
             .columns
             .iter()
             .map(|c| (&c.name[..], c))
-            .collect::<HashMap<&str, &PgColumn>>();
+            .collect::<HashMap<_, _>>();
         Ok(PgCreateTable {
             name: self.name.clone(),
             columns: other_table
@@ -195,6 +128,21 @@ impl PgCreateTable {
             if_not_exists: self.if_not_exists,
             temporary: self.temporary,
         })
+    }
+
+    /// Return all the unique named types in this `PgTable`.
+    pub(crate) fn named_type_names(&self) -> HashSet<&PgName> {
+        let mut names = HashSet::new();
+        for col in &self.columns {
+            let scalar_ty = match &col.data_type {
+                PgDataType::Array { ty, .. } => ty,
+                PgDataType::Scalar(ty) => ty,
+            };
+            if let PgScalarDataType::Named(name) = scalar_ty {
+                names.insert(name);
+            }
+        }
+        names
     }
 
     /// Write a `COPY (SELECT ...) TO STDOUT ...` statement for this table.
@@ -267,102 +215,5 @@ impl fmt::Display for PgCreateTable {
         }
         writeln!(f, ");")?;
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::schema::{Column, DataType, Srid};
-
-    #[test]
-    fn simple_table() {
-        let input = include_str!("create_table_sql_example.sql");
-        let pg_table =
-            PgCreateTable::parse("test.sql".to_owned(), input.to_owned()).unwrap();
-        let table = pg_table.to_table().unwrap();
-        let expected = Table {
-            name: "example".to_string(),
-            columns: vec![
-                Column {
-                    name: "a".to_string(),
-                    is_nullable: true,
-                    data_type: DataType::Text,
-                    comment: None,
-                },
-                Column {
-                    name: "b".to_string(),
-                    is_nullable: true,
-                    data_type: DataType::Int32,
-                    comment: None,
-                },
-                Column {
-                    name: "c".to_string(),
-                    is_nullable: false,
-                    data_type: DataType::Uuid,
-                    comment: None,
-                },
-                Column {
-                    name: "d".to_string(),
-                    is_nullable: true,
-                    data_type: DataType::Date,
-                    comment: None,
-                },
-                Column {
-                    name: "e".to_string(),
-                    is_nullable: true,
-                    data_type: DataType::Float64,
-                    comment: None,
-                },
-                Column {
-                    name: "f".to_string(),
-                    is_nullable: true,
-                    data_type: DataType::Array(Box::new(DataType::Text)),
-                    comment: None,
-                },
-                Column {
-                    name: "g".to_string(),
-                    is_nullable: true,
-                    data_type: DataType::Array(Box::new(DataType::Int32)),
-                    comment: None,
-                },
-                Column {
-                    name: "h".to_string(),
-                    is_nullable: true,
-                    data_type: DataType::GeoJson(Srid::wgs84()),
-                    comment: None,
-                },
-                Column {
-                    name: "i".to_string(),
-                    is_nullable: true,
-                    data_type: DataType::GeoJson(Srid::new(3857)),
-                    comment: None,
-                },
-                Column {
-                    name: "j".to_string(),
-                    is_nullable: true,
-                    data_type: DataType::Int16,
-                    comment: None,
-                },
-                Column {
-                    name: "k".to_string(),
-                    is_nullable: true,
-                    data_type: DataType::TimestampWithoutTimeZone,
-                    comment: None,
-                },
-            ],
-        };
-        assert_eq!(table, expected);
-
-        // Now try writing and re-reading.
-        let mut out = vec![];
-        write!(&mut out, "{}", &pg_table).expect("error writing table");
-        let pg_parsed_again = PgCreateTable::parse(
-            "test.sql".to_owned(),
-            String::from_utf8(out).unwrap(),
-        )
-        .expect("error re-parsing table");
-        let parsed_again = pg_parsed_again.to_table().unwrap();
-        assert_eq!(parsed_again, expected);
     }
 }

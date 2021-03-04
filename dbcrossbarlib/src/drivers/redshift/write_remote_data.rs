@@ -7,7 +7,8 @@ use crate::common::*;
 use crate::drivers::{
     postgres::{columns_to_update_for_upsert, create_temp_table_for, prepare_table},
     postgres_shared::{
-        connect, pg_quote, CheckCatalog, Client, Ident, PgCreateTable, TableName,
+        connect, pg_quote, CheckCatalog, Client, Ident, PgCreateTable, PgName,
+        PgSchema,
     },
     s3::S3Locator,
 };
@@ -51,7 +52,7 @@ pub(crate) async fn write_remote_data_helper(
     // Try to look up our table schema in the database.
     schema.verify_redshift_can_import_from_csv()?;
     let table_name = dest.table_name();
-    let pg_create_table = PgCreateTable::from_pg_catalog_or_default(
+    let pg_schema = PgSchema::from_pg_catalog_or_default(
         &ctx,
         CheckCatalog::from(&if_exists),
         dest.url(),
@@ -62,11 +63,10 @@ pub(crate) async fn write_remote_data_helper(
 
     // Connect to Redshift and prepare our table.
     let mut client = connect(&ctx, dest.url()).await?;
-    prepare_table(&ctx, &mut client, pg_create_table.clone(), &if_exists).await?;
+    prepare_table(&ctx, &mut client, pg_schema.clone(), &if_exists).await?;
     if let IfExists::Upsert(upsert_keys) = &if_exists {
         // Create a temporary table to hold our imported data.
-        let temp_table =
-            create_temp_table_for(&ctx, &mut client, &pg_create_table).await?;
+        let temp_table = create_temp_table_for(&ctx, &mut client, &pg_schema).await?;
 
         // Copy data into our temporary table.
         copy_in(&ctx, &client, &source_url, &temp_table.name, &to_args).await?;
@@ -76,7 +76,7 @@ pub(crate) async fn write_remote_data_helper(
             &ctx,
             &mut client,
             &temp_table,
-            &pg_create_table,
+            pg_schema.table()?,
             upsert_keys,
         )
         .await?;
@@ -92,7 +92,7 @@ async fn copy_in(
     ctx: &Context,
     client: &Client,
     source_s3_url: &Url,
-    dest_table: &TableName,
+    dest_table: &PgName,
     to_args: &RedshiftDriverArguments,
 ) -> Result<()> {
     debug!(
@@ -222,6 +222,12 @@ trait VerifyRedshiftCanImportFromCsv {
     fn verify_redshift_can_import_from_csv(&self) -> Result<()>;
 }
 
+impl VerifyRedshiftCanImportFromCsv for Schema {
+    fn verify_redshift_can_import_from_csv(&self) -> Result<()> {
+        self.table.verify_redshift_can_import_from_csv()
+    }
+}
+
 impl VerifyRedshiftCanImportFromCsv for Table {
     fn verify_redshift_can_import_from_csv(&self) -> Result<()> {
         for col in &self.columns {
@@ -250,6 +256,7 @@ impl VerifyRedshiftCanImportFromCsv for DataType {
             | DataType::Int16
             | DataType::Int32
             | DataType::Int64
+            | DataType::OneOf(_)
             | DataType::Text
             | DataType::TimestampWithoutTimeZone
             | DataType::TimestampWithTimeZone => Ok(()),
@@ -257,6 +264,7 @@ impl VerifyRedshiftCanImportFromCsv for DataType {
             | DataType::Decimal
             | DataType::GeoJson(_)
             | DataType::Json
+            | DataType::Named(_) // We could expand these, maybe.
             | DataType::Struct(_)
             | DataType::Uuid => Err(format_err!(
                 "Redshift driver does not support data type {:?}",

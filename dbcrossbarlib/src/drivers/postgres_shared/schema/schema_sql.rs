@@ -10,16 +10,75 @@
 //!
 //! [peg]: https://github.com/kevinmehall/rust-peg
 
-use super::super::{PgColumn, PgCreateTable, PgDataType, PgScalarDataType, TableName};
+use super::super::{
+    PgColumn, PgCreateTable, PgCreateType, PgCreateTypeDefinition, PgDataType, PgName,
+    PgScalarDataType, PgSchema,
+};
 use crate::schema::Srid;
 
-pub use create_table_grammar::create_table as parse;
+pub(crate) use schema_grammar::schema as parse;
+
+/// A top-level definition in the SQL. We'll separate these into multiple lists
+/// before returning.
+pub(self) enum Definition {
+    /// `CREATE TYPE`.
+    Type(PgCreateType),
+    /// `CREATE TABLE`.
+    Table(PgCreateTable),
+}
+
+/// Group `CREATE` definitions by type.
+pub(self) fn group_definitions(
+    defs: Vec<Definition>,
+) -> (Vec<PgCreateType>, Vec<PgCreateTable>) {
+    let mut types = vec![];
+    let mut tables = vec![];
+    for d in defs {
+        match d {
+            Definition::Type(ty) => types.push(ty),
+            Definition::Table(table) => tables.push(table),
+        }
+    }
+    (types, tables)
+}
 
 peg::parser! {
-    grammar create_table_grammar() for str {
+    grammar schema_grammar() for str {
+        /// A mix of tables and data types.
+        pub(crate) rule schema() -> PgSchema
+            = ws()? defs:definition() ** (ws()? ";" ws()?) (";" ws()?)?
+            {
+                let (types, tables) = group_definitions(defs);
+                PgSchema { types, tables }
+            }
+
+        /// Either a `CREATE TYPE` definition or a `CREATE TABLE` definition.
+        rule definition() -> Definition
+            = def:create_type() { Definition::Type(def) }
+            / def:create_table() { Definition::Table(def) }
+
+        /// A `CREATE TYPE` definition.
+        rule create_type() -> PgCreateType
+            = i("CREATE") ws() i("TYPE") ws() name:name() ws() i("AS")
+              ws() definition:create_type_definition()
+            {
+                PgCreateType { name, definition }
+            }
+
+        /// The body of a `CREATE TYPE` definition.
+        rule create_type_definition() -> PgCreateTypeDefinition
+            = create_type_enum_definition()
+
+        /// An `ENUM` in the body of a `CREATE TYPE` definition.
+        rule create_type_enum_definition() -> PgCreateTypeDefinition
+            = i("ENUM") ws() "(" ws()? values:string_constant() ** (ws()? "," ws()?) ws()? ")"
+            {
+                PgCreateTypeDefinition::Enum(values)
+            }
+
         /// A `CREATE TABLE` expression.
-        pub rule create_table() -> PgCreateTable
-            = ws()? i("CREATE") ws() (i("UNLOGGED") ws())? i("TABLE") ws() name:table_name() ws()? "("
+        rule create_table() -> PgCreateTable
+            = i("CREATE") ws() (i("UNLOGGED") ws())? i("TABLE") ws() name:name() ws()? "("
                 ws()? columns:(column() ** (ws()? "," ws()?)) ws()?
             ")" ws()? (";" ws()?)?
             {
@@ -95,18 +154,19 @@ peg::parser! {
                 PgScalarDataType::TimestampWithoutTimeZone
             }
             / i("uuid") { PgScalarDataType::Uuid }
+            / name:name() { PgScalarDataType::Named(name) }
 
         /// A GeoJSON SRID number, used to identify a coordinate system.
         rule srid() -> u32
             = srid:$(['0'..='9']+) { srid.parse().expect("should always parse") }
 
         /// The name of a table.
-        rule table_name() -> TableName
+        rule name() -> PgName
             = table:identifier() {
-                TableName::new(None, table)
+                PgName::new(None, table)
             }
             / schema:identifier() "." table:identifier() {
-                TableName::new(schema, table)
+                PgName::new(schema, table)
             }
 
         /// An SQL identifier.
@@ -124,6 +184,13 @@ peg::parser! {
                 }
             }
             / expected!("identifier")
+
+        /// An ordinary PostgreSQL string literal.
+        rule string_constant() -> String
+            = "'" text:$(( !"'" [_] / "''" )*) "'"
+            {
+                text.replace("''", "'")
+            }
 
         /// One or more characters of whitespace, including comments.
         rule ws() = quiet! {

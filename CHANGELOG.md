@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` crate is an internal-only dependency with no versioning policy at this time.)
 
+## Unreleased
+
+### Added
+
+- (EXPERIMENTAL) postgres: The `postgres-sql` and `postgres` drivers now `CREATE TYPE` statements (but only in the `"public"` schema). These can be used as follows:
+
+  ```sql
+  CREATE TYPE "format" AS ENUM ('gif', 'jpeg');
+  CREATE TABLE "images" (
+      "id" uuid NOT NULL,
+      "url" text NOT NULL,
+      "format" "format",
+      "metadata" jsonb
+  );
+  ```
+
+  This change also requires some changes to the `dbcrossbar-schema` format, which are described below.
+
+- (EXPERIMENTAL) The native `dbcrossbar-schema` format now supports a set of `named_types` definitions. This allows named types to be defined once, and to then be referred to elsewhere using `{ "named": "my_custom_type" }`.
+- (EXPERIMENTAL) The native `dbcrossbar-schema` format also supports string enumeration types using a `{ "one_of": ["red", "green", "blue"] }` syntax.
+
+### Changed
+
+- BREAKING: The `dbcrossbar-schema` output format has changed! It now has top level `named_types` and `tables` members, and the old top-level table definition is now available as `.tables[0]`. See [the manual](https://www.dbcrossbar.org/schema.html) for more details. However, `dbcrossbar` can still read the old input format with no problems, so this only affects other programs that parse native `dbcrossbar` schema.
+
 ## 0.4.2-beta.11 - 2021-02-03
 
 ### Fixed

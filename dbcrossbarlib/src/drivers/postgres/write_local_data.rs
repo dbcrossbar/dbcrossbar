@@ -5,10 +5,12 @@ use itertools::Itertools;
 use std::{collections::HashSet, io::prelude::*, str};
 
 use super::{csv_to_binary::copy_csv_to_pg_binary, Client, PostgresLocator};
-use crate::common::*;
-use crate::drivers::postgres_shared::{connect, CheckCatalog, Ident, PgCreateTable};
+use crate::drivers::postgres_shared::{
+    connect, CheckCatalog, Ident, PgCreateTable, PgSchema,
+};
 use crate::tokio_glue::try_forward;
 use crate::transform::spawn_sync_transform;
+use crate::{common::*, drivers::postgres_shared::PgCreateType};
 
 /// If `table_name` exists, `DROP` it.
 async fn drop_table_if_exists(
@@ -29,12 +31,49 @@ async fn drop_table_if_exists(
     Ok(())
 }
 
+/// Create any types that we will need.
+async fn prepare_types(
+    ctx: &Context,
+    client: &mut Client,
+    schema: &PgSchema,
+) -> Result<()> {
+    let needed_types = schema.table()?.named_type_names();
+    for ty in &schema.types {
+        if needed_types.contains(&ty.name) {
+            let existing = PgCreateType::from_database(ctx, client, &ty.name).await?;
+            match existing {
+                None => {
+                    // The type doesn't exist, so create it.
+                    let create_sql = format!("{}", ty);
+                    debug!(ctx.log(), "creating type: {}", create_sql);
+                    let create_stmt = client.prepare(&create_sql).await?;
+                    client.execute(&create_stmt, &[]).await?;
+                }
+                Some(_) => {
+                    // If we were feeling inspired, we could check to make sure
+                    // that `ty` is a non-strict subset of `existing`, but for
+                    // now, we'll assume the destination type is good enough,
+                    // let PostgreSQL print the errors.
+                    debug!(
+                        ctx.log(),
+                        "assuming existing {} type in destination is compatible",
+                        ty.name.quoted()
+                    );
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Run the specified `CREATE TABLE` SQL.
 async fn create_table(
     ctx: &Context,
     client: &mut Client,
-    table: &PgCreateTable,
+    schema: &PgSchema,
 ) -> Result<()> {
+    prepare_types(ctx, client, schema).await?;
+    let table = schema.table()?;
     debug!(ctx.log(), "create table {}", table.name.quoted());
     let create_sql = format!("{}", table);
     debug!(ctx.log(), "CREATE TABLE SQL: {}", create_sql);
@@ -51,15 +90,20 @@ async fn create_table(
 pub(crate) async fn create_temp_table_for(
     ctx: &Context,
     client: &mut Client,
-    table: &PgCreateTable,
+    schema: &PgSchema,
 ) -> Result<PgCreateTable> {
+    let table = schema.table()?;
     let mut temp_table = table.to_owned();
     let temp_name = table.name.temporary_table_name()?;
     temp_table.name = temp_name;
     temp_table.if_not_exists = false;
     temp_table.temporary = true;
-    create_table(ctx, client, &temp_table).await?;
-    Ok(temp_table)
+    let temp_schema = PgSchema {
+        tables: vec![temp_table],
+        ..schema.to_owned()
+    };
+    create_table(ctx, client, &temp_schema).await?;
+    Ok(temp_schema.table()?.to_owned())
 }
 
 /// Run `DROP TABLE` and/or `CREATE TABLE` as needed to prepare `table` for
@@ -70,12 +114,13 @@ pub(crate) async fn create_temp_table_for(
 pub(crate) async fn prepare_table(
     ctx: &Context,
     client: &mut Client,
-    mut table: PgCreateTable,
+    mut schema: PgSchema,
     if_exists: &IfExists,
 ) -> Result<()> {
+    let table = schema.table_mut()?;
     match if_exists {
         IfExists::Overwrite => {
-            drop_table_if_exists(ctx, client, &table).await?;
+            drop_table_if_exists(ctx, client, table).await?;
             table.if_not_exists = false;
         }
         IfExists::Append => {
@@ -97,7 +142,7 @@ pub(crate) async fn prepare_table(
             table.if_not_exists = true;
         }
     }
-    create_table(ctx, client, &table).await
+    create_table(ctx, client, &schema).await
 }
 
 /// Generate the `COPY ... FROM ...` SQL we'll pass to `copy_in`. `data_format`
@@ -263,7 +308,7 @@ pub(crate) async fn write_local_data_helper(
     );
 
     // Try to look up our destination table schema in the database.
-    let dest_table = PgCreateTable::from_pg_catalog_or_default(
+    let dest_schema = PgSchema::from_pg_catalog_or_default(
         &ctx,
         CheckCatalog::from(&if_exists),
         dest.url(),
@@ -274,7 +319,7 @@ pub(crate) async fn write_local_data_helper(
 
     // Connect to PostgreSQL and prepare our destination table.
     let mut client = connect(&ctx, &url).await?;
-    prepare_table(&ctx, &mut client, dest_table.clone(), &if_exists).await?;
+    prepare_table(&ctx, &mut client, dest_schema.clone(), &if_exists).await?;
 
     // Insert data streams one at a time, because parallel insertion _probably_
     // won't gain much with Postgres (but we haven't measured).
@@ -289,13 +334,13 @@ pub(crate) async fn write_local_data_helper(
                     let ctx = ctx.child(o!("stream" => csv_stream.name.clone()));
 
                     // Convert our CSV stream into a PostgreSQL `BINARY` stream.
-                    let transform_table = dest_table.clone();
+                    let transform_schema = dest_schema.clone();
                     let binary_stream = spawn_sync_transform(
                         ctx.clone(),
                         "copy_csv_to_pg_binary".to_owned(),
                         csv_stream.data,
                         move |_ctx, rdr, wtr| {
-                            copy_csv_to_pg_binary(&transform_table, rdr, wtr)
+                            copy_csv_to_pg_binary(&transform_schema, rdr, wtr)
                         },
                     )?;
 
@@ -303,7 +348,7 @@ pub(crate) async fn write_local_data_helper(
                     if let IfExists::Upsert(cols) = &if_exists {
                         // Create temp table.
                         let temp_table =
-                            create_temp_table_for(&ctx, &mut client, &dest_table)
+                            create_temp_table_for(&ctx, &mut client, &dest_schema)
                                 .await?;
 
                         // Copy into temp table.
@@ -320,7 +365,7 @@ pub(crate) async fn write_local_data_helper(
                             &ctx,
                             &mut client,
                             &temp_table,
-                            &dest_table,
+                            dest_schema.table()?,
                             &cols,
                         )
                         .await?;
@@ -333,7 +378,7 @@ pub(crate) async fn write_local_data_helper(
                         copy_from_stream(
                             &ctx,
                             &mut client,
-                            &dest_table,
+                            dest_schema.table()?,
                             binary_stream,
                         )
                         .await?;

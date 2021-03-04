@@ -17,6 +17,7 @@ documentation = "https://www.dbcrossbar.org/"
 cli_test_dir = "0.1.5"
 csv = "1.0.5"
 difference = "2.0"
+pretty_assertions = "0.6.1"
 
 [dependencies]
 clap = { version = "2.32.0", features = ["wrap_help"] }

@@ -1,3 +1,7 @@
+CREATE TYPE color AS ENUM ('red', 'green', 'blue');
+
+CREATE TYPE mood AS ENUM ('happy', 'sad', 'amused');
+
 -- This is an example table.
 CREATE TABLE example (
     a text,
@@ -11,5 +15,7 @@ CREATE TABLE example (
     -- Just to be annoying:
     i public.geometry(Geometry,3857),
     j smallint,
-    k timestamp without time zone
+    k timestamp without time zone,
+    l color,
+    m mood
 )

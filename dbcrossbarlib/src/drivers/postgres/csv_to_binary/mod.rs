@@ -19,7 +19,7 @@ use uuid::Uuid;
 
 use crate::common::*;
 use crate::drivers::postgres_shared::{
-    PgColumn, PgCreateTable, PgDataType, PgScalarDataType,
+    PgColumn, PgDataType, PgScalarDataType, PgSchema,
 };
 use crate::from_csv_cell::FromCsvCell;
 use crate::from_json_value::FromJsonValue;
@@ -44,10 +44,12 @@ pub(crate) type BufferedWriter = io::BufWriter<Box<dyn Write>>;
 ///
 /// This function will take care of reasonable buffering for `rdr` and `wtr`.
 pub(crate) fn copy_csv_to_pg_binary(
-    table: &PgCreateTable,
+    schema: &PgSchema,
     rdr: Box<dyn Read>,
     wtr: Box<dyn Write>,
 ) -> Result<()> {
+    let table = schema.table()?;
+
     // Set up wrappers for `rdr` and `wtr`, handling CSV parsing and buffering.
     let mut rdr = csv::Reader::from_reader(rdr);
     let mut wtr = io::BufWriter::with_capacity(BUFFER_SIZE, wtr);
@@ -221,6 +223,18 @@ fn json_to_binary<W: Write>(
             let serialized = serde_json::to_string(json)?;
             RawJsonb(&serialized).write_binary(wtr)
         }
+        PgScalarDataType::Named(_) => {
+            // TODO: We assume that we always have
+            // `PgCreateTypeDefinition::Enum` or another type that's sent as a
+            // string. We may need to fix this someday.
+            //
+            // TODO: We may not even be running this code, because we can't
+            // create arrays of enums without being able to get enum OIDs.
+            match json {
+                Value::String(s) => s.as_str().write_binary(wtr),
+                _ => Err(format_err!("expected JSON string, found {}", json)),
+            }
+        }
         PgScalarDataType::Text => match json {
             Value::String(s) => s.as_str().write_binary(wtr),
             _ => Err(format_err!("expected JSON string, found {}", json)),
@@ -294,6 +308,12 @@ fn scalar_to_binary(
         PgScalarDataType::Jsonb => {
             let value = RawJsonb(cell);
             value.write_binary(wtr)
+        }
+        PgScalarDataType::Named(_) => {
+            // TODO: We assume that we always have
+            // `PgCreateTypeDefinition::Enum` or another type that's sent as a
+            // string. We may need to fix this someday.
+            cell.write_binary(wtr)
         }
         PgScalarDataType::Text => cell.write_binary(wtr),
         PgScalarDataType::TimestampWithoutTimeZone => {

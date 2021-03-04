@@ -1,3 +1,5 @@
+CREATE TYPE myenum AS ENUM ('red', 'green');
+
 CREATE TABLE exact_output (
     id int,
     test_bool boolean,
@@ -10,5 +12,6 @@ CREATE TABLE exact_output (
     test_timestamp_with_time_zone timestamp with time zone,
     test_uuid uuid,
     "select" text,
-    testCapitalized text
+    testCapitalized text,
+    test_enum myenum
 );

@@ -3,6 +3,7 @@
 use cli_test_dir::*;
 use dbcrossbarlib::{schema::DataType, TemporaryStorage};
 use difference::assert_diff;
+use pretty_assertions::assert_eq;
 use serde_json::json;
 use std::{fs, io::Write, path::Path, process::Command};
 
@@ -395,20 +396,23 @@ fn bigquery_roundtrips_structs() {
         let ty: DataType =
             serde_json::from_reader(fs::File::open(path).unwrap()).unwrap();
         json!({
-            "name": "root-180513:test.bigquery_roundtrips_structs",
-            "columns": [
-                {
-                    "name": "struct",
-                    "is_nullable": true,
-                    "data_type": ty
-                },
-                {
-                    "name": "structs",
-                    // TODO: Try with `is_nullable: false`.
-                    "is_nullable": true,
-                    "data_type": { "array": ty },
-                },
-            ]
+            "named_data_types": [],
+            "tables": [{
+                "name": "root-180513:test.bigquery_roundtrips_structs",
+                "columns": [
+                    {
+                        "name": "struct",
+                        "is_nullable": true,
+                        "data_type": ty
+                    },
+                    {
+                        "name": "structs",
+                        // TODO: Try with `is_nullable: false`.
+                        "is_nullable": true,
+                        "data_type": { "array": ty },
+                    },
+                ]
+            }]
         })
     };
     let schema_data = schema_from_file(&raw_data_type_path);
