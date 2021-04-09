@@ -81,4 +81,4 @@ When copying between certain drivers, `dbcrossbar` supports "shortcuts." For exa
 
 ## Multi-threaded, asynchronous Rust
 
-`dbcrossbar` is written using [asynchronous](https://rust-lang.github.io/async-book/) [Rust](https://www.rust-lang.org/), and it makes heavy use of a multi-threaded worker pool. Internally, it works something like a set of classic Unix pipelines running in parallel. Thanks to Rust, it bas been possible to get native performance and multithreading without spending too much time debugging.
+`dbcrossbar` is written using [asynchronous](https://rust-lang.github.io/async-book/) [Rust](https://www.rust-lang.org/), and it makes heavy use of a multi-threaded worker pool. Internally, it works something like a set of classic Unix pipelines running in parallel. Thanks to Rust, it has been possible to get native performance and multithreading without spending too much time debugging.
