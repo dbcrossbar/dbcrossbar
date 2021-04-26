@@ -35,7 +35,7 @@ You'll also need to pass the following on the command line when using:
 You can also specify the following `--to-arg` values:
 
 - `name`: The human-readable name of the resource to create.
-- `optype_for_text`: The BigML optype to use for text fields. This defaults to `text`. You may want to set it to `categorical` if your text fields contain a small set of fixed strings.
+- `optype_for_text`: The BigML optype to use for text fields. This defaults to `text`. You may want to set it to `categorical` if your text fields contain a small set of fixed strings. But you should probably use `dbcrossbar`'s `{ "one_of": string_list }` types instead, which will always map to `categorical`.
 - `tag`: This may be specified repeatedly to attach tags to the created resources.
 
 ## Supported features
