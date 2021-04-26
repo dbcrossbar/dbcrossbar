@@ -85,10 +85,9 @@ impl Job {
 
     /// Get the job ID, with the project and region prefixes stripped.
     pub(crate) fn reference(&self) -> Result<&JobReference> {
-        Ok(self
-            .job_reference
+        self.job_reference
             .as_ref()
-            .ok_or_else(|| format_err!("newly created job has no jobReference"))?)
+            .ok_or_else(|| format_err!("newly created job has no jobReference"))
     }
 
     /// Get a URL which can be used for this job.
