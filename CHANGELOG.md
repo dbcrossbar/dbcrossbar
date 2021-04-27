@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` crate is an internal-only dependency with no versioning policy at this time.)
 
+## 0.5.0-alpha.2 - 2021-04-27
+
+### Fixed
+
+- bigml: Always map columns with a `one-of` type (aka `CREATE ENUM`) to BigML `categorical` columns.
+
 ## 0.5.0-alpha.1 - 2021-03-04
 
 This release contains a breaking change to the `dbcrossbar-schema` output format to enable supporting named types and enumeration types. See below.
