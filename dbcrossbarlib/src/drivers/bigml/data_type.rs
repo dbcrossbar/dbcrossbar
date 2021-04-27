@@ -5,7 +5,7 @@ use bigml::resource::source::Optype;
 use crate::common::*;
 use crate::schema::DataType;
 
-/// Local extensions to the BigQuery [`Optype`] type.
+/// Local extensions to the BigML [`Optype`] type.
 pub(crate) trait OptypeExt {
     /// Convert a portable `DateType` into a BigML-specific one.
     fn for_data_type(
@@ -41,7 +41,7 @@ impl OptypeExt for Optype {
                 let ty = schema.data_type_for_name(name);
                 Optype::for_data_type(schema, &ty, optype_for_text)
             }
-            DataType::OneOf(_) => Ok(Optype::Text),
+            DataType::OneOf(_) => Ok(Optype::Categorical),
             DataType::Struct(_) => Ok(Optype::Text),
             DataType::Text => Ok(optype_for_text),
             DataType::TimestampWithoutTimeZone => Ok(Optype::DateTime),
@@ -61,4 +61,26 @@ impl OptypeExt for Optype {
             _ => Err(format_err!("unknown BigML optype {:?}", self)),
         }
     }
+}
+
+#[test]
+fn map_one_of_to_categorical() {
+    use crate::schema::NamedDataType;
+
+    let mut schema = Schema::dummy_test_schema();
+    schema.named_data_types.insert(
+        "cat".to_owned(),
+        NamedDataType {
+            name: "cat".to_owned(),
+            data_type: DataType::OneOf(vec!["a".to_owned()]),
+        },
+    );
+
+    let ot = Optype::for_data_type(
+        &schema,
+        &DataType::Named("cat".to_owned()),
+        Optype::Text,
+    )
+    .unwrap();
+    assert_eq!(ot, Optype::Categorical);
 }
