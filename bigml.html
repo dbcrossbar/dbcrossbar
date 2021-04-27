@@ -210,7 +210,7 @@
 <p>You can also specify the following <code>--to-arg</code> values:</p>
 <ul>
 <li><code>name</code>: The human-readable name of the resource to create.</li>
-<li><code>optype_for_text</code>: The BigML optype to use for text fields. This defaults to <code>text</code>. You may want to set it to <code>categorical</code> if your text fields contain a small set of fixed strings.</li>
+<li><code>optype_for_text</code>: The BigML optype to use for text fields. This defaults to <code>text</code>. You may want to set it to <code>categorical</code> if your text fields contain a small set of fixed strings. But you should probably use <code>dbcrossbar</code>'s <code>{ &quot;one_of&quot;: string_list }</code> types instead, which will always map to <code>categorical</code>.</li>
 <li><code>tag</code>: This may be specified repeatedly to attach tags to the created resources.</li>
 </ul>
 <h2><a class="header" href="#supported-features" id="supported-features">Supported features</a></h2>
