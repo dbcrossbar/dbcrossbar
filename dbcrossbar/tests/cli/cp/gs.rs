@@ -43,7 +43,6 @@ fn cp_to_single_gs_csv() {
         .tee_output()
         .expect_success();
 
-    eprintln!("comparing");
     let expected = normalize_csv_data(&fs::read_to_string(&src).unwrap());
     let actual =
         normalize_csv_data(&fs::read_to_string(testdir.path("out/out.csv")).unwrap());

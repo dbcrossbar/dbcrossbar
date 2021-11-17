@@ -37,8 +37,7 @@ exceptions = [
 ]
 
 [[licenses.clarify]]
-# Ring has a messy license. We should either commit 100% to ring everywhere, or
-# to native-tls everywhere, and not mix the two.
+# Ring has a messy license.
 name = "ring"
 expression = "ISC AND OpenSSL AND MIT"
 license-files = [
@@ -56,6 +55,12 @@ license-files = [
 [bans]
 # Warn about multiple versions of the same crate, unless we've indicated otherwise below.
 multiple-versions = "warn"
+
+deny = [
+    # OpenSSL has caused endless deployment and build problems, and we want
+    # nothing to do with it, in any version.
+    { name = "openssl-sys" },
+]
 
 skip = [
     # clap v2.33.0 still uses an older version.

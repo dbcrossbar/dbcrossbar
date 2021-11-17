@@ -3,7 +3,7 @@
 Pre-built binaries for `dbcrossbar` are [available on GitHub](https://github.com/dbcrossbar/dbcrossbar/releases). These currently include:
 
 1. Fully-static Linux x86_64 binaries, which should work on any modern distribution (including Alpine Linux containers).
-2. MacOS X binaries.
+2. MacOS X binaries. Note that these are unsigned, and you may need to use `xattr -d com.apple.quarantine dbcrossbar` to make them runnable.
 
 Windows binaries are not available at this time, but it may be possible to build them with a little work.
 
@@ -17,10 +17,7 @@ You can also install `dbcrossbar` using `cargo`. First, you will need to make su
 
 ```sh
 # Ubuntu Linux (might be incomplete).
-sudo apt install build-essential libssl-dev libpq-dev
-
-# MacOS X (might be incomplete).
-brew install openssl@1.1 postgresql
+sudo apt install build-essential
 ```
 
 Then, you can install using `cargo`:
