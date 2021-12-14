@@ -157,7 +157,7 @@ impl Configuration {
         })?;
         create_dir_all(&parent)
             .with_context(|_| format!("cannot create {}", parent.display()))?;
-        let data = self.doc.to_string_in_original_order();
+        let data = self.doc.to_string();
         let mut f = File::create(&self.path)
             .with_context(|_| format!("cannot create {}", self.path.display()))?;
         f.write_all(data.as_bytes())
@@ -228,9 +228,7 @@ impl Configuration {
                 return Ok(());
             }
         }
-        raw_array.push(value).map_err(|_| {
-            format_err!("cannot append to {} because value types don't match", key)
-        })?;
+        raw_array.push(value);
         raw_array.fmt();
         Ok(())
     }

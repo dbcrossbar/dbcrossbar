@@ -1,7 +1,7 @@
 //! S3 URL signing.
 
 use chrono::{DateTime, Utc};
-use hmac::{Hmac, Mac, NewMac};
+use hmac::{Hmac, Mac};
 use sha1::Sha1;
 
 use super::AwsCredentials;
@@ -22,8 +22,9 @@ pub(crate) fn sign_s3_url<'creds>(
         .host()
         .ok_or_else(|| format_err!("no host in URL {}", url))?;
 
-    let mut mac = Hmac::<Sha1>::new_varkey(credentials.secret_access_key.as_bytes())
-        .map_err(|err| format_err!("cannot compute signature: {}", err))?;
+    let mut mac =
+        Hmac::<Sha1>::new_from_slice(credentials.secret_access_key.as_bytes())
+            .map_err(|err| format_err!("cannot compute signature: {}", err))?;
     let full_path = format!("/{}{}", host, url.path());
     let payload = format!("{}\n\n\n{}\n{}", method, expires.timestamp(), full_path,);
     mac.update(payload.as_bytes());

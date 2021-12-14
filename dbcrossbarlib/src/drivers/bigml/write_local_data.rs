@@ -111,7 +111,7 @@ pub(crate) async fn write_local_data_helper(
                     }
 
                     // Create the source.
-                    let mut args = source::Args::remote(signed_url.into_string());
+                    let mut args = source::Args::remote(String::from(signed_url));
                     args.disable_datetime = Some(true);
                     if let Some(name) = &bigml_dest_args.name {
                         args.name = Some(name.to_owned());

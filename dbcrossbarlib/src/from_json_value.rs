@@ -51,7 +51,9 @@ impl FromJsonValue for f32 {
                 // TODO: This is the only reason we still need the `cast` crate.
                 // It checks for out-of-bounds values when converting from `f64`
                 // to `f32`.
-                Ok(cast::f32(f)?)
+                Ok(cast::f32(f).map_err(|err| {
+                    format_err!("could not convert {} to f32: {}", f, err)
+                })?)
             }
             Value::String(s) => Self::from_csv_cell(s),
             _ => Err(format_err!("could not parse JSON value {} as f32", json)),
