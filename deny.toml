@@ -24,7 +24,7 @@ copyleft = "deny"
 
 # Allow common non-restrictive licenses. ISC is used for various DNS and crypto
 # things, and it's a minimally restrictive open source license.
-allow = ["MIT", "Apache-2.0", "BSD-3-Clause", "BSD-2-Clause", "CC0-1.0", "ISC", "OpenSSL", "Zlib"]
+allow = ["MIT", "Apache-2.0", "BSD-3-Clause", "CC0-1.0", "ISC", "OpenSSL", "Zlib"]
 
 # Many organizations ban AGPL-licensed code
 # https://opensource.google/docs/using/agpl-policy/
@@ -58,14 +58,15 @@ license-files = [
 multiple-versions = "warn"
 
 skip = [
-    # A bunch of libraries still haven't upgraded this.
-    { name = "generic-array", version = "0.12.3" },
-    # mio v0.6.21 still uses this old version for some reason.
-    { name = "miow", version = "0.2.1" },
     # clap v2.33.0 still uses an older version.
     { name = "strsim", version = "0.8.0" },
     # headers v0.3.2 still uses an older version.
-    { name = "sha-1", version = "0.8.2" },
+    { name = "sha-1", version = "0.9.8" },
+    # Several libraries still use the old version.
+    { name = "itoa", version = "0.4.8"},
+    # yup-oauth2 still uses the old version.
+    { name = "tokio-rustls", version = "0.22.0" },
+    { name = "hyper-rustls", version = "0.22.1" },
 ]
 
 skip-tree = [
@@ -79,7 +80,7 @@ skip-tree = [
     { name = "slog-term" },
     { name = "slog-envlogger" },
 
-    # This needs updates.
+    # These need updates.
     { name = "rustls-native-certs" },
 ]
 
