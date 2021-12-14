@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` crate is an internal-only dependency with no versioning policy at this time.)
 
+## 0.5.0-alpha.3 - 2021-12-14
+
+### Added
+
+- gs: Allow single-file CSV output. This involves copying out of Google Cloud Storage, concatenating, and copying back. But it's handy when you need it.
+
+### Changed
+
+- gs: Copying to a `gs://bucket/dir/` URL with `--if-exists=overwrite --display-output-locators` will print out a list of files in the destination bucket directory when we're done. Before, it just printed out the destination locator, which was technically allowed, but useless.
+
+### Fixed
+
+- Updated many dependencies, fixing several CVEs (none known to be meaningfully exploitable in typical use cases), and possibly some library bugs.
+
 ## 0.5.0-alpha.2 - 2021-04-27
 
 ### Fixed
