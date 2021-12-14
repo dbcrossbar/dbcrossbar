@@ -1,5 +1,7 @@
 //! Support for schemas specified using a subset of TypeScript.
 
+#![allow(clippy::redundant_closure_call)]
+
 use std::{
     collections::{HashMap, HashSet},
     fmt,
