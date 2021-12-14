@@ -10,16 +10,9 @@ use crate::tokio_glue::ConsumeWithParallelism;
 /// How many objects should we try to delete at a time?
 const PARALLEL_DELETIONS: usize = 10;
 
-/// Recursively delete a `gs://` directory without deleting the bucket.
-pub(crate) async fn rmdir(ctx: &Context, url: &Url) -> Result<()> {
+/// Recursively delete a `gs://` path without deleting the bucket.
+pub(crate) async fn rm_r(ctx: &Context, url: &Url) -> Result<()> {
     debug!(ctx.log(), "deleting existing {}", url);
-
-    if !url.path().ends_with('/') {
-        return Err(format_err!(
-            "can only delete gs:// URL ending in '/', got {}",
-            url,
-        ));
-    }
 
     // TODO: Used batched commands to delete 100 URLs at a time.
     let url_stream = ls(ctx, url).await?;

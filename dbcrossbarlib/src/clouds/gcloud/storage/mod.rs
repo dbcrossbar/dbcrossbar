@@ -10,12 +10,12 @@ use crate::common::*;
 
 mod download_file;
 mod ls;
-mod rmdir;
+mod rm_r;
 mod upload_file;
 
 pub(crate) use download_file::download_file;
 pub(crate) use ls::ls;
-pub(crate) use rmdir::rmdir;
+pub(crate) use rm_r::rm_r;
 pub(crate) use upload_file::upload_file;
 
 /// Chunk size to use when working with Google Cloud Storage.

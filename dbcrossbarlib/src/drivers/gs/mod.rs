@@ -25,6 +25,16 @@ impl GsLocator {
     pub(crate) fn as_url(&self) -> &Url {
         &self.url
     }
+
+    /// Does this locator point at a `gs://` directory?
+    pub(crate) fn is_directory(&self) -> bool {
+        self.url.path().ends_with('/')
+    }
+
+    /// Does this locator point at a `gs://` CSV file?
+    pub(crate) fn is_csv_file(&self) -> bool {
+        self.url.path().to_ascii_lowercase().ends_with(".csv")
+    }
 }
 
 impl fmt::Display for GsLocator {
@@ -43,10 +53,13 @@ impl FromStr for GsLocator {
                 .with_context(|_| format!("cannot parse {}", s))?;
             if !url.path().starts_with('/') {
                 Err(format_err!("{} must start with gs://", url))
-            } else if !url.path().ends_with('/') {
-                Err(format_err!("{} must end with a '/'", url))
             } else {
-                Ok(GsLocator { url })
+                let locator = GsLocator { url };
+                if !locator.is_directory() && !locator.is_csv_file() {
+                    Err(format_err!("{} must end with a '/' or '.csv'", locator))
+                } else {
+                    Ok(locator)
+                }
             }
         } else {
             Err(format_err!("expected {} to begin with gs://", s))
@@ -75,14 +88,18 @@ impl Locator for GsLocator {
         shared_args: SharedArguments<Unverified>,
         dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<BoxStream<BoxFuture<BoxLocator>>> {
-        write_local_data_helper(ctx, self.url.clone(), data, shared_args, dest_args)
+        write_local_data_helper(ctx, self.clone(), data, shared_args, dest_args)
             .boxed()
     }
 
     fn supports_write_remote_data(&self, source: &dyn Locator) -> bool {
-        // We can only do `write_remote_data` if `source` is a `BigQueryLocator`.
-        // Otherwise, we need to do `write_local_data` like normal.
-        source.as_any().is::<BigQueryLocator>()
+        // We can only do `write_remote_data` if `source` is a
+        // `BigQueryLocator`. Otherwise, we need to do `write_local_data` like
+        // normal.
+        //
+        // Also, BigQuery can only write directories of CSV files, so if we're
+        // not pointed to a directory, don't use remote operations.
+        source.as_any().is::<BigQueryLocator>() && self.is_directory()
     }
 
     fn write_remote_data(

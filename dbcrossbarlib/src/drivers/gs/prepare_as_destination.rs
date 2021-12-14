@@ -11,7 +11,7 @@ pub(crate) async fn prepare_as_destination_helper(
 ) -> Result<()> {
     // Delete the existing output, if it exists.
     if if_exists == IfExists::Overwrite {
-        storage::rmdir(&ctx, &gs_url).await?;
+        storage::rm_r(&ctx, &gs_url).await?;
         Ok(())
     } else {
         Err(format_err!(

@@ -1,7 +1,7 @@
 //! Implementation of `GsLocator::write_remote_data`.
 
 use super::{prepare_as_destination_helper, GsLocator};
-use crate::clouds::gcloud::bigquery;
+use crate::clouds::gcloud::{bigquery, storage};
 use crate::common::*;
 use crate::drivers::{
     bigquery::BigQueryLocator,
@@ -66,7 +66,7 @@ pub(crate) async fn write_remote_data_helper(
     // We need to build a temporary export table.
     let temp_table_name = source_table
         .name()
-        .temporary_table_name(&temporary_storage)?;
+        .temporary_table_name(temporary_storage)?;
     let mut export_sql_data = vec![];
     real_source_table.write_export_sql(&source_args, &mut export_sql_data)?;
     let export_sql =
@@ -85,13 +85,34 @@ pub(crate) async fn write_remote_data_helper(
     .await?;
 
     // Delete the existing output, if it exists.
-    prepare_as_destination_helper(ctx.clone(), dest.as_url().to_owned(), if_exists)
-        .await?;
+    prepare_as_destination_helper(
+        ctx.clone(),
+        dest.as_url().to_owned(),
+        if_exists.clone(),
+    )
+    .await?;
 
     // Build and run a `bq extract` command.
     bigquery::extract(&ctx, &temp_table_name, dest.as_url(), &job_labels).await?;
 
     // Delete temp table.
     bigquery::drop_table(&ctx, &temp_table_name, &job_labels).await?;
-    Ok(vec![dest.boxed()])
+
+    // List the files in that bucket and return them, at least in
+    // `IfExists::Overwrite` mode, where we know we created them (barring race
+    // conditions).
+    if if_exists == IfExists::Overwrite {
+        let mut storage_object_stream = storage::ls(&ctx, &dest.url).await?;
+        let mut dest_urls = vec![];
+        while let Some(storage_object) = storage_object_stream.next().await {
+            let storage_object = storage_object?;
+            let locator = storage_object.to_url_string().parse::<GsLocator>()?;
+            dest_urls.push(locator.boxed());
+        }
+        Ok(dest_urls)
+    } else {
+        // This is probably not the perfect thing to do here, but at least it's
+        // backwards compatible.
+        Ok(vec![dest.boxed()])
+    }
 }
