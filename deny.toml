@@ -2,6 +2,19 @@
 #
 # These policies can be enforced using `cargo deny check`.
 
+[advisories]
+ignore = [
+    # Ignore a nasty `localtime_r` and `setenv` race condition which can
+    # segfault if we try to read the localtime while someone is setting an env
+    # var.
+    #
+    # This can probably be fixed once
+    # https://github.com/chronotope/chrono/issues/602 has been addressed.
+    "RUSTSEC-2020-0159",
+    # Also `localtime_r`.
+    "RUSTSEC-2020-0071",
+]
+
 [licenses]
 # Don't allow code with an unclear license.
 unlicensed = "deny"
@@ -31,6 +44,14 @@ expression = "ISC AND OpenSSL AND MIT"
 license-files = [
     { path = "LICENSE", hash = 3171872035 },
 ]
+
+[[licenses.clarify]]
+name = "encoding_rs"
+expression = "(MIT OR Apache-2.0) AND BSD-3-Clause AND CC0-1.0"
+license-files = [
+    { path = "COPYRIGHT", hash = 972598577 },
+]
+
 
 [bans]
 # Warn about multiple versions of the same crate, unless we've indicated otherwise below.
