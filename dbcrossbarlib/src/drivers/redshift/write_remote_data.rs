@@ -56,7 +56,7 @@ pub(crate) async fn write_remote_data_helper(
         &ctx,
         CheckCatalog::from(&if_exists),
         dest.url(),
-        &table_name,
+        table_name,
         schema,
     )
     .await?;
@@ -81,7 +81,7 @@ pub(crate) async fn write_remote_data_helper(
         )
         .await?;
     } else {
-        copy_in(&ctx, &client, &source_url, &table_name, &to_args).await?;
+        copy_in(&ctx, &client, &source_url, table_name, &to_args).await?;
     }
 
     Ok(vec![dest.boxed()])
@@ -129,7 +129,7 @@ async fn upsert_from_temp_table(
 ) -> Result<()> {
     let transaction = client.transaction().await?;
 
-    let upsert_sql = upsert_sql(&temp_table, &dest_table, upsert_keys)?;
+    let upsert_sql = upsert_sql(temp_table, dest_table, upsert_keys)?;
     for (idx, sql) in upsert_sql.iter().enumerate() {
         debug!(
             ctx.log(),
@@ -168,7 +168,7 @@ fn upsert_sql(
         .map(|k| {
             format!(
                 "{dest_table}.{name} = {temp_table}.{name}",
-                name = Ident(&k),
+                name = Ident(k),
                 dest_table = dest_table_name,
                 temp_table = temp_table_name,
             )
@@ -188,7 +188,7 @@ WHERE {keys_match}",
                 .iter()
                 .map(|k| format!(
                     "{name} = {temp_table}.{name}",
-                    name = Ident(&k),
+                    name = Ident(k),
                     temp_table = temp_table_name,
                 ))
                 .join(",\n    "),

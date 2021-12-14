@@ -177,7 +177,7 @@ pub(crate) async fn write_local_data_helper(
                 bigml_dest_args.optype_for_text.unwrap_or(Optype::Text);
             let update = source.calculate_column_type_fix(&schema, optype_for_text)?;
             trace!(ctx.log(), "updating source with {:?}", update);
-            client.update(&source.id(), &update).await?;
+            client.update(source.id(), &update).await?;
             trace!(ctx.log(), "waiting for source to be ready (again)");
             source = client.wait(source.id()).await?;
 

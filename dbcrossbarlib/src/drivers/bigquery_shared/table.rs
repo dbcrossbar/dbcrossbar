@@ -124,7 +124,7 @@ impl BqTable {
                 .iter()
                 .map(|c| -> Result<BqColumn> {
                     if let Some(&col) = column_map.get(&c.name) {
-                        col.aligned_with(&c)
+                        col.aligned_with(c)
                     } else {
                         Err(format_err!(
                             "could not find column {} in BigQuery table {}",

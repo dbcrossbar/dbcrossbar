@@ -44,7 +44,7 @@ fn write_row<W: Write>(
     for col in &schema.table.columns {
         let value = obj.get(&col.name).unwrap_or(&Value::Null);
         buffer.clear();
-        write_json_value(buffer, schema, &col.data_type, &value)?;
+        write_json_value(buffer, schema, &col.data_type, value)?;
         if !col.is_nullable && buffer.is_empty() {
             return Err(format_err!(
                 "unexpected NULL value in column {:?}",

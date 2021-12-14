@@ -39,7 +39,7 @@ impl OptypeExt for Optype {
             DataType::Json => Ok(Optype::Text),
             DataType::Named(name) => {
                 let ty = schema.data_type_for_name(name);
-                Optype::for_data_type(schema, &ty, optype_for_text)
+                Optype::for_data_type(schema, ty, optype_for_text)
             }
             DataType::OneOf(_) => Ok(Optype::Categorical),
             DataType::Struct(_) => Ok(Optype::Text),

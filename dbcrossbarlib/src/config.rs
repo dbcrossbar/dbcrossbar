@@ -269,13 +269,13 @@ fn temporaries_can_be_added_and_removed() {
         .tempfile()
         .unwrap();
     let path = temp.path();
-    let mut config = Configuration::from_path(&path).unwrap();
+    let mut config = Configuration::from_path(path).unwrap();
     let key = Key::global("temporary");
     assert_eq!(config.temporaries().unwrap(), Vec::<String>::new());
     config.add_to_string_array(&key, "s3://example/").unwrap();
     assert_eq!(config.temporaries().unwrap(), &["s3://example/".to_owned()]);
     config.write().unwrap();
-    config = Configuration::from_path(&path).unwrap();
+    config = Configuration::from_path(path).unwrap();
     assert_eq!(config.temporaries().unwrap(), &["s3://example/".to_owned()]);
     config
         .remove_from_string_array(&key, "s3://example/")

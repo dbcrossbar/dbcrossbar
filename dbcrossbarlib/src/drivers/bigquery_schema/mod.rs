@@ -78,7 +78,7 @@ async fn schema_helper(
         .with_context(|_| format!("error parsing {}", source.path))?;
 
     // Build a `BqTable`, convert it, and set a placeholder name.
-    let arbitrary_name = TableName::from_str(&"unused:unused.unused")?;
+    let arbitrary_name = TableName::from_str("unused:unused.unused")?;
     let bq_table = BqTable {
         name: arbitrary_name,
         columns,
@@ -99,7 +99,7 @@ async fn write_schema_helper(
     // won't use it. We could convert `table.name` into a valid BigQuery table
     // name, but because BigQuery table names obey fairly strict restrictions,
     // it's not worth doing the work if we're just going throw it away.
-    let arbitrary_name = TableName::from_str(&"unused:unused.unused")?;
+    let arbitrary_name = TableName::from_str("unused:unused.unused")?;
 
     // Convert our schema to a BigQuery table.
     let bq_table = BqTable::for_table_name_and_columns(

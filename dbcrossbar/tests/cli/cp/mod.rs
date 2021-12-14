@@ -161,12 +161,12 @@ pub(crate) fn assert_cp_to_exact_csv(test_name: &str, locator: &str) {
             &format!("--temporary={}", gs_temp_dir),
             &format!("--temporary={}", bq_temp_ds),
             &format!("--schema=postgres-sql:{}", schema.display()),
-            &actual_locator,
+            actual_locator,
             "csv:-",
         ])
         .tee_output()
         .expect_success();
-    let actual = normalize_csv_data(&output.stdout_str());
+    let actual = normalize_csv_data(output.stdout_str());
 
     let expected = normalize_csv_data(
         &fs::read_to_string(&src).expect("could not read expected output"),

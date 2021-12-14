@@ -457,7 +457,7 @@ impl ToDataType for Type {
 
             TypeDetails::Number => Ok(DataType::Float64),
 
-            TypeDetails::Ref(id) => source_file.identifier_to_data_type(&id),
+            TypeDetails::Ref(id) => source_file.identifier_to_data_type(id),
 
             TypeDetails::String => Ok(DataType::Text),
 

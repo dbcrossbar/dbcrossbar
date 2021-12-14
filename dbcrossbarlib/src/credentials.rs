@@ -280,11 +280,11 @@ impl CredentialsSource for EnvCredentialsSource {
             data.insert(self.mapping[0].key.to_owned(), value);
             for m in &self.mapping[1..] {
                 if m.optional {
-                    if let Some(value) = try_var(&m.var)? {
+                    if let Some(value) = try_var(m.var)? {
                         data.insert(m.key.to_owned(), value);
                     }
                 } else {
-                    data.insert(m.key.to_owned(), var(&m.var)?);
+                    data.insert(m.key.to_owned(), var(m.var)?);
                 }
             }
             Ok(Some(Credentials {

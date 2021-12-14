@@ -177,7 +177,7 @@ async fn copy_from_stream<'a>(
     stream: BoxStream<BytesMut>,
 ) -> Result<()> {
     debug!(ctx.log(), "copying data into {:?}", dest.name);
-    let copy_from_sql = copy_from_sql(&dest, "BINARY")?;
+    let copy_from_sql = copy_from_sql(dest, "BINARY")?;
     let stmt = client.prepare(&copy_from_sql).await?;
     let sink = client
         .copy_in::<_, BytesMut>(&stmt)
@@ -249,7 +249,7 @@ DO UPDATE SET
         key_columns = upsert_keys.iter().map(|k| Ident(k)).join(", "),
         value_updates = value_keys
             .iter()
-            .map(|vk| format!("{name} = EXCLUDED.{name}", name = Ident(&vk)))
+            .map(|vk| format!("{name} = EXCLUDED.{name}", name = Ident(vk)))
             .join(",\n    "),
     ))
 }
@@ -366,7 +366,7 @@ pub(crate) async fn write_local_data_helper(
                             &mut client,
                             &temp_table,
                             dest_schema.table()?,
-                            &cols,
+                            cols,
                         )
                         .await?;
 

@@ -313,7 +313,7 @@ AS ((
     ) -> Result<()> {
         match &self.bq_data_type()? {
             // Some types need a custom export function.
-            ty if needs_custom_json_export(&ty)?.in_sql_code() => {
+            ty if needs_custom_json_export(ty)?.in_sql_code() => {
                 write!(
                     f,
                     "ExportJson_{idx}({name}) AS {name}",

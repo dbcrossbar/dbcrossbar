@@ -50,13 +50,13 @@ pub(crate) async fn upload_file<'a>(
         if_generation_match: 0,
         name: object.clone(),
     };
-    let client = Client::new(&ctx).await?;
+    let client = Client::new(ctx).await?;
     client
         .post_stream(
             ctx.clone(),
             &url,
             query,
-            idiomatic_bytes_stream(&ctx, stream.boxed()),
+            idiomatic_bytes_stream(ctx, stream.boxed()),
         )
         .await?;
 
