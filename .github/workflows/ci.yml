@@ -1,0 +1,192 @@
+name: CI
+
+# Controls when the action will run. Triggers the workflow on push or pull
+# request events but only for the main branch.
+on:
+  push:
+    # Run on the main branch.
+    branches:
+      - main
+      - ci
+    tags:
+      - "v*"
+  pull_request:
+    # Only run on pull requests against main.
+    branches: [main]
+
+jobs:
+  # We run this job first, to create any GitHub release that we might need.
+  # Creating a release can only be done once, so we need to split it out from
+  # other jobs.
+  create_release:
+    name: Create release (if needed)
+    runs-on: ubuntu-latest
+    outputs:
+      release_version: ${{ steps.extract_release_version.outputs.release_version }}
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+      - name: Extract release version
+        id: extract_release_version
+        run: |
+          release_version="$(echo '${{ github.ref }}' | sed 's,^.*/\([^/]*\)$,\1,; s,^v,,' )"
+          echo Release version: $release_version
+          echo "::set-output name=release_version::$release_version"
+      - name: Extract release body from CHANGELOG.md
+        id: extract_release_body
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        # Use `clparse` to parse `CHANGELOG.md` and extract release notes.
+        run: |
+          curl -sLO https://github.com/marcaddeo/clparse/releases/download/0.8.0/clparse-0.8.0-x86_64-unknown-linux-musl.tar.gz
+          tar xzf clparse*.tar.gz
+          sudo cp clparse /usr/local/bin
+          rm -rf clparse*
+          clparse -f json CHANGELOG.md | \
+            jq ".releases[] | select(.version == \"${{ steps.extract_release_version.outputs.release_version }}\") | { title: \"\", description: \"\", releases: [.] }" | \
+            clparse - | \
+            tail -n +3 > RELEASE_BODY.md
+      - name: "Make release"
+        id: create_release
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: "${{ steps.extract_release_version.outputs.release_version }}"
+          body_path: RELEASE_BODY.md
+
+  # We use a matrix to run our build on every supported platform.
+  build:
+    name: "Build"
+
+    needs:
+      - create_release
+
+    strategy:
+      matrix:
+        # target: Official name of system to compile for.
+        # host: Official name of system doing the compiling.
+        # cargo: Should we use regular cargo, or the cross wrapper for cross-compiling?
+        # os: GitHub CI OS image to use on runner.
+        include:
+          - target: x86_64-unknown-linux-musl
+            host: x86_64-unknown-linux-musl
+            cargo: cross
+            os: ubuntu-latest
+          - target: x86_64-apple-darwin
+            host: x86_64-apple-darwin
+            cargo: cargo
+            os: macos-latest
+          - target: aarch64-apple-darwin
+            host: x86_64-apple-darwin
+            cargo: cargo
+            os: macos-latest
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          # We track latest stable Rust instead of hardcoding it because it
+          # virtually never breaks old code.
+          toolchain: stable
+          components: rustfmt, clippy
+          target: ${{ matrix.target }}
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+      - name: Check source formatting and warnings
+        run: |
+          cargo fmt -- --check
+          cargo clippy -- -D warnings
+      - name: Check policy
+        run: |
+          version=0.11.0
+          basename=cargo-deny-$version-${{ matrix.host }}
+          curl -fLO https://github.com/EmbarkStudios/cargo-deny/releases/download/$version/$basename.tar.gz
+          tar xf $basename.tar.gz
+          mv $basename/cargo-deny /usr/local/bin/
+          rm -rf $basename $basename.tar.gz
+          cargo deny check
+      - name: Test
+        run: |
+          cargo test
+      - name: Install cargo cross (if needed)
+        if: ${{ matrix.cargo == 'cross' }}
+        # Note that this will not work for Rust programs using openssl or libpq.
+        run: |
+          version=v0.2.1
+          basename=cross-$version-${{ matrix.host }}
+          curl -fLO https://github.com/rust-embedded/cross/releases/download/$version/$basename.tar.gz
+          tar xf $basename.tar.gz
+          mv cross /usr/local/bin/
+          rm -rf $basename.tar.gz
+      - name: Build binaries
+        run: |
+          ${{ matrix.cargo }} build --release --target ${{ matrix.target }}
+      # If we have a code-signing identity, we could use it like this.
+      #
+      # - name: Sign binaries (if needed)
+      #   if: ${{ contains(matrix.target, 'apple') }}
+      #   run: |
+      #     codesign --force -s $YOUR_IDENTITY_HERE target/${{ matrix.target }}/release/dbcrossbar
+      - name: Build release
+        id: build_release
+        run: |
+          release_file=dbcrossbar_${{ needs.create_release.outputs.release_version }}_${{ matrix.target }}.zip
+          zip -j $release_file target/${{ matrix.target }}/release/dbcrossbar
+          echo "::set-output name=release_file::$release_file"
+      - name: Upload Release Asset
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ./${{ steps.build_release.outputs.release_file }}
+          asset_name: ${{ steps.build_release.outputs.release_file }}
+          asset_content_type: application/zip
+
+  # Build our dbcrossbar guide using mdbook.
+  guide:
+    name: "Guide"
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Graphviz
+        uses: ts-graphviz/setup-graphviz@v1
+
+      - name: Install mdbook
+        run: |
+          mdbook_vers=v0.4.14
+          mdbook_basename=mdbook-$mdbook_vers-x86_64-unknown-linux-gnu
+          curl -fLO https://github.com/rust-lang/mdBook/releases/download/$mdbook_vers/$mdbook_basename.tar.gz
+          tar xf $mdbook_basename.tar.gz
+          mv mdbook /usr/local/bin/
+          rm -rf $mdbook_basename.tar.gz
+
+      - name: Install mdbook-graphviz
+        run: |
+          mdbook_graphviz_vers=v0.1.3
+          mdbook_graphviz_basename=mdbook-graphviz_${mdbook_graphviz_vers}_x86_64-unknown-linux-musl
+          curl -fLO https://github.com/dylanowen/mdbook-graphviz/releases/download/$mdbook_graphviz_vers/$mdbook_graphviz_basename.zip
+          unzip $mdbook_graphviz_basename.zip
+          mv mdbook-graphviz /usr/local/bin/
+          rm -rf $mdbook_graphviz_basename.zip
+
+      - name: Build guide
+        run: |
+          mdbook build guide
+
+      - name: Publish guide
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        uses: JamesIves/github-pages-deploy-action@4.1.7
+        with:
+          branch: gh-pages
+          folder: guide/book
