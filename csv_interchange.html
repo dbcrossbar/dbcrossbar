@@ -5,8 +5,6 @@
     <!-- Book generated using mdBook -->
     <meta charset="UTF-8">
     <title>CSV interchange format - Using dbcrossbar</title>
-    
-
     <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
     <meta name="description" content="dbcrossbar copies tabular data between PostgreSQL, BigQuery, CSV and many other databases and formats.">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -44,9 +42,6 @@
     <link rel="stylesheet" href="ayu-highlight.css">
 
     <!-- Custom theme stylesheets -->
-    
-
-    
 </head>
 
 <body>
@@ -106,7 +101,6 @@
     <div id="page-wrapper" class="page-wrapper">
 
         <div class="page">
-            
             <div id="menu-bar-hover-placeholder"></div>
             <div id="menu-bar" class="menu-bar sticky bordered">
                 <div class="left-buttons">
@@ -130,13 +124,11 @@
                         <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button>
                         </li>
                     </ul>
-                    
                     <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)"
                         aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S"
                         aria-controls="searchbar">
                         <i class="fa fa-search"></i>
                     </button>
-                    
                 </div>
 
                 <h1 class="menu-title">Using dbcrossbar</h1>
@@ -145,15 +137,12 @@
                     <a href="print.html" title="Print this book" aria-label="Print this book">
                         <i id="print-button" class="fa fa-print"></i>
                     </a>
-                    
                     <a href="https://github.com/dbcrossbar/dbcrossbar" title="Git repository" aria-label="Git repository">
                         <i id="git-repository-button" class="fa fa-github"></i>
                     </a>
-                    
                 </div>
             </div>
 
-            
             <div id="search-wrapper" class="hidden">
                 <form id="searchbar-outer" class="searchbar-outer">
                     <input type="search" name="search" id="searchbar" name="searchbar"
@@ -166,8 +155,6 @@
                     </ul>
                 </div>
             </div>
-            
-
             <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
             <script type="text/javascript">
                 document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
@@ -179,7 +166,7 @@
 
             <div id="content" class="content">
                 <main>
-                    <h1><a class="header" href="#csv-interchange-format" id="csv-interchange-format">CSV interchange format</a></h1>
+                    <h1 id="csv-interchange-format"><a class="header" href="#csv-interchange-format">CSV interchange format</a></h1>
 <p>Internally, <code>dbcrossbar</code> converts all data into CSV streams. For many standard types, all input drivers are required to provide byte-for-byte identical CSV data:</p>
 <pre><code class="language-csv">id,test_bool,test_date,test_int16,test_int32,test_int64,test_text,test_timestamp_without_time_zone,test_timestamp_with_time_zone,test_uuid,select,testCapitalized,test_enum
 1,t,1969-07-20,-32768,-2147483648,-9223372036854775808,hello,1969-07-20T20:17:39,1969-07-20T20:17:39Z,084ec3bb-3193-4ffb-8b74-99a288e8432c,,,red
@@ -190,7 +177,7 @@
 <pre><code class="language-csv">test_null,test_not_null,test_bool,test_bool_array,test_date,test_date_array,test_float32,test_float32_array,test_float64,test_float64_array,test_geojson,test_geojson_3857,test_int16,test_int16_array,test_int32,test_int32_array,test_int64,test_int64_array,test_json,test_text,test_text_array,test_timestamp_without_time_zone,test_timestamp_without_time_zone_array,test_timestamp_with_time_zone,test_timestamp_with_time_zone_array,test_uuid,test_uuid_array,test_enum
 ,hi,t,&quot;[true,false]&quot;,1969-07-20,&quot;[&quot;&quot;1969-07-20&quot;&quot;]&quot;,1e+37,&quot;[1e-37,0,100.125,1e+37]&quot;,1e+37,&quot;[1e-37,0,1000.125,1e+37]&quot;,&quot;{&quot;&quot;type&quot;&quot;:&quot;&quot;Point&quot;&quot;,&quot;&quot;coordinates&quot;&quot;:[-71,42]}&quot;,&quot;{&quot;&quot;type&quot;&quot;:&quot;&quot;Point&quot;&quot;,&quot;&quot;coordinates&quot;&quot;:[-71,42]}&quot;,16,&quot;[-32768,0,32767]&quot;,32,&quot;[-2147483648,0,2147483647]&quot;,64,&quot;[&quot;&quot;-9223372036854775808&quot;&quot;,&quot;&quot;0&quot;&quot;,&quot;&quot;9223372036854775807&quot;&quot;]&quot;,&quot;{&quot;&quot;x&quot;&quot;: 1, &quot;&quot;y&quot;&quot;: 2}&quot;,hello,&quot;[&quot;&quot;hello&quot;&quot;,&quot;&quot;&quot;&quot;]&quot;,1969-07-20T20:17:39.5,&quot;[&quot;&quot;1969-07-20T20:17:39.5&quot;&quot;]&quot;,1969-07-20T20:17:39.5Z,&quot;[&quot;&quot;1969-07-20T20:17:39.5Z&quot;&quot;]&quot;,084ec3bb-3193-4ffb-8b74-99a288e8432c,&quot;[&quot;&quot;084ec3bb-3193-4ffb-8b74-99a288e8432c&quot;&quot;]&quot;,red
 </code></pre>
-<h2><a class="header" href="#tricks-for-preparing-csv-data" id="tricks-for-preparing-csv-data">Tricks for preparing CSV data</a></h2>
+<h2 id="tricks-for-preparing-csv-data"><a class="header" href="#tricks-for-preparing-csv-data">Tricks for preparing CSV data</a></h2>
 <p>If your input CSV files use an incompatible format, there are several things that might help. If your CSV files are invalid, non-standard, or full of junk, then you may be able to use <a href="https://github.com/faradayio/scrubcsv"><code>scrubcsv</code></a> or <a href="https://github.com/BurntSushi/xsv"><code>xsv</code></a> to fix the worst problems.</p>
 <p>If you need to clean up your data manually, then you may want to consider using <code>dbcrossbar</code> to load your data into BigQuery, and set your columns to type <code>STRING</code>. Once this is done, you can parse and normalize your data quickly using SQL queries.</p>
 
@@ -198,68 +185,40 @@
 
                 <nav class="nav-wrapper" aria-label="Page navigation">
                     <!-- Mobile navigation buttons -->
-                    
                     <a rel="prev" href="how.html" class="mobile-nav-chapters previous"
                         title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
-                    
-
-                    
                     <a rel="next" href="schema.html" class="mobile-nav-chapters next"
                         title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
-                    
-
                     <div style="clear: both"></div>
                 </nav>
             </div>
         </div>
 
         <nav class="nav-wide-wrapper" aria-label="Page navigation">
-            
             <a rel="prev" href="how.html" class="nav-chapters previous" title="Previous chapter"
                 aria-label="Previous chapter" aria-keyshortcuts="Left">
                 <i class="fa fa-angle-left"></i>
             </a>
-            
-
-            
             <a rel="next" href="schema.html" class="nav-chapters next" title="Next chapter"
                 aria-label="Next chapter" aria-keyshortcuts="Right">
                 <i class="fa fa-angle-right"></i>
             </a>
-            
         </nav>
 
     </div>
 
-    
-
-    
-
-    
-
-    
-
-    
-
-    
     <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
     <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
     <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
-    
-
     <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
     <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
     <script src="book.js" type="text/javascript" charset="utf-8"></script>
 
     <!-- Custom JS scripts -->
-    
-
-    
-
 </body>
 
 </html>

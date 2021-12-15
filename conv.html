@@ -5,8 +5,6 @@
     <!-- Book generated using mdBook -->
     <meta charset="UTF-8">
     <title>schema conv: Transforming schemas - Using dbcrossbar</title>
-    
-
     <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
     <meta name="description" content="dbcrossbar copies tabular data between PostgreSQL, BigQuery, CSV and many other databases and formats.">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -44,9 +42,6 @@
     <link rel="stylesheet" href="ayu-highlight.css">
 
     <!-- Custom theme stylesheets -->
-    
-
-    
 </head>
 
 <body>
@@ -106,7 +101,6 @@
     <div id="page-wrapper" class="page-wrapper">
 
         <div class="page">
-            
             <div id="menu-bar-hover-placeholder"></div>
             <div id="menu-bar" class="menu-bar sticky bordered">
                 <div class="left-buttons">
@@ -130,13 +124,11 @@
                         <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button>
                         </li>
                     </ul>
-                    
                     <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)"
                         aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S"
                         aria-controls="searchbar">
                         <i class="fa fa-search"></i>
                     </button>
-                    
                 </div>
 
                 <h1 class="menu-title">Using dbcrossbar</h1>
@@ -145,15 +137,12 @@
                     <a href="print.html" title="Print this book" aria-label="Print this book">
                         <i id="print-button" class="fa fa-print"></i>
                     </a>
-                    
                     <a href="https://github.com/dbcrossbar/dbcrossbar" title="Git repository" aria-label="Git repository">
                         <i id="git-repository-button" class="fa fa-github"></i>
                     </a>
-                    
                 </div>
             </div>
 
-            
             <div id="search-wrapper" class="hidden">
                 <form id="searchbar-outer" class="searchbar-outer">
                     <input type="search" name="search" id="searchbar" name="searchbar"
@@ -166,8 +155,6 @@
                     </ul>
                 </div>
             </div>
-            
-
             <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
             <script type="text/javascript">
                 document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
@@ -179,7 +166,7 @@
 
             <div id="content" class="content">
                 <main>
-                    <h1><a class="header" href="#schema-conv-transforming-schemas" id="schema-conv-transforming-schemas"><code>schema conv</code>: Transforming schemas</a></h1>
+                    <h1 id="schema-conv-transforming-schemas"><a class="header" href="#schema-conv-transforming-schemas"><code>schema conv</code>: Transforming schemas</a></h1>
 <p>The <code>schema conv</code> command can be used to convert between different database schemas. To convert from a PostgreSQL <code>CREATE TABLE</code> statement to a BigQuery schema, run:</p>
 <pre><code class="language-sh">dbcrossbar schema conv postgres-sql:table.sql bigquery-schema:table.json
 </code></pre>
@@ -187,7 +174,7 @@
 <pre><code class="language-sh">dbcrossbar schema conv csv:data.csv postgres-sql:table.sql
 </code></pre>
 <p>This can then be edited to specify appropriate column types.</p>
-<h2><a class="header" href="#command-line-help" id="command-line-help">Command-line help</a></h2>
+<h2 id="command-line-help"><a class="header" href="#command-line-help">Command-line help</a></h2>
 <pre><code class="language-txt">Convert table schemas from one format to another
 
 USAGE:
@@ -216,68 +203,40 @@ EXAMPLE LOCATORS:
 
                 <nav class="nav-wrapper" aria-label="Page navigation">
                     <!-- Mobile navigation buttons -->
-                    
                     <a rel="prev" href="count.html" class="mobile-nav-chapters previous"
                         title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
-                    
-
-                    
                     <a rel="next" href="drivers.html" class="mobile-nav-chapters next"
                         title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
-                    
-
                     <div style="clear: both"></div>
                 </nav>
             </div>
         </div>
 
         <nav class="nav-wide-wrapper" aria-label="Page navigation">
-            
             <a rel="prev" href="count.html" class="nav-chapters previous" title="Previous chapter"
                 aria-label="Previous chapter" aria-keyshortcuts="Left">
                 <i class="fa fa-angle-left"></i>
             </a>
-            
-
-            
             <a rel="next" href="drivers.html" class="nav-chapters next" title="Next chapter"
                 aria-label="Next chapter" aria-keyshortcuts="Right">
                 <i class="fa fa-angle-right"></i>
             </a>
-            
         </nav>
 
     </div>
 
-    
-
-    
-
-    
-
-    
-
-    
-
-    
     <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
     <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
     <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
-    
-
     <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
     <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
     <script src="book.js" type="text/javascript" charset="utf-8"></script>
 
     <!-- Custom JS scripts -->
-    
-
-    
-
 </body>
 
 </html>
