@@ -1,13 +1,12 @@
 //! Code shared between various PostgreSQL-related drivers.
 
 use failure::Fail;
-use native_tls::TlsConnector;
-use postgres_native_tls::MakeTlsConnector;
 use std::{fmt, str::FromStr};
 pub use tokio_postgres::Client;
 use tokio_postgres::Config;
 
 use crate::common::*;
+use crate::tls::rustls_client_config;
 
 mod catalog;
 mod column;
@@ -33,11 +32,14 @@ pub(crate) async fn connect(
     // Build a basic config from our URL args.
     let config = Config::from_str(base_url.with_password().as_str())
         .context("could not configure PostgreSQL connection")?;
-    let tls_connector = TlsConnector::builder()
-        .build()
-        .context("could not build PostgreSQL TLS connector")?;
+
+    // Set up RusTLS.
+    let tls_config = rustls_client_config(&ctx)?;
+    let tls = tokio_postgres_rustls::MakeRustlsConnect::new(tls_config);
+
+    // Actually create our PostgreSQL client and connect.
     let (client, connection) = config
-        .connect(MakeTlsConnector::new(tls_connector))
+        .connect(tls)
         .await
         .context("could not connect to PostgreSQL")?;
 

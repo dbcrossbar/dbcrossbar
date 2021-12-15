@@ -16,10 +16,6 @@
 // We handle this using `cargo deny` instead.
 #![allow(clippy::multiple_crate_versions)]
 
-// Needed to prevent linker errors about OpenSSL.
-#[allow(unused_extern_crates)]
-extern crate openssl;
-
 // Pull in all of `tokio`'s experimental `async` and `await` support.
 #[macro_use]
 #[allow(unused_imports)]
@@ -60,6 +56,18 @@ fn run() -> Result<()> {
         .build()
         .fuse();
     let log = logging::global_logger_with_extra_values(drain, &opt.log_extra)?;
+
+    // Log our SSL cert dir, which we set up above.
+    debug!(
+        log,
+        "SSL_CERT_DIR: {:?}",
+        std::env::var("SSL_CERT_DIR").ok()
+    );
+    debug!(
+        log,
+        "SSL_CERT_FILE: {:?}",
+        std::env::var("SSL_CERT_FILE").ok()
+    );
 
     // Set up an execution context for our background workers, if any. The `ctx`
     // must be passed to all our background operations. The `worker_fut` will

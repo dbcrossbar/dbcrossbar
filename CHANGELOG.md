@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` crate is an internal-only dependency with no versioning policy at this time.)
 
+## Unreleased
+
+### Added
+
+- We provide MacOS X binaries for the new M1 processors. These are unsigned, like our existing Apple Intel binaries. So you'll need to continue to use `xattr -d com.apple.quarantine dbcrossbar` or a similar technique to run them. Or you could build your own binaries.
+
+### Changed
+
+- Our downloadable `*.zip` files follow a new naming convention, allowing us to distinguish between Intel and M1 Macs.
+- OpenSSL has been completely removed from `dbcrossbar`, allowing us to support more platforms. This will also allow us to eventually centralize TLS configuration across all `dbcrossbar` drivers.
+
+### Removed
+
+- We no longer support hosted Citus from Citus Data, because their TLS certificates do not include `subjectAltName`, which is [required by the `rustls` library](https://github.com/briansmith/webpki/issues/11). Citus Data will be shutting down shortly, so we recommend keeping around an older `dbcrossbar` for a few more weeks if you need to talk to them.
+
 ## 0.5.0-alpha.3 - 2021-12-14
 
 ### Added
