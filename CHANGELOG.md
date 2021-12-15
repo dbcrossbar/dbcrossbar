@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` crate is an internal-only dependency with no versioning policy at this time.)
 
-## 0.5.0-beta.1 - 2021-12-15
+## [0.5.0-beta.1] - 2021-12-15
 
 ### Added
 
@@ -19,7 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - We no longer support hosted Citus from Citus Data, because their TLS certificates do not include `subjectAltName`, which is [required by the `rustls` library](https://github.com/briansmith/webpki/issues/11). Citus Data will be shutting down shortly, so we recommend keeping around an older `dbcrossbar` for a few more weeks if you need to talk to them.
 
-## 0.5.0-alpha.3 - 2021-12-14
+## [0.5.0-alpha.3] - 2021-12-14
 
 ### Added
 
@@ -33,13 +33,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - Updated many dependencies, fixing several CVEs (none known to be meaningfully exploitable in typical use cases), and possibly some library bugs.
 
-## 0.5.0-alpha.2 - 2021-04-27
+## [0.5.0-alpha.2] - 2021-04-27
 
 ### Fixed
 
 - bigml: Always map columns with a `one-of` type (aka `CREATE ENUM`) to BigML `categorical` columns.
 
-## 0.5.0-alpha.1 - 2021-03-04
+## [0.5.0-alpha.1] - 2021-03-04
 
 This release contains a breaking change to the `dbcrossbar-schema` output format to enable supporting named types and enumeration types. See below.
 
@@ -221,7 +221,7 @@ This release contains a last few breaking changes that we want to include before
 - Rename `dbcrossbar conv` to `dbcrossbar schema conv`.
 - s3: Require `AWS_DEFAULT_REGION` instead of optionally using `AWS_REGION`. This is more compatiable with the `aws` CLI command, and it doesn't rely on undocumented region defaults or `aws` configuration files.
 
-### Documented
+### Added
 
 - Document our portable schema format.
 - Document schema-only drivers.
