@@ -34,7 +34,7 @@ pub(crate) async fn connect(
         .context("could not configure PostgreSQL connection")?;
 
     // Set up RusTLS.
-    let tls_config = rustls_client_config(&ctx)?;
+    let tls_config = rustls_client_config(ctx)?;
     let tls = tokio_postgres_rustls::MakeRustlsConnect::new(tls_config);
 
     // Actually create our PostgreSQL client and connect.

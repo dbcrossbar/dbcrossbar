@@ -73,6 +73,7 @@ pub(crate) struct StorageObject {
     pub(crate) generation: i64,
     /// The generation number for this object's metadata.
     #[serde(deserialize_with = "deserialize_int::<'_, i64, _>")]
+    #[allow(dead_code)]
     pub(crate) metageneration: i64,
 }
 

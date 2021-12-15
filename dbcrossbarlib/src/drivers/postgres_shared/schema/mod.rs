@@ -96,7 +96,7 @@ impl PgSchema {
         let types = schema
             .named_data_types
             .values()
-            .map(|ty| PgCreateType::from_named_data_type(ty))
+            .map(PgCreateType::from_named_data_type)
             .collect::<Result<Vec<_>>>()?;
         let tables = vec![PgCreateTable::from_name_and_columns(
             schema,

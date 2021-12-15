@@ -9,7 +9,7 @@ use crate::common::*;
 ///
 /// We hope to be able to reuse this for multiple different types of TLS
 /// connections.
-pub(crate) fn rustls_client_config(ctx: &Context) -> Result<ClientConfig> {
+pub(crate) fn rustls_client_config(_ctx: &Context) -> Result<ClientConfig> {
     // Set up RusTLS.
     let mut root_store = RootCertStore::empty();
     for cert in load_native_certs().context("could not find system cert store")? {

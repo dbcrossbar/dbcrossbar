@@ -355,6 +355,7 @@ struct ErrorResponse {
 
 /// Information about a GCloud error.
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub(crate) struct GCloudError {
     pub(crate) code: i32,
     pub(crate) message: String,
@@ -372,6 +373,7 @@ impl error::Error for GCloudError {}
 /// Details about an individial GCloud error.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub(crate) struct ErrorDetail {
     pub(crate) domain: String,
     pub(crate) reason: String,

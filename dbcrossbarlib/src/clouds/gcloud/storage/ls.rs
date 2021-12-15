@@ -25,6 +25,7 @@ struct ListQuery<'a> {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ListResponse {
+    #[allow(dead_code)]
     kind: String,
 
     next_page_token: Option<String>,
