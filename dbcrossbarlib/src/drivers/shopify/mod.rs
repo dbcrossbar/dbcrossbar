@@ -25,7 +25,7 @@ impl ShopifyLocator {
             format!("https:{}", &self.url.as_str()[Self::scheme().len()..]);
         let https_url = https_str
             .parse::<Url>()
-            .with_context(|_| format_err!("could not set URL scheme for {}", self))?;
+            .with_context(|| format_err!("could not set URL scheme for {}", self))?;
         Ok(https_url)
     }
 }
@@ -54,7 +54,7 @@ impl FromStr for ShopifyLocator {
     fn from_str(s: &str) -> Result<Self> {
         let url = s
             .parse::<Url>()
-            .with_context(|_| format!("could not parse Shopify locator {:?}", s))?;
+            .with_context(|| format!("could not parse Shopify locator {:?}", s))?;
         if url.scheme() == "shopify" {
             Ok(ShopifyLocator { url })
         } else {

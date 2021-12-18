@@ -1,6 +1,4 @@
 //! Configuration file support.
-
-use failure::Fail;
 use std::{
     env, fmt,
     fs::{create_dir_all, File},
@@ -124,18 +122,15 @@ impl Configuration {
     /// Load the configuration file at `path`.
     pub(crate) fn from_path(path: &Path) -> Result<Self> {
         match File::open(&path) {
-            Ok(rdr) => {
-                Ok(Self::from_reader(path.to_owned(), rdr).with_context(|_| {
-                    format!("could not read file {}", path.display())
-                })?)
-            }
+            Ok(rdr) => Ok(Self::from_reader(path.to_owned(), rdr)
+                .with_context(|| format!("could not read file {}", path.display()))?),
             Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(Self {
                 path: path.to_owned(),
                 doc: Document::default(),
             }),
-            Err(err) => Err(err
-                .context(format!("could not open file {}", path.display()))
-                .into()),
+            Err(err) => {
+                Err(err).context(format!("could not open file {}", path.display()))
+            }
         }
     }
 
@@ -156,14 +151,14 @@ impl Configuration {
             format_err!("cannot find parent directory of {}", self.path.display())
         })?;
         create_dir_all(&parent)
-            .with_context(|_| format!("cannot create {}", parent.display()))?;
+            .with_context(|| format!("cannot create {}", parent.display()))?;
         let data = self.doc.to_string();
         let mut f = File::create(&self.path)
-            .with_context(|_| format!("cannot create {}", self.path.display()))?;
+            .with_context(|| format!("cannot create {}", self.path.display()))?;
         f.write_all(data.as_bytes())
-            .with_context(|_| format!("error writing to {}", self.path.display()))?;
+            .with_context(|| format!("error writing to {}", self.path.display()))?;
         f.flush()
-            .with_context(|_| format!("error writing to {}", self.path.display()))?;
+            .with_context(|| format!("error writing to {}", self.path.display()))?;
         Ok(())
     }
 

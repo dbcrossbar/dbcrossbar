@@ -109,7 +109,7 @@ async fn copy_in(
         credentials = to_args.credentials_sql()?,
     );
     let copy_stmt = client.prepare(&copy_sql).await?;
-    client.execute(&copy_stmt, &[]).await.with_context(|_| {
+    client.execute(&copy_stmt, &[]).await.with_context(|| {
         format!(
             "error copying to {} from {}",
             dest_table.quoted(),
@@ -138,7 +138,7 @@ async fn upsert_from_temp_table(
             upsert_sql.len(),
             sql,
         );
-        transaction.execute(&sql[..], &[]).await.with_context(|_| {
+        transaction.execute(&sql[..], &[]).await.with_context(|| {
             format!(
                 "error upserting into {} from {}",
                 dest_table.name.quoted(),
@@ -241,7 +241,7 @@ impl VerifyRedshiftCanImportFromCsv for Column {
     fn verify_redshift_can_import_from_csv(&self) -> Result<()> {
         self.data_type
             .verify_redshift_can_import_from_csv()
-            .with_context(|_| format!("cannot import column {:?}", self.name))?;
+            .with_context(|| format!("cannot import column {:?}", self.name))?;
         Ok(())
     }
 }

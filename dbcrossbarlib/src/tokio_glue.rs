@@ -81,7 +81,7 @@ where
                 .map_err(Error::from)
                 .context("error sending value to sink")?,
             Err(err) => {
-                return Err(err.context("error reading from stream").into());
+                return Err(err.context("error reading from stream"));
             }
         }
     }
@@ -313,10 +313,7 @@ impl Read for SyncStreamReader {
                 Some(Err(err)) => {
                     error!(self.ctx.log(), "error reading from stream: {}", err);
                     self.seen_error = true;
-                    return Err(io::Error::new(
-                        io::ErrorKind::Other,
-                        Box::new(err.compat()),
-                    ));
+                    return Err(io::Error::new(io::ErrorKind::Other, err));
                 }
             }
         }
@@ -356,38 +353,6 @@ where
     }
 }
 
-/// Create a new `tokio` runtime and use it to run `cmd_future` (which carries
-/// out whatever task we want to perform), and `worker_future` (which should
-/// have been created by `Context::create` or `Context::create_for_test`).
-///
-/// Return when at least one future has failed, or both futures have completed
-/// successfully.
-///
-/// This can be safely used from within a test, but it may only be called from a
-/// synchronous context.
-///
-/// If this hangs, make sure all `Context` values are getting dropped once the
-/// work is done.
-pub fn run_futures_with_runtime(
-    cmd_future: BoxFuture<()>,
-    worker_future: BoxFuture<()>,
-) -> Result<()> {
-    // Wait for both `cmd_fut` and `copy_fut` to finish, but bail out as soon
-    // as either returns an error. This involves some pretty deep `tokio` magic:
-    // If a background worker fails, then `copy_fut` will be automatically
-    // dropped, or vice vera.
-    let combined_fut = async move {
-        try_join!(cmd_future, worker_future)?;
-        let result: Result<()> = Ok(());
-        result
-    };
-
-    // Pass `combined_fut` to our `tokio` runtime, and wait for it to finish.
-    let runtime = tokio::runtime::Runtime::new().expect("Unable to create a runtime");
-    runtime.block_on(combined_fut.boxed())?;
-    Ok(())
-}
-
 /// Read all data from `input` and return it as bytes.
 pub(crate) async fn async_read_to_end<R>(mut input: R) -> Result<Vec<u8>>
 where
@@ -425,11 +390,11 @@ pub(crate) async fn write_to_stdin(
     child_stdin
         .write_all(data)
         .await
-        .with_context(|_| format!("error piping to `{}`", child_name))?;
+        .with_context(|| format!("error piping to `{}`", child_name))?;
     child_stdin
         .shutdown()
         .await
-        .with_context(|_| format!("error shutting down pipe to `{}`", child_name))?;
+        .with_context(|| format!("error shutting down pipe to `{}`", child_name))?;
     Ok(())
 }
 
@@ -544,8 +509,7 @@ pub(crate) fn idiomatic_bytes_stream(
     .boxed();
     ctx.spawn_worker(forwarder);
 
-    let stream = ReceiverStream::new(receiver).map_err(
-        |err| -> Box<dyn error::Error + Send + Sync> { Box::new(err.compat()) },
-    );
+    let stream = ReceiverStream::new(receiver)
+        .map_err(|err| -> Box<dyn error::Error + Send + Sync> { err.into() });
     Box::pin(stream)
 }

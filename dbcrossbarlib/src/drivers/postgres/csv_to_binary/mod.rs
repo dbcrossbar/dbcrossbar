@@ -92,7 +92,7 @@ pub(crate) fn copy_csv_to_pg_binary(
         // Write each of our rows. Using `zip` allows Rust to omit bounds
         // checks on the `row` and `columns` arrays.
         for (cell, col) in row.iter().zip(table.columns.iter()) {
-            cell_to_binary(&mut wtr, col, cell).with_context(|_| {
+            cell_to_binary(&mut wtr, col, cell).with_context(|| {
                 format!(
                     "could not convert row {}, column {} ({:?})",
                     row_idx + 1, // Add 1 for header row.

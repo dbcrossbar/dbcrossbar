@@ -55,7 +55,7 @@ pub(crate) mod transform;
 mod url_with_hidden_password;
 
 /// Standard error type for this library.
-pub use failure::Error;
+pub use anyhow::Error;
 
 /// Standard result type for this library.
 pub type Result<T, E = Error> = result::Result<T, E>;
@@ -73,7 +73,7 @@ pub use driver_args::DriverArguments;
 pub use if_exists::IfExists;
 pub use locator::{BoxLocator, DisplayOutputLocators, Locator, UnparsedLocator};
 pub use temporary_storage::TemporaryStorage;
-pub use tokio_glue::{run_futures_with_runtime, ConsumeWithParallelism};
+pub use tokio_glue::ConsumeWithParallelism;
 
 /// Definitions included by all the files in this crate.
 ///
@@ -85,10 +85,10 @@ pub(crate) mod common {
     // `big_enum_set` is more-or-less a drop-in replacement for `enumset`, but
     // it supports more bitflags and it fixes a dependency on private `syn`
     // APIs: https://github.com/Lymia/enumset/issues/17
+    pub(crate) use anyhow::{format_err, Context as _};
     pub(crate) use big_enum_set::{
         BigEnumSet as EnumSet, BigEnumSetType as EnumSetType,
     };
-    pub(crate) use failure::{format_err, ResultExt};
     pub(crate) use futures::{
         join, stream, try_join, Future, FutureExt, Stream, StreamExt, TryFutureExt,
         TryStreamExt,
@@ -127,8 +127,8 @@ pub(crate) mod common {
         temporary_storage::TemporaryStorage,
         tokio_glue::{
             async_read_to_end, async_read_to_string, box_stream_once,
-            buffer_sync_write_and_copy_to_async, run_futures_with_runtime,
-            spawn_blocking, BoxFuture, BoxStream, SendResultExt,
+            buffer_sync_write_and_copy_to_async, spawn_blocking, BoxFuture, BoxStream,
+            SendResultExt,
         },
         url_with_hidden_password::UrlWithHiddenPassword,
         Error, Result, BUFFER_SIZE,

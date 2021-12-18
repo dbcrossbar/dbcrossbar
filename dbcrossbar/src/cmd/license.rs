@@ -1,8 +1,7 @@
 //! The `license` subcommand.
 
-use common_failures::Result;
+use anyhow::{Context as _, Result};
 use dbcrossbarlib::{config::Configuration, tokio_glue::spawn_blocking, Context};
-use failure::ResultExt;
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use tokio::{fs, io::AsyncWriteExt};
@@ -34,9 +33,7 @@ pub(crate) async fn run(
     } else {
         // Create a temporary file (that we don't clean up).
         let out_html: PathBuf = spawn_blocking(|| {
-            tempfile::TempDir::new()
-                .context("could not create temporary directory")
-                .map_err(|e| e.into())
+            tempfile::TempDir::new().context("could not create temporary directory")
         })
         .await?
         // `into_path` makes the directory stay around after we exit.
@@ -46,9 +43,7 @@ pub(crate) async fn run(
 
         // Open it in the browser.
         spawn_blocking(move || {
-            opener::open(&out_html)
-                .context("could not open temporary file in browser")
-                .map_err(|e| e.into())
+            opener::open(&out_html).context("could not open temporary file in browser")
         })
         .await?;
 
@@ -60,9 +55,9 @@ pub(crate) async fn run(
 async fn write_licenses_html(path: &Path) -> Result<()> {
     let mut out = fs::File::create(path)
         .await
-        .with_context(|_| format!("could not create {}", path.display()))?;
+        .with_context(|| format!("could not create {}", path.display()))?;
     out.write_all(&LICENSE)
         .await
-        .with_context(|_| format!("could not write to {}", path.display()))?;
+        .with_context(|| format!("could not write to {}", path.display()))?;
     Ok(())
 }

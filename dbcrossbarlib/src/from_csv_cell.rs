@@ -81,25 +81,22 @@ fn parse_bool() {
 
 impl FromCsvCell for NaiveDate {
     fn from_csv_cell(cell: &str) -> Result<Self> {
-        Ok(cell
-            .parse::<NaiveDate>()
-            .with_context(|_| format!("cannot parse {:?} as date", cell))?)
+        cell.parse::<NaiveDate>()
+            .with_context(|| format!("cannot parse {:?} as date", cell))
     }
 }
 
 impl FromCsvCell for f32 {
     fn from_csv_cell(cell: &str) -> Result<Self> {
-        Ok(cell
-            .parse::<f32>()
-            .with_context(|_| format!("cannot parse {:?} as f32", cell))?)
+        cell.parse::<f32>()
+            .with_context(|| format!("cannot parse {:?} as f32", cell))
     }
 }
 
 impl FromCsvCell for f64 {
     fn from_csv_cell(cell: &str) -> Result<Self> {
-        Ok(cell
-            .parse::<f64>()
-            .with_context(|_| format!("cannot parse {:?} as f64", cell))?)
+        cell.parse::<f64>()
+            .with_context(|| format!("cannot parse {:?} as f64", cell))
     }
 }
 
@@ -107,7 +104,7 @@ impl FromCsvCell for Geometry<f64> {
     fn from_csv_cell(cell: &str) -> Result<Self> {
         let geojson = cell
             .parse::<GeoJson>()
-            .with_context(|_| format!("cannot parse {:?} as GeoJSON", cell))?;
+            .with_context(|| format!("cannot parse {:?} as GeoJSON", cell))?;
         if let GeoJson::Geometry(geojson_geometry) = geojson {
             let geometry: Geometry<f64> =
                 geojson_geometry.value.try_into().map_err(|e| {
@@ -137,42 +134,39 @@ fn parse_geometry() {
 
 impl FromCsvCell for i16 {
     fn from_csv_cell(cell: &str) -> Result<Self> {
-        Ok(cell
-            .parse::<i16>()
-            .with_context(|_| format!("cannot parse {:?} as i16", cell))?)
+        cell.parse::<i16>()
+            .with_context(|| format!("cannot parse {:?} as i16", cell))
     }
 }
 
 impl FromCsvCell for i32 {
     fn from_csv_cell(cell: &str) -> Result<Self> {
-        Ok(cell
-            .parse::<i32>()
-            .with_context(|_| format!("cannot parse {:?} as i32", cell))?)
+        cell.parse::<i32>()
+            .with_context(|| format!("cannot parse {:?} as i32", cell))
     }
 }
 
 impl FromCsvCell for i64 {
     fn from_csv_cell(cell: &str) -> Result<Self> {
-        Ok(cell
-            .parse::<i64>()
-            .with_context(|_| format!("cannot parse {:?} as i64", cell))?)
+        cell.parse::<i64>()
+            .with_context(|| format!("cannot parse {:?} as i64", cell))
     }
 }
 
 impl FromCsvCell for serde_json::Value {
     fn from_csv_cell(cell: &str) -> Result<Self> {
-        Ok(serde_json::from_str(cell)
-            .with_context(|_| format!("cannot parse {:?} as JSON", cell))?)
+        serde_json::from_str(cell)
+            .with_context(|| format!("cannot parse {:?} as JSON", cell))
     }
 }
 
 impl FromCsvCell for NaiveDateTime {
     fn from_csv_cell(cell: &str) -> Result<Self> {
-        Ok(NaiveDateTime::parse_from_str(cell, "%Y-%m-%d %H:%M:%S%.f")
+        NaiveDateTime::parse_from_str(cell, "%Y-%m-%d %H:%M:%S%.f")
             .or_else(|_err| {
                 NaiveDateTime::parse_from_str(cell, "%Y-%m-%dT%H:%M:%S%.f")
             })
-            .with_context(|_| format!("cannot parse {:?} as timestamp", cell))?)
+            .with_context(|| format!("cannot parse {:?} as timestamp", cell))
     }
 }
 
@@ -202,7 +196,7 @@ impl FromCsvCell for DateTime<FixedOffset> {
     fn from_csv_cell(cell: &str) -> Result<Self> {
         let parsed = DateTime::parse_from_str(cell, "%Y-%m-%d %H:%M:%S%.f%#z")
             .or_else(|_err| DateTime::parse_from_str(cell, "%Y-%m-%dT%H:%M:%S%.f%#z"))
-            .with_context(|_| {
+            .with_context(|| {
                 format!("cannot parse {:?} as timestamp with time zone", cell)
             })?;
         Ok(parsed)
@@ -245,8 +239,7 @@ fn parse_utc_timestamp() {
 
 impl FromCsvCell for Uuid {
     fn from_csv_cell(cell: &str) -> Result<Self> {
-        Ok(cell
-            .parse::<Uuid>()
-            .with_context(|_| format!("cannot parse {:?} as UUID", cell))?)
+        cell.parse::<Uuid>()
+            .with_context(|| format!("cannot parse {:?} as UUID", cell))
     }
 }

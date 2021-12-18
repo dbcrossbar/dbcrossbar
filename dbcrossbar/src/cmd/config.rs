@@ -1,12 +1,11 @@
 //! The `config` subcommand.
 
-use common_failures::Result;
+use anyhow::{format_err, Result};
 use dbcrossbarlib::{
     config::{Configuration, Key},
     tokio_glue::spawn_blocking,
     Context,
 };
-use failure::format_err;
 use structopt::{self, StructOpt};
 
 /// Configutation-editing arguments.

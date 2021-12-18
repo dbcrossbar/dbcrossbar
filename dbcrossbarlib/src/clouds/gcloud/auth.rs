@@ -1,8 +1,6 @@
 //! Authentication support for Google Cloud.
 
 use bigml::wait::{wait, BackoffType, WaitOptions, WaitStatus};
-use common_failures::display::DisplayCausesAndBacktraceExt;
-use failure::Fail;
 use hyper::{self, client::connect::HttpConnector};
 use hyper_rustls::HttpsConnector;
 use sha2::{Digest, Sha256};
@@ -52,11 +50,9 @@ async fn token_file_path(token_id: &str) -> Result<PathBuf> {
     })?;
     // `yup_oauth2` will fail with a cryptic error if the containing directory
     // doesn't exist.
-    fs::create_dir_all(&data_local_dir)
-        .await
-        .with_context(|_| {
-            format!("could not create directory {}", data_local_dir.display())
-        })?;
+    fs::create_dir_all(&data_local_dir).await.with_context(|| {
+        format!("could not create directory {}", data_local_dir.display())
+    })?;
     let filename = format!("gcloud-oauth2-{}.json", string_to_hex_digest(token_id));
     Ok(data_local_dir.join("dbcrossbar").join(filename))
 }
@@ -116,9 +112,9 @@ async fn service_account_authenticator() -> Result<Authenticator> {
                     // "user does not exist" error will be retried repeatedly,
                     // silently hanging the program for a while, even though
                     // there is no chance that such as error would ever succeed.
-                    let err: Error =
-                        err.context("failed to create authenticator").into();
-                    WaitStatus::FailedTemporarily(err)
+                    WaitStatus::FailedTemporarily(
+                        Error::new(err).context("failed to create authenticator"),
+                    )
                 }
             }
         }
@@ -170,8 +166,8 @@ pub(crate) async fn authenticator(ctx: &Context) -> Result<Authenticator> {
         Err(err) => {
             trace!(
                 ctx.log(),
-                "trying \"installed flow\" auth because service account auth failed because: {}",
-                err.display_causes_and_backtrace(),
+                "trying \"installed flow\" auth because service account auth failed because: {:?}",
+                err,
             );
             installed_flow_authenticator().await
         }

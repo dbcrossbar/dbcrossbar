@@ -1,7 +1,6 @@
 //! A Google Cloud REST client.
 
 use bigml::wait::{wait, BackoffType, WaitOptions, WaitStatus};
-use failure::ResultExt;
 use mime::{self, Mime};
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use reqwest::{
@@ -98,9 +97,9 @@ impl Client {
                         let err: Error = err.into();
                         let err = err.context(format!("could not GET {}", url));
                         if temporary {
-                            WaitStatus::FailedTemporarily(err.into())
+                            WaitStatus::FailedTemporarily(err)
                         } else {
-                            WaitStatus::FailedPermanently(err.into())
+                            WaitStatus::FailedPermanently(err)
                         }
                     }
                     // We talked to the server and it returned a server-side
@@ -185,7 +184,7 @@ impl Client {
             .json(&body)
             .send()
             .await
-            .with_context(|_| format!("could not POST {}", url))?;
+            .with_context(|| format!("could not POST {}", url))?;
         self.handle_response(ctx, "POST", &url, http_resp).await
     }
 
@@ -213,7 +212,7 @@ impl Client {
             .body(body)
             .send()
             .await
-            .with_context(|_| format!("could not POST {}", url))?;
+            .with_context(|| format!("could not POST {}", url))?;
         if http_resp.status().is_success() {
             Ok(())
         } else {
@@ -241,7 +240,7 @@ impl Client {
             .bearer_auth(token.as_str())
             .send()
             .await
-            .with_context(|_| format!("error deleting {}", url))?;
+            .with_context(|| format!("error deleting {}", url))?;
         if http_resp.status().is_success() {
             Ok(())
         } else {
@@ -274,7 +273,7 @@ impl Client {
         Output: fmt::Debug + DeserializeOwned,
     {
         if http_resp.status().is_success() {
-            let resp = http_resp.json::<Output>().await.with_context(|_| {
+            let resp = http_resp.json::<Output>().await.with_context(|| {
                 format!("error fetching JSON response from {}", url)
             })?;
             trace!(ctx.log(), "{} returned {:?}", method, resp);
@@ -300,10 +299,10 @@ impl Client {
         let err_body_result = http_resp
             .bytes()
             .await
-            .with_context(|_| format!("error fetching error response from {}", url));
+            .with_context(|| format!("error fetching error response from {}", url));
         let err_body = match err_body_result {
             Ok(err_body) => err_body,
-            Err(err) => return err.into(),
+            Err(err) => return err,
         };
 
         // Try to return a nice JSON error.
@@ -311,7 +310,7 @@ impl Client {
             if let Ok(resp) = serde_json::from_slice::<ErrorResponse>(&err_body) {
                 trace!(ctx.log(), "{} error {:?}", method, resp);
                 let err: Error = resp.error.into();
-                return err.context(format!("{} error {}", method, url)).into();
+                return err.context(format!("{} error {}", method, url));
             }
         }
 
@@ -327,7 +326,7 @@ impl Client {
             raw_err,
         );
         let err = format_err!("expected JSON describing error, but got {:?}", raw_err);
-        err.context(format!("{} error {}", method, url)).into()
+        err.context(format!("{} error {}", method, url))
     }
 }
 

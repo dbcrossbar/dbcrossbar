@@ -1,6 +1,6 @@
 //! The `features` subcommand.
 
-use common_failures::Result;
+use anyhow::Result;
 use dbcrossbarlib::{
     config::Configuration,
     drivers::{all_drivers, find_driver},

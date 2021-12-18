@@ -59,8 +59,8 @@ pub(crate) fn concatenate_csv_streams(
     Ok(new_csv_stream)
 }
 
-#[test]
-fn concatenate_csv_streams_strips_all_but_first_header() {
+#[tokio::test]
+async fn concatenate_csv_streams_strips_all_but_first_header() {
     use tokio_stream::wrappers::ReceiverStream;
 
     let input_1 = b"a,b\n1,2\n";
@@ -100,7 +100,7 @@ fn concatenate_csv_streams_strips_all_but_first_header() {
         Ok(())
     };
 
-    run_futures_with_runtime(cmd_fut.boxed(), worker_fut).unwrap();
+    try_join!(cmd_fut, worker_fut).unwrap();
 }
 
 /// Remove the CSV header from a CSV stream, passing everything else through

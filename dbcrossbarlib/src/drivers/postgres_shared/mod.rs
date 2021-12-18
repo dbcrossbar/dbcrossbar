@@ -1,6 +1,5 @@
 //! Code shared between various PostgreSQL-related drivers.
 
-use failure::Fail;
 use std::{fmt, str::FromStr};
 pub use tokio_postgres::Client;
 use tokio_postgres::Config;
@@ -44,11 +43,9 @@ pub(crate) async fn connect(
         .context("could not connect to PostgreSQL")?;
 
     // The docs say we need to run this connection object in the background.
-    ctx.spawn_worker(
-        connection.map_err(|e| -> Error {
-            e.context("error on PostgreSQL connection").into()
-        }),
-    );
+    ctx.spawn_worker(connection.map_err(|e| -> Error {
+        Error::new(e).context("error on PostgreSQL connection")
+    }));
 
     Ok(client)
 }

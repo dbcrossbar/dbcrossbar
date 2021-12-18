@@ -76,10 +76,10 @@ async fn schema_helper(
         .path
         .open_async()
         .await
-        .with_context(|_| format!("error opening {}", source.path))?;
+        .with_context(|| format!("error opening {}", source.path))?;
     let sql = async_read_to_string(input)
         .await
-        .with_context(|_| format!("error reading {}", source.path))?;
+        .with_context(|| format!("error reading {}", source.path))?;
     let pg_schema = PgSchema::parse(source.path.to_string(), sql)?;
     let schema = pg_schema.to_schema()?;
     Ok(Some(schema))
@@ -102,7 +102,7 @@ async fn write_schema_helper(
         write!(buff, "{}", pg_schema)
     })
     .await
-    .with_context(|_| format!("error writing {}", dest.path))?;
+    .with_context(|| format!("error writing {}", dest.path))?;
     out.flush().await?;
     Ok(())
 }

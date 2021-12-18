@@ -129,8 +129,8 @@ pub fn rechunk_csvs(
     Ok(csv_streams)
 }
 
-#[test]
-fn rechunk_csvs_honors_chunk_size() {
+#[tokio::test]
+async fn rechunk_csvs_honors_chunk_size() {
     use std::str;
 
     let inputs: &[&[u8]] = &[b"a,b\n1,1\n2,1\n", b"a,b\n1,2\n2,2\n"];
@@ -193,7 +193,7 @@ fn rechunk_csvs_honors_chunk_size() {
         Ok(())
     };
 
-    run_futures_with_runtime(cmd_fut.boxed(), worker_fut).unwrap();
+    try_join!(cmd_fut, worker_fut).unwrap();
 }
 
 /// A `Write` implementation that keeps track of how much data has been written

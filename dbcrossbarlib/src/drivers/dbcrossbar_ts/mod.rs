@@ -47,7 +47,7 @@ impl FromStr for DbcrossbarTsLocator {
         let decode = |idx| {
             percent_decode_str(parts[idx])
                 .decode_utf8()
-                .with_context(|_| format!("error decoding {:?}", s))
+                .with_context(|| format!("error decoding {:?}", s))
         };
         let path = decode(0)?;
         let fragment = decode(1)?.into_owned();
@@ -101,9 +101,9 @@ async fn schema_helper(
     let input = source.path.open_async().await?;
     let data = async_read_to_end(input)
         .await
-        .with_context(|_| format!("error reading {}", source.path))?;
+        .with_context(|| format!("error reading {}", source.path))?;
     let data = String::from_utf8(data)
-        .with_context(|_| format!("found non-UTF-8 data in {}", source.path))?;
+        .with_context(|| format!("found non-UTF-8 data in {}", source.path))?;
 
     // TODO(schema): Pass named supporting types through as named types in
     // schema, so that `type Foo = "a" | "c"` becomes a `named_types` entry

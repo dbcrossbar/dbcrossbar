@@ -70,7 +70,7 @@ pub(crate) async fn write_remote_data_helper(
         credentials = from_args.credentials_sql()?,
     );
     let unload_stmt = client.prepare(&unload_sql).await?;
-    client.execute(&unload_stmt, &[]).await.with_context(|_| {
+    client.execute(&unload_stmt, &[]).await.with_context(|| {
         format!("error copying {} to {}", table_name.quoted(), dest)
     })?;
     Ok(vec![dest.boxed()])

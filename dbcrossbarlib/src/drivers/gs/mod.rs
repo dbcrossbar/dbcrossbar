@@ -50,7 +50,7 @@ impl FromStr for GsLocator {
         if s.starts_with(Self::scheme()) {
             let url = s
                 .parse::<Url>()
-                .with_context(|_| format!("cannot parse {}", s))?;
+                .with_context(|| format!("cannot parse {}", s))?;
             if !url.path().starts_with('/') {
                 Err(format_err!("{} must start with gs://", url))
             } else {

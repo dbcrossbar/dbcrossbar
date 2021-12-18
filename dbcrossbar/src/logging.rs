@@ -1,7 +1,7 @@
 //! Support for structured logging.
 
+use anyhow::format_err;
 use dbcrossbarlib::{Error, Result};
-use failure::format_err;
 use slog::{error, slog_o as o, Drain, Logger, Never};
 use std::{io::stderr, result, str::FromStr};
 

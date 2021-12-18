@@ -116,7 +116,7 @@ async fn download_range(
 
         // Download the data to a buffer.
         let bytes_to_download = usize::try_from(range.end - range.start)
-            .with_context(|_| {
+            .with_context(|| {
                 format!("range {:?} is to big to fit in memory", range)
             })?;
         let mut buffer = BytesMut::with_capacity(bytes_to_download);
@@ -149,7 +149,7 @@ where
     response
         .headers()
         .typed_try_get::<H>()
-        .with_context(|_| format!("error parsing {}", H::name()))?
+        .with_context(|| format!("error parsing {}", H::name()))?
         .ok_or_else(|| format_err!("expected {} header", H::name()))
 }
 

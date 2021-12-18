@@ -16,13 +16,9 @@
 // We handle this using `cargo deny` instead.
 #![allow(clippy::multiple_crate_versions)]
 
-// Pull in all of `tokio`'s experimental `async` and `await` support.
-#[macro_use]
-#[allow(unused_imports)]
-extern crate tokio;
-
-use common_failures::{quick_main, Result};
-use dbcrossbarlib::{config::Configuration, run_futures_with_runtime, Context};
+use anyhow::Result;
+use dbcrossbarlib::{config::Configuration, Context};
+use futures::try_join;
 use slog::{debug, Drain};
 use slog_async::{self, OverflowStrategy};
 use structopt::{self, StructOpt};
@@ -30,9 +26,9 @@ use structopt::{self, StructOpt};
 mod cmd;
 mod logging;
 
-quick_main!(run);
-
-fn run() -> Result<()> {
+// Our main entry point.
+#[tokio::main]
+async fn main() -> Result<()> {
     // Set up standard Rust logging for third-party crates.
     env_logger::init();
 
@@ -86,5 +82,6 @@ fn run() -> Result<()> {
     let cmd_fut = cmd::run(ctx, config, opt);
 
     // Run our futures.
-    run_futures_with_runtime(cmd_fut, worker_fut)
+    try_join!(cmd_fut, worker_fut)?;
+    Ok(())
 }

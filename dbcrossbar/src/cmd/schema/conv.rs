@@ -1,8 +1,7 @@
 //! The `conv` subcommand.
 
-use common_failures::Result;
+use anyhow::{format_err, Result};
 use dbcrossbarlib::{config::Configuration, Context, IfExists, UnparsedLocator};
-use failure::format_err;
 use structopt::{self, StructOpt};
 
 /// Schema conversion arguments.

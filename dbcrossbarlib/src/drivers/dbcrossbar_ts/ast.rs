@@ -618,9 +618,8 @@ peg::parser! {
     }
 }
 
-// Use `main_error` for pretty test output.
 #[test]
-fn parses_typescript_and_converts_to_data_type() -> Result<(), main_error::MainError> {
+fn parses_typescript_and_converts_to_data_type() -> Result<()> {
     let input = r#"
 type decimal = string;
 
@@ -683,7 +682,7 @@ interface Money {
 }
 
 #[test]
-fn handles_magic_types() -> Result<(), main_error::MainError> {
+fn handles_magic_types() -> Result<()> {
     let input = r#"
 // These type declarations are automatically recognized and converted to the
 // appropriate `dbcrossbar` types.
@@ -761,9 +760,8 @@ interface Point {
     assert!(SourceFile::parse("test.ts".to_owned(), input.to_owned()).is_err());
 }
 
-// Use `main_error` for pretty test output.
 #[test]
-fn parses_shopify_schema() -> Result<(), main_error::MainError> {
+fn parses_shopify_schema() -> Result<()> {
     let file_string = include_str!("../../../../dbcrossbar/fixtures/shopify.ts");
     let source_file =
         SourceFile::parse("shopify.ts".to_owned(), file_string.to_owned())?;

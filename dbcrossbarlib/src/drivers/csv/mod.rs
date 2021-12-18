@@ -66,11 +66,11 @@ impl Locator for CsvLocator {
                 }
                 PathOrStdio::Path(path) => {
                     // Build our columns.
-                    let mut rdr = csv::Reader::from_path(path).with_context(|_| {
+                    let mut rdr = csv::Reader::from_path(path).with_context(|| {
                         format!("error opening {}", path.display())
                     })?;
                     let mut columns = vec![];
-                    let headers = rdr.headers().with_context(|_| {
+                    let headers = rdr.headers().with_context(|| {
                         format!("error reading {}", path.display())
                     })?;
                     for col_name in headers {
@@ -153,7 +153,7 @@ async fn local_data_helper(
             debug!(ctx.log(), "walking {}", base_path.display());
             let walker = WalkDir::new(&base_path).follow_links(true);
             for dirent in walker.into_iter() {
-                let dirent = dirent.with_context(|_| {
+                let dirent = dirent.with_context(|| {
                     format!("error listing files in {}", base_path.display())
                 })?;
                 let p = dirent.path();
@@ -192,7 +192,7 @@ async fn local_data_helper(
 
                     // Open our file.
                     let data = fs::File::open(file_path.clone()).await.with_context(
-                        |_| format!("cannot open {}", file_path.display()),
+                        || format!("cannot open {}", file_path.display()),
                     )?;
                     let data = BufReader::with_capacity(BUFFER_SIZE, data);
                     let stream = copy_reader_to_stream(ctx, data)?;
@@ -302,7 +302,7 @@ async fn write_stream_to_file(
         .ok_or_else(|| format_err!("cannot find parent dir for {}", dest.display()))?;
     fs::create_dir_all(dir)
         .await
-        .with_context(|_| format!("unable to create directory {}", dir.display()))?;
+        .with_context(|| format!("unable to create directory {}", dir.display()))?;
 
     // Write our our CSV stream.
     debug!(ctx.log(), "writing stream to file {}", dest.display());
@@ -310,10 +310,10 @@ async fn write_stream_to_file(
         .to_async_open_options_no_append()?
         .open(dest.clone())
         .await
-        .with_context(|_| format!("cannot open {}", dest.display()))?;
+        .with_context(|| format!("cannot open {}", dest.display()))?;
     copy_stream_to_writer(ctx.clone(), data, wtr)
         .await
-        .with_context(|_| format!("error writing {}", dest.display()))?;
+        .with_context(|| format!("error writing {}", dest.display()))?;
     Ok(())
 }
 

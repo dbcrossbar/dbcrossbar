@@ -1,11 +1,10 @@
 //! The `count` subcommand.
 
-use common_failures::Result;
+use anyhow::{format_err, Context as _, Result};
 use dbcrossbarlib::{
     config::Configuration, Context, DriverArguments, SharedArguments, SourceArguments,
     TemporaryStorage, UnparsedLocator,
 };
-use failure::{format_err, ResultExt};
 use structopt::{self, StructOpt};
 
 /// Count arguments.
@@ -48,7 +47,7 @@ pub(crate) async fn run(
         schema_locator
             .schema(ctx.clone())
             .await
-            .with_context(|_| format!("error reading schema from {}", schema_locator))?
+            .with_context(|| format!("error reading schema from {}", schema_locator))?
             .ok_or_else(|| {
                 format_err!("don't know how to read schema from {}", schema_locator)
             })

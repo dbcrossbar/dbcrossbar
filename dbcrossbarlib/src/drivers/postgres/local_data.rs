@@ -1,7 +1,6 @@
 //! Support for reading data from a PostgreSQL table.
 
 use bytes::Bytes;
-use failure::Fail;
 
 use super::PostgresLocator;
 use crate::common::*;
@@ -56,7 +55,7 @@ pub(crate) async fn local_data_helper(
         .await
         // See if the query itself fails.
         .map_err(|err| -> Error {
-            err.context("error querying PostgreSQL for data").into()
+            Error::new(err).context("error querying PostgreSQL for data")
         })?
         // Convert data representation to match `dbcrossbar` conventions.
         .map_ok(move |bytes: Bytes| -> BytesMut {
@@ -64,7 +63,7 @@ pub(crate) async fn local_data_helper(
             bytes.as_ref().into()
         })
         // Convert errors to our standard error type.
-        .map_err(|err| err.context("error reading data from PostgreSQL").into());
+        .map_err(|err| Error::new(err).context("error reading data from PostgreSQL"));
 
     let csv_stream = CsvStream {
         name: table_name.unquoted(),

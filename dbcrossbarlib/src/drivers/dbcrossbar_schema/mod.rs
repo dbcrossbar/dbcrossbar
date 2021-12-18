@@ -73,11 +73,11 @@ async fn schema_helper(
     let input = source.path.open_async().await?;
     let data = async_read_to_end(input)
         .await
-        .with_context(|_| format!("error reading {}", source.path))?;
+        .with_context(|| format!("error reading {}", source.path))?;
 
     // Parse our input as table JSON.
     let external_schema: ExternalSchema = serde_json::from_slice(&data)
-        .with_context(|_| format!("error parsing {}", source.path))?;
+        .with_context(|| format!("error parsing {}", source.path))?;
     // TODO(schema): Allow selecting one of several values from `tables` here.
     Ok(Some(external_schema.into_schema()?))
 }
@@ -95,7 +95,7 @@ async fn write_schema_helper(
         serde_json::to_writer_pretty(buff, &schema)
     })
     .await
-    .with_context(|_| format!("error writing to {}", dest.path))?;
+    .with_context(|| format!("error writing to {}", dest.path))?;
     f.flush().await?;
     Ok(())
 }

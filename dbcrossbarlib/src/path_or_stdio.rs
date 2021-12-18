@@ -55,7 +55,7 @@ impl PathOrStdio {
                 let p = p.to_owned();
                 let f = tokio_fs::File::open(p.clone())
                     .await
-                    .with_context(|_| format!("error opening {}", p.display()))?;
+                    .with_context(|| format!("error opening {}", p.display()))?;
                 Ok(Box::new(f) as Box<dyn AsyncRead + Send + Unpin + 'static>)
             }
             PathOrStdio::Stdio => Ok(Box::new(tokio_io::stdin())
@@ -76,7 +76,7 @@ impl PathOrStdio {
                     .to_async_open_options_no_append()?
                     .open(p.clone())
                     .await
-                    .with_context(|_| format!("error opening {}", p.display()))?;
+                    .with_context(|| format!("error opening {}", p.display()))?;
                 Ok(Box::new(f) as Box<dyn AsyncWrite + Send + Unpin + 'static>)
             }
             PathOrStdio::Stdio => {

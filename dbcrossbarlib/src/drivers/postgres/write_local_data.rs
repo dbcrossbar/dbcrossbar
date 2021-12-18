@@ -25,9 +25,10 @@ async fn drop_table_if_exists(
     );
     let drop_sql = format!("DROP TABLE IF EXISTS {}", &table.name.quoted());
     let drop_stmt = client.prepare(&drop_sql).await?;
-    client.execute(&drop_stmt, &[]).await.with_context(|_| {
-        format!("error deleting existing {}", table.name.quoted())
-    })?;
+    client
+        .execute(&drop_stmt, &[])
+        .await
+        .with_context(|| format!("error deleting existing {}", table.name.quoted()))?;
     Ok(())
 }
 
@@ -81,7 +82,7 @@ async fn create_table(
     client
         .execute(&create_stmt, &[])
         .await
-        .with_context(|_| format!("error creating {}", &table.name.quoted()))?;
+        .with_context(|| format!("error creating {}", &table.name.quoted()))?;
     Ok(())
 }
 
@@ -182,7 +183,7 @@ async fn copy_from_stream<'a>(
     let sink = client
         .copy_in::<_, BytesMut>(&stmt)
         .await
-        .with_context(|_| format!("error copying data into {}", dest.name.quoted()))?;
+        .with_context(|| format!("error copying data into {}", dest.name.quoted()))?;
 
     // `CopyInSink` is a weird sink, and we have to "pin" it directly into our
     // stack in order to forward data to it.
@@ -271,7 +272,7 @@ pub(crate) async fn upsert_from(
         sql,
     );
     let stmt = client.prepare(&sql).await?;
-    client.execute(&stmt, &[]).await.with_context(|_| {
+    client.execute(&stmt, &[]).await.with_context(|| {
         format!(
             "error upserting from {} to {}",
             src_table.name.quoted(),

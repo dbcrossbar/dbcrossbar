@@ -33,7 +33,7 @@ pub(crate) async fn upload_file<'a>(
     let status = child
         .wait()
         .await
-        .with_context(|_| format!("error finishing upload to {}", file_url))?;
+        .with_context(|| format!("error finishing upload to {}", file_url))?;
     if status.success() {
         Ok(())
     } else {

@@ -92,12 +92,11 @@ impl Job {
 
     /// Get a URL which can be used for this job.
     pub(crate) fn url(&self) -> Result<Url> {
-        Ok(self
-            .self_link
+        self.self_link
             .as_ref()
             .ok_or_else(|| format_err!("newly created job has no selfLink"))?
             .parse::<Url>()
-            .context("BigQuery returned invalid selfLink")?)
+            .context("BigQuery returned invalid selfLink")
     }
 }
 

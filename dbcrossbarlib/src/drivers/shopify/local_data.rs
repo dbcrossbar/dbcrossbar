@@ -1,7 +1,6 @@
 //! Fetch data from Shopify and convert to CSV.
 
 use bigml::wait::{wait, BackoffType, WaitOptions, WaitStatus};
-use common_failures::display::DisplayCausesAndBacktraceExt;
 use itertools::Itertools;
 use reqwest::Client;
 use serde::Deserialize;
@@ -72,11 +71,7 @@ pub(crate) async fn local_data_helper(
             let resp = match result {
                 Ok(resp) => resp,
                 Err(err) => {
-                    error!(
-                        worker_ctx.log(),
-                        "ERROR: {}",
-                        err.display_causes_without_backtrace(),
-                    );
+                    error!(worker_ctx.log(), "ERROR: {:?}", err);
                     sender.send(Err(err)).await.map_send_err()?;
                     return Ok(());
                 }
@@ -156,10 +151,10 @@ impl FromStr for CallLimit {
         if let Some(split_pos) = s.find('/') {
             let used = s[..split_pos]
                 .parse::<u32>()
-                .with_context(|_| format!("could not parse call limit {:?}", s))?;
+                .with_context(|| format!("could not parse call limit {:?}", s))?;
             let limit = s[split_pos + 1..]
                 .parse::<u32>()
-                .with_context(|_| format!("could not parse call limit {:?}", s))?;
+                .with_context(|| format!("could not parse call limit {:?}", s))?;
             Ok(CallLimit { used, limit })
         } else {
             Err(format_err!("could not parse call limit {:?}", s))
@@ -238,7 +233,7 @@ async fn get_shopify_response(
                 let links = parse_link_header::parse(link)
                     .map_err(|_| format_err!("error parsing Link header"))?;
                 if let Some(next) = links.get(&Some("next".to_owned())) {
-                    Some(Url::from_str(&next.uri.to_string()).with_context(|_| {
+                    Some(Url::from_str(&next.uri.to_string()).with_context(|| {
                         format_err!("could not parse URL {:?}", next)
                     })?)
                 } else {

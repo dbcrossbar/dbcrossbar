@@ -55,6 +55,9 @@ name = "anyhow"
 version = "1.0.51"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b26702f315f53b6071259e15dd9d64528213b44d61de1ec926eca7715d62203"
+dependencies = [
+ "backtrace",
+]
 
 [[package]]
 name = "arc-swap"
@@ -136,22 +139,23 @@ dependencies = [
 
 [[package]]
 name = "bigml"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdb179040580eb20862f909e524a59a68e88436b5369e07f51952e90411a4f40"
+checksum = "28008443aeec16387aac98c176680d632d768e7a26af35511e108c6ffb157090"
 dependencies = [
  "bigml_derive",
  "bytes",
  "chrono",
- "failure",
  "futures",
- "log",
  "mime",
  "reqwest",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "tokio-util",
+ "tracing",
+ "tracing-futures",
  "url",
 ]
 
@@ -471,14 +475,13 @@ dependencies = [
 name = "dbcrossbar"
 version = "0.5.0-beta.1"
 dependencies = [
+ "anyhow",
  "clap",
  "cli_test_dir",
- "common_failures",
  "csv",
  "dbcrossbarlib",
  "difference",
  "env_logger",
- "failure",
  "futures",
  "humanize-rs",
  "include-flate",
@@ -505,6 +508,7 @@ dependencies = [
 name = "dbcrossbarlib"
 version = "0.5.0-beta.1"
 dependencies = [
+ "anyhow",
  "async-trait",
  "base64",
  "big_enum_set",
@@ -518,7 +522,6 @@ dependencies = [
  "crc32c",
  "csv",
  "dirs",
- "failure",
  "futures",
  "geo-types",
  "geojson",
@@ -530,7 +533,6 @@ dependencies = [
  "itertools",
  "lazy_static",
  "log",
- "main_error",
  "mime",
  "parse_link_header",
  "peg",
@@ -1187,12 +1189,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "main_error"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "155db5e86c6e45ee456bf32fad5a290ee1f7151c2faca27ea27097568da67d1a"
-
-[[package]]
 name = "matches"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1431,6 +1427,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6796ad771acdc0123d2a88dc428b5e38ef24456743ddb1744ed628f9815c096"
 dependencies = [
  "siphasher",
+]
+
+[[package]]
+name = "pin-project"
+version = "1.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "576bc800220cc65dac09e99e97b08b358cfab6e17078de8dc5fee223bd2d0c08"
+dependencies = [
+ "pin-project-internal",
+]
+
+[[package]]
+name = "pin-project-internal"
+version = "1.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e8fe8163d14ce7f0cdac2e040116f22eac817edabff0be91e8aff7e9accf389"
+dependencies = [
+ "proc-macro2 1.0.32",
+ "quote 1.0.10",
+ "syn 1.0.81",
 ]
 
 [[package]]
@@ -2477,7 +2493,19 @@ checksum = "375a639232caf30edfc78e8d89b2d4c375515393e7af7e16f01cd96917fb2105"
 dependencies = [
  "cfg-if",
  "pin-project-lite",
+ "tracing-attributes",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-attributes"
+version = "0.1.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4f480b8f81512e825f337ad51e94c1eb5d3bbdf2b363dcd01e2b19a9ffe3f8e"
+dependencies = [
+ "proc-macro2 1.0.32",
+ "quote 1.0.10",
+ "syn 1.0.81",
 ]
 
 [[package]]
@@ -2487,6 +2515,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f4ed65637b8390770814083d20756f87bfa2c21bf2f110babdc5438351746e4"
 dependencies = [
  "lazy_static",
+]
+
+[[package]]
+name = "tracing-futures"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97d095ae15e245a057c8e8451bab9b3ee1e1f68e9ba2b4fbc18d0ac5237835f2"
+dependencies = [
+ "pin-project",
+ "tracing",
 ]
 
 [[package]]

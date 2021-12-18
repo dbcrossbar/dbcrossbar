@@ -71,11 +71,11 @@ async fn schema_helper(
     let input = source.path.open_async().await?;
     let data = async_read_to_end(input)
         .await
-        .with_context(|_| format!("error reading {}", source.path))?;
+        .with_context(|| format!("error reading {}", source.path))?;
 
     // Parse our input as a list of columns.
     let columns: Vec<BqColumn> = serde_json::from_slice(&data)
-        .with_context(|_| format!("error parsing {}", source.path))?;
+        .with_context(|| format!("error parsing {}", source.path))?;
 
     // Build a `BqTable`, convert it, and set a placeholder name.
     let arbitrary_name = TableName::from_str("unused:unused.unused")?;
@@ -115,7 +115,7 @@ async fn write_schema_helper(
         bq_table.write_json_schema(buff)
     })
     .await
-    .with_context(|_| format!("error writing to {}", dest.path))?;
+    .with_context(|| format!("error writing to {}", dest.path))?;
     f.flush().await?;
     Ok(())
 }

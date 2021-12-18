@@ -14,7 +14,6 @@ repository = "https://github.com/dbcrossbar/dbcrossbar"
 documentation = "https://docs.rs/dbcrossbarlib/"
 
 [dev-dependencies]
-main_error = "0.1.0"
 pretty_assertions = "1.0.0"
 slog-async = "2.3.0"
 slog-envlogger = "2.1.0"
@@ -22,10 +21,11 @@ slog-term = "2.4.0"
 tempfile = "3.1.0"
 
 [dependencies]
+anyhow = { version = "1.0.51", features = ["backtrace"] }
 async-trait = "0.1.29"
 base64 = "0.13.0"
 big_enum_set = "0.2.1"
-bigml = "0.8.0"
+bigml = "0.9.0"
 byteorder = "1.3.1"
 bytes = "1.0.1"
 cast = "0.3.0"
@@ -35,7 +35,6 @@ common_failures = "0.1.1"
 crc32c = "0.6.0"
 csv = "1.0.5"
 dirs = "4.0"
-failure = "0.1.2"
 futures = "0.3.1"
 geo-types = "0.7.2"
 geojson = { version = "0.22.2", features = ["geo-types"] }
