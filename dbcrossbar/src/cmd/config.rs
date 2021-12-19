@@ -60,10 +60,7 @@ pub(crate) enum Command {
 }
 
 /// Edit our config file.
-pub(crate) async fn run(
-    mut config: Configuration,
-    opt: Opt,
-) -> Result<()> {
+pub(crate) async fn run(mut config: Configuration, opt: Opt) -> Result<()> {
     match &opt.command {
         Command::Add { key, value } => {
             config.add_to_string_array(&key.to_key()?, value)?;

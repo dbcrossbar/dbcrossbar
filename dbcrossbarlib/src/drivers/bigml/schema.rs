@@ -6,9 +6,7 @@ use crate::schema::{Column, Table};
 
 /// Implementation of `schema`, but as a real `async` function.
 #[instrument(level = "trace", name = "bigml::schema")]
-pub(crate) async fn schema_helper(
-    source: BigMlLocator,
-) -> Result<Option<Schema>> {
+pub(crate) async fn schema_helper(source: BigMlLocator) -> Result<Option<Schema>> {
     let client = bigml::Client::new_from_env()?;
     if let BigMlAction::ReadDataset(id) = &source.action {
         let dataset = client.fetch(id).await?;
