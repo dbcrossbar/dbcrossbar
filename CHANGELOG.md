@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for the `dbcrossbar` CLI tool. (The `dbcrossbarlib` crate is an internal-only dependency with no versioning policy at this time.)
 
+## [0.5.0-beta.2] - 2021-12-19
+
+### Changed
+
+- The format for printing backtraces has changed. We now use the standard `anyhow` format.
+- Our logging format has changed considerably, thanks to switch from `slog` to the much more popular `tracing`. Some logging of complex async streams may be less well-organized, but there's _more_ of it, especially at `RUST_LOG=dbcrossbarlib=trace,dbcrossbar=trace,warn` level.
+
+### Fixed
+
+- We no longer rely on the unmaintained `failure`, or the less popular `slog` ecosystem.
+
+### Removed
+
+- The `--log-format` and `--log-extra` commands have been removed.
+
 ## [0.5.0-beta.1] - 2021-12-15
 
 ### Added
