@@ -30,12 +30,6 @@ allow = ["MIT", "Apache-2.0", "BSD-3-Clause", "CC0-1.0", "ISC", "OpenSSL", "Zlib
 # https://opensource.google/docs/using/agpl-policy/
 deny = ["AGPL-3.0"]
 
-# Some slightly odder licenses. MPL-2.0 is a long and complicated "copyleft"
-# license that's less strict than the GPL. 
-exceptions = [
-    { name = "slog-json", allow = ["MPL-2.0"] },
-]
-
 [[licenses.clarify]]
 # Ring has a messy license.
 name = "ring"
@@ -79,11 +73,6 @@ skip-tree = [
     # still worth the price for now. We should offer to update these depdencies
     # upstream.
     { name = "postgis" },
-
-    # We're going to completely get rid of slog, so we don't care if it
-    # introduces duplicate dependencies.
-    { name = "slog-term" },
-    { name = "slog-envlogger" },
 
     # These need updates.
     { name = "rustls-native-certs" },
