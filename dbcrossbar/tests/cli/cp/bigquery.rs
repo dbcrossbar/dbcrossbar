@@ -66,7 +66,6 @@ fn cp_from_bigquery_with_where() {
 #[test]
 #[ignore]
 fn cp_csv_to_bigquery_to_csv() {
-    let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "cp_csv_to_bigquery_to_csv");
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
@@ -109,7 +108,6 @@ fn cp_csv_to_bigquery_to_csv() {
 #[test]
 #[ignore]
 fn cp_bigquery_if_exists_error() {
-    let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "cp_bigquery_if_exists_error");
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
@@ -154,7 +152,6 @@ fn cp_bigquery_if_exists_error() {
 #[test]
 #[ignore]
 fn cp_more_bigquery_types() {
-    let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "cp_more_bigquery_types");
     let src = testdir.src_path("fixtures/more_bq_types.csv");
     let schema = testdir.src_path("fixtures/more_bq_types.sql");
@@ -262,7 +259,6 @@ create table {dataset_name}.{table_name} AS (
 #[test]
 #[ignore]
 fn bigquery_upsert() {
-    let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "bigquery_upsert");
     let srcs = &[
         testdir.src_path("fixtures/upsert/upsert_1.csv"),
@@ -328,7 +324,6 @@ fn bigquery_upsert() {
 #[test]
 #[ignore]
 fn bigquery_honors_not_null_for_complex_inserts() {
-    let _ = env_logger::try_init();
     let testdir =
         TestDir::new("dbcrossbar", "bigquery_honors_not_null_for_complex_inserts");
     let src = testdir.src_path("fixtures/many_types.csv");
@@ -365,7 +360,6 @@ fn bigquery_honors_not_null_for_complex_inserts() {
 #[test]
 #[ignore]
 fn bigquery_roundtrips_structs() {
-    let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "bigquery_roundtrips_structs");
     let raw_src_path = testdir.src_path("fixtures/structs/struct.json");
     let src = testdir.path("structs.csv");

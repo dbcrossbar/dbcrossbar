@@ -59,17 +59,17 @@ impl Locator for BigQueryLocator {
         self
     }
 
-    fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
-        schema_helper(ctx, self.to_owned()).boxed()
+    fn schema(&self, _ctx: Context) -> BoxFuture<Option<Schema>> {
+        schema_helper(self.to_owned()).boxed()
     }
 
     fn count(
         &self,
-        ctx: Context,
+        _ctx: Context,
         shared_args: SharedArguments<Unverified>,
         source_args: SourceArguments<Unverified>,
     ) -> BoxFuture<usize> {
-        count_helper(ctx, self.to_owned(), shared_args, source_args).boxed()
+        count_helper(self.to_owned(), shared_args, source_args).boxed()
     }
 
     fn local_data(
@@ -100,14 +100,13 @@ impl Locator for BigQueryLocator {
 
     fn write_remote_data(
         &self,
-        ctx: Context,
+        _ctx: Context,
         source: BoxLocator,
         shared_args: SharedArguments<Unverified>,
         source_args: SourceArguments<Unverified>,
         dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<Vec<BoxLocator>> {
         write_remote_data_helper(
-            ctx,
             source,
             self.to_owned(),
             shared_args,

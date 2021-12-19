@@ -70,13 +70,12 @@ impl Locator for S3Locator {
 
     fn write_local_data(
         &self,
-        ctx: Context,
+        _ctx: Context,
         data: BoxStream<CsvStream>,
         shared_args: SharedArguments<Unverified>,
         dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<BoxStream<BoxFuture<BoxLocator>>> {
-        write_local_data_helper(ctx, self.url.clone(), data, shared_args, dest_args)
-            .boxed()
+        write_local_data_helper(self.url.clone(), data, shared_args, dest_args).boxed()
     }
 
     fn supports_write_remote_data(&self, source: &dyn Locator) -> bool {

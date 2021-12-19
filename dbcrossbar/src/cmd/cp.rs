@@ -8,10 +8,10 @@ use dbcrossbarlib::{
 };
 use futures::{pin_mut, stream, FutureExt, StreamExt, TryStreamExt};
 use humanize_rs::bytes::Bytes as HumanizedBytes;
-use slog::{debug, o};
 use structopt::{self, StructOpt};
 use tokio::io;
 use tokio_util::codec::{FramedWrite, LinesCodec};
+use tracing::{debug, field, instrument, Span};
 
 /// Schema conversion arguments.
 #[derive(Debug, StructOpt)]
@@ -65,6 +65,7 @@ pub(crate) struct Opt {
 }
 
 /// Perform our schema conversion.
+#[instrument(level = "debug", name = "cp", skip_all, fields(from, to))]
 pub(crate) async fn run(
     ctx: Context,
     config: Configuration,
@@ -74,6 +75,11 @@ pub(crate) async fn run(
     let schema_opt = opt.schema.map(|s| s.parse(enable_unstable)).transpose()?;
     let from_locator = opt.from_locator.parse(enable_unstable)?;
     let to_locator = opt.to_locator.parse(enable_unstable)?;
+
+    // Fill in our span fields.
+    let span = Span::current();
+    span.record("from", &field::display(&from_locator));
+    span.record("to", &field::display(&to_locator));
 
     // Figure out what table schema to use.
     let schema = {
@@ -106,14 +112,8 @@ pub(crate) async fn run(
     let should_use_remote = opt.stream_size.is_none()
         && to_locator.supports_write_remote_data(from_locator.as_ref());
     let dests = if should_use_remote {
-        // Build a logging context.
-        let ctx = ctx.child(o!(
-            "from_locator" => from_locator.to_string(),
-            "to_locator" => to_locator.to_string(),
-        ));
-
         // Perform a remote transfer.
-        debug!(ctx.log(), "performing remote data transfer");
+        debug!("performing remote data transfer");
         let dests = to_locator
             .write_remote_data(ctx, from_locator, shared_args, source_args, dest_args)
             .await?;
@@ -123,11 +123,10 @@ pub(crate) async fn run(
     } else {
         // We have to transfer the data via the local machine, so read data from
         // input.
-        debug!(ctx.log(), "performing local data transfer");
+        debug!("performing local data transfer");
 
-        let input_ctx = ctx.child(o!("from_locator" => from_locator.to_string()));
         let mut data = from_locator
-            .local_data(input_ctx, shared_args.clone(), source_args)
+            .local_data(ctx.clone(), shared_args.clone(), source_args)
             .await?
             .ok_or_else(|| {
                 format_err!("don't know how to read data from {}", from_locator)
@@ -140,9 +139,8 @@ pub(crate) async fn run(
         }
 
         // Write data to output.
-        let output_ctx = ctx.child(o!("to_locator" => to_locator.to_string()));
         let result_stream = to_locator
-            .write_local_data(output_ctx, data, shared_args.clone(), dest_args)
+            .write_local_data(ctx.clone(), data, shared_args.clone(), dest_args)
             .await?;
 
         // Consume the stream of futures produced by `write_local_data`, allowing a
@@ -150,7 +148,6 @@ pub(crate) async fn run(
         // and this what controls how many "input driver" -> "output driver"
         // connections are running at any given time.
         result_stream
-            // Run up to `parallelism` futures in parallel.
             .try_buffer_unordered(shared_args.max_streams())
             .boxed()
     };
@@ -198,11 +195,11 @@ pub(crate) async fn run(
             }
         });
         pin_mut!(dest_strings);
-        try_forward(&ctx, dest_strings, stdout_sink).await?;
+        try_forward(dest_strings, stdout_sink).await?;
     } else {
         // Just collect our results and ignore
         let dests = dests.try_collect::<Vec<_>>().boxed().await?;
-        debug!(ctx.log(), "destination locators: {:?}", dests);
+        debug!("destination locators: {:?}", dests);
     }
     Ok(())
 }

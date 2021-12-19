@@ -159,13 +159,13 @@ async fn installed_flow_authenticator() -> Result<Authenticator> {
 
 /// Create an authenticator using service account credentials if available, and
 /// interactive credentials otherwise.
-pub(crate) async fn authenticator(ctx: &Context) -> Result<Authenticator> {
+#[instrument(level = "trace")]
+pub(crate) async fn authenticator() -> Result<Authenticator> {
     match service_account_authenticator().await {
         // We have a service account configured, so use it.
         Ok(auth) => Ok(auth),
         Err(err) => {
             trace!(
-                ctx.log(),
                 "trying \"installed flow\" auth because service account auth failed because: {:?}",
                 err,
             );

@@ -12,6 +12,12 @@ use crate::drivers::{
 /// The function `BigQueryLocator::write_remote_data` isn't (yet) allowed to be
 /// async, because it's part of a trait. This version is an `async fn`, which
 /// makes the code much clearer.
+#[instrument(
+    level = "debug",
+    name = "s3::write_remote_data",
+    skip_all,
+    fields(source = %source, dest = %dest)
+)]
 pub(crate) async fn write_remote_data_helper(
     ctx: Context,
     source: BoxLocator,
@@ -38,8 +44,7 @@ pub(crate) async fn write_remote_data_helper(
     let if_exists = dest_args.if_exists().to_owned();
 
     // Delete the existing output, if it exists.
-    prepare_as_destination_helper(ctx.clone(), dest.as_url().to_owned(), if_exists)
-        .await?;
+    prepare_as_destination_helper(dest.as_url().to_owned(), if_exists).await?;
 
     // Convert our schema to a native PostgreSQL schema.
     let table_name = source.table_name();
@@ -58,7 +63,7 @@ pub(crate) async fn write_remote_data_helper(
     let mut sql_bytes: Vec<u8> = vec![];
     pg_schema.write_export_select_sql(&mut sql_bytes, &source_args)?;
     let select_sql = String::from_utf8(sql_bytes).expect("should always be UTF-8");
-    debug!(ctx.log(), "export SQL: {}", select_sql);
+    debug!("export SQL: {}", select_sql);
 
     // Export as CSV.
     let client = connect(&ctx, source.url()).await?;

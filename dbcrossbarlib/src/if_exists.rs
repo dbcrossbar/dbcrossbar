@@ -90,9 +90,9 @@ impl IfExists {
         Ok(open_options)
     }
 
-    pub(crate) fn warn_if_not_default_for_stdout(&self, ctx: &Context) {
+    pub(crate) fn warn_if_not_default_for_stdout(&self) {
         if self != &IfExists::default() {
-            warn!(ctx.log(), "{} ignored for stdout", self)
+            warn!("{} ignored for stdout", self)
         }
     }
 

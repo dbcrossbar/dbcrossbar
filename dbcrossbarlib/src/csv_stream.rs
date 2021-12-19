@@ -36,23 +36,23 @@ impl CsvStream {
 
     /// Receive all data on a CSV stream and return it as bytes.
     #[cfg(test)]
-    pub(crate) async fn into_bytes(self, ctx: Context) -> Result<BytesMut> {
-        let ctx = ctx.child(o!("fn" => "into_bytes"));
+    #[instrument(level = "trace", skip(self))]
+    pub(crate) async fn into_bytes(self) -> Result<BytesMut> {
         let mut stream = self.data;
         let mut bytes = BytesMut::new();
         while let Some(result) = stream.next().await {
             match result {
                 Err(err) => {
-                    error!(ctx.log(), "error reading stream: {}", err);
+                    error!("error reading stream: {}", err);
                     return Err(err);
                 }
                 Ok(new_bytes) => {
-                    trace!(ctx.log(), "received {} bytes", new_bytes.len());
+                    trace!("received {} bytes", new_bytes.len());
                     bytes.extend_from_slice(&new_bytes);
                 }
             }
         }
-        trace!(ctx.log(), "end of stream");
+        trace!("end of stream");
         Ok(bytes)
     }
 

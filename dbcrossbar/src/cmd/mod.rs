@@ -5,8 +5,6 @@ use futures::FutureExt;
 //use structopt::StructOpt;
 use structopt_derive::StructOpt;
 
-use crate::logging::LogFormat;
-
 pub(crate) mod config;
 pub(crate) mod count;
 pub(crate) mod cp;
@@ -21,14 +19,6 @@ pub(crate) mod schema;
     about = "Convert schemas and data between databases."
 )]
 pub(crate) struct Opt {
-    /// Logging format (indented, flat, json).
-    #[structopt(long = "log-format", default_value = "indented")]
-    pub(crate) log_format: LogFormat,
-
-    /// A `key=value` pair to add to our logs. May be passed multiple times.
-    #[structopt(long = "log-extra")]
-    pub(crate) log_extra: Vec<String>,
-
     /// Enable unstable, experimental features.
     #[structopt(long = "enable-unstable")]
     pub(crate) enable_unstable: bool,
@@ -94,7 +84,7 @@ pub(crate) enum Command {
 
 pub(crate) fn run(ctx: Context, config: Configuration, opt: Opt) -> BoxFuture<()> {
     match opt.cmd {
-        Command::Config { command } => config::run(ctx, config, command).boxed(),
+        Command::Config { command } => config::run(config, command).boxed(),
 
         Command::Count { command } => {
             count::run(ctx, config, opt.enable_unstable, command).boxed()
@@ -103,10 +93,10 @@ pub(crate) fn run(ctx: Context, config: Configuration, opt: Opt) -> BoxFuture<()
             cp::run(ctx, config, opt.enable_unstable, command).boxed()
         }
         Command::Features { command } => {
-            features::run(ctx, config, opt.enable_unstable, command).boxed()
+            features::run(config, opt.enable_unstable, command).boxed()
         }
         Command::License { command } => {
-            license::run(ctx, config, opt.enable_unstable, command).boxed()
+            license::run(config, opt.enable_unstable, command).boxed()
         }
         Command::Schema { command } => {
             schema::run(ctx, config, opt.enable_unstable, command).boxed()

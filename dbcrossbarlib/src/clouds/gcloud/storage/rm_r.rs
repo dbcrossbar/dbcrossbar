@@ -11,18 +11,17 @@ use crate::tokio_glue::ConsumeWithParallelism;
 const PARALLEL_DELETIONS: usize = 10;
 
 /// Recursively delete a `gs://` path without deleting the bucket.
+#[instrument(level = "trace", skip(ctx))]
 pub(crate) async fn rm_r(ctx: &Context, url: &Url) -> Result<()> {
-    debug!(ctx.log(), "deleting existing {}", url);
+    debug!("deleting existing {}", url);
 
     // TODO: Used batched commands to delete 100 URLs at a time.
     let url_stream = ls(ctx, url).await?;
-    let ctx = ctx.clone();
     let del_fut_stream: BoxStream<BoxFuture<()>> = url_stream
         .map_ok(move |item| {
-            let ctx = ctx.clone();
             async move {
                 let url = item.to_url_string();
-                trace!(ctx.log(), "deleting {}", url);
+                trace!("deleting {}", url);
                 let url = url.parse::<Url>()?;
                 let (bucket, object) = parse_gs_url(&url)?;
                 let req_url = format!(
@@ -30,8 +29,8 @@ pub(crate) async fn rm_r(ctx: &Context, url: &Url) -> Result<()> {
                     percent_encode(&bucket),
                     percent_encode(&object),
                 );
-                let client = Client::new(&ctx).await?;
-                client.delete(&ctx, &req_url, NoQuery).await?;
+                let client = Client::new().await?;
+                client.delete(&req_url, NoQuery).await?;
                 Ok(())
             }
             .boxed()

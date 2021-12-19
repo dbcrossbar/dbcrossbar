@@ -51,8 +51,9 @@ pub(crate) struct Client {
 
 impl Client {
     /// Create a new Google Cloud client.
-    pub(crate) async fn new(ctx: &Context) -> Result<Client> {
-        let authenticator = authenticator(ctx).await?;
+    #[instrument(level = "trace")]
+    pub(crate) async fn new() -> Result<Client> {
+        let authenticator = authenticator().await?;
         let client = reqwest::Client::new();
         Ok(Client {
             authenticator,
@@ -63,11 +64,10 @@ impl Client {
     /// Make an HTTP GET request and return the response.
     async fn get_helper(
         &self,
-        ctx: &Context,
         url: &Url,
         headers: HeaderMap,
     ) -> Result<reqwest::Response> {
-        trace!(ctx.log(), "GET {}", url);
+        trace!("GET {}", url);
         let token = self.token().await?;
         let wait_options = WaitOptions::default()
             .backoff_type(BackoffType::Exponential)
@@ -107,7 +107,7 @@ impl Client {
                     // next time, we hope.
                     Ok(resp) if resp.status().is_server_error() => {
                         WaitStatus::FailedTemporarily(
-                            self.handle_error(ctx, "GET", url, resp).await,
+                            self.handle_error("GET", url, resp).await,
                         )
                     }
                     Ok(resp) => WaitStatus::Finished(resp),
@@ -120,62 +120,62 @@ impl Client {
 
     /// Make an HTTP GET request with the specified URL and query parameters,
     /// and deserialize the result.
+    #[instrument(level = "trace", skip(self))]
     pub(crate) async fn get<Output, U, Query>(
         &self,
-        ctx: &Context,
         url: U,
         query: Query,
     ) -> Result<Output>
     where
         Output: fmt::Debug + DeserializeOwned,
-        U: IntoUrl,
+        U: IntoUrl + fmt::Debug,
         Query: fmt::Debug + Serialize,
     {
         let url = build_url(url, query)?;
         let headers = HeaderMap::default();
-        let http_resp = self.get_helper(ctx, &url, headers).await?;
-        self.handle_response(ctx, "GET", &url, http_resp).await
+        let http_resp = self.get_helper(&url, headers).await?;
+        self.handle_response("GET", &url, http_resp).await
     }
 
     /// Make an HTTP GET request with the specified URL and query parameters,
     /// and return the result as a stream.
+    #[instrument(level = "trace", skip(self, headers))]
     pub(crate) async fn get_response<U, Query>(
         &self,
-        ctx: &Context,
         url: U,
         query: Query,
         headers: HeaderMap,
     ) -> Result<reqwest::Response>
     where
-        U: IntoUrl,
+        U: IntoUrl + fmt::Debug,
         Query: fmt::Debug + Serialize,
     {
         let url = build_url(url, query)?;
-        let http_resp = self.get_helper(ctx, &url, headers).await?;
+        let http_resp = self.get_helper(&url, headers).await?;
         if http_resp.status().is_success() {
             Ok(http_resp)
         } else {
-            Err(self.handle_error(ctx, "GET", &url, http_resp).await)
+            Err(self.handle_error("GET", &url, http_resp).await)
         }
     }
 
     /// Make an HTTP POST request with the specified URL and body.
+    #[instrument(level = "trace", skip(self, body))]
     pub(crate) async fn post<Output, U, Query, Body>(
         &self,
-        ctx: &Context,
         url: U,
         query: Query,
         body: Body,
     ) -> Result<Output>
     where
         Output: fmt::Debug + DeserializeOwned,
-        U: IntoUrl,
+        U: IntoUrl + fmt::Debug,
         Query: fmt::Debug + Serialize,
         Body: fmt::Debug + Serialize,
     {
         let url = build_url(url, query)?;
-        trace!(ctx.log(), "POST {} {:?}", url, body);
-        trace!(ctx.log(), "serialied {}", serde_json::to_string(&body)?);
+        trace!("POST {} {:?}", url, body);
+        trace!("serialied {}", serde_json::to_string(&body)?);
         let token = self.token().await?;
         let http_resp = self
             .client
@@ -185,24 +185,23 @@ impl Client {
             .send()
             .await
             .with_context(|| format!("could not POST {}", url))?;
-        self.handle_response(ctx, "POST", &url, http_resp).await
+        self.handle_response("POST", &url, http_resp).await
     }
 
     /// Post a stream of data to the specified URL.
+    #[instrument(level = "trace", skip(self, stream))]
     pub(crate) async fn post_stream<U, Query>(
         &self,
-        // Pass `ctx` by value, not reference, because of a weird async lifetime error.
-        ctx: Context,
         url: U,
         query: Query,
         stream: IdiomaticBytesStream,
     ) -> Result<()>
     where
-        U: IntoUrl,
+        U: IntoUrl + fmt::Debug,
         Query: fmt::Debug + Serialize,
     {
         let url = build_url(url, query)?;
-        trace!(ctx.log(), "POST {} with stream", url);
+        trace!("POST {} with stream", url);
         let body = reqwest::Body::wrap_stream(stream);
         let token = self.token().await?;
         let http_resp = self
@@ -216,23 +215,19 @@ impl Client {
         if http_resp.status().is_success() {
             Ok(())
         } else {
-            Err(self.handle_error(&ctx, "POST", &url, http_resp).await)
+            Err(self.handle_error("POST", &url, http_resp).await)
         }
     }
 
     /// Delete the specified URL.
-    pub(crate) async fn delete<U, Query>(
-        &self,
-        ctx: &Context,
-        url: U,
-        query: Query,
-    ) -> Result<()>
+    #[instrument(level = "trace", skip(self))]
+    pub(crate) async fn delete<U, Query>(&self, url: U, query: Query) -> Result<()>
     where
-        U: IntoUrl,
+        U: IntoUrl + fmt::Debug,
         Query: fmt::Debug + Serialize,
     {
         let url = build_url(url, query)?;
-        trace!(ctx.log(), "DELETE {}", url);
+        trace!("DELETE {}", url);
         let token = self.token().await?;
         let http_resp = self
             .client
@@ -253,18 +248,17 @@ impl Client {
     }
 
     /// Get an access token.
+    #[instrument(level = "trace", skip(self))]
     async fn token(&self) -> Result<AccessToken> {
-        Ok(self
-            .authenticator
+        self.authenticator
             .token(SCOPES)
             .await
-            .context("could not get Google Cloud OAuth2 token")?)
+            .context("could not get Google Cloud OAuth2 token")
     }
 
     /// Handle an HTTP response.
     async fn handle_response<Output>(
         &self,
-        ctx: &Context,
         method: &str,
         url: &Url,
         http_resp: reqwest::Response,
@@ -276,24 +270,23 @@ impl Client {
             let resp = http_resp.json::<Output>().await.with_context(|| {
                 format!("error fetching JSON response from {}", url)
             })?;
-            trace!(ctx.log(), "{} returned {:?}", method, resp);
+            trace!("{} returned {:?}", method, resp);
             Ok(resp)
         } else {
-            Err(self.handle_error(ctx, method, url, http_resp).await)
+            Err(self.handle_error(method, url, http_resp).await)
         }
     }
 
     /// Handle an HTPP error response.
     async fn handle_error(
         &self,
-        ctx: &Context,
         method: &str,
         url: &Url,
         http_resp: reqwest::Response,
     ) -> Error {
         // Decide if we should even try to parse this response as JSON before we
         // consume our http_resp.
-        let should_parse_as_json = response_claims_to_be_json(ctx, &http_resp);
+        let should_parse_as_json = response_claims_to_be_json(&http_resp);
 
         // Fetch the error body.
         let err_body_result = http_resp
@@ -308,7 +301,7 @@ impl Client {
         // Try to return a nice JSON error.
         if should_parse_as_json {
             if let Ok(resp) = serde_json::from_slice::<ErrorResponse>(&err_body) {
-                trace!(ctx.log(), "{} error {:?}", method, resp);
+                trace!("{} error {:?}", method, resp);
                 let err: Error = resp.error.into();
                 return err.context(format!("{} error {}", method, url));
             }
@@ -319,7 +312,6 @@ impl Client {
         // something equally terrible, so just report whatever we have.
         let raw_err = String::from_utf8_lossy(&err_body);
         trace!(
-            ctx.log(),
             "{} {}: expected JSON describing error, but got {:?}",
             method,
             url,
@@ -387,10 +379,7 @@ pub(crate) fn percent_encode(s: &str) -> impl fmt::Display + '_ {
 }
 
 /// Returns `true` if `http_response` claims to be a JSON response.
-pub(crate) fn response_claims_to_be_json(
-    ctx: &Context,
-    http_resp: &reqwest::Response,
-) -> bool {
+pub(crate) fn response_claims_to_be_json(http_resp: &reqwest::Response) -> bool {
     let content_type = match http_resp.headers().get(CONTENT_TYPE) {
         Some(content_type) => content_type,
         None => return false,
@@ -398,10 +387,7 @@ pub(crate) fn response_claims_to_be_json(
     let content_type_str = match content_type.to_str() {
         Ok(content_type_str) => content_type_str,
         Err(err) => {
-            error!(
-                ctx.log(),
-                "Non-ASCII content type {:?}: {}", content_type, err,
-            );
+            error!("Non-ASCII content type {:?}: {}", content_type, err);
             return false;
         }
     };
@@ -409,8 +395,8 @@ pub(crate) fn response_claims_to_be_json(
         Ok(content_type_mime) => content_type_mime,
         Err(err) => {
             error!(
-                ctx.log(),
-                "Could not parse content type {:?}: {}", content_type_str, err,
+                "Could not parse content type {:?}: {}",
+                content_type_str, err,
             );
             return false;
         }

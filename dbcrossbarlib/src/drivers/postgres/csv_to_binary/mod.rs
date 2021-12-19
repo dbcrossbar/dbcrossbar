@@ -43,6 +43,7 @@ pub(crate) type BufferedWriter = io::BufWriter<Box<dyn Write>>;
 /// run it in its own thread.
 ///
 /// This function will take care of reasonable buffering for `rdr` and `wtr`.
+#[instrument(level = "debug", skip(schema, rdr, wtr))]
 pub(crate) fn copy_csv_to_pg_binary(
     schema: &PgSchema,
     rdr: Box<dyn Read>,

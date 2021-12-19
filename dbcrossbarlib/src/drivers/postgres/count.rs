@@ -5,6 +5,11 @@ use crate::common::*;
 use crate::drivers::postgres_shared::{connect, CheckCatalog, PgSchema};
 
 /// Implementation of `count`, but as a real `async` function.
+#[instrument(
+    level = "trace",
+    name = "postgres::count",
+    skip(ctx, shared_args, source_args)
+)]
 pub(crate) async fn count_helper(
     ctx: Context,
     locator: PostgresLocator,
@@ -36,7 +41,7 @@ pub(crate) async fn count_helper(
     let mut sql_bytes: Vec<u8> = vec![];
     pg_schema.write_count_sql(&mut sql_bytes, &source_args)?;
     let sql = String::from_utf8(sql_bytes).expect("should always be UTF-8");
-    debug!(ctx.log(), "count SQL: {}", sql);
+    debug!("count SQL: {}", sql);
 
     // Run our query.
     let conn = connect(&ctx, &url).await?;

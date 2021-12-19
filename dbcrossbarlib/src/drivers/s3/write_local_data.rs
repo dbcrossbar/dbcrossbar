@@ -5,8 +5,13 @@ use crate::clouds::aws::s3;
 use crate::common::*;
 
 /// Implementation of `write_local_data`, but as a real `async` function.
+#[instrument(
+    level = "debug",
+    name = "s3::write_local_data",
+    skip_all,
+    fields(url = %url)
+)]
 pub(crate) async fn write_local_data_helper(
-    ctx: Context,
     url: Url,
     data: BoxStream<CsvStream>,
     shared_args: SharedArguments<Unverified>,
@@ -19,17 +24,18 @@ pub(crate) async fn write_local_data_helper(
     let if_exists = dest_args.if_exists().to_owned();
 
     // Delete the existing output, if it exists.
-    prepare_as_destination_helper(ctx.clone(), url.clone(), if_exists).await?;
+    prepare_as_destination_helper(url.clone(), if_exists).await?;
 
     // Spawn our uploader threads.
     let written = data.map_ok(move |stream| {
         let url = url.clone();
-        let ctx = ctx.clone();
         async move {
             let url = url.join(&format!("{}.csv", stream.name))?;
-            let ctx = ctx
-                .child(o!("stream" => stream.name.clone(), "url" => url.to_string()));
-            s3::upload_file(&ctx, stream.data, &url).await?;
+            s3::upload_file(stream.data, &url)
+                .instrument(
+                    debug_span!("write_stream", stream.name = %stream.name, url = %url),
+                )
+                .await?;
             Ok(S3Locator { url }.boxed())
         }
         .boxed()

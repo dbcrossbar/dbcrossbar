@@ -10,12 +10,13 @@ use super::aws_s3_command;
 use crate::common::*;
 
 /// List all the files at the specified `s2://` URL, recursively.
+#[instrument(level = "trace", skip(ctx))]
 pub(crate) async fn ls(
     ctx: &Context,
     url: &Url,
 ) -> Result<impl Stream<Item = Result<Url>> + Send + Unpin + 'static> {
     // Start a child process to list files at that URL.
-    debug!(ctx.log(), "listing {}", url);
+    debug!("listing {}", url);
     let mut child = aws_s3_command()
         .await?
         .args(&["ls", "--recursive", url.as_str()])
@@ -30,16 +31,14 @@ pub(crate) async fn ls(
     // XXX - This will fail (either silently or noisily, I'm not sure) if there
     // are 1000+ files in the S3 directory, and we can't fix this without
     // switching from `aws s3` to native S3 API calls from Rust.
-    let ctx = ctx.to_owned();
     let url = url.to_owned();
     let lines =
         LinesStream::new(BufReader::with_capacity(BUFFER_SIZE, child_stdout).lines())
             .map_err(|e| format_err!("error reading `aws s3 ls` output: {}", e))
             .and_then(move |line| {
-                let ctx = ctx.clone();
                 let url = url.clone();
                 async move {
-                    trace!(ctx.log(), "`aws s3 ls` line: {}", line);
+                    trace!("`aws s3 ls` line: {}", line);
                     let bucket_url = bucket_url(&url)?;
                     let path = path_from_line(&line)?;
                     Ok(bucket_url.join(&path)?)

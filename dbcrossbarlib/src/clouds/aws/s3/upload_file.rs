@@ -7,13 +7,13 @@ use crate::common::*;
 use crate::tokio_glue::copy_stream_to_writer;
 
 /// Upload `data` as a file at `url`.
+#[instrument(level = "trace", skip(data))]
 pub(crate) async fn upload_file<'a>(
-    ctx: &'a Context,
     data: BoxStream<BytesMut>,
     file_url: &'a Url,
 ) -> Result<()> {
     // Run `aws cp - $URL` as a background process.
-    debug!(ctx.log(), "uploading stream to `aws s3`");
+    debug!("uploading stream to `aws s3`");
     let mut child = aws_s3_command()
         .await?
         .args(&["cp", "-", file_url.as_str()])
@@ -25,7 +25,7 @@ pub(crate) async fn upload_file<'a>(
     let child_stdin = child.stdin.take().expect("child should have stdin");
 
     // Copy data to our child process.
-    copy_stream_to_writer(ctx.clone(), data, child_stdin)
+    copy_stream_to_writer(data, child_stdin)
         .await
         .context("error copying data to `aws s3`")?;
 

@@ -93,7 +93,6 @@ pub(crate) mod common {
         join, stream, try_join, Future, FutureExt, Stream, StreamExt, TryFutureExt,
         TryStreamExt,
     };
-    pub(crate) use slog::{debug, error, info, o, trace, warn, Logger};
     pub(crate) use std::{
         any::Any,
         convert::{TryFrom, TryInto},
@@ -106,6 +105,10 @@ pub(crate) mod common {
         },
         sync::mpsc,
     };
+    pub(crate) use tracing::{
+        debug, debug_span, error, info, instrument, trace, trace_span, warn,
+    };
+    pub(crate) use tracing_futures::Instrument;
     pub(crate) use url::Url;
 
     pub(crate) use crate::{

@@ -41,7 +41,7 @@ macro_rules! try_and_forward_errors {
         match $expression {
             Ok(val) => val,
             Err(err) => {
-                error!($ctx.log(), "error in gcloud worker: {}", err);
+                error!("error in gcloud worker: {}", err);
                 $sender.send(Err(err.into())).await.map_send_err()?;
                 return Ok(());
             }
@@ -58,11 +58,12 @@ macro_rules! try_and_forward_errors {
 /// handle prefix matches using ordinary file-system behavior.
 ///
 /// [list]: https://cloud.google.com/storage/docs/json_api/v1/objects/list
+#[instrument(level = "trace", skip(ctx))]
 pub(crate) async fn ls(
     ctx: &Context,
     url: &Url,
 ) -> Result<impl Stream<Item = Result<StorageObject>> + Send + Unpin + 'static> {
-    debug!(ctx.log(), "listing {}", url);
+    debug!("listing {}", url);
     let (bucket, object) = parse_gs_url(url)?;
 
     // We were asked to list `object`, so everything we return should either be
@@ -77,14 +78,9 @@ pub(crate) async fn ls(
     // should also forward all errors to `sender`, except errors that occur when
     // fowarding other errors.
     let (sender, receiver) = mpsc::channel::<Result<StorageObject>>(1);
-    let worker_ctx = ctx.child(o!("worker" => "gcloud storage ls"));
     let worker: BoxFuture<()> = async move {
         // Make our client.
-        let client = try_and_forward_errors!(
-            worker_ctx,
-            Client::new(&worker_ctx).await,
-            sender,
-        );
+        let client = try_and_forward_errors!(worker_ctx, Client::new().await, sender,);
 
         // Keep track of URLs that we've seen.
         let mut seen = HashSet::new();
@@ -103,9 +99,7 @@ pub(crate) async fn ls(
             };
 
             // Make our request.
-            let get_result = client
-                .get::<ListResponse, _, _>(&worker_ctx, &req_url, query)
-                .await;
+            let get_result = client.get::<ListResponse, _, _>(&req_url, query).await;
             let mut res = try_and_forward_errors!(worker_ctx, get_result, sender);
             let next_page_token = res.next_page_token.take();
             if page_token.is_some() && page_token == next_page_token {
@@ -134,7 +128,7 @@ pub(crate) async fn ls(
                 // return `object + "_trailing"`, but since cloud bucket stores don't
                 // actually treat "/" as special, that's what we'll have to do.
                 if item.name != object && !item.name.starts_with(&dir_prefix) {
-                    trace!(worker_ctx.log(), "filtered false match {:?}", item.name);
+                    trace!("filtered false match {:?}", item.name);
                     continue;
                 }
 
@@ -153,6 +147,7 @@ pub(crate) async fn ls(
         }
         Ok(())
     }
+    .in_current_span()
     .boxed();
     ctx.spawn_worker(worker);
     Ok(ReceiverStream::new(receiver))

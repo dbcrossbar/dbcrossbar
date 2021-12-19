@@ -16,6 +16,7 @@ use crate::separator::Separator;
 ///
 /// This is basically a fancy boolean that exists in order to make the related
 /// logic clear at a glance, and easy to verify.
+#[derive(Debug)]
 pub(crate) enum CheckCatalog {
     /// Check the PostgreSQL catalog for an existing schema.
     Yes,

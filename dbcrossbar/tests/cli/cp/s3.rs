@@ -16,7 +16,6 @@ fn cp_from_s3_to_exact_csv() {
 #[test]
 #[ignore]
 fn cp_csv_to_s3_to_csv() {
-    let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "cp_csv_to_s3_to_csv");
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");

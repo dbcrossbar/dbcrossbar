@@ -21,6 +21,7 @@ pub(crate) use self::schema::PgSchema;
 pub(crate) use self::table::{CheckCatalog, PgCreateTable};
 
 /// Connect to the database, using SSL if possible.
+#[instrument(level = "trace", skip(ctx))]
 pub(crate) async fn connect(
     ctx: &Context,
     url: &UrlWithHiddenPassword,
@@ -33,7 +34,7 @@ pub(crate) async fn connect(
         .context("could not configure PostgreSQL connection")?;
 
     // Set up RusTLS.
-    let tls_config = rustls_client_config(ctx)?;
+    let tls_config = rustls_client_config()?;
     let tls = tokio_postgres_rustls::MakeRustlsConnect::new(tls_config);
 
     // Actually create our PostgreSQL client and connect.

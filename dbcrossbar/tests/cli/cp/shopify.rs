@@ -14,7 +14,6 @@ fn cp_shopify_to_bigquery() {
         return;
     }
 
-    let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "cp_shopify_to_bigquery");
     let shop = env::var("SHOPIFY_SHOP").unwrap();
     let src = format!(

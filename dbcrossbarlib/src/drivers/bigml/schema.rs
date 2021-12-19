@@ -5,8 +5,8 @@ use crate::common::*;
 use crate::schema::{Column, Table};
 
 /// Implementation of `schema`, but as a real `async` function.
+#[instrument(level = "trace", name = "bigml::schema")]
 pub(crate) async fn schema_helper(
-    _ctx: Context,
     source: BigMlLocator,
 ) -> Result<Option<Schema>> {
     let client = bigml::Client::new_from_env()?;

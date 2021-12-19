@@ -6,9 +6,10 @@ use super::aws_s3_command;
 use crate::common::*;
 
 /// Recursively delete a `s3://` directory without deleting the bucket.
-pub(crate) async fn rmdir(ctx: &Context, url: &Url) -> Result<()> {
+#[instrument(level = "trace")]
+pub(crate) async fn rmdir(url: &Url) -> Result<()> {
     // Delete all the files under `url`.
-    debug!(ctx.log(), "deleting existing {}", url);
+    debug!("deleting existing {}", url);
     if !url.path().ends_with('/') {
         return Err(format_err!(
             "can only write to s3:// URL ending in '/', got {}",
@@ -25,8 +26,8 @@ pub(crate) async fn rmdir(ctx: &Context, url: &Url) -> Result<()> {
         .context("error running `aws s3`")?;
     if !status.success() {
         warn!(
-            ctx.log(),
-            "can't delete contents of {}, possibly because it doesn't exist", url,
+            "can't delete contents of {}, possibly because it doesn't exist",
+            url,
         );
     }
     Ok(())

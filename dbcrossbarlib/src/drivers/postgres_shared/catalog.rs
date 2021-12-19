@@ -67,6 +67,7 @@ impl PgColumnSchema {
 /// Fetch information about a table from the database.
 ///
 /// Returns `None` if no matching table exists.
+#[instrument(level = "trace", skip(ctx))]
 pub(crate) async fn fetch_from_url(
     ctx: &Context,
     database_url: &UrlWithHiddenPassword,
@@ -184,7 +185,7 @@ WHERE
     for col in &columns {
         if let PgDataType::Scalar(PgScalarDataType::Named(type_name)) = &col.data_type
         {
-            let pg_create_type = fetch_create_type(ctx, &client, type_name)
+            let pg_create_type = fetch_create_type(&client, type_name)
                 .await?
                 .ok_or_else(|| {
                     format_err!(
@@ -394,7 +395,6 @@ fn parsing_pg_data_type() {
 /// - If it is defined as an enum, return the enum.
 /// - Otherwise, return an error.
 pub(crate) async fn fetch_create_type(
-    ctx: &Context,
     client: &Client,
     type_name: &PgName,
 ) -> Result<Option<PgCreateType>> {
@@ -412,7 +412,6 @@ FROM pg_type t
 WHERE n.nspname = $1 AND t.typname = $2 AND t.typtype = 'e'
 ";
     trace!(
-        ctx.log(),
         "checking for type {}: {}",
         type_name.unquoted(),
         typtype_sql
@@ -443,7 +442,6 @@ WHERE n.nspname = $1 AND t.typname = $2
 ORDER BY e.enumsortorder
 ";
     trace!(
-        ctx.log(),
         "fetching enum values {}: {}",
         type_name.unquoted(),
         enum_values_sql
@@ -458,6 +456,6 @@ ORDER BY e.enumsortorder
         name: type_name.to_owned(),
         definition: PgCreateTypeDefinition::Enum(enum_values),
     };
-    trace!(ctx.log(), "looked up type definition {:?}", pg_create_type);
+    trace!("looked up type definition {:?}", pg_create_type);
     Ok(Some(pg_create_type))
 }

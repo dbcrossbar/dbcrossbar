@@ -36,17 +36,17 @@ impl Locator for PostgresSqlLocator {
         self
     }
 
-    fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
-        schema_helper(ctx, self.to_owned()).boxed()
+    fn schema(&self, _ctx: Context) -> BoxFuture<Option<Schema>> {
+        schema_helper(self.to_owned()).boxed()
     }
 
     fn write_schema(
         &self,
-        ctx: Context,
+        _ctx: Context,
         schema: Schema,
         if_exists: IfExists,
     ) -> BoxFuture<()> {
-        write_schema_helper(ctx, self.to_owned(), schema, if_exists).boxed()
+        write_schema_helper(self.to_owned(), schema, if_exists).boxed()
     }
 }
 
@@ -68,10 +68,8 @@ impl LocatorStatic for PostgresSqlLocator {
 }
 
 /// Implementation of `schema`, but as a real `async` function.
-async fn schema_helper(
-    _ctx: Context,
-    source: PostgresSqlLocator,
-) -> Result<Option<Schema>> {
+#[instrument(level = "trace", name = "postgres_sql::schema")]
+async fn schema_helper(source: PostgresSqlLocator) -> Result<Option<Schema>> {
     let input = source
         .path
         .open_async()
@@ -86,8 +84,8 @@ async fn schema_helper(
 }
 
 /// Implementation of `write_schema`, but as a real `async` function.
+#[instrument(level = "trace", name = "postgres_sql::write_schema")]
 async fn write_schema_helper(
-    ctx: Context,
     dest: PostgresSqlLocator,
     schema: Schema,
     if_exists: IfExists,
@@ -96,8 +94,8 @@ async fn write_schema_helper(
     // odd results if the input table comes from BigQuery or another
     // database with a very different naming scheme.
     let table_name = sanitize_table_name(&schema.table.name)?.parse::<PgName>()?;
-    let pg_schema = PgSchema::from_schema_and_name(&ctx, &schema, &table_name)?;
-    let mut out = dest.path.create_async(ctx, if_exists).await?;
+    let pg_schema = PgSchema::from_schema_and_name(&schema, &table_name)?;
+    let mut out = dest.path.create_async(if_exists).await?;
     buffer_sync_write_and_copy_to_async(&mut out, |buff| {
         write!(buff, "{}", pg_schema)
     })

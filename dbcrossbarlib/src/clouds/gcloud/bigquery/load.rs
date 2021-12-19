@@ -13,14 +13,14 @@ use crate::drivers::bigquery_shared::BqTable;
 use std::convert::TryFrom;
 
 /// Load data from `gs_url` into `dest_table`.
+#[instrument(level = "trace", skip(dest_table, labels), fields(dest_name = ?dest_table.name))]
 pub(crate) async fn load(
-    ctx: &Context,
     gs_url: &Url,
     dest_table: &BqTable,
     if_exists: &IfExists,
     labels: &Labels,
 ) -> Result<()> {
-    trace!(ctx.log(), "loading {} into {}", gs_url, dest_table.name);
+    trace!("loading {} into {}", gs_url, dest_table.name);
 
     // Configure our job.
     let config = JobConfigurationLoad {
@@ -36,9 +36,8 @@ pub(crate) async fn load(
     };
 
     // Run our job.
-    let client = Client::new(ctx).await?;
+    let client = Client::new().await?;
     run_job(
-        ctx,
         &client,
         dest_table.name.project(),
         Job::new_load(config, labels.to_owned()),

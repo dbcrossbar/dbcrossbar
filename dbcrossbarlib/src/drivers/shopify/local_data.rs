@@ -16,6 +16,11 @@ use crate::common::*;
 use crate::credentials::CredentialsManager;
 use crate::tokio_glue::{box_stream_once, bytes_channel, SendResultExt};
 
+#[instrument(
+    level = "trace",
+    name = "shopify::local_data",
+    skip(ctx, shared_args, source_args)
+)]
 pub(crate) async fn local_data_helper(
     ctx: Context,
     source: ShopifyLocator,
@@ -37,7 +42,6 @@ pub(crate) async fn local_data_helper(
 
     // Loop over pages until we run out.
     let mut include_headers = true;
-    let worker_ctx = ctx.clone();
     let (mut sender, receiver) = bytes_channel(1);
     let worker: BoxFuture<()> = async move {
         let client = Client::new();
@@ -54,13 +58,9 @@ pub(crate) async fn local_data_helper(
             let result = wait(&wait_options, || {
                 let next_url = next_url.clone();
                 async {
-                    let result = get_shopify_response(
-                        &worker_ctx,
-                        &client,
-                        next_url,
-                        auth_token.to_owned(),
-                    )
-                    .await;
+                    let result =
+                        get_shopify_response(&client, next_url, auth_token.to_owned())
+                            .await;
                     match result {
                         Ok(resp) => WaitStatus::Finished(resp),
                         Err(err) => WaitStatus::FailedTemporarily(err),
@@ -71,7 +71,7 @@ pub(crate) async fn local_data_helper(
             let resp = match result {
                 Ok(resp) => resp,
                 Err(err) => {
-                    error!(worker_ctx.log(), "ERROR: {:?}", err);
+                    error!("ERROR: {:?}", err);
                     sender.send(Err(err)).await.map_send_err()?;
                     return Ok(());
                 }
@@ -194,14 +194,13 @@ impl RowsJson {
 }
 
 /// Given an HTTPS URL, look return the Shopify response.
+#[instrument(level = "trace", skip(client, auth_token))]
 async fn get_shopify_response(
-    ctx: &Context,
     client: &Client,
     url: Url,
     auth_token: String,
 ) -> Result<ShopifyResponse> {
-    let ctx = ctx.child(o!("shopify_url" => url.to_string()));
-    debug!(ctx.log(), "Fetching Shopify data");
+    debug!("Fetching Shopify data");
 
     // Fetch the next page.
     let resp: reqwest::Response = client
@@ -267,6 +266,11 @@ async fn get_shopify_response(
 }
 
 /// Convert rows to CSV and send them.
+#[instrument(
+    level = "trace",
+    name = "convert_rows_to_csv_and_send",
+    skip(sender, schema, rows)
+)]
 async fn convert_rows_to_csv_and_send(
     sender: &mut Sender<Result<BytesMut>>,
     schema: &Schema,

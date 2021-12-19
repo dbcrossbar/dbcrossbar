@@ -5,6 +5,12 @@ use crate::common::*;
 use crate::drivers::s3::find_s3_temp_dir;
 
 /// Implementation of `local_data`, but as a real `async` function.
+#[instrument(
+    level = "trace",
+    name = "redshift::local_data",
+    skip_all,
+    fields(source = %source)
+)]
 pub(crate) async fn local_data_helper(
     ctx: Context,
     source: RedshiftLocator,
@@ -18,20 +24,20 @@ pub(crate) async fn local_data_helper(
     let s3_source_args = SourceArguments::for_temporary();
 
     // Extract from Redshift to s3://.
-    let to_temp_ctx = ctx.child(o!("to_temp" => s3_temp.to_string()));
     s3_temp
         .write_remote_data(
-            to_temp_ctx,
+            ctx.clone(),
             Box::new(source),
             shared_args.clone(),
             source_args,
             s3_dest_args,
         )
+        .instrument(trace_span!("extract_to_s3_tmp", url = %s3_temp))
         .await?;
 
     // Copy from a temporary gs:// location.
-    let from_temp_ctx = ctx.child(o!("from_temp" => s3_temp.to_string()));
     s3_temp
-        .local_data(from_temp_ctx, shared_args, s3_source_args)
+        .local_data(ctx, shared_args, s3_source_args)
+        .instrument(debug_span!("stream_from_s3", url = %s3_temp))
         .await
 }

@@ -21,9 +21,8 @@ pub fn rechunk_csvs(
 ) -> Result<BoxStream<CsvStream>> {
     // Convert out input `BoxStream<CsvStream>` into a single, concatenated
     // synchronous `Read` object.
-    let ctx = ctx.child(o!("streams_transform" => "rechunk_csvs"));
     let input_csv_stream = concatenate_csv_streams(ctx.clone(), streams)?;
-    let csv_rdr = SyncStreamReader::new(ctx.clone(), input_csv_stream.data);
+    let csv_rdr = SyncStreamReader::new(input_csv_stream.data);
 
     // Create a channel to which we can write `CsvStream` values once we've
     // created them.
@@ -32,7 +31,6 @@ pub fn rechunk_csvs(
 
     // Run a synchronous background worker thread that parsers our sync CSV
     // `Read`er into a stream of `CsvStream`s.
-    let worker_ctx = ctx.clone();
     let worker_fut = spawn_blocking(move || -> Result<()> {
         let mut rdr = csv::Reader::from_reader(csv_rdr);
         let hdr = rdr
@@ -62,12 +60,12 @@ pub fn rechunk_csvs(
         // `csv::Writer` which can be used to write data to it.
         let mut new_chunk = || -> Result<Chunk<_>> {
             chunk_id = chunk_id.checked_add(1).expect("too many chunks");
-            trace!(worker_ctx.log(), "starting new CSV chunk {}", chunk_id);
+            trace!("starting new CSV chunk {}", chunk_id);
 
             // Build a `CsvStream` that we can write to synchronously using
             // `wtr`. Here, `wtr` is a synchronous `Write` implementation,
             // and `data` is an `impl Stream<Item = BytesMut, ..>`.
-            let (wtr, data) = SyncStreamWriter::pipe(worker_ctx.clone());
+            let (wtr, data) = SyncStreamWriter::pipe();
             let csv_stream = CsvStream {
                 name: format!("chunk_{:04}", chunk_id),
                 data: data.boxed(),
@@ -116,13 +114,14 @@ pub fn rechunk_csvs(
 
             // If total written exceeds chunk size, then start a new chunk.
             if chunk.total_written.get() >= chunk_size {
-                trace!(worker_ctx.log(), "finishing chunk");
+                trace!("finishing chunk");
                 chunk = new_chunk()?;
             }
         }
-        trace!(worker_ctx.log(), "finished rechunking CSV data");
+        trace!("finished rechunking CSV data");
         Ok(())
-    });
+    })
+    .instrument(debug_span!("rechunk_csvs"));
     ctx.spawn_worker(worker_fut.boxed());
 
     let csv_streams = ReceiverStream::new(csv_stream_receiver).boxed();
@@ -137,10 +136,10 @@ async fn rechunk_csvs_honors_chunk_size() {
     let expected: &[&[u8]] =
         &[b"a,b\n1,1\n", b"a,b\n2,1\n", b"a,b\n1,2\n", b"a,b\n2,2\n"];
 
-    let (ctx, worker_fut) = Context::create_for_test("rechunk_csvs");
+    let (ctx, worker_fut) = Context::create();
 
     let cmd_fut = async move {
-        debug!(ctx.log(), "testing rechunk_csvs");
+        debug!("testing rechunk_csvs");
 
         // Build our `BoxStream<CsvStream>`.
         let (sender, receiver) = mpsc::channel::<Result<CsvStream>>(2);
@@ -163,20 +162,15 @@ async fn rechunk_csvs_honors_chunk_size() {
             // using `try_buffer_unordered`, which would allow use to use `map`.
             .map(move |csv_stream_result| -> BoxFuture<_> {
                 match csv_stream_result {
-                    Ok(csv_stream) => {
-                        let ctx = ctx.clone();
-                        async move {
-                            let bytes =
-                                csv_stream.into_bytes(ctx.clone()).await.unwrap();
-                            trace!(
-                                ctx.log(),
-                                "collected CSV stream: {:?}",
-                                str::from_utf8(&bytes[..]).unwrap()
-                            );
-                            Ok(bytes)
-                        }
-                        .boxed()
+                    Ok(csv_stream) => async move {
+                        let bytes = csv_stream.into_bytes().await.unwrap();
+                        trace!(
+                            "collected CSV stream: {:?}",
+                            str::from_utf8(&bytes[..]).unwrap()
+                        );
+                        Ok(bytes)
                     }
+                    .boxed(),
                     Err(err) => async { Err(err) }.boxed(),
                 }
             })

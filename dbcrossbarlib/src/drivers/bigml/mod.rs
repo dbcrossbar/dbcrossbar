@@ -160,17 +160,17 @@ impl Locator for BigMlLocator {
         self
     }
 
-    fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
-        schema_helper(ctx, self.to_owned()).boxed()
+    fn schema(&self, _ctx: Context) -> BoxFuture<Option<Schema>> {
+        schema_helper(self.to_owned()).boxed()
     }
 
     fn local_data(
         &self,
-        ctx: Context,
+        _ctx: Context,
         shared_args: SharedArguments<Unverified>,
         source_args: SourceArguments<Unverified>,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(ctx, self.clone(), shared_args, source_args).boxed()
+        local_data_helper(self.clone(), shared_args, source_args).boxed()
     }
 
     fn display_output_locators(&self) -> DisplayOutputLocators {

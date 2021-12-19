@@ -19,6 +19,12 @@ use crate::schema::{Column, DataType};
 /// The function `BigQueryLocator::write_remote_data` isn't (yet) allowed to be
 /// async, because it's part of a trait. This version is an `async fn`, which
 /// makes the code much clearer.
+#[instrument(
+    level = "debug",
+    name = "redshift::write_remote_data",
+    skip_all,
+    fields(source = %source, dest = %dest)
+)]
 pub(crate) async fn write_remote_data_helper(
     ctx: Context,
     source: BoxLocator,
@@ -36,7 +42,6 @@ pub(crate) async fn write_remote_data_helper(
         .ok_or_else(|| format_err!("not a s3:// locator: {}", source))?
         .as_url()
         .to_owned();
-    let ctx = ctx.child(o!("source_url" => source_url.as_str().to_owned()));
 
     let shared_args = shared_args.verify(RedshiftLocator::features())?;
     let _source_args = source_args.verify(Features::empty())?;
@@ -63,17 +68,16 @@ pub(crate) async fn write_remote_data_helper(
 
     // Connect to Redshift and prepare our table.
     let mut client = connect(&ctx, dest.url()).await?;
-    prepare_table(&ctx, &mut client, pg_schema.clone(), &if_exists).await?;
+    prepare_table(&mut client, pg_schema.clone(), &if_exists).await?;
     if let IfExists::Upsert(upsert_keys) = &if_exists {
         // Create a temporary table to hold our imported data.
-        let temp_table = create_temp_table_for(&ctx, &mut client, &pg_schema).await?;
+        let temp_table = create_temp_table_for(&mut client, &pg_schema).await?;
 
         // Copy data into our temporary table.
-        copy_in(&ctx, &client, &source_url, &temp_table.name, &to_args).await?;
+        copy_in(&client, &source_url, &temp_table.name, &to_args).await?;
 
         // Build our upsert SQL.
         upsert_from_temp_table(
-            &ctx,
             &mut client,
             &temp_table,
             pg_schema.table()?,
@@ -81,22 +85,21 @@ pub(crate) async fn write_remote_data_helper(
         )
         .await?;
     } else {
-        copy_in(&ctx, &client, &source_url, table_name, &to_args).await?;
+        copy_in(&client, &source_url, table_name, &to_args).await?;
     }
 
     Ok(vec![dest.boxed()])
 }
 
 /// Copy data from S3 into a RedShift table.
+#[instrument(level = "trace", skip(client))]
 async fn copy_in(
-    ctx: &Context,
     client: &Client,
     source_s3_url: &Url,
     dest_table: &PgName,
     to_args: &RedshiftDriverArguments,
 ) -> Result<()> {
     debug!(
-        ctx.log(),
         "Copying into {} from {}",
         dest_table.unquoted(),
         source_s3_url.as_str(),
@@ -120,8 +123,12 @@ async fn copy_in(
 }
 
 /// Upsert from `temp_table` into `dest_table`, using the columns `upsert_keys`.
+#[instrument(
+    level = "trace",
+    skip(client, temp_table, dest_table),
+    fields(temp_table.name = ?temp_table.name, dest_table.name = ?dest_table.name),
+)]
 async fn upsert_from_temp_table(
-    ctx: &Context,
     client: &mut Client,
     temp_table: &PgCreateTable,
     dest_table: &PgCreateTable,
@@ -131,13 +138,7 @@ async fn upsert_from_temp_table(
 
     let upsert_sql = upsert_sql(temp_table, dest_table, upsert_keys)?;
     for (idx, sql) in upsert_sql.iter().enumerate() {
-        debug!(
-            ctx.log(),
-            "upsert SQL ({}/{}): {}",
-            idx + 1,
-            upsert_sql.len(),
-            sql,
-        );
+        debug!("upsert SQL ({}/{}): {}", idx + 1, upsert_sql.len(), sql,);
         transaction.execute(&sql[..], &[]).await.with_context(|| {
             format!(
                 "error upserting into {} from {}",
@@ -147,7 +148,7 @@ async fn upsert_from_temp_table(
         })?;
     }
 
-    debug!(ctx.log(), "commiting upsert");
+    debug!("commiting upsert");
     transaction.commit().await?;
     Ok(())
 }

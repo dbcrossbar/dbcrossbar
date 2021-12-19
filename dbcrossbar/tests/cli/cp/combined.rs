@@ -9,7 +9,6 @@ use super::*;
 #[test]
 #[ignore]
 fn cp_csv_to_postgres_to_gs_to_csv() {
-    let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "cp_csv_to_postgres_to_gs_to_csv");
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
@@ -117,7 +116,6 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
 #[test]
 #[ignore]
 fn cp_tricky_column_names_fails() {
-    let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "cp_tricky_column_names");
     let src = testdir.src_path("fixtures/tricky_column_names.csv");
     let schema = testdir.src_path("fixtures/tricky_column_names.sql");

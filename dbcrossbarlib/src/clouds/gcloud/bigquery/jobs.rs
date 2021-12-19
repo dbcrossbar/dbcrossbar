@@ -291,18 +291,13 @@ impl TryFrom<&IfExists> for WriteDisposition {
 }
 
 /// Run a BigQuery job.
+#[instrument(level = "trace", skip(client, job))]
 pub(crate) async fn run_job(
-    ctx: &Context,
     client: &Client,
     project_id: &str,
     mut job: Job,
 ) -> Result<Job> {
-    trace!(
-        ctx.log(),
-        "starting BigQuery job on {} {:?}",
-        project_id,
-        job,
-    );
+    trace!("starting BigQuery job on {} {:?}", project_id, job);
 
     // Create our job.
     let insert_url = format!(
@@ -310,7 +305,7 @@ pub(crate) async fn run_job(
         project_id,
     );
     job = client
-        .post::<Job, _, _, _>(ctx, &insert_url, NoQuery, job)
+        .post::<Job, _, _, _>(&insert_url, NoQuery, job)
         .await?;
 
     // Get the URL for polling the job.
@@ -332,9 +327,7 @@ pub(crate) async fn run_job(
         }
 
         // Update our job.
-        job = client
-            .get::<Job, _, _>(ctx, job_url.as_str(), NoQuery)
-            .await?;
+        job = client.get::<Job, _, _>(job_url.as_str(), NoQuery).await?;
     }
 
     // Return either an error or a finished job.

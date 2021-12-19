@@ -13,7 +13,6 @@ use super::*;
 #[test]
 #[ignore]
 fn cp_csv_to_redshift_to_csv() {
-    let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "cp_csv_to_redshift_to_csv");
     let src = testdir.src_path("fixtures/redshift_types.csv");
     let schema = testdir.src_path("fixtures/redshift_types.sql");
@@ -77,7 +76,6 @@ fn cp_csv_to_redshift_to_csv() {
 #[test]
 #[ignore]
 fn redshift_upsert() {
-    let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "redshift_upsert");
     let srcs = &[
         testdir.src_path("fixtures/redshift_upsert/upsert_1.csv"),

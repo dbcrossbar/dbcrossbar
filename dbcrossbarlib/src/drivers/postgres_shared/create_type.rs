@@ -36,12 +36,12 @@ impl PgCreateType {
 
     /// Look up a `PgCreateType` by name using the specified database
     /// connection.
+    #[instrument(level = "trace", skip(client))]
     pub(crate) async fn from_database(
-        ctx: &Context,
         client: &Client,
         type_name: &PgName,
     ) -> Result<Option<Self>> {
-        catalog::fetch_create_type(ctx, client, type_name).await
+        catalog::fetch_create_type(client, type_name).await
     }
 }
 

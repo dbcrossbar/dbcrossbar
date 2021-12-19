@@ -65,8 +65,8 @@ impl Locator for DbcrossbarTsLocator {
         self
     }
 
-    fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
-        schema_helper(ctx, self.to_owned()).boxed()
+    fn schema(&self, _ctx: Context) -> BoxFuture<Option<Schema>> {
+        schema_helper(self.to_owned()).boxed()
     }
 }
 
@@ -93,10 +93,8 @@ impl LocatorStatic for DbcrossbarTsLocator {
 }
 
 /// Implementation of `schema`, but as a real `async` function.
-async fn schema_helper(
-    _ctx: Context,
-    source: DbcrossbarTsLocator,
-) -> Result<Option<Schema>> {
+#[instrument(name = "dbcrossbar_schema::write_schema", level = "trace")]
+async fn schema_helper(source: DbcrossbarTsLocator) -> Result<Option<Schema>> {
     // Read our input.
     let input = source.path.open_async().await?;
     let data = async_read_to_end(input)

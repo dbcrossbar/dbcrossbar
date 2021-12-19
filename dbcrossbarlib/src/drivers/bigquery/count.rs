@@ -10,8 +10,12 @@ use crate::drivers::{
 };
 
 /// Implementation of `count`, but as a real `async` function.
+#[instrument(
+    level = "trace",
+    name = "bigquery::count",
+    skip(shared_args, source_args)
+)]
 pub(crate) async fn count_helper(
-    ctx: Context,
     locator: BigQueryLocator,
     shared_args: SharedArguments<Unverified>,
     source_args: SourceArguments<Unverified>,
@@ -43,22 +47,18 @@ pub(crate) async fn count_helper(
     let mut count_sql_data = vec![];
     table.write_count_sql(&source_args, &mut count_sql_data)?;
     let count_sql = String::from_utf8(count_sql_data).expect("should always be UTF-8");
-    debug!(ctx.log(), "count SQL: {}", count_sql);
+    debug!("count SQL: {}", count_sql);
 
     // Run our query.
     #[derive(Deserialize)]
     struct CountRow {
         count: String,
     }
-    let count_str = bigquery::query_one::<CountRow>(
-        &ctx,
-        locator.project(),
-        &count_sql,
-        &job_labels,
-    )
-    .await?
-    .count;
-    Ok(count_str
+    let count_str =
+        bigquery::query_one::<CountRow>(locator.project(), &count_sql, &job_labels)
+            .await?
+            .count;
+    count_str
         .parse::<usize>()
-        .context("could not parse count output")?)
+        .context("could not parse count output")
 }

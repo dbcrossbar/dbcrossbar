@@ -56,13 +56,10 @@ pub(crate) struct TableSchema {
 }
 
 /// Drop a table from BigQuery.
-pub(crate) async fn drop_table(
-    ctx: &Context,
-    table_name: &TableName,
-    labels: &Labels,
-) -> Result<()> {
+#[instrument(level = "trace", skip(labels))]
+pub(crate) async fn drop_table(table_name: &TableName, labels: &Labels) -> Result<()> {
     // Delete temp table.
-    debug!(ctx.log(), "deleting table: {}", table_name);
+    debug!("deleting table: {}", table_name);
     let sql = format!("DROP TABLE {};\n", table_name.dotted_and_quoted());
-    execute_sql(ctx, table_name.project(), &sql, labels).await
+    execute_sql(table_name.project(), &sql, labels).await
 }

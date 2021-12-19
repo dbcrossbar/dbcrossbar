@@ -6,6 +6,11 @@ use crate::common::*;
 use crate::csv_stream::csv_stream_name;
 
 /// Implementation of `local_data`, but as a real `async` function.
+#[instrument(
+    level = "trace",
+    name = "s3::local_data",
+    skip(ctx, shared_args, source_args)
+)]
 pub(crate) async fn local_data_helper(
     ctx: Context,
     url: Url,
@@ -15,7 +20,7 @@ pub(crate) async fn local_data_helper(
     let _shared_args = shared_args.verify(S3Locator::features())?;
     let _source_args = source_args.verify(S3Locator::features())?;
 
-    debug!(ctx.log(), "getting CSV files from {}", url);
+    debug!("getting CSV files from {}", url);
 
     // List the files at our URL.
     let file_urls = s3::ls(&ctx, &url).await?;
@@ -32,10 +37,11 @@ pub(crate) async fn local_data_helper(
         async move {
             // Stream the file from the cloud.
             let name = csv_stream_name(url.as_str(), file_url.as_str())?.to_owned();
-            let ctx = ctx.child(
-                o!("stream" => name.clone(), "url" => file_url.as_str().to_owned()),
-            );
-            let data = s3::download_file(&ctx, &file_url).await?;
+            let data = s3::download_file(&ctx, &file_url)
+                .instrument(
+                    debug_span!("read_stream", stream.name = %name, url = %file_url),
+                )
+                .await?;
 
             // Assemble everything into a CSV stream.
             Ok(CsvStream { name, data })

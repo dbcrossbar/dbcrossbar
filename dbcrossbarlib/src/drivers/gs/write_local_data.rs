@@ -6,6 +6,12 @@ use crate::common::*;
 use crate::concat::concatenate_csv_streams;
 
 /// Implementation of `write_local_data`, but as a real `async` function.
+#[instrument(
+    level = "debug",
+    name = "gs::write_local_data",
+    skip_all,
+    fields(dest = %dest)
+)]
 pub(crate) async fn write_local_data_helper(
     ctx: Context,
     dest: GsLocator,
@@ -27,11 +33,9 @@ pub(crate) async fn write_local_data_helper(
             let ctx = ctx.clone();
             async move {
                 let url = dest.url.join(&format!("{}.csv", stream.name))?;
-                let ctx = ctx.child(
-                    o!("stream" => stream.name.clone(), "url" => url.to_string()),
-                );
-
-                storage::upload_file(&ctx, stream.data, &url).await?;
+                storage::upload_file(&ctx, stream.data, &url)
+                    .instrument(trace_span!("stream_to_gs", stream.name = %stream.name, url = %url))
+                    .await?;
                 Ok(GsLocator { url }.boxed())
             }
             .boxed()
@@ -44,10 +48,7 @@ pub(crate) async fn write_local_data_helper(
         let stream = concatenate_csv_streams(ctx.clone(), data)?;
         let fut = async move {
             let url = &dest.url;
-            let ctx = ctx
-                .child(o!("stream" => stream.name.clone(), "url" => url.to_string()));
-
-            storage::upload_file(&ctx, stream.data, url).await?;
+            storage::upload_file(&ctx, stream.data, url).instrument(trace_span!("stream_to_gs", stream.name = %stream.name, url = %url)).await?;
             Ok(GsLocator {
                 url: url.to_owned(),
             }

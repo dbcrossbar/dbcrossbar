@@ -33,17 +33,17 @@ impl Locator for DbcrossbarSchemaLocator {
         self
     }
 
-    fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
-        schema_helper(ctx, self.to_owned()).boxed()
+    fn schema(&self, _ctx: Context) -> BoxFuture<Option<Schema>> {
+        schema_helper(self.to_owned()).boxed()
     }
 
     fn write_schema(
         &self,
-        ctx: Context,
+        _ctx: Context,
         schema: Schema,
         if_exists: IfExists,
     ) -> BoxFuture<()> {
-        write_schema_helper(ctx, self.to_owned(), schema, if_exists).boxed()
+        write_schema_helper(self.to_owned(), schema, if_exists).boxed()
     }
 }
 
@@ -65,10 +65,8 @@ impl LocatorStatic for DbcrossbarSchemaLocator {
 }
 
 /// Implementation of `schema`, but as a real `async` function.
-async fn schema_helper(
-    _ctx: Context,
-    source: DbcrossbarSchemaLocator,
-) -> Result<Option<Schema>> {
+#[instrument(level = "trace", name = "dbcrossbar_schema::schema")]
+async fn schema_helper(source: DbcrossbarSchemaLocator) -> Result<Option<Schema>> {
     // Read our input.
     let input = source.path.open_async().await?;
     let data = async_read_to_end(input)
@@ -83,14 +81,18 @@ async fn schema_helper(
 }
 
 /// Implementation of `write_schema`, but as a real `async` function.
+#[instrument(
+    level = "trace",
+    name = "dbcrossbar_schema::write_schema",
+    skip(schema, if_exists)
+)]
 async fn write_schema_helper(
-    ctx: Context,
     dest: DbcrossbarSchemaLocator,
     schema: Schema,
     if_exists: IfExists,
 ) -> Result<()> {
     // Generate our JSON.
-    let mut f = dest.path.create_async(ctx, if_exists).await?;
+    let mut f = dest.path.create_async(if_exists).await?;
     buffer_sync_write_and_copy_to_async(&mut f, |buff| {
         serde_json::to_writer_pretty(buff, &schema)
     })

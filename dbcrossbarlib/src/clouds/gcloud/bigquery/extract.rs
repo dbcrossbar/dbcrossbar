@@ -9,14 +9,12 @@ use crate::common::*;
 use crate::drivers::bigquery_shared::TableName;
 
 /// Extract a table from BigQuery to Google Cloud Storage.
+#[instrument(level = "trace", skip(labels))]
 pub(crate) async fn extract(
-    ctx: &Context,
     source_table: &TableName,
     dest_gs_url: &Url,
     labels: &Labels,
 ) -> Result<()> {
-    trace!(ctx.log(), "extract {} into {}", source_table, dest_gs_url);
-
     // Configure our job.
     let config = JobConfigurationExtract {
         destination_uris: vec![format!("{}/*.csv", dest_gs_url)],
@@ -24,9 +22,8 @@ pub(crate) async fn extract(
     };
 
     // Run our job.
-    let client = Client::new(ctx).await?;
+    let client = Client::new().await?;
     run_job(
-        ctx,
         &client,
         source_table.project(),
         Job::new_extract(config, labels.to_owned()),

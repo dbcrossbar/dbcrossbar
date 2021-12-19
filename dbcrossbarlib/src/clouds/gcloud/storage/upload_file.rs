@@ -29,12 +29,13 @@ struct UploadQuery {
 /// Docs: https://cloud.google.com/storage/docs/json_api/v1/objects/insert
 ///
 /// TODO: Support https://cloud.google.com/storage/docs/performing-resumable-uploads.
+#[instrument(level = "trace", skip(ctx, data))]
 pub(crate) async fn upload_file<'a>(
     ctx: &'a Context,
     data: BoxStream<BytesMut>,
     file_url: &'a Url,
 ) -> Result<StorageObject> {
-    debug!(ctx.log(), "streaming to {}", file_url);
+    debug!("streaming to {}", file_url);
     let (bucket, object) = parse_gs_url(file_url)?;
 
     // Compute a running CRC32 sum.
@@ -50,14 +51,9 @@ pub(crate) async fn upload_file<'a>(
         if_generation_match: 0,
         name: object.clone(),
     };
-    let client = Client::new(ctx).await?;
+    let client = Client::new().await?;
     client
-        .post_stream(
-            ctx.clone(),
-            &url,
-            query,
-            idiomatic_bytes_stream(ctx, stream.boxed()),
-        )
+        .post_stream(&url, query, idiomatic_bytes_stream(ctx, stream.boxed()))
         .await?;
 
     // Wait for our computed hash code.
@@ -72,7 +68,7 @@ pub(crate) async fn upload_file<'a>(
         percent_encode(&bucket),
         percent_encode(&object),
     );
-    let obj: StorageObject = client.get(ctx, &obj_url, NoQuery).await?;
+    let obj: StorageObject = client.get(&obj_url, NoQuery).await?;
     if obj.crc32c == crc32c {
         Ok(obj)
     } else {

@@ -16,20 +16,17 @@ pub(crate) fn concatenate_csv_streams(
 ) -> Result<CsvStream> {
     // Create an asynchronous background worker to do the actual work.
     let (mut sender, receiver) = bytes_channel(1);
-    let worker_ctx = ctx.child(o!("streams_transform" => "concatenate_csv_streams"));
+    let worker_ctx = ctx.clone();
     let worker = async move {
         let mut first = true;
         while let Some(result) = csv_streams.next().await {
             match result {
                 Err(err) => {
-                    error!(
-                        worker_ctx.log(),
-                        "error reading stream of streams: {}", err,
-                    );
+                    error!("error reading stream of streams: {}", err,);
                     return send_err(sender, err).await;
                 }
                 Ok(csv_stream) => {
-                    debug!(worker_ctx.log(), "concatenating {}", csv_stream.name);
+                    debug!("concatenating {}", csv_stream.name);
                     let mut data = csv_stream.data;
 
                     // If we're not the first CSV stream, remove the CSV header.
@@ -40,13 +37,14 @@ pub(crate) fn concatenate_csv_streams(
                     }
 
                     // Forward the rest of the stream.
-                    try_forward_to_sender(&worker_ctx, data, &mut sender).await?;
+                    try_forward_to_sender(data, &mut sender).await?;
                 }
             }
         }
-        trace!(worker_ctx.log(), "end of CSV streams");
+        trace!("end of CSV streams");
         Ok(())
-    };
+    }
+    .instrument(debug_span!("concatenante_csv_streams"));
 
     // Build our combined `CsvStream`.
     let new_csv_stream = CsvStream {
@@ -67,10 +65,10 @@ async fn concatenate_csv_streams_strips_all_but_first_header() {
     let input_2 = b"a,b\n3,4\n";
     let expected = b"a,b\n1,2\n3,4\n";
 
-    let (ctx, worker_fut) = Context::create_for_test("concatenate_csv_streams");
+    let (ctx, worker_fut) = Context::create();
 
     let cmd_fut = async move {
-        debug!(ctx.log(), "testing concatenate_csv_streams");
+        debug!("testing concatenate_csv_streams");
 
         // Build our `BoxStream<CsvStream>`.
         let (sender, receiver) = mpsc::channel::<Result<CsvStream>>(2);
@@ -92,7 +90,7 @@ async fn concatenate_csv_streams_strips_all_but_first_header() {
         // Test concatenation.
         let combined = concatenate_csv_streams(ctx.clone(), csv_streams)
             .unwrap()
-            .into_bytes(ctx)
+            .into_bytes()
             .await
             .unwrap();
         assert_eq!(combined, &expected[..]);
@@ -111,7 +109,6 @@ fn strip_csv_header(
 ) -> Result<BoxStream<BytesMut>> {
     // Create an asynchronous background worker to do the actual work.
     let (mut sender, receiver) = bytes_channel(1);
-    let worker_ctx = ctx.child(o!("transform" => "strip_csv_header"));
     let worker = async move {
         // Accumulate bytes in this buffer until we see a full CSV header.
         let mut buffer: Option<BytesMut> = None;
@@ -120,11 +117,11 @@ fn strip_csv_header(
         while let Some(result) = stream.next().await {
             match result {
                 Err(err) => {
-                    error!(worker_ctx.log(), "error reading stream: {}", err);
+                    error!("error reading stream: {}", err);
                     return send_err(sender, err).await;
                 }
                 Ok(bytes) => {
-                    trace!(worker_ctx.log(), "received {} bytes", bytes.len());
+                    trace!("received {} bytes", bytes.len());
                     let mut new_buffer = if let Some(mut buffer) = buffer.take() {
                         buffer.extend_from_slice(&bytes);
                         buffer
@@ -133,25 +130,19 @@ fn strip_csv_header(
                     };
                     match csv_header_length(&new_buffer) {
                         Ok(Some(header_len)) => {
-                            trace!(
-                                worker_ctx.log(),
-                                "stripping {} bytes of headers",
-                                header_len
-                            );
+                            trace!("stripping {} bytes of headers", header_len);
                             let _headers = new_buffer.split_to(header_len);
                             sender
                                 .send(Ok(new_buffer))
                                 .await
                                 .context("broken pipe prevented sending data")?;
-                            try_forward_to_sender(&worker_ctx, stream, &mut sender)
-                                .await?;
+                            try_forward_to_sender(stream, &mut sender).await?;
                             return Ok(());
                         }
                         Ok(None) => {
                             // Save our buffer and keep looking for the end of
                             // the headers.
                             trace!(
-                                worker_ctx.log(),
                                 "didn't find full headers in {} bytes, looking...",
                                 new_buffer.len(),
                             );
@@ -164,10 +155,11 @@ fn strip_csv_header(
                 }
             }
         }
-        trace!(worker_ctx.log(), "end of stream");
+        trace!("end of stream");
         let err = format_err!("end of CSV file while reading headers");
         send_err(sender, err).await
-    };
+    }
+    .instrument(debug_span!("strip_csv_header"));
 
     // Run the worker in the background, and return our receiver.
     ctx.spawn_worker(worker.boxed());

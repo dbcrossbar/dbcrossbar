@@ -16,34 +16,26 @@ use crate::drivers::bigquery_shared::{BqColumn, TableName};
 
 /// Execute an SQL statement.
 pub(crate) async fn execute_sql(
-    ctx: &Context,
     project: &str,
     sql: &str,
     labels: &Labels,
 ) -> Result<()> {
-    trace!(ctx.log(), "executing SQL: {}", sql);
+    trace!("executing SQL: {}", sql);
     let config = JobConfigurationQuery::new(sql);
-    let client = Client::new(ctx).await?;
-    run_job(
-        ctx,
-        &client,
-        project,
-        Job::new_query(config, labels.to_owned()),
-    )
-    .await?;
+    let client = Client::new().await?;
+    run_job(&client, project, Job::new_query(config, labels.to_owned())).await?;
     Ok(())
 }
 
 /// Run an SQL query and save the results to a table.
 pub(crate) async fn query_to_table(
-    ctx: &Context,
     project: &str,
     sql: &str,
     dest_table: &TableName,
     if_exists: &IfExists,
     labels: &Labels,
 ) -> Result<()> {
-    trace!(ctx.log(), "writing query to {}: {}", dest_table, sql);
+    trace!("writing query to {}: {}", dest_table, sql);
 
     // Configure our query.
     let mut config = JobConfigurationQuery::new(sql);
@@ -52,14 +44,8 @@ pub(crate) async fn query_to_table(
     config.write_disposition = Some(WriteDisposition::try_from(if_exists)?);
 
     // Run our query.
-    let client = Client::new(ctx).await?;
-    run_job(
-        ctx,
-        &client,
-        project,
-        Job::new_query(config, labels.to_owned()),
-    )
-    .await?;
+    let client = Client::new().await?;
+    run_job(&client, project, Job::new_query(config, labels.to_owned())).await?;
     Ok(())
 }
 
@@ -90,14 +76,13 @@ struct QueryResults {
 }
 
 impl QueryResults {
-    fn to_json_objects(&self, ctx: &Context) -> Result<Vec<serde_json::Value>> {
+    fn to_json_objects(&self) -> Result<Vec<serde_json::Value>> {
         let objects = self
             .rows
             .iter()
-            .map(|row| row.to_json_object(ctx, &self.schema.fields))
+            .map(|row| row.to_json_object(&self.schema.fields))
             .collect::<Result<Vec<serde_json::Value>>>()?;
         trace!(
-            ctx.log(),
             "rows as objects: {}",
             serde_json::to_string(&objects).expect("should be able to serialize rows"),
         );
@@ -117,11 +102,7 @@ impl Row {
     /// Convert this row into a JSON object using names and other metadata from
     /// columns. We don't try to decode anything that `serde_json` can later
     /// decode for us.
-    fn to_json_object(
-        &self,
-        ctx: &Context,
-        columns: &[BqColumn],
-    ) -> Result<serde_json::Value> {
+    fn to_json_object(&self, columns: &[BqColumn]) -> Result<serde_json::Value> {
         // Check that we have the right number of columns.
         if columns.len() != self.fields.len() {
             return Err(format_err!(
@@ -132,7 +113,7 @@ impl Row {
         }
         let mut obj = serde_json::Map::with_capacity(columns.len());
         for (col, value) in columns.iter().zip(self.fields.iter()) {
-            obj.insert(col.name.to_portable_name(), value.to_json_value(ctx)?);
+            obj.insert(col.name.to_portable_name(), value.to_json_value()?);
         }
         Ok(serde_json::Value::Object(obj))
     }
@@ -150,31 +131,26 @@ struct Value {
 
 impl Value {
     /// Convert this value into a JSON value.
-    fn to_json_value(&self, _ctx: &Context) -> Result<serde_json::Value> {
+    fn to_json_value(&self) -> Result<serde_json::Value> {
         Ok(self.value.clone())
     }
 }
 
 /// Run a query that should return a small number of records, and return them as
 /// a JSON string.
+#[instrument(level = "trace", skip(labels))]
 async fn query_all_json(
-    ctx: &Context,
     project: &str,
     sql: &str,
     labels: &Labels,
 ) -> Result<Vec<serde_json::Value>> {
-    trace!(ctx.log(), "executing SQL: {}", sql);
+    trace!("executing SQL: {}", sql);
 
     // Run our query.
     let config = JobConfigurationQuery::new(sql);
-    let client = Client::new(ctx).await?;
-    let job = run_job(
-        ctx,
-        &client,
-        project,
-        Job::new_query(config, labels.to_owned()),
-    )
-    .await?;
+    let client = Client::new().await?;
+    let job =
+        run_job(&client, project, Job::new_query(config, labels.to_owned())).await?;
 
     // Look up our query results.
     let reference = job.reference()?;
@@ -186,9 +162,9 @@ async fn query_all_json(
     let query = QueryResultsQuery {
         location: reference.location.clone(),
     };
-    let results = client.get::<QueryResults, _, _>(ctx, &url, query).await?;
+    let results = client.get::<QueryResults, _, _>(&url, query).await?;
     if results.job_complete {
-        results.to_json_objects(ctx)
+        results.to_json_objects()
     } else {
         Err(format_err!(
             "expected query to have finished, but it hasn't",
@@ -197,8 +173,8 @@ async fn query_all_json(
 }
 
 /// Run a query that should return a small number of records, and deserialize them.
+#[instrument(level = "trace", skip(labels))]
 pub(crate) async fn query_all<T>(
-    ctx: &Context,
     project: &str,
     sql: &str,
     labels: &Labels,
@@ -206,7 +182,7 @@ pub(crate) async fn query_all<T>(
 where
     T: DeserializeOwned,
 {
-    let output = query_all_json(ctx, project, sql, labels).await?;
+    let output = query_all_json(project, sql, labels).await?;
     let rows = output
         .into_iter()
         .map(serde_json::from_value::<T>)
@@ -216,8 +192,8 @@ where
 }
 
 /// Run a query that should return exactly one record, and deserialize it.
+#[instrument(level = "trace", skip(labels))]
 pub(crate) async fn query_one<T>(
-    ctx: &Context,
     project: &str,
     sql: &str,
     labels: &Labels,
@@ -225,7 +201,7 @@ pub(crate) async fn query_one<T>(
 where
     T: DeserializeOwned,
 {
-    let mut rows = query_all(ctx, project, sql, labels).await?;
+    let mut rows = query_all(project, sql, labels).await?;
     if rows.len() == 1 {
         Ok(rows.remove(0))
     } else {

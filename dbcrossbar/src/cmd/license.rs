@@ -1,7 +1,7 @@
 //! The `license` subcommand.
 
 use anyhow::{Context as _, Result};
-use dbcrossbarlib::{config::Configuration, tokio_glue::spawn_blocking, Context};
+use dbcrossbarlib::{config::Configuration, tokio_glue::spawn_blocking};
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use tokio::{fs, io::AsyncWriteExt};
@@ -23,7 +23,6 @@ include_flate::flate!(
 
 /// Perform our schema conversion.
 pub(crate) async fn run(
-    _ctx: Context,
     _config: Configuration,
     _enable_unstable: bool,
     opt: Opt,

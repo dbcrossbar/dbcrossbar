@@ -4,7 +4,6 @@ use anyhow::{format_err, Result};
 use dbcrossbarlib::{
     config::{Configuration, Key},
     tokio_glue::spawn_blocking,
-    Context,
 };
 use structopt::{self, StructOpt};
 
@@ -62,7 +61,6 @@ pub(crate) enum Command {
 
 /// Edit our config file.
 pub(crate) async fn run(
-    _ctx: Context,
     mut config: Configuration,
     opt: Opt,
 ) -> Result<()> {

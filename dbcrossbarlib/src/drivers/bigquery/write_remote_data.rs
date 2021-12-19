@@ -13,8 +13,13 @@ use crate::drivers::{
 /// The function `BigQueryLocator::write_remote_data` isn't (yet) allowed to be
 /// async, because it's part of a trait. This version is an `async fn`, which
 /// makes the code much clearer.
+#[instrument(
+    level = "debug",
+    name = "bigquery::write_remote_data",
+    skip_all,
+    fields(source = %source, dest = %dest)
+)]
 pub(crate) async fn write_remote_data_helper(
-    ctx: Context,
     source: BoxLocator,
     dest: BigQueryLocator,
     shared_args: SharedArguments<Unverified>,
@@ -58,24 +63,17 @@ pub(crate) async fn write_remote_data_helper(
     if source_url.as_str().ends_with('/') {
         source_url = source_url.join("*.csv")?;
     }
-    let ctx = ctx.child(o!("source_url" => source_url.as_str().to_owned()));
 
     // Decide if we need to use a temp table.
     let use_temp = !schema.bigquery_can_import_from_csv()? || if_exists.is_upsert();
     let initial_table_name = if use_temp {
         let initial_table_name =
             dest.table_name.temporary_table_name(temporary_storage)?;
-        debug!(
-            ctx.log(),
-            "loading into temporary table {}", initial_table_name
-        );
+        debug!("loading into temporary table {}", initial_table_name);
         initial_table_name
     } else {
         let initial_table_name = dest.table_name.clone();
-        debug!(
-            ctx.log(),
-            "loading directly into final table {}", initial_table_name,
-        );
+        debug!("loading directly into final table {}", initial_table_name,);
         initial_table_name
     };
 
@@ -100,7 +98,6 @@ pub(crate) async fn write_remote_data_helper(
 
     // Load our data.
     bigquery::load(
-        &ctx,
         &source_url,
         &initial_table,
         if_initial_table_exists,
@@ -118,22 +115,18 @@ pub(crate) async fn write_remote_data_helper(
             &schema.table.columns,
             Usage::FinalTable,
         )?;
-        debug!(
-            ctx.log(),
-            "transforming data into final table {}",
-            dest_table.name(),
-        );
+        debug!("transforming data into final table {}", dest_table.name(),);
 
         // Generate and run our import SQL.
         let mut query = Vec::new();
         dest_table.write_import_sql(initial_table.name(), if_exists, &mut query)?;
         let query =
             String::from_utf8(query).expect("generated SQL should always be UTF-8");
-        debug!(ctx.log(), "import sql: {}", query);
-        bigquery::execute_sql(&ctx, dest.project(), &query, &job_labels).await?;
+        debug!("import sql: {}", query);
+        bigquery::execute_sql(dest.project(), &query, &job_labels).await?;
 
         // Delete temp table.
-        bigquery::drop_table(&ctx, initial_table.name(), &job_labels).await?;
+        bigquery::drop_table(initial_table.name(), &job_labels).await?;
     }
 
     Ok(vec![dest.boxed()])

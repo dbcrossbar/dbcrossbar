@@ -5,6 +5,12 @@ use crate::drivers::{bigquery::BigQueryLocator, gs::find_gs_temp_dir};
 use crate::tokio_glue::ConsumeWithParallelism;
 
 /// Implementation of `write_local_data`, but as a real `async` function.
+#[instrument(
+    level = "debug",
+    name = "bigquery::write_local_data",
+    skip_all,
+    fields(dest = %dest)
+)]
 pub(crate) async fn write_local_data_helper(
     ctx: Context,
     dest: BigQueryLocator,
@@ -19,9 +25,9 @@ pub(crate) async fn write_local_data_helper(
     let gs_source_args = SourceArguments::for_temporary();
 
     // Copy to a temporary gs:// location.
-    let to_temp_ctx = ctx.child(o!("to_temp" => gs_temp.to_string()));
     let result_stream = gs_temp
-        .write_local_data(to_temp_ctx, data, shared_args.clone(), gs_dest_args)
+        .write_local_data(ctx.clone(), data, shared_args.clone(), gs_dest_args)
+        .instrument(trace_span!("stream_to_temp_gs"))
         .await?;
 
     // Wait for all gs:// uploads to finish with controllable parallelism.
@@ -34,14 +40,14 @@ pub(crate) async fn write_local_data_helper(
         .await?;
 
     // Load from gs:// to BigQuery.
-    let from_temp_ctx = ctx.child(o!("from_temp" => gs_temp.to_string()));
     dest.write_remote_data(
-        from_temp_ctx,
+        ctx,
         Box::new(gs_temp),
         shared_args,
         gs_source_args,
         dest_args,
     )
+    .instrument(trace_span!("load_from_tmp_gs"))
     .await?;
 
     // We don't need any parallelism after the BigQuery step, so just return

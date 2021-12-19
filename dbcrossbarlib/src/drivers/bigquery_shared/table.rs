@@ -96,11 +96,8 @@ impl BqTable {
     }
 
     /// Given a table name, look up the schema and return a `BqTable`.
-    pub(crate) async fn read_from_table(
-        ctx: &Context,
-        name: &TableName,
-    ) -> Result<BqTable> {
-        bigquery::schema(ctx, name).await
+    pub(crate) async fn read_from_table(name: &TableName) -> Result<BqTable> {
+        bigquery::schema(name).await
     }
 
     /// Create a new table based on this table, but with columns matching the

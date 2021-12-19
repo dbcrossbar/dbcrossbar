@@ -4,7 +4,6 @@ use anyhow::Result;
 use dbcrossbarlib::{
     config::Configuration,
     drivers::{all_drivers, find_driver},
-    Context,
 };
 use structopt::{self, StructOpt};
 
@@ -17,7 +16,6 @@ pub(crate) struct Opt {
 
 /// Perform our schema conversion.
 pub(crate) async fn run(
-    _ctx: Context,
     _config: Configuration,
     enable_unstable: bool,
     opt: Opt,

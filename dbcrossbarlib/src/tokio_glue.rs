@@ -10,6 +10,7 @@ use futures::{
 use std::{cmp::min, error, fmt, panic, pin::Pin, result};
 use tokio::{io, process::Child, sync::mpsc, task};
 use tokio_stream::wrappers::ReceiverStream;
+use tracing::Span;
 
 use crate::common::*;
 
@@ -62,17 +63,13 @@ pub(crate) fn bytes_channel(
 /// This is basically similar to [`futures::StreamExt::forward`], except that we
 /// return an error of type `Error`, and not of type `<Si as Sink>::Error`,
 /// which makes things more flexible.
-pub async fn try_forward<T, St, Si>(
-    ctx: &Context,
-    mut stream: St,
-    mut sink: Si,
-) -> Result<()>
+pub async fn try_forward<T, St, Si>(mut stream: St, mut sink: Si) -> Result<()>
 where
     St: Stream<Item = Result<T>> + Unpin,
     Si: Sink<T> + Unpin,
     Error: From<Si::Error>,
 {
-    trace!(ctx.log(), "forwarding stream to sink");
+    trace!("forwarding stream to sink");
     while let Some(result) = stream.next().await {
         match result {
             Ok(value) => sink
@@ -89,7 +86,7 @@ where
         .await
         .map_err(Error::from)
         .context("error sending value to sink")?;
-    trace!(ctx.log(), "done forwarding stream to sink");
+    trace!("done forwarding stream to sink");
     Ok(())
 }
 
@@ -99,7 +96,6 @@ where
 /// In `tokio` 0.1, `Sender` implemented `Sink`, but apparently that's not a
 /// thing anymore.
 pub(crate) async fn try_forward_to_sender<T, St>(
-    ctx: &Context,
     mut stream: St,
     sender: &mut mpsc::Sender<Result<T>>,
 ) -> Result<()>
@@ -107,7 +103,7 @@ where
     T: Send,
     St: Stream<Item = Result<T>> + Unpin,
 {
-    trace!(ctx.log(), "forwarding stream to sender");
+    trace!("forwarding stream to sender");
     while let Some(result) = stream.next().await {
         match result {
             Ok(bytes) => sender.send(Ok(bytes)).await.map_send_err()?,
@@ -120,14 +116,13 @@ where
             }
         }
     }
-    trace!(ctx.log(), "done forwarding stream to sender");
+    trace!("done forwarding stream to sender");
     Ok(())
 }
 
 /// Given a `Stream` of data chunks of type `BytesMut`, write the entire stream
 /// to an `AsyncWrite` implementation.
 pub(crate) async fn copy_stream_to_writer<S, W>(
-    ctx: Context,
     mut stream: S,
     mut wtr: W,
 ) -> Result<()>
@@ -135,32 +130,31 @@ where
     S: Stream<Item = Result<BytesMut>> + Unpin + 'static,
     W: AsyncWrite + Unpin + 'static,
 {
-    trace!(ctx.log(), "begin copy_stream_to_writer");
+    trace!("begin copy_stream_to_writer");
     while let Some(result) = stream.next().await {
         match result {
             Err(err) => {
-                error!(ctx.log(), "error reading stream: {}", err);
+                error!("error reading stream: {}", err);
                 return Err(err);
             }
             Ok(bytes) => {
-                trace!(ctx.log(), "writing {} bytes", bytes.len());
+                trace!("writing {} bytes", bytes.len());
                 wtr.write_all(&bytes).await.map_err(|e| {
-                    error!(ctx.log(), "write error: {}", e);
+                    error!("write error: {}", e);
                     format_err!("error writing data: {}", e)
                 })?;
-                trace!(ctx.log(), "wrote to writer");
+                trace!("wrote to writer");
             }
         }
     }
     wtr.flush().await?;
-    trace!(ctx.log(), "end copy_stream_to_writer");
+    trace!("end copy_stream_to_writer");
     Ok(())
 }
 
 /// Given an `AsyncRead` implement, copy it to a stream `Stream` of data chunks
 /// of type `BytesMut`. Returns the stream.
 pub(crate) fn copy_reader_to_stream<R>(
-    ctx: Context,
     mut rdr: R,
 ) -> Result<impl Stream<Item = Result<BytesMut>> + Send + 'static>
 where
@@ -172,38 +166,32 @@ where
         loop {
             // Read the data. This consumes `rdr`, so we'll have to put it back
             // below.
-            trace!(ctx.log(), "reading bytes from reader");
+            trace!("reading bytes from reader");
             match rdr.read(&mut buffer).await {
                 Err(err) => {
                     let nice_err = format_err!("read error: {}", err);
-                    error!(ctx.log(), "{}", nice_err);
+                    error!("{}", nice_err);
                     if sender.send(Err(nice_err)).await.is_err() {
-                        error!(
-                            ctx.log(),
-                            "broken pipe prevented sending error: {}", err
-                        );
+                        error!("broken pipe prevented sending error: {}", err);
                     }
                     return Ok(());
                 }
                 Ok(count) => {
                     if count == 0 {
-                        trace!(ctx.log(), "done copying AsyncRead to stream");
+                        trace!("done copying AsyncRead to stream");
                         return Ok(());
                     }
 
                     // Copy our bytes into a `BytesMut`, and send it. This consumes
                     // `sender`, so we'll have to put it back below.
                     let bytes = BytesMut::from(&buffer[..count]);
-                    trace!(ctx.log(), "sending {} bytes to stream", bytes.len());
+                    trace!("sending {} bytes to stream", bytes.len());
                     match sender.send(Ok(bytes)).await {
                         Ok(()) => {
-                            trace!(ctx.log(), "sent bytes to stream");
+                            trace!("sent bytes to stream");
                         }
                         Err(_err) => {
-                            error!(
-                                ctx.log(),
-                                "broken pipe forwarding async data to stream"
-                            );
+                            error!("broken pipe forwarding async data to stream");
                             return Ok(());
                         }
                     }
@@ -219,8 +207,6 @@ where
 /// Provides a synchronous `Write` interface that copies data to an async
 /// `Stream<BytesMut>`.
 pub(crate) struct SyncStreamWriter {
-    /// Context used for logging.
-    ctx: Context,
     /// The sender end of our pipe.
     sender: mpsc::Sender<Result<BytesMut>>,
 }
@@ -228,11 +214,9 @@ pub(crate) struct SyncStreamWriter {
 impl SyncStreamWriter {
     /// Create a new `SyncStreamWriter` and a receiver that implements
     /// `Stream<Item = BytesMut, Error = Error>`.
-    pub fn pipe(
-        ctx: Context,
-    ) -> (Self, impl Stream<Item = Result<BytesMut>> + Send + 'static) {
+    pub fn pipe() -> (Self, impl Stream<Item = Result<BytesMut>> + Send + 'static) {
         let (sender, receiver) = bytes_channel(1);
-        (SyncStreamWriter { ctx, sender }, receiver)
+        (SyncStreamWriter { sender }, receiver)
     }
 }
 
@@ -240,15 +224,16 @@ impl SyncStreamWriter {
     /// Send an error to our stream.
     #[allow(dead_code)]
     pub(crate) fn send_error(&mut self, err: Error) -> io::Result<()> {
-        debug!(self.ctx.log(), "sending error: {}", err);
+        debug!("sending error: {}", err);
         block_on(self.sender.send(Err(err)))
             .map_err(|_| io::ErrorKind::BrokenPipe.into())
     }
 }
 
 impl Write for SyncStreamWriter {
+    #[instrument(level = "trace", skip_all, fields(buf.len = %buf.len()))]
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        trace!(self.ctx.log(), "sending {} bytes", buf.len());
+        trace!("sending {} bytes", buf.len());
         block_on(self.sender.send(Ok(BytesMut::from(buf))))
             .map_err(|_| -> io::Error { io::ErrorKind::BrokenPipe.into() })?;
         Ok(buf.len())
@@ -257,7 +242,7 @@ impl Write for SyncStreamWriter {
     fn flush(&mut self) -> io::Result<()> {
         // There's nothing we can actually do here as of `tokio` 0.2, so just
         // ignore `flush`.
-        trace!(self.ctx.log(), "pretending to flush to an async sender");
+        trace!("pretending to flush to an async sender");
         Ok(())
     }
 }
@@ -265,7 +250,6 @@ impl Write for SyncStreamWriter {
 /// Provides a synchronous `Read` interface that receives data from an async
 /// `Stream<BytesMut>`.
 pub(crate) struct SyncStreamReader {
-    ctx: Context,
     stream: stream::Fuse<BoxStream<BytesMut>>,
     seen_error: bool,
     buffer: BytesMut,
@@ -273,9 +257,8 @@ pub(crate) struct SyncStreamReader {
 
 impl SyncStreamReader {
     /// Create a new `SyncStreamReader` from a stream of bytes.
-    pub(crate) fn new(ctx: Context, stream: BoxStream<BytesMut>) -> Self {
+    pub(crate) fn new(stream: BoxStream<BytesMut>) -> Self {
         Self {
-            ctx,
             // "Fuse" our stream so that once it returns none, it will always
             // return none.
             stream: stream.fuse(),
@@ -286,6 +269,7 @@ impl SyncStreamReader {
 }
 
 impl Read for SyncStreamReader {
+    #[instrument(level = "trace", skip_all, fields(buf.max = %buf.len(), buf.read))]
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         // Assume no zero-sized reads for now.
         assert!(!buf.is_empty());
@@ -294,24 +278,24 @@ impl Read for SyncStreamReader {
         if self.buffer.is_empty() {
             if self.seen_error {
                 // If we've already errored once, keep doing it. This is probably paranoid.
-                error!(self.ctx.log(), "tried to read from stream after error");
+                error!("tried to read from stream after error");
                 return Err(io::ErrorKind::Other.into());
             }
             match block_on(self.stream.next()) {
                 // End of the stream.
                 None => {
-                    trace!(self.ctx.log(), "end of stream");
+                    trace!("end of stream");
                     return Ok(0);
                 }
                 // A bytes buffer.
                 Some(Ok(bytes)) => {
-                    trace!(self.ctx.log(), "read {} bytes from stream", bytes.len());
+                    trace!("read {} bytes from stream", bytes.len());
                     assert!(!bytes.is_empty());
                     self.buffer = bytes;
                 }
                 // An error on the stream.
                 Some(Err(err)) => {
-                    error!(self.ctx.log(), "error reading from stream: {}", err);
+                    error!("error reading from stream: {}", err);
                     self.seen_error = true;
                     return Err(io::Error::new(io::ErrorKind::Other, err));
                 }
@@ -322,7 +306,8 @@ impl Read for SyncStreamReader {
         assert!(!self.buffer.is_empty());
         let count = min(self.buffer.len(), buf.len());
         buf[..count].copy_from_slice(&self.buffer.split_to(count));
-        trace!(self.ctx.log(), "read returned {} bytes", count);
+        Span::current().record("buf.read", &count);
+        trace!("read returned {} bytes", count);
         Ok(count)
     }
 }
@@ -342,7 +327,14 @@ where
     F: (FnOnce() -> Result<T>) + Send + 'static,
     T: Send + 'static,
 {
-    match task::spawn_blocking(f).await {
+    // Copy over current span. I _think_ this is what we want for the nicest
+    // tracing, but I haven't verified it yet.
+    let span = Span::current();
+    let traced_f = move || -> Result<T> {
+        let _span = span.entered();
+        f()
+    };
+    match task::spawn_blocking(traced_f).await {
         Ok(f_result) => f_result,
         Err(join_err) => match join_err.try_into_panic() {
             Ok(panic_value) => panic::resume_unwind(panic_value),
@@ -502,11 +494,10 @@ pub(crate) fn idiomatic_bytes_stream(
     // But our return type needs to be `Sync`, so we need to take fairly
     // drastic measures, and forward our stream through a channel.
     let (mut sender, receiver) = mpsc::channel::<Result<Bytes, Error>>(1);
-    let forwarder_ctx = ctx.to_owned();
-    let forwarder: BoxFuture<()> = async move {
-        try_forward_to_sender(&forwarder_ctx, to_forward, &mut sender).await
-    }
-    .boxed();
+    let forwarder: BoxFuture<()> =
+        async move { try_forward_to_sender(to_forward, &mut sender).await }
+            .instrument(trace_span!("idiomatic_bytes_stream"))
+            .boxed();
     ctx.spawn_worker(forwarder);
 
     let stream = ReceiverStream::new(receiver)

@@ -15,10 +15,8 @@ documentation = "https://docs.rs/dbcrossbarlib/"
 
 [dev-dependencies]
 pretty_assertions = "1.0.0"
-slog-async = "2.3.0"
-slog-envlogger = "2.1.0"
-slog-term = "2.4.0"
 tempfile = "3.1.0"
+tracing-subscriber = "0.3.3"
 
 [dependencies]
 anyhow = { version = "1.0.51", features = ["backtrace"] }
@@ -64,13 +62,14 @@ tokio-postgres = "0.7.0"
 tokio-postgres-rustls = "0.9.0"
 sha-1 = "0.10.0"
 sha2 = "0.10.0"
-slog = "2.4.1"
 strum = "0.23.0"
 strum_macros = "0.23.1"
 termcolor = "1.1.0"
 tokio = { version = "1.0.1", features = ["fs", "io-std", "io-util", "process", "rt", "rt-multi-thread", "sync", "time"] }
 tokio-stream = { version = "0.1.2", features = ["io-util"] }
 toml_edit = "0.11.0"
+tracing = "0.1.29"
+tracing-futures = "0.2.5"
 url = "2.1.0"
 uuid = "0.8.1"
 walkdir = "2.2.9"

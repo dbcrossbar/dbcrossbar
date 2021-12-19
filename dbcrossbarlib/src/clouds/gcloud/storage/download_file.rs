@@ -28,12 +28,12 @@ struct DownloadQuery {
 }
 
 /// Download the file at the specified URL as a stream.
+#[instrument(level = "trace", skip(item), fields(item = %item.to_url_string()))]
 pub(crate) async fn download_file(
-    ctx: &Context,
     item: &StorageObject,
 ) -> Result<BoxStream<BytesMut>> {
     let file_url = item.to_url_string().parse::<Url>()?;
-    debug!(ctx.log(), "streaming from {}", file_url);
+    debug!("streaming from {}", file_url);
     let (bucket, object) = parse_gs_url(&file_url)?;
 
     // Build our URL & common headers.
@@ -46,18 +46,11 @@ pub(crate) async fn download_file(
     common_headers.insert(IF_MATCH, HeaderValue::from_str(&item.etag)?);
 
     // Build a stream of download tasks.
-    let ctx = ctx.to_owned();
     let generation = item.generation;
     let stream = stream::iter(chunk_ranges(CHUNK_SIZE, item.size))
         .map(move |range| {
-            download_range(
-                ctx.clone(),
-                url.clone(),
-                generation,
-                common_headers.clone(),
-                range,
-            )
-            .boxed()
+            download_range(url.clone(), generation, common_headers.clone(), range)
+                .boxed()
         })
         // Use `tokio` magic to download up to `PARALLEL_DOWNLOADS` chunks in parallel.
         .buffered(PARALLEL_DOWNLOADS)
@@ -71,33 +64,27 @@ pub(crate) async fn download_file(
 /// Unlike typical Rust futures *will not block the download*, even if you don't
 /// poll it. This runs the download in a separate `tokio` task. We do this to avoid
 /// downloads that get stalled halfway through by backpressure.
+#[instrument(level = "trace", skip(headers))]
 async fn download_range(
-    ctx: Context,
     url: String,
     generation: i64,
     mut headers: HeaderMap,
     range: ops::Range<u64>,
 ) -> Result<BytesMut> {
-    trace!(
-        ctx.log(),
-        "downloading {} bytes {}-{}",
-        url,
-        range.start,
-        range.end,
-    );
+    trace!("downloading {} bytes {}-{}", url, range.start, range.end,);
 
     // Do our work in a separately spawned task to avoid blocking during
     // backpressure. This is reasonable because we're downloading a chunk of
     // predictable size.
     let task_fut = async move {
         // Make our request.
-        let client = Client::new(&ctx).await?;
+        let client = Client::new().await?;
         headers.typed_insert(Range::bytes(range.clone())?);
         let query = DownloadQuery {
             alt: Alt::Media,
             if_generation_match: generation,
         };
-        let response = client.get_response(&ctx, &url, query, headers).await?;
+        let response = client.get_response(&url, query, headers).await?;
 
         // Make sure we're downloading the range we expect.
         let content_range = get_header::<ContentRange>(&response)?;

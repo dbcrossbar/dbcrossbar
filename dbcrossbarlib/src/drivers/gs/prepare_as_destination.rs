@@ -4,6 +4,7 @@ use crate::clouds::gcloud::storage;
 use crate::common::*;
 
 /// Prepare the target of this locator for use as a destination.
+#[instrument(level = "trace", skip(ctx))]
 pub(crate) async fn prepare_as_destination_helper(
     ctx: Context,
     gs_url: Url,

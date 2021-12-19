@@ -16,67 +16,52 @@
 // We handle this using `cargo deny` instead.
 #![allow(clippy::multiple_crate_versions)]
 
+use std::env;
+
 use anyhow::Result;
 use dbcrossbarlib::{config::Configuration, Context};
 use futures::try_join;
-use slog::{debug, Drain};
-use slog_async::{self, OverflowStrategy};
 use structopt::{self, StructOpt};
+use tracing::debug;
+use tracing_subscriber::{
+    fmt::{format::FmtSpan, Subscriber},
+    prelude::*,
+    EnvFilter,
+};
 
 mod cmd;
-mod logging;
 
 // Our main entry point.
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Set up standard Rust logging for third-party crates.
-    env_logger::init();
+    // Configure tracing.
+    let filter = EnvFilter::from_default_env();
+    Subscriber::builder()
+        .with_writer(std::io::stderr)
+        .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
+        .with_env_filter(filter)
+        .finish()
+        .init();
+    debug!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
     // Find our system SSL configuration, even if we're statically linked.
     openssl_probe::init_ssl_cert_env_vars();
+    debug!("SSL_CERT_DIR: {:?}", env::var("SSL_CERT_DIR").ok());
+    debug!("SSL_CERT_FILE: {:?}", env::var("SSL_CERT_FILE").ok());
 
     // Parse our command-line arguments.
     let opt = cmd::Opt::from_args();
-
-    // Set up `slog`-based structured logging for our async code, because we
-    // need to be able to untangle very complicated logs from many parallel
-    // async tasks.
-    let base_drain = opt.log_format.create_drain();
-    let filtered = slog_envlogger::new(base_drain);
-    let drain = slog_async::Async::new(filtered)
-        .chan_size(64)
-        // This may slow down application performance, even when `RUST_LOG` is
-        // not set. But we've been seeing a lot of dropped messages lately, so
-        // let's try it.
-        .overflow_strategy(OverflowStrategy::Block)
-        .build()
-        .fuse();
-    let log = logging::global_logger_with_extra_values(drain, &opt.log_extra)?;
-
-    // Log our SSL cert dir, which we set up above.
-    debug!(
-        log,
-        "SSL_CERT_DIR: {:?}",
-        std::env::var("SSL_CERT_DIR").ok()
-    );
-    debug!(
-        log,
-        "SSL_CERT_FILE: {:?}",
-        std::env::var("SSL_CERT_FILE").ok()
-    );
+    debug!("{:?}", opt);
 
     // Set up an execution context for our background workers, if any. The `ctx`
     // must be passed to all our background operations. The `worker_fut` will
     // return either success when all background workers have finished, or an
     // error as soon as one fails.
-    let (ctx, worker_fut) = Context::create(log);
-
-    // Log our command-line options.
-    debug!(ctx.log(), "{:?}", opt);
+    let (ctx, worker_fut) = Context::create();
 
     // Load our configuration.
     let config = Configuration::try_default()?;
-    debug!(ctx.log(), "{:?}", config);
+    debug!("{:?}", config);
 
     // Create a future to run our command.
     let cmd_fut = cmd::run(ctx, config, opt);

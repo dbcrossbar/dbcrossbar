@@ -6,6 +6,12 @@ use crate::drivers::s3::find_s3_temp_dir;
 use crate::tokio_glue::ConsumeWithParallelism;
 
 /// Implementation of `write_local_data`, but as a real `async` function.
+#[instrument(
+    level = "debug",
+    name = "redshift::write_local_data",
+    skip_all,
+    fields(dest = %dest)
+)]
 pub(crate) async fn write_local_data_helper(
     ctx: Context,
     dest: RedshiftLocator,
@@ -20,9 +26,9 @@ pub(crate) async fn write_local_data_helper(
     let s3_source_args = SourceArguments::for_temporary();
 
     // Copy to a temporary s3:// location.
-    let to_temp_ctx = ctx.child(o!("to_temp" => s3_temp.to_string()));
     let result_stream = s3_temp
-        .write_local_data(to_temp_ctx, data, shared_args.clone(), s3_dest_args)
+        .write_local_data(ctx.clone(), data, shared_args.clone(), s3_dest_args)
+        .instrument(debug_span!("stream_to_s3_temp", url = %s3_temp))
         .await?;
 
     // Wait for all s3:// uploads to finish with controllable parallelism.
@@ -35,14 +41,14 @@ pub(crate) async fn write_local_data_helper(
         .await?;
 
     // Load from s3:// to Redshift.
-    let from_temp_ctx = ctx.child(o!("from_temp" => s3_temp.to_string()));
     dest.write_remote_data(
-        from_temp_ctx,
-        Box::new(s3_temp),
+        ctx,
+        Box::new(s3_temp.clone()),
         shared_args,
         s3_source_args,
         dest_args,
     )
+    .instrument(trace_span!("load_from_s3_temp", url = %s3_temp))
     .await?;
 
     // We don't need any parallelism after the Redshift step, so just return

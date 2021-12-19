@@ -8,6 +8,7 @@ use crate::tokio_glue::{SyncStreamReader, SyncStreamWriter};
 /// Given a synchronous function `transform` that reads data from an
 /// implementation of `Read`, transforms it, and writes it to an implementation
 /// of `Write`, spawn a background thread to run the transform.
+#[instrument(level = "debug", skip(ctx, input, transform))]
 pub(crate) fn spawn_sync_transform<T>(
     ctx: Context,
     name: String,
@@ -23,17 +24,14 @@ where
         + Send
         + 'static,
 {
-    let ctx = ctx.child(o!("transform" => name));
-
-    let rdr_ctx = ctx.child(o!("mode" => "input"));
-    let rdr = SyncStreamReader::new(rdr_ctx, input);
-    let wtr_ctx = ctx.child(o!("mode" => "output"));
-    let (wtr, output) = SyncStreamWriter::pipe(wtr_ctx);
+    let rdr = SyncStreamReader::new(input);
+    let (wtr, output) = SyncStreamWriter::pipe();
 
     let transform_ctx = ctx.clone();
     let transform_fut = spawn_blocking(move || -> Result<()> {
         transform(transform_ctx, Box::new(rdr), Box::new(wtr))
-    });
+    })
+    .instrument(debug_span!("sync_transform", name = ?name));
     ctx.spawn_worker(transform_fut.boxed());
 
     Ok(output.boxed())

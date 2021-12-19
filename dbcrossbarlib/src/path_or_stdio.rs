@@ -66,7 +66,6 @@ impl PathOrStdio {
     /// Open the file (or standard output) for asynchronous writing.
     pub(crate) async fn create_async(
         &self,
-        ctx: Context,
         if_exists: IfExists,
     ) -> Result<Box<dyn AsyncWrite + Send + Unpin + 'static>> {
         match self {
@@ -80,7 +79,7 @@ impl PathOrStdio {
                 Ok(Box::new(f) as Box<dyn AsyncWrite + Send + Unpin + 'static>)
             }
             PathOrStdio::Stdio => {
-                if_exists.warn_if_not_default_for_stdout(&ctx);
+                if_exists.warn_if_not_default_for_stdout();
                 Ok(Box::new(tokio_io::stdout())
                     as Box<dyn AsyncWrite + Send + Unpin + 'static>)
             }

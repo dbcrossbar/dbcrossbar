@@ -43,6 +43,7 @@ impl PgSchema {
     /// `PgCreateTable` based on what we find in `pg_catalog`.
     ///
     /// Returns `None` if no matching table exists.
+    #[instrument(level = "trace", skip(ctx))]
     pub(crate) async fn from_pg_catalog(
         ctx: &Context,
         database_url: &UrlWithHiddenPassword,
@@ -56,6 +57,7 @@ impl PgSchema {
     ///
     /// If this fails, use `full_table_name` and `default` to construct a new
     /// table.
+    #[instrument(level = "trace", skip(ctx))]
     pub(crate) async fn from_pg_catalog_or_default(
         ctx: &Context,
         check_catalog: CheckCatalog,
@@ -64,8 +66,7 @@ impl PgSchema {
         default: &Schema,
     ) -> Result<Self> {
         // If we can't find a catalog in the database, use this one.
-        let default_dest_schema =
-            Self::from_schema_and_name(ctx, default, table_name)?;
+        let default_dest_schema = Self::from_schema_and_name(default, table_name)?;
 
         // Should we check the catalog to see if the table schema exists?
         match check_catalog {
@@ -88,8 +89,8 @@ impl PgSchema {
 
     /// Construct a PostgreSQL schema from a portable schema and a table name
     /// (which will be used instead of the name in the schema).
+    #[instrument(level = "trace")]
     pub(crate) fn from_schema_and_name(
-        _ctx: &Context,
         schema: &Schema,
         name: &PgName,
     ) -> Result<Self> {

@@ -9,8 +9,13 @@ use super::{BigMlAction, BigMlLocator};
 use crate::common::*;
 
 /// Implementation of `local_data`, but as a real `async` function.
+#[instrument(
+    level = "debug",
+    name = "bigml::local_data",
+    skip_all,
+    fields(source = %source)
+)]
 pub(crate) async fn local_data_helper(
-    ctx: Context,
     source: BigMlLocator,
     shared_args: SharedArguments<Unverified>,
     source_args: SourceArguments<Unverified>,
@@ -22,7 +27,7 @@ pub(crate) async fn local_data_helper(
         BigMlAction::ReadDataset(id) => id,
         _ => return Err(format_err!("cannot read data from {}", source)),
     };
-    debug!(ctx.log(), "reading data from {}", id);
+    debug!("reading data from {}", id);
 
     let client = bigml::Client::new_from_env()?;
     let response = client.download(&id).await?;

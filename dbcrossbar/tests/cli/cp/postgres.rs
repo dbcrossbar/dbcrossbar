@@ -94,7 +94,6 @@ fn cp_from_postgres_with_where() {
 #[test]
 #[ignore]
 fn postgres_upsert() {
-    let _ = env_logger::try_init();
     let testdir = TestDir::new("dbcrossbar", "postgres_upsert");
     let srcs = &[
         testdir.src_path("fixtures/upsert/upsert_1.csv"),
