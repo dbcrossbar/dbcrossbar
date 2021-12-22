@@ -45,6 +45,26 @@ impl Cost {
     pub(crate) fn penalize_for_parallelism_one(self) -> Cost {
         Cost(self.0 * 2.0)
     }
+
+    /// Calculate a penalized cost for leaving a cloud (as far as we can tell).
+    pub(crate) fn penalize_for_cloud_egress(self) -> Cost {
+        Cost(self.0 * 2.0)
+    }
+
+    /// **Whole-path** penalty. When possible, reward loyalty to a single cloud
+    /// vendor. This is a small penalty, but it's applied to entire conversion
+    /// paths as a tie breaker.
+    ///
+    /// The goal here is to discourage using s3:// and gs:// in the same
+    /// pipeline for no good reason at all. (And similar issues.)
+    ///
+    /// This would break Dijkstra's algorithm because it's a _non-local_ path
+    /// cost. It would also complicate search pruning. It could probably be
+    /// replaced by a purely local penalty if we knew what cloud `dbcrossbar`
+    /// itself was running in.
+    pub(crate) fn penalize_for_multiple_clouds(self) -> Cost {
+        Cost(self.0 * 1.25)
+    }
 }
 
 impl Add for Cost {

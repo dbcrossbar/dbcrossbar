@@ -1,6 +1,6 @@
 //! Conversions between different formats.
 
-use std::{cmp::min, fmt};
+use std::{cmp::min, collections::BTreeSet, fmt};
 
 use immutable_chunkmap::set::SetM;
 use stack_list::Node;
@@ -289,7 +289,11 @@ impl StorageConversion {
 
         let is_local = self.input.is_local() || self.output.is_local();
         if is_local {
-            cost = cost.penalize_for_local_data()
+            cost = cost.penalize_for_local_data();
+        }
+
+        if self.input.runs_in_cloud() != self.output.runs_in_cloud() {
+            cost = cost.penalize_for_cloud_egress();
         }
 
         cost
@@ -308,7 +312,32 @@ impl ConversionPath {
     /// Construct a new conversion path.
     pub(crate) fn new(path: Vec<StorageConversion>) -> Self {
         assert!(!path.is_empty());
-        let cost = path.iter().map(|conversion| conversion.cost()).sum();
+        let mut cost = path
+            .iter()
+            .map(|conversion| conversion.cost())
+            .sum::<Cost>();
+
+        // Apply a penalty to using multiple cloud vendors. This tries to
+        // discourage things like using both `gs://` and `s3://` in the same
+        // path for no good reason.
+        //
+        // This would break Dijkstra's algorithm because it's a _non-local_ path
+        // cost. It would also complicate search pruning. It could probably be
+        // replaced by a purely local penalty if we knew what cloud `dbcrossbar`
+        // itself was running in.
+        let mut all_clouds = BTreeSet::default();
+        for conversion in &path {
+            if let Some(cloud) = conversion.input.runs_in_cloud() {
+                all_clouds.insert(cloud);
+            }
+            if let Some(cloud) = conversion.output.runs_in_cloud() {
+                all_clouds.insert(cloud);
+            }
+        }
+        if all_clouds.len() > 1 {
+            cost = cost.penalize_for_multiple_clouds();
+        }
+
         Self { cost, path }
     }
 

@@ -6,6 +6,7 @@
 // This code isn't hooked up yet, so don't complain about dead code.
 #![allow(dead_code)]
 
+mod clouds;
 mod conversions;
 mod cost;
 mod formats;

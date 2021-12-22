@@ -5,6 +5,8 @@ use std::{fmt, iter};
 #[cfg(test)]
 use proptest_derive::Arbitrary;
 
+use super::clouds::Cloud;
+
 /// An iterator which we can use to generate alternatives in a backtracking
 /// computation.
 ///
@@ -17,7 +19,7 @@ pub(crate) trait BacktrackIterator: Iterator + iter::FusedIterator {}
 impl<Iter> BacktrackIterator for Iter where Iter: Iterator + iter::FusedIterator {}
 
 /// A simple format representing tabular data.
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub(crate) enum DataFormat {
     Csv,
@@ -32,7 +34,7 @@ impl fmt::Display for DataFormat {
 }
 
 /// A compression format which operates on a single stream of data.
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub(crate) enum CompressionFormat {
     Gz,
@@ -46,7 +48,7 @@ impl fmt::Display for CompressionFormat {
     }
 }
 /// The format of a byte stream.
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub(crate) enum StreamFormat {
     /// We can transfer raw data in any supported format.
@@ -67,7 +69,7 @@ impl fmt::Display for StreamFormat {
 }
 
 /// Do we have a single stream/operation, or many?
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub(crate) enum Parallelism {
     One,
@@ -84,7 +86,7 @@ impl fmt::Display for Parallelism {
 }
 
 /// The format of an overall transfer.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub(crate) struct TransferFormat {
     /// How many streams do we have?
@@ -100,7 +102,7 @@ impl fmt::Display for TransferFormat {
 }
 
 /// Various representations of tabular data on BigMl.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub(crate) enum BigMlResource {
     NewSource(Parallelism),
@@ -134,7 +136,7 @@ impl fmt::Display for BigMlResource {
 }
 
 /// Formats in which data can actually be stored.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub(crate) enum StorageFormat {
     BigMl(BigMlResource),
@@ -181,6 +183,25 @@ impl StorageFormat {
             StorageFormat::S3(tf) => tf.parallelism,
             StorageFormat::Shopify => Parallelism::Many,
             StorageFormat::Streaming(tf) => tf.parallelism,
+        }
+    }
+
+    /// Do we know what cloud this service runs in?
+    ///
+    /// Eventually, we're going to want to let the user configure this, so they
+    /// can say "`dbcrossbar` is running on a GCloud instance" or "Our Postgres
+    /// is hosted on-premise." But this already enough to break ties and produce
+    /// fewer weird paths.
+    pub(crate) fn runs_in_cloud(&self) -> Option<Cloud> {
+        match self {
+            StorageFormat::BigMl(_) => None,
+            StorageFormat::BigQuery => Some(Cloud::GCloud),
+            StorageFormat::File(_) => None,
+            StorageFormat::Gs(_) => Some(Cloud::GCloud),
+            StorageFormat::Postgres => None,
+            StorageFormat::S3(_) => Some(Cloud::Aws),
+            StorageFormat::Shopify => None,
+            StorageFormat::Streaming(_) => None,
         }
     }
 }
