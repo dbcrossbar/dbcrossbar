@@ -2,7 +2,6 @@
 
 use std::{fmt, iter};
 
-use enum_iterator::IntoEnumIterator;
 #[cfg(test)]
 use proptest_derive::Arbitrary;
 
@@ -18,19 +17,10 @@ pub(crate) trait BacktrackIterator: Iterator + iter::FusedIterator {}
 impl<Iter> BacktrackIterator for Iter where Iter: Iterator + iter::FusedIterator {}
 
 /// A simple format representing tabular data.
-#[derive(
-    Clone, Copy, Debug, Hash, IntoEnumIterator, PartialEq, Eq, PartialOrd, Ord,
-)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub(crate) enum DataFormat {
     Csv,
-}
-
-impl DataFormat {
-    /// Generate all possible values.
-    pub(crate) fn iter() -> impl BacktrackIterator<Item = Self> {
-        Self::into_enum_iter()
-    }
 }
 
 impl fmt::Display for DataFormat {
@@ -42,19 +32,10 @@ impl fmt::Display for DataFormat {
 }
 
 /// A compression format which operates on a single stream of data.
-#[derive(
-    Clone, Copy, Debug, Hash, IntoEnumIterator, PartialEq, Eq, PartialOrd, Ord,
-)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub(crate) enum CompressionFormat {
     Gz,
-}
-
-impl CompressionFormat {
-    /// Generate all possible values.
-    pub(crate) fn iter() -> impl BacktrackIterator<Item = Self> {
-        Self::into_enum_iter()
-    }
 }
 
 impl fmt::Display for CompressionFormat {
@@ -72,23 +53,6 @@ pub(crate) enum StreamFormat {
     Data(DataFormat),
     /// Or we can compress it.
     Compressed(DataFormat, CompressionFormat),
-}
-
-impl StreamFormat {
-    /// Generate all possible values.
-    pub(crate) fn iter() -> impl BacktrackIterator<Item = StreamFormat> {
-        // Uncompressed data formats.
-        let data_formats = DataFormat::iter().map(StreamFormat::Data);
-
-        // Compressed data formats, which requires a cross-product.
-        let compressed_formats = CompressionFormat::iter()
-            .map(|cf| {
-                DataFormat::iter().map(move |df| StreamFormat::Compressed(df, cf))
-            })
-            .flatten();
-
-        data_formats.chain(compressed_formats)
-    }
 }
 
 impl fmt::Display for StreamFormat {

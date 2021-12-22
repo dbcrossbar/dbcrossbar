@@ -34,7 +34,6 @@ codespan-reporting = "0.11.0"
 crc32c = "0.6.0"
 csv = "1.0.5"
 dirs = "4.0"
-enum-iterator = "0.7.0"
 futures = "0.3.1"
 geo-types = "0.7.2"
 geojson = { version = "0.22.2", features = ["geo-types"] }
