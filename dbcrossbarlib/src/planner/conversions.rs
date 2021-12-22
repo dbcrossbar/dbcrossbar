@@ -1,14 +1,17 @@
 //! Conversions between different formats.
 
-use std::fmt;
+use std::{cmp::min, fmt};
 
 use immutable_chunkmap::set::SetM;
 use stack_list::Node;
 use tracing::{debug, instrument, trace};
 
-use super::formats::{
-    BacktrackIterator, BigMlResource, CompressionFormat, DataFormat, Parallelism,
-    StorageFormat, StreamFormat, TransferFormat,
+use super::{
+    cost::Cost,
+    formats::{
+        BacktrackIterator, BigMlResource, CompressionFormat, DataFormat, Parallelism,
+        StorageFormat, StreamFormat, TransferFormat,
+    },
 };
 
 /// Convertors than can operator on individual streams.
@@ -55,6 +58,11 @@ impl StreamConversion {
 
         Box::new(result.into_iter())
     }
+
+    /// Get the estimated cost of this conversion, in arbirary units.
+    fn cost(&self) -> Cost {
+        Cost::default()
+    }
 }
 
 /// Convertors that operator on storage formats.
@@ -81,7 +89,7 @@ enum StorageConvertor {
 
 /// Conversions we can perform between different storage formats.
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct StorageConversion {
+pub(crate) struct StorageConversion {
     name: StorageConvertor,
     input: StorageFormat,
     output: StorageFormat,
@@ -270,39 +278,103 @@ impl StorageConversion {
         Box::new(result.into_iter())
     }
 
-    /// Return all conversion chains between `input` and `output`.
+    /// Get the estimated cost of this conversion, in arbirary units.
+    fn cost(&self) -> Cost {
+        let mut cost = Cost::default();
+
+        let parallelism = min(self.input.parallelism(), self.output.parallelism());
+        if parallelism == Parallelism::One {
+            cost = cost.penalize_for_parallelism_one();
+        }
+
+        let is_local = self.input.is_local() || self.output.is_local();
+        if is_local {
+            cost = cost.penalize_for_local_data()
+        }
+
+        cost
+    }
+}
+
+/// A path of `StorageConverion` values the form a complete conversion path.
+///
+/// This is a vey thin wrapper for us to hang methods off of, basically.
+pub(crate) struct ConversionPath {
+    cost: Cost,
+    path: Vec<StorageConversion>,
+}
+
+impl ConversionPath {
+    /// Construct a new conversion path.
+    pub(crate) fn new(path: Vec<StorageConversion>) -> Self {
+        assert!(!path.is_empty());
+        let cost = path.iter().map(|conversion| conversion.cost()).sum();
+        Self { cost, path }
+    }
+
+    /// Get the estimated cost of this conversion path, in arbirary units.
+    pub(crate) fn cost(&self) -> Cost {
+        self.cost
+    }
+
+    /// Return the shortest conversion paths between `input` and `output`.
+    pub(crate) fn shortest_path(
+        input: &StorageFormat,
+        output: &StorageFormat,
+    ) -> Option<ConversionPath> {
+        // For now, just call the reference implementation and choose the cheapest.
+        let shortest = Self::paths(input, output)
+            .into_iter()
+            .min_by_key(|p| p.cost());
+        if let Some(shortest) = &shortest {
+            debug!("SHORTEST {} › {}: {}", input, output, shortest);
+        }
+        shortest
+    }
+
+    /// Return all conversion paths between `input` and `output`.
     ///
-    /// No chain may contain the same intermediate format twice (except in the
+    /// No path may contain the same intermediate format twice (except in the
     /// output position, to allow S3 -> stream -> S3).
     #[instrument(
         level = "debug",
         skip_all,
         fields(input = %input, output = %output),
     )]
-    pub(crate) fn chains(
+    pub(crate) fn paths(
         input: &StorageFormat,
         output: &StorageFormat,
-    ) -> Vec<Vec<StorageConversion>> {
+    ) -> Vec<ConversionPath> {
         assert!(input.supports_read());
         assert!(output.supports_write());
 
         let mut already_seen = SetM::default();
         already_seen = already_seen.insert(input).0;
         let current_candidate = Node::new();
-        let mut out_chains = vec![];
-        Self::chains_helper(
+        let mut out_paths = vec![];
+        Self::paths_helper(
             input,
             output,
             &already_seen,
             &current_candidate,
-            &mut out_chains,
+            &mut out_paths,
         );
 
         // TODO: Find lowest-cost conversion.
-        out_chains
+        out_paths
     }
 
-    /// Helper function to actually generate conversion chains.
+    /// Helper function to actually generate conversion paths, correctly but not
+    /// necessarily quickly.
+    ///
+    /// This is the reference version of our path-finding algorithm. We probably
+    /// want to implement a version based on [Dijkstra's_algorithm][dijkstra],
+    /// or at least one which prunes candidates that exceed the current shortest
+    /// path. If we do implement a better algorithm, we can keep this version as
+    /// `#[cfg(test)]` and use `proptest` to verify that the faster algorithm
+    /// matches this one.
+    ///
+    /// [dijkstra]: https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm
     ///
     /// This is basically a hand-written Prolog predicate in Rust. We use a mix
     /// of recursion and immutable data structures to implement "backtracing"
@@ -321,20 +393,20 @@ impl StorageConversion {
             input = %input,
             output = %output,
             current_candidate = %DisplayCurrentCandidate(current_candidate),
-            out_chains.len = out_chains.len(),
+            out_paths.len = out_paths.len(),
         ),
     )]
-    fn chains_helper(
+    fn paths_helper(
         input: &StorageFormat,
         output: &StorageFormat,
         already_seen: &SetM<&StorageFormat>,
         current_candidate: &Node<&StorageConversion>,
-        out_chains: &mut Vec<Vec<StorageConversion>>,
+        out_paths: &mut Vec<ConversionPath>,
     ) {
         assert!(input.supports_read());
         assert!(output.supports_write());
 
-        for conversion in Self::conversions_from(input) {
+        for conversion in StorageConversion::conversions_from(input) {
             trace!(
                 "trying {:?}({}): {}",
                 conversion.name,
@@ -349,7 +421,7 @@ impl StorageConversion {
                 let mut candidate = Vec::with_capacity(current_candidate.len());
                 candidate.extend(current_candidate.iter().cloned().cloned());
                 candidate.reverse();
-                out_chains.push(candidate);
+                out_paths.push(ConversionPath::new(candidate));
             } else if !conversion.output.supports_read() {
                 // This isn't the final format, and we won't be able to read
                 // back out of it, so give up.
@@ -361,12 +433,12 @@ impl StorageConversion {
                     // This guarantees that we always terminate.
                     trace!("can't reuse {}", conversion.output);
                 } else {
-                    Self::chains_helper(
+                    Self::paths_helper(
                         &conversion.output,
                         output,
                         &already_seen,
                         &current_candidate,
-                        out_chains,
+                        out_paths,
                     );
                 }
             }
@@ -374,23 +446,42 @@ impl StorageConversion {
     }
 }
 
+impl<'a> fmt::Display for ConversionPath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        display_conversion_path(self.path.iter(), f)?;
+        write!(f, " (cost={})", self.cost())
+    }
+}
+
+/// Wrapper implementing `Display` for a stack-based list representing a
+/// conversion path.
 struct DisplayCurrentCandidate<'a>(&'a Node<'a, &'a StorageConversion>);
 
 impl<'a> fmt::Display for DisplayCurrentCandidate<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.reverse(|candidate| {
-            let mut first = true;
-            for conversion in candidate {
-                if first {
-                    first = false;
-                } else {
-                    write!(f, "→")?;
-                }
-                write!(f, "{:?}", conversion.name)?;
-            }
-            Ok(())
-        })
+        self.0
+            .reverse(|candidate| display_conversion_path(candidate.iter().cloned(), f))
     }
+}
+
+/// Helper function to display a conversion path represented as an iterator.
+fn display_conversion_path<'a, I>(
+    mut path: I,
+    f: &mut fmt::Formatter<'_>,
+) -> fmt::Result
+where
+    I: Iterator<Item = &'a StorageConversion> + 'a,
+{
+    match path.next() {
+        None => write!(f, "∅")?,
+        Some(first) => {
+            write!(f, "{:?}", first.name)?;
+            for conversion in path {
+                write!(f, "›{:?}", conversion.name)?;
+            }
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -445,7 +536,7 @@ mod tests {
             output in writable_storage_formats(),
         ) {
             init_tracing();
-            assert!(!StorageConversion::chains(&input, &output).is_empty());
+            assert!(ConversionPath::shortest_path(&input, &output).is_some());
         }
     }
 }

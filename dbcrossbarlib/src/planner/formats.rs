@@ -108,6 +108,17 @@ pub(crate) enum BigMlResource {
     DatasetId,
 }
 
+impl BigMlResource {
+    /// Is this `BigMlResource` parallel? Used in cost estimation.
+    fn parallelism(&self) -> Parallelism {
+        match self {
+            BigMlResource::NewSource(parallelism) => *parallelism,
+            BigMlResource::NewDataset(parallelism) => *parallelism,
+            BigMlResource::DatasetId => Parallelism::One,
+        }
+    }
+}
+
 impl fmt::Display for BigMlResource {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -153,6 +164,25 @@ impl StorageFormat {
             StorageFormat::BigMl(BigMlResource::DatasetId) | StorageFormat::Shopify,
         )
     }
+
+    /// Does this format use the local machine to store data or pass it through?
+    pub(crate) fn is_local(&self) -> bool {
+        matches!(self, StorageFormat::File(_) | StorageFormat::Streaming(_))
+    }
+
+    /// Is this `StorageFormat` parallel? Used in cost estimation.
+    pub(crate) fn parallelism(&self) -> Parallelism {
+        match self {
+            StorageFormat::BigMl(r) => r.parallelism(),
+            StorageFormat::BigQuery => Parallelism::Many,
+            StorageFormat::File(tf) => tf.parallelism,
+            StorageFormat::Gs(tf) => tf.parallelism,
+            StorageFormat::Postgres => Parallelism::One,
+            StorageFormat::S3(tf) => tf.parallelism,
+            StorageFormat::Shopify => Parallelism::Many,
+            StorageFormat::Streaming(tf) => tf.parallelism,
+        }
+    }
 }
 
 impl fmt::Display for StorageFormat {
@@ -174,6 +204,12 @@ impl fmt::Display for StorageFormat {
 mod tests {
     use super::*;
     use proptest::prelude::*;
+
+    #[test]
+    fn parallelism_one_is_less_than_many() {
+        // This is needed for cost estimations to work.
+        assert!(Parallelism::One < Parallelism::Many);
+    }
 
     proptest! {
         #[test]
