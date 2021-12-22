@@ -35,11 +35,10 @@ mod cmd;
 #[tokio::main]
 async fn main() -> Result<()> {
     // Configure tracing.
-    let filter = EnvFilter::from_default_env();
     Subscriber::builder()
         .with_writer(std::io::stderr)
         .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
-        .with_env_filter(filter)
+        .with_env_filter(EnvFilter::from_default_env())
         .finish()
         .init();
     debug!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
