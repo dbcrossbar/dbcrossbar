@@ -49,7 +49,7 @@ pub mod rechunk;
 pub mod schema;
 pub(crate) mod separator;
 mod temporary_storage;
-pub(crate) mod tls;
+pub mod tls;
 pub mod tokio_glue;
 pub(crate) mod transform;
 mod url_with_hidden_password;
