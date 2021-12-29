@@ -35,6 +35,13 @@ pub(crate) struct BigQueryError {
     message: String,
 }
 
+impl BigQueryError {
+    /// Is this an "access denied" error?
+    pub(crate) fn is_access_denied(&self) -> bool {
+        self.reason.starts_with("accessDenied")
+    }
+}
+
 impl fmt::Display for BigQueryError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.reason)?;
@@ -46,6 +53,19 @@ impl fmt::Display for BigQueryError {
 }
 
 impl error::Error for BigQueryError {}
+
+/// Given an `Error`, look to see if it's a wrapper around `BigQueryError`, and
+/// if so, return the original error. Otherwise return `None`.
+pub(crate) fn original_bigquery_error(err: &Error) -> Option<&BigQueryError> {
+    // Walk the chain of all errors, ending with the original root cause.
+    for cause in err.chain() {
+        // If this error is a `BigQueryError`, return it.
+        if let Some(bigquery_error) = cause.downcast_ref::<BigQueryError>() {
+            return Some(bigquery_error);
+        }
+    }
+    None
+}
 
 /// The schema of our query results.
 #[derive(Debug, Deserialize, Serialize)]
