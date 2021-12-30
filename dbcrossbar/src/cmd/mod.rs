@@ -1,7 +1,12 @@
 //! Command parsing.
 
-use dbcrossbarlib::{config::Configuration, tokio_glue::BoxFuture, Context};
-use futures::FutureExt;
+use std::path::PathBuf;
+
+use dbcrossbarlib::{
+    config::Configuration,
+    tls::{register_client_cert, register_trusted_ca, ClientCertInfo},
+    Context, Result,
+};
 //use structopt::StructOpt;
 use structopt_derive::StructOpt;
 
@@ -23,9 +28,39 @@ pub(crate) struct Opt {
     #[structopt(long = "enable-unstable")]
     pub(crate) enable_unstable: bool,
 
+    /// Path to TLS client certificate file (*.pem).
+    #[structopt(long = "tls-client-cert", requires("tls-client-key"))]
+    pub(crate) tls_client_cert: Option<PathBuf>,
+
+    /// Path to TLS client private key file (*.key).
+    #[structopt(long = "tls-client-key", requires("tls-client-cert"))]
+    pub(crate) tls_client_key: Option<PathBuf>,
+
+    /// Path to an extra TLS server CA to trust. Only supported by certain
+    /// drivers.
+    ///
+    /// Alternatively, these certs may also be added directly to your OS
+    /// certificate store.
+    #[structopt(long = "tls-trusted-ca")]
+    pub(crate) tls_trusted_cas: Vec<PathBuf>,
+
     /// The command to run.
     #[structopt(subcommand)]
     pub(crate) cmd: Command,
+}
+
+impl Opt {
+    /// Get our client cert, if any.
+    fn client_cert(&self) -> Option<ClientCertInfo> {
+        match (&self.tls_client_cert, &self.tls_client_key) {
+            (None, None) => None,
+            (Some(cert_path), Some(key_path)) => Some(ClientCertInfo {
+                cert_path: cert_path.to_owned(),
+                key_path: key_path.to_owned(),
+            }),
+            _ => panic!("arg parser is not enforcing `requires`"),
+        }
+    }
 }
 
 /// The command to run.
@@ -82,24 +117,31 @@ pub(crate) enum Command {
     },
 }
 
-pub(crate) fn run(ctx: Context, config: Configuration, opt: Opt) -> BoxFuture<()> {
+pub(crate) async fn run(ctx: Context, config: Configuration, opt: Opt) -> Result<()> {
+    if let Some(client_cert) = opt.client_cert() {
+        register_client_cert(client_cert)?;
+    }
+    for trusted_ca in &opt.tls_trusted_cas {
+        register_trusted_ca(trusted_ca)?;
+    }
+
     match opt.cmd {
-        Command::Config { command } => config::run(config, command).boxed(),
+        Command::Config { command } => config::run(config, command).await,
 
         Command::Count { command } => {
-            count::run(ctx, config, opt.enable_unstable, command).boxed()
+            count::run(ctx, config, opt.enable_unstable, command).await
         }
         Command::Cp { command } => {
-            cp::run(ctx, config, opt.enable_unstable, command).boxed()
+            cp::run(ctx, config, opt.enable_unstable, command).await
         }
         Command::Features { command } => {
-            features::run(config, opt.enable_unstable, command).boxed()
+            features::run(config, opt.enable_unstable, command).await
         }
         Command::License { command } => {
-            license::run(config, opt.enable_unstable, command).boxed()
+            license::run(config, opt.enable_unstable, command).await
         }
         Command::Schema { command } => {
-            schema::run(ctx, config, opt.enable_unstable, command).boxed()
+            schema::run(ctx, config, opt.enable_unstable, command).await
         }
     }
 }
