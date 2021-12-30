@@ -25,6 +25,9 @@ pub struct ClientCertInfo {
 lazy_static! {
     /// Our client cert, if we have one.
     static ref CLIENT_CERT: RwLock<Option<ClientCertInfo>> = RwLock::new(None);
+
+    /// Extra trusted CAs.
+    static ref EXTRA_TRUSTED_CAS: RwLock<Vec<PathBuf>> = RwLock::new(vec![]);
 }
 
 /// Specify the client cert to use when configuring TLS.
@@ -42,6 +45,13 @@ pub fn register_client_cert(client_cert: ClientCertInfo) -> Result<()> {
     }
 }
 
+/// Register a trusted certificate authority.
+pub fn register_trusted_ca(trusted_ca: &Path) -> Result<()> {
+    let mut cas = EXTRA_TRUSTED_CAS.write().expect("lock poisoned");
+    cas.push(trusted_ca.to_owned());
+    Ok(())
+}
+
 /// Standard RusTLS `ClientConfig` setup.
 ///
 /// We hope to be able to reuse this for multiple different types of TLS
@@ -50,6 +60,7 @@ pub fn register_client_cert(client_cert: ClientCertInfo) -> Result<()> {
 /// We load our server certificates out of the operating system's certificate
 /// store, because this is reasonably standardized. We only support a single
 /// client certificate, and that must be passed manually for now.
+#[instrument(level = "trace")]
 pub(crate) fn rustls_client_config() -> Result<ClientConfig> {
     // Set up RusTLS.
     let mut root_store = RootCertStore::empty();
@@ -57,6 +68,18 @@ pub(crate) fn rustls_client_config() -> Result<ClientConfig> {
         root_store
             .add(&Certificate(cert.0))
             .context("could not add certificate to cert store")?;
+    }
+
+    // Install any extra trusted CAs manually.
+    let trusted_cas = EXTRA_TRUSTED_CAS.read().expect("lock poisoned");
+    for trusted_ca in trusted_cas.iter() {
+        trace!("trusting CA {}", trusted_ca.display());
+        let chain = read_cert_chain(trusted_ca)?;
+        for cert in chain {
+            root_store
+                .add(&cert)
+                .context("could not add certificate to cert store")?;
+        }
     }
 
     // Because we'll surely need to debug cert stores again someday, here's an ugly

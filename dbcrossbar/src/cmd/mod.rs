@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use dbcrossbarlib::{
     config::Configuration,
-    tls::{register_client_cert, ClientCertInfo},
+    tls::{register_client_cert, register_trusted_ca, ClientCertInfo},
     Context, Result,
 };
 //use structopt::StructOpt;
@@ -29,12 +29,20 @@ pub(crate) struct Opt {
     pub(crate) enable_unstable: bool,
 
     /// Path to TLS client certificate file (*.pem).
-    #[structopt(long = "tls-client-cert", requires("tls_client_key"))]
+    #[structopt(long = "tls-client-cert", requires("tls-client-key"))]
     pub(crate) tls_client_cert: Option<PathBuf>,
 
     /// Path to TLS client private key file (*.key).
-    #[structopt(long = "tls-client-key", requires("tls_client_cert"))]
+    #[structopt(long = "tls-client-key", requires("tls-client-cert"))]
     pub(crate) tls_client_key: Option<PathBuf>,
+
+    /// Path to an extra TLS server CA to trust. Only supported by certain
+    /// drivers.
+    ///
+    /// Alternatively, these certs may also be added directly to your OS
+    /// certificate store.
+    #[structopt(long = "tls-trusted-ca")]
+    pub(crate) tls_trusted_cas: Vec<PathBuf>,
 
     /// The command to run.
     #[structopt(subcommand)]
@@ -112,6 +120,9 @@ pub(crate) enum Command {
 pub(crate) async fn run(ctx: Context, config: Configuration, opt: Opt) -> Result<()> {
     if let Some(client_cert) = opt.client_cert() {
         register_client_cert(client_cert)?;
+    }
+    for trusted_ca in &opt.tls_trusted_cas {
+        register_trusted_ca(trusted_ca)?;
     }
 
     match opt.cmd {
