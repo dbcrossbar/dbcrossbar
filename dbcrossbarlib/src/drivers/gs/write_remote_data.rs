@@ -1,6 +1,12 @@
 //! Implementation of `GsLocator::write_remote_data`.
 
+use std::time::Duration;
+
+use bigml::wait::{wait, BackoffType, WaitStatus};
+use bigml::{try_with_permanent_failure, WaitOptions};
+
 use super::{prepare_as_destination_helper, GsLocator};
+use crate::clouds::gcloud::bigquery::original_bigquery_error;
 use crate::clouds::gcloud::{bigquery, storage};
 use crate::common::*;
 use crate::drivers::{
@@ -88,16 +94,42 @@ pub(crate) async fn write_remote_data_helper(
     )
     .await?;
 
-    // Delete the existing output, if it exists.
-    prepare_as_destination_helper(
-        ctx.clone(),
-        dest.as_url().to_owned(),
-        if_exists.clone(),
-    )
-    .await?;
+    // The extraction operation occasionally fails with internal permission
+    // errors. These appear to be transient, possible caused by some sort of
+    // race condition authorizing BigQuery workers to write to our temp bucket.
+    let opt = WaitOptions::default()
+        .backoff_type(BackoffType::Exponential)
+        .retry_interval(Duration::from_secs(10))
+        // Don't retry too much because we're probably classifying some permanent
+        // errors as temporary, and because `extract` may be very expensive.
+        .allowed_errors(2);
+    wait(&opt, || async {
+        // Delete the existing output, if it exists. As far as we know, retrying
+        // failures doesn't help with any common errors.
+        //
+        // If this block _does_ get retried, we'll try to re-prepare the
+        // destination bucket. This is only likely to work if (a) `if_exists ==
+        // IfExists::Overwrite` or (b) nothing was written to the bucket during
+        // our first failed attempt.
+        try_with_permanent_failure!(
+            prepare_as_destination_helper(
+                ctx.clone(),
+                dest.as_url().to_owned(),
+                if_exists.clone(),
+            )
+            .await
+        );
 
-    // Build and run a `bq extract` command.
-    bigquery::extract(&temp_table_name, dest.as_url(), &job_labels).await?;
+        // Build and run a `bq extract` command.
+        match bigquery::extract(&temp_table_name, dest.as_url(), &job_labels).await {
+            Ok(()) => WaitStatus::Finished(()),
+            Err(err) if should_retry_extract(&err) => {
+                WaitStatus::FailedTemporarily(err)
+            }
+            Err(err) => WaitStatus::FailedPermanently(err),
+        }
+    })
+    .await?;
 
     // Delete temp table.
     bigquery::drop_table(&temp_table_name, &job_labels).await?;
@@ -118,5 +150,18 @@ pub(crate) async fn write_remote_data_helper(
         // This is probably not the perfect thing to do here, but at least it's
         // backwards compatible.
         Ok(vec![dest.boxed()])
+    }
+}
+
+/// If a BigQuery extraction failed with `err`, should we retry it?
+fn should_retry_extract(err: &Error) -> bool {
+    if let Some(bigquery_error) = original_bigquery_error(err) {
+        // Retry `accessDenied` errors, which appear to be caused by some sort
+        // of race condition where BigQuery extract workers don't receive
+        // authorization to write to the output bucket soon enough.
+        bigquery_error.is_access_denied()
+    } else {
+        // Not a BigQuery error.
+        false
     }
 }
