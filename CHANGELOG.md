@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.5.0-beta.4] - 2022-01-01
+
 ### Fixed
 
 - gs: Retry `delete` operations after 403 Forbidden errors. This appears to be part of the same hypothesized permissions race that affected `extract` in v0.5.0-beta.3.
