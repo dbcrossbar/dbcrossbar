@@ -1,12 +1,13 @@
 //! Implementation of `GsLocator::write_remote_data`.
 
-use std::time::Duration;
-
-use bigml::wait::{wait, BackoffType, WaitStatus};
-use bigml::{try_with_permanent_failure, WaitOptions};
+use bigml::{
+    try_with_permanent_failure,
+    wait::{wait, WaitStatus},
+};
 
 use super::{prepare_as_destination_helper, GsLocator};
 use crate::clouds::gcloud::bigquery::original_bigquery_error;
+use crate::clouds::gcloud::storage::gcs_write_access_denied_wait_options;
 use crate::clouds::gcloud::{bigquery, storage};
 use crate::common::*;
 use crate::drivers::{
@@ -97,12 +98,11 @@ pub(crate) async fn write_remote_data_helper(
     // The extraction operation occasionally fails with internal permission
     // errors. These appear to be transient, possible caused by some sort of
     // race condition authorizing BigQuery workers to write to our temp bucket.
-    let opt = WaitOptions::default()
-        .backoff_type(BackoffType::Exponential)
-        .retry_interval(Duration::from_secs(10))
-        // Don't retry too much because we're probably classifying some permanent
-        // errors as temporary, and because `extract` may be very expensive.
-        .allowed_errors(2);
+    //
+    // IMPORTANT: We retry the extraction here, and not in `bigquery::extract`
+    // itself, because if we retry the extraction, we need to re-prepare the
+    // destination bucket, too.
+    let opt = gcs_write_access_denied_wait_options();
     wait(&opt, || async {
         // Delete the existing output, if it exists. As far as we know, retrying
         // failures doesn't help with any common errors.
