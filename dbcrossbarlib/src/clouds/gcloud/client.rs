@@ -404,3 +404,16 @@ pub(crate) fn response_claims_to_be_json(http_resp: &reqwest::Response) -> bool 
     content_type_mime.type_() == mime::APPLICATION
         && content_type_mime.subtype() == mime::JSON
 }
+
+/// Given an `Error`, look to see if it's a wrapper around `reqwest::Error`, and
+/// if so, return the original error. Otherwise return `None`.
+pub(crate) fn original_http_error(err: &Error) -> Option<&reqwest::Error> {
+    // Walk the chain of all errors, ending with the original root cause.
+    for cause in err.chain() {
+        // If this error is a `reqwest::Error`, return it.
+        if let Some(reqwest_error) = cause.downcast_ref::<reqwest::Error>() {
+            return Some(reqwest_error);
+        }
+    }
+    None
+}

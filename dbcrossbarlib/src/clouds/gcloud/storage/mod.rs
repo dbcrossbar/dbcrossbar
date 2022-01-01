@@ -1,10 +1,11 @@
 //! Interfaces to Google Cloud Storage.
 
+use bigml::{wait::BackoffType, WaitOptions};
 use serde::{
     de::{self, Deserializer, Visitor},
     Deserialize,
 };
-use std::{fmt, marker::PhantomData, str::FromStr};
+use std::{fmt, marker::PhantomData, str::FromStr, time::Duration};
 
 use crate::common::*;
 
@@ -118,4 +119,23 @@ where
     }
 
     deserializer.deserialize_any(IntVisitor(PhantomData))
+}
+
+/// If we encounter an "access denied" option trying to write to a bucket, what
+/// retry policy should we use?
+///
+/// The [`rm_r`] and [`crate::clouds::gcloud::bigquery::extract`] operations
+/// occasionally fails with internal permission errors. These appear to be
+/// transient, possible caused by some sort of race condition authorizing either
+/// either dbcrossbar or BigQuery workers to write to our temp bucket.
+///
+/// See [issue #181](https://github.com/dbcrossbar/dbcrossbar/issues/181) for
+/// more discussion.
+pub(crate) fn gcs_write_access_denied_wait_options() -> WaitOptions {
+    WaitOptions::default()
+        .backoff_type(BackoffType::Exponential)
+        .retry_interval(Duration::from_secs(10))
+        // Don't retry too much because we're probably classifying some permanent
+        // errors as temporary, and because `extract` may be very expensive.
+        .allowed_errors(2)
 }

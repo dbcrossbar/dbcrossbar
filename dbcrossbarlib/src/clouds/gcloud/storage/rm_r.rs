@@ -1,8 +1,11 @@
 //! Deleting files from Google Cloud Storage.
 
+use bigml::wait::{wait, WaitStatus};
+use hyper::StatusCode;
+
 use super::{
-    super::{percent_encode, Client, NoQuery},
-    ls, parse_gs_url,
+    super::{client::original_http_error, percent_encode, Client, NoQuery},
+    gcs_write_access_denied_wait_options, ls, parse_gs_url,
 };
 use crate::common::*;
 use crate::tokio_glue::ConsumeWithParallelism;
@@ -30,7 +33,19 @@ pub(crate) async fn rm_r(ctx: &Context, url: &Url) -> Result<()> {
                     percent_encode(&object),
                 );
                 let client = Client::new().await?;
-                client.delete(&req_url, NoQuery).await?;
+
+                let opt = gcs_write_access_denied_wait_options();
+                wait(&opt, || async {
+                    match client.delete(&req_url, NoQuery).await {
+                        Ok(()) => WaitStatus::Finished(()),
+                        Err(err) if should_retry_delete(&err) => {
+                            WaitStatus::FailedTemporarily(err)
+                        }
+                        Err(err) => WaitStatus::FailedPermanently(err),
+                    }
+                })
+                .await?;
+
                 Ok(())
             }
             .boxed()
@@ -40,4 +55,16 @@ pub(crate) async fn rm_r(ctx: &Context, url: &Url) -> Result<()> {
         .consume_with_parallelism(PARALLEL_DELETIONS)
         .await?;
     Ok(())
+}
+
+/// Should we retry an attempted deletion?
+fn should_retry_delete(err: &Error) -> bool {
+    if let Some(err) = original_http_error(err) {
+        // There appears to be some sort of Google Cloud Storage 403 race
+        // condition on delete that shows up when preparing buckets. We have no
+        // idea what causes this.
+        err.status() == Some(StatusCode::FORBIDDEN)
+    } else {
+        false
+    }
 }
