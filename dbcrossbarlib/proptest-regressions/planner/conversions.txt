@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 02a7599a168d39bfc01b286cd3fe394fc344d246606147275d4326d8815a159f # shrinks to input = BigQuery, output = BigMl(NewSource(One))
+cc 37d1a7bb80e9fae1e4754f82746ad7b2c9cd7444c2a53378b2208061f7f332f8 # shrinks to input = Postgres, output = BigMl(NewSource(Many))
+cc 5a7fff9d36b86c43d57c0fabdb60e6ab63ec225ebafed488a142c8f0136c0d2a # shrinks to input = BigQuery, output = BigQuery
