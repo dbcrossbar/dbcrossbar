@@ -3,7 +3,7 @@
 Pre-built binaries for `dbcrossbar` are [available on GitHub](https://github.com/dbcrossbar/dbcrossbar/releases). These currently include:
 
 1. Fully-static Linux x86_64 binaries, which should work on any modern distribution (including Alpine Linux containers).
-2. MacOS X binaries. Note that these are unsigned, and you may need to use `xattr -d com.apple.quarantine dbcrossbar` to make them runnable.
+2. MacOS X binaries. Note that these are unsigned, and you may need to use `xattr -d com.apple.quarantine dbcrossbar` and `spctl --add dbcrossbar` to make them runnable.
 
 Windows binaries are not available at this time, but it may be possible to build them with a little work.
 
