@@ -765,8 +765,6 @@ fn parses_shopify_schema() -> Result<()> {
     let file_string = include_str!("../../../../dbcrossbar/fixtures/shopify.ts");
     let source_file =
         SourceFile::parse("shopify.ts".to_owned(), file_string.to_owned())?;
-    for def in &["Order"] {
-        source_file.definition_to_table(def)?;
-    }
+    source_file.definition_to_table("Order")?;
     Ok(())
 }

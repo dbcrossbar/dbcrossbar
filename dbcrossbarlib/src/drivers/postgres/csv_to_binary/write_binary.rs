@@ -141,7 +141,7 @@ impl<'a> WriteBinary for &'a [u8] {
     }
 }
 
-impl<'a> WriteBinary for NaiveDateTime {
+impl WriteBinary for NaiveDateTime {
     fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         let epoch = NaiveDate::from_ymd(2000, 1, 1).and_hms(0, 0, 0);
         let duration = *self - epoch;
@@ -154,7 +154,7 @@ impl<'a> WriteBinary for NaiveDateTime {
     }
 }
 
-impl<'a> WriteBinary for DateTime<Utc> {
+impl WriteBinary for DateTime<Utc> {
     fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         let epoch = Utc.ymd(2000, 1, 1).and_hms(0, 0, 0);
         let duration = *self - epoch;

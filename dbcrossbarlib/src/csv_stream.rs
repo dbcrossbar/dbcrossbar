@@ -94,12 +94,8 @@ pub(crate) fn csv_stream_name<'a>(
         // Our base_path and our file_path are the same, which means that we had
         // only a single input, and we therefore want to extract the "basename",
         // or filename without any directories.
-        //
-        // Tell clippy to allow this, because the suggested
-        // fix is wrong.
-        #[allow(clippy::manual_split_once)]
         file_path
-            .rsplitn(2, '/')
+            .rsplit('/')
             .next()
             .expect("should have '/' in URL")
     } else if file_path.starts_with(base_path) {
@@ -127,11 +123,9 @@ pub(crate) fn csv_stream_name<'a>(
         ));
     };
 
-    // Now strip any extension. Tell clippy to allow this, because the suggested
-    // fix is much worse.
-    #[allow(clippy::manual_split_once)]
+    // Now strip any extension.
     let name = basename_or_relative
-        .splitn(2, '.')
+        .split('.')
         .next()
         .ok_or_else(|| format_err!("can't get basename of {}", file_path))?;
     Ok(name)

@@ -49,7 +49,7 @@ pub(crate) fn parse_gs_url(url: &Url) -> Result<(String, String)> {
             .host_str()
             .ok_or_else(|| format_err!("could not get bucket from {}", url))?
             .to_owned();
-        let object = (&url.path()[1..]).to_owned();
+        let object = url.path()[1..].to_owned();
         Ok((bucket, object))
     }
 }

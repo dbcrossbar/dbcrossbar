@@ -70,8 +70,8 @@ async fn service_account_key() -> Result<ServiceAccountKey> {
     let creds = CredentialsManager::singleton()
         .get("gcloud_service_account_key")
         .await?;
-    Ok(serde_json::from_str(creds.get_required("value")?)
-        .context("could not parse service account key")?)
+    serde_json::from_str(creds.get_required("value")?)
+        .context("could not parse service account key")
 }
 
 /// Build an authenticator using service account credentials.
@@ -147,14 +147,14 @@ async fn installed_flow_authenticator() -> Result<Authenticator> {
     // times, but scoping session keys to the client ID seems reasonable.
     let token_file_path = token_file_path(&application_secret.client_id).await?;
     ensure_parent_directory(&token_file_path).await?;
-    Ok(yup_oauth2::InstalledFlowAuthenticator::builder(
+    yup_oauth2::InstalledFlowAuthenticator::builder(
         application_secret,
         InstalledFlowReturnMethod::HTTPRedirect,
     )
     .persist_tokens_to_disk(token_file_path)
     .build()
     .await
-    .context("failed to create authenticator")?)
+    .context("failed to create authenticator")
 }
 
 /// Create an authenticator using service account credentials if available, and
