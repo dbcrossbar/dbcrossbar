@@ -17,7 +17,6 @@ pub struct CsvStream {
 
 impl CsvStream {
     /// Construct a CSV stream from bytes.
-    #[cfg(test)]
     pub(crate) async fn from_bytes<B>(bytes: B) -> Self
     where
         B: Into<BytesMut>,
@@ -35,7 +34,6 @@ impl CsvStream {
     }
 
     /// Receive all data on a CSV stream and return it as bytes.
-    #[cfg(test)]
     #[instrument(level = "trace", skip(self))]
     pub(crate) async fn into_bytes(self) -> Result<BytesMut> {
         let mut stream = self.data;

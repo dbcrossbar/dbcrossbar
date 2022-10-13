@@ -11,12 +11,14 @@ pub(crate) mod jobs;
 mod load;
 mod queries;
 mod schema;
+mod tables;
 
 pub(crate) use extract::*;
 pub(crate) use jobs::Labels;
 pub(crate) use load::*;
 pub(crate) use queries::*;
 pub(crate) use schema::*;
+pub(crate) use tables::*;
 
 /// A BigQuery error.
 #[derive(Clone, Debug, Deserialize, Serialize)]

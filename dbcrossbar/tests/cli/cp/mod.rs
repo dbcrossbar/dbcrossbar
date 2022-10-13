@@ -6,6 +6,7 @@ use std::{env, fs};
 
 mod bigml;
 mod bigquery;
+mod bigquery_test_fixture;
 mod combined;
 mod csv;
 mod gs;

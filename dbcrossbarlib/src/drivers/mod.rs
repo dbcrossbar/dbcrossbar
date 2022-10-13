@@ -12,6 +12,7 @@ pub mod bigml;
 pub mod bigquery;
 pub mod bigquery_schema;
 pub mod bigquery_shared;
+pub mod bigquery_test_fixture;
 pub mod csv;
 pub mod dbcrossbar_schema;
 pub mod dbcrossbar_ts;
@@ -35,6 +36,7 @@ lazy_static! {
         driver::<bigml::BigMlLocator>(),
         driver::<bigquery::BigQueryLocator>(),
         driver::<bigquery_schema::BigQuerySchemaLocator>(),
+        driver::<bigquery_test_fixture::BigQueryTestFixtureLocator>(),
         driver::<csv::CsvLocator>(),
         driver::<dbcrossbar_schema::DbcrossbarSchemaLocator>(),
         driver::<dbcrossbar_ts::DbcrossbarTsLocator>(),

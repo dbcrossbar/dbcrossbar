@@ -7,8 +7,8 @@ use super::{
     super::{client::original_http_error, percent_encode, Client, NoQuery},
     gcs_write_access_denied_wait_options, ls, parse_gs_url,
 };
-use crate::common::*;
 use crate::tokio_glue::ConsumeWithParallelism;
+use crate::{clouds::gcloud::ClientError, common::*};
 
 /// How many objects should we try to delete at a time?
 const PARALLEL_DELETIONS: usize = 10;
@@ -58,13 +58,18 @@ pub(crate) async fn rm_r(ctx: &Context, url: &Url) -> Result<()> {
 }
 
 /// Should we retry an attempted deletion?
-fn should_retry_delete(err: &Error) -> bool {
-    if let Some(err) = original_http_error(err) {
-        // There appears to be some sort of Google Cloud Storage 403 race
-        // condition on delete that shows up when preparing buckets. We have no
-        // idea what causes this.
-        err.status() == Some(StatusCode::FORBIDDEN)
-    } else {
-        false
+fn should_retry_delete(err: &ClientError) -> bool {
+    match err {
+        ClientError::NotFound { .. } => false,
+        ClientError::Other(err) => {
+            if let Some(err) = original_http_error(err) {
+                // There appears to be some sort of Google Cloud Storage 403 race
+                // condition on delete that shows up when preparing buckets. We have no
+                // idea what causes this.
+                err.status() == Some(StatusCode::FORBIDDEN)
+            } else {
+                false
+            }
+        }
     }
 }

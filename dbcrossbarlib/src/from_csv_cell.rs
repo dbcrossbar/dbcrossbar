@@ -153,6 +153,12 @@ impl FromCsvCell for i64 {
     }
 }
 
+impl FromCsvCell for String {
+    fn from_csv_cell(cell: &str) -> Result<Self> {
+        Ok(cell.to_owned())
+    }
+}
+
 impl FromCsvCell for serde_json::Value {
     fn from_csv_cell(cell: &str) -> Result<Self> {
         serde_json::from_str(cell)

@@ -1,6 +1,7 @@
 //! A Google Cloud REST client.
 
 use bigml::wait::{wait, BackoffType, WaitOptions, WaitStatus};
+use hyper::StatusCode;
 use mime::{self, Mime};
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use reqwest::{
@@ -40,6 +41,54 @@ pub(crate) enum Alt {
     Proto,
 }
 
+/// An HTTP client error. We break out a few specified statuses our caller might
+/// care about.
+#[derive(Debug)]
+pub(crate) enum ClientError {
+    /// The resource at URL was not found.
+    NotFound { method: String, url: Url },
+    /// Another error occured. We don't currently care about the details.
+    Other(Error),
+}
+
+impl fmt::Display for ClientError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ClientError::NotFound { method, url } => {
+                write!(f, "cannot {} {}: Not Found", method, url)
+            }
+            ClientError::Other(err) => err.fmt(f),
+        }
+    }
+}
+
+impl error::Error for ClientError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            ClientError::NotFound { .. } => None,
+            ClientError::Other(err) => err.source(),
+        }
+    }
+}
+
+impl From<Error> for ClientError {
+    fn from(err: Error) -> Self {
+        ClientError::Other(err)
+    }
+}
+
+impl From<serde_json::Error> for ClientError {
+    fn from(err: serde_json::Error) -> Self {
+        ClientError::Other(err.into())
+    }
+}
+
+impl From<bigml::Error> for ClientError {
+    fn from(err: bigml::Error) -> Self {
+        ClientError::Other(err.into())
+    }
+}
+
 /// A Google Cloud REST client using OAuth2.
 pub(crate) struct Client {
     /// An authenticator that provides OAuth2 tokens.
@@ -52,7 +101,7 @@ pub(crate) struct Client {
 impl Client {
     /// Create a new Google Cloud client.
     #[instrument(level = "trace")]
-    pub(crate) async fn new() -> Result<Client> {
+    pub(crate) async fn new() -> Result<Client, ClientError> {
         let authenticator = authenticator().await?;
         let client = reqwest::Client::new();
         Ok(Client {
@@ -66,7 +115,7 @@ impl Client {
         &self,
         url: &Url,
         headers: HeaderMap,
-    ) -> Result<reqwest::Response> {
+    ) -> Result<reqwest::Response, ClientError> {
         trace!("GET {}", url);
         let token = self.token().await?;
         let wait_options = WaitOptions::default()
@@ -95,7 +144,8 @@ impl Client {
                         // guesswork not experience.
                         let temporary = err.is_request() || err.is_timeout();
                         let err: Error = err.into();
-                        let err = err.context(format!("could not GET {}", url));
+                        let err: ClientError =
+                            err.context(format!("could not GET {}", url)).into();
                         if temporary {
                             WaitStatus::FailedTemporarily(err)
                         } else {
@@ -125,7 +175,7 @@ impl Client {
         &self,
         url: U,
         query: Query,
-    ) -> Result<Output>
+    ) -> Result<Output, ClientError>
     where
         Output: fmt::Debug + DeserializeOwned,
         U: IntoUrl + fmt::Debug,
@@ -145,7 +195,7 @@ impl Client {
         url: U,
         query: Query,
         headers: HeaderMap,
-    ) -> Result<reqwest::Response>
+    ) -> Result<reqwest::Response, ClientError>
     where
         U: IntoUrl + fmt::Debug,
         Query: fmt::Debug + Serialize,
@@ -166,7 +216,7 @@ impl Client {
         url: U,
         query: Query,
         body: Body,
-    ) -> Result<Output>
+    ) -> Result<Output, ClientError>
     where
         Output: fmt::Debug + DeserializeOwned,
         U: IntoUrl + fmt::Debug,
@@ -195,7 +245,7 @@ impl Client {
         url: U,
         query: Query,
         stream: IdiomaticBytesStream,
-    ) -> Result<()>
+    ) -> Result<(), ClientError>
     where
         U: IntoUrl + fmt::Debug,
         Query: fmt::Debug + Serialize,
@@ -221,7 +271,11 @@ impl Client {
 
     /// Delete the specified URL.
     #[instrument(level = "trace", skip(self))]
-    pub(crate) async fn delete<U, Query>(&self, url: U, query: Query) -> Result<()>
+    pub(crate) async fn delete<U, Query>(
+        &self,
+        url: U,
+        query: Query,
+    ) -> Result<(), ClientError>
     where
         U: IntoUrl + fmt::Debug,
         Query: fmt::Debug + Serialize,
@@ -239,11 +293,7 @@ impl Client {
         if http_resp.status().is_success() {
             Ok(())
         } else {
-            Err(format_err!(
-                "error deleting {}: {}",
-                url,
-                http_resp.status(),
-            ))
+            Err(self.handle_error("DELETE", &url, http_resp).await)
         }
     }
 
@@ -262,7 +312,7 @@ impl Client {
         method: &str,
         url: &Url,
         http_resp: reqwest::Response,
-    ) -> Result<Output>
+    ) -> Result<Output, ClientError>
     where
         Output: fmt::Debug + DeserializeOwned,
     {
@@ -283,7 +333,15 @@ impl Client {
         method: &str,
         url: &Url,
         http_resp: reqwest::Response,
-    ) -> Error {
+    ) -> ClientError {
+        // Return 404 Not Found as a special case.
+        if http_resp.status() == StatusCode::NOT_FOUND {
+            return ClientError::NotFound {
+                method: method.to_owned(),
+                url: url.to_owned(),
+            };
+        }
+
         // Decide if we should even try to parse this response as JSON before we
         // consume our http_resp.
         let should_parse_as_json = response_claims_to_be_json(&http_resp);
@@ -295,7 +353,7 @@ impl Client {
             .with_context(|| format!("error fetching error response from {}", url));
         let err_body = match err_body_result {
             Ok(err_body) => err_body,
-            Err(err) => return err,
+            Err(err) => return err.into(),
         };
 
         // Try to return a nice JSON error.
@@ -303,7 +361,7 @@ impl Client {
             if let Ok(resp) = serde_json::from_slice::<ErrorResponse>(&err_body) {
                 trace!("{} error {:?}", method, resp);
                 let err: Error = resp.error.into();
-                return err.context(format!("{} error {}", method, url));
+                return err.context(format!("{} error {}", method, url)).into();
             }
         }
 
@@ -318,7 +376,7 @@ impl Client {
             raw_err,
         );
         let err = format_err!("expected JSON describing error, but got {:?}", raw_err);
-        err.context(format!("{} error {}", method, url))
+        err.context(format!("{} error {}", method, url)).into()
     }
 }
 

@@ -123,6 +123,15 @@ impl FromJsonValue for i64 {
     }
 }
 
+impl FromJsonValue for String {
+    fn from_json_value(json: &Value) -> Result<Self> {
+        match json {
+            Value::String(s) => Ok(s.to_owned()),
+            _ => Err(format_err!("could not parse JSON value {} as string", json)),
+        }
+    }
+}
+
 impl FromJsonValue for Value {
     fn from_json_value(json: &Value) -> Result<Self> {
         Ok(json.to_owned())
