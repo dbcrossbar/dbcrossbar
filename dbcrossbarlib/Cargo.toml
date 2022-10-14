@@ -49,7 +49,7 @@ peg = "0.7.0"
 percent-encoding = "2.1.0"
 postgis = "0.9.0"
 rand = "0.8.1"
-regex = "1.1.0"
+regex = "1.5.4"
 reqwest = { version = "0.11.0", default-features = false, features = ["rustls-tls-native-roots", "json", "stream"] }
 rustls = "0.20.1"
 rustls-native-certs = "0.6.1"
