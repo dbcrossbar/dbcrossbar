@@ -4,11 +4,10 @@ Google's [BigQuery](https://cloud.google.com/bigquery/) is a extremely scalable 
 
 When loading data into BigQuery, or extracting it, we always go via Google Cloud Storage. This is considerably faster than the load and extract functionality supplied by tools like `bq`.
 
-**COMPATIBILITY WARNING:** This driver currently relies on `gsutil` and `bq` for many tasks, but those tools are poorly-suited to the kind of automation we need. In particular, `gsutil` uses too much RAM, and `bq` sometimes print status messages on standard output instead of standard error. We plan to replace those tools with native Rust libraries at some point. This will change how the BigQuery driver handles authentication in a future version.
-
 ## Example locators
 
 - `bigquery:$PROJECT:$DATASET.$TABLE`: A BigQuery table.
+- `bigquery-test-fixture:$PROJECT:$DATASET.$TABLE`: If you only need a tiny, read-only "table" for testing purposes, you may want to try the `bigquery-test-fixture:` locator. It currently uses [`tables.insert`](https://cloud.google.com/bigquery/docs/reference/rest/v2/tables/insert) to pass a `table.view.query` with all the table data inlined into the `VIEW` SQL. This runs about 20 times faster than `bigquery:`, at the expense of not creating a regular table. Note that the implementation details of this method may change, if we discover a faster or better way to create a small, read-only table.
 
 ## Configuration & authentication
 

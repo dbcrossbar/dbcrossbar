@@ -17,7 +17,7 @@ At this point, we do not support single-file output to a cloud bucket. This is r
 
 ## Configuration & authentication
 
-**0.4.x and later:** You can authenticate using either a client secret or a service key, which you can create using the [console credentials page](https://console.cloud.google.com/apis/credentials).
+You can authenticate using either a client secret or a service key, which you can create using the [console credentials page](https://console.cloud.google.com/apis/credentials).
 
 - Client secrets can be stored in `$DBCROSSBAR_CONFIG_DIR/gcloud_client_secret.json` or in `GCLOUD_CLIENT_SECRET`. These are strongly recommended for interactive use.
 - Service account keys can be stored in `$DBCROSSBAR_CONFIG_DIR/gcloud_service_account_key.json` or in `GCLOUD_SERVICE_ACCOUNT_KEY`. These are recommended for server and container use.
