@@ -169,10 +169,10 @@
                     <h1 id="bigquery"><a class="header" href="#bigquery">BigQuery</a></h1>
 <p>Google's <a href="https://cloud.google.com/bigquery/">BigQuery</a> is a extremely scalable data warehouse that supports rich SQL queries and petabytes of data. If you need to transform or analyze huge data sets, it's an excellent tool.</p>
 <p>When loading data into BigQuery, or extracting it, we always go via Google Cloud Storage. This is considerably faster than the load and extract functionality supplied by tools like <code>bq</code>.</p>
-<p><strong>COMPATIBILITY WARNING:</strong> This driver currently relies on <code>gsutil</code> and <code>bq</code> for many tasks, but those tools are poorly-suited to the kind of automation we need. In particular, <code>gsutil</code> uses too much RAM, and <code>bq</code> sometimes print status messages on standard output instead of standard error. We plan to replace those tools with native Rust libraries at some point. This will change how the BigQuery driver handles authentication in a future version.</p>
 <h2 id="example-locators"><a class="header" href="#example-locators">Example locators</a></h2>
 <ul>
 <li><code>bigquery:$PROJECT:$DATASET.$TABLE</code>: A BigQuery table.</li>
+<li><code>bigquery-test-fixture:$PROJECT:$DATASET.$TABLE</code>: If you only need a tiny, read-only &quot;table&quot; for testing purposes, you may want to try the <code>bigquery-test-fixture:</code> locator. It currently uses <a href="https://cloud.google.com/bigquery/docs/reference/rest/v2/tables/insert"><code>tables.insert</code></a> to pass a <code>table.view.query</code> with all the table data inlined into the <code>VIEW</code> SQL. This runs about 20 times faster than <code>bigquery:</code>, at the expense of not creating a regular table. Note that the implementation details of this method may change, if we discover a faster or better way to create a small, read-only table.</li>
 </ul>
 <h2 id="configuration--authentication"><a class="header" href="#configuration--authentication">Configuration &amp; authentication</a></h2>
 <p>See <a href="./gs.html#configuration--authentication">the Cloud Storage driver</a> for authentication details.</p>

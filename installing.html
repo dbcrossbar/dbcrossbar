@@ -170,7 +170,7 @@
 <p>Pre-built binaries for <code>dbcrossbar</code> are <a href="https://github.com/dbcrossbar/dbcrossbar/releases">available on GitHub</a>. These currently include:</p>
 <ol>
 <li>Fully-static Linux x86_64 binaries, which should work on any modern distribution (including Alpine Linux containers).</li>
-<li>MacOS X binaries. Note that these are unsigned, and you may need to use <code>xattr -d com.apple.quarantine dbcrossbar</code> to make them runnable.</li>
+<li>MacOS X binaries. Note that these are unsigned, and you may need to use <code>xattr -d com.apple.quarantine dbcrossbar</code> and <code>spctl --add dbcrossbar</code> to make them runnable.</li>
 </ol>
 <p>Windows binaries are not available at this time, but it may be possible to build them with a little work.</p>
 <h2 id="required-tools"><a class="header" href="#required-tools">Required tools</a></h2>
