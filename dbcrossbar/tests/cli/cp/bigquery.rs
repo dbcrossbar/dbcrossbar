@@ -12,8 +12,8 @@ use super::*;
 #[test]
 #[ignore]
 fn cp_from_bigquery_to_exact_csv() {
-    let pg_table = bq_test_table("cp_from_bigquery_to_exact_csv");
-    assert_cp_to_exact_csv("cp_from_bigquery_to_exact_csv", &pg_table);
+    let bq_table = bq_test_table("cp_from_bigquery_to_exact_csv");
+    assert_cp_to_exact_csv("cp_from_bigquery_to_exact_csv", &bq_table);
 }
 
 #[test]
