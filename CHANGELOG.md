@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.5.0] - 2022-20-22
+
+### Added
+
+- New `bigquery-test-fixture:` schema creates small, read-only "tables" very quickly. Many thanks to Dave Shirley for the proof of concept and for pairing on the final implementation.
+
+### Fixed
+
+- Updated a few dependencies with (likely non-exploitable) security advisories. We have not update _all_ our dependencies, because there are at least two regressions affecting supposedly semver-compatible dependencies. This is actually very rare in the Rust ecosystem, but we were unlucky this time.
+
 ## [0.5.0-beta.4] - 2022-01-01
 
 ### Fixed

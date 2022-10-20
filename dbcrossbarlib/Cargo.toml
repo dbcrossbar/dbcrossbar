@@ -1,6 +1,6 @@
 [package]
 name = "dbcrossbarlib"
-version = "0.5.0-beta.4"
+version = "0.5.0"
 authors = ["Eric Kidd <git@randomhacks.net>"]
 edition = "2018"
 
@@ -72,4 +72,5 @@ tracing-futures = "0.2.5"
 url = "2.1.0"
 uuid = "0.8.1"
 walkdir = "2.2.9"
-yup-oauth2 = "6.1.0"
+# Locked because upgrading it breaks Google Cloud.
+yup-oauth2 = "= 6.1.0"
