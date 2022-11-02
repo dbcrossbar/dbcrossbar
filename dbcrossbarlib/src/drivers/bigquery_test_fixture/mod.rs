@@ -22,7 +22,13 @@ use super::{
 };
 
 /// The maximum allowable CSV file size for us to try the "VIEW" trick.
-const MAX_CSV_SIZE_FOR_VIEW: usize = u16::MAX as usize;
+///
+/// "Maximum length of a standard SQL query used to define a view" [is defined
+/// as](https://cloud.google.com/bigquery/quotas#view_limits) "256 K
+/// characters".  We are cutting this a little close so failures may be possible
+/// particularly where there are large numbers of columns with single character
+/// strings.
+const MAX_CSV_SIZE_FOR_VIEW: usize = 128 * 1024;
 
 /// A version of `BigQueryLocator` which is optimized for creating small,
 /// read-only "tables" using various tricks. This should normally be used to
