@@ -209,7 +209,7 @@ async fn write_local_data_helper(
     for (row_idx, row) in rdr.records().enumerate() {
         let row = row?;
         separator_comma(&mut sql, row_idx)?;
-        write!(&mut sql, "(")?;
+        write!(&mut sql, "STRUCT(")?;
         for (col_idx, (bq_col_type_info, cell)) in
             bq_col_type_infos.iter().zip(row.into_iter()).enumerate()
         {
