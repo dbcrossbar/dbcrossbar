@@ -24,7 +24,7 @@ copyleft = "deny"
 
 # Allow common non-restrictive licenses. ISC is used for various DNS and crypto
 # things, and it's a minimally restrictive open source license.
-allow = ["MIT", "Apache-2.0", "BSD-3-Clause", "CC0-1.0", "ISC", "OpenSSL", "Zlib"]
+allow = ["MIT", "Apache-2.0", "BSD-3-Clause", "CC0-1.0", "ISC", "OpenSSL", "Unicode-DFS-2016", "Zlib"]
 
 # Many organizations ban AGPL-licensed code
 # https://opensource.google/docs/using/agpl-policy/
