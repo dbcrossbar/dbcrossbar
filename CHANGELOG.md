@@ -6,7 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
-## [0.5.0] - 2022-20-22
+## [0.5.1] - 2022-11-03
+
+### Fixed
+
+- bigquery-test-fixture: Add support for single-column inputs. Many thanks to Dave Shirley!
+- bigquery-test-fixture: Allow larger outputs before switching to fallback mode. Thanks again to Dave Shirley!
+
+## [0.5.0] - 2022-10-22
 
 ### Added
 
