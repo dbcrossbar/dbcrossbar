@@ -123,7 +123,7 @@ impl ToPostgis for gt::LineString<f64> {
 
     fn to_postgis(&self) -> Self::PostgisType {
         ewkb::LineString {
-            points: self.points_iter().map(|coord| coord.to_postgis()).collect(),
+            points: self.points().map(|coord| coord.to_postgis()).collect(),
             srid: None,
         }
     }
