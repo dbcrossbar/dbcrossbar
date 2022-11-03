@@ -982,22 +982,28 @@ interface OrderItem {
 <p>All notable changes to this project will be documented in this file.</p>
 <p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>, and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a> for the <code>dbcrossbar</code> CLI tool. (The <code>dbcrossbarlib</code> crate is an internal-only dependency with no versioning policy at this time.)</p>
 <h2 id="unreleased"><a class="header" href="#unreleased">[Unreleased]</a></h2>
-<h2 id="050---2022-20-22"><a class="header" href="#050---2022-20-22">[0.5.0] - 2022-20-22</a></h2>
+<h2 id="051---2022-11-03"><a class="header" href="#051---2022-11-03">[0.5.1] - 2022-11-03</a></h2>
+<h3 id="fixed"><a class="header" href="#fixed">Fixed</a></h3>
+<ul>
+<li>bigquery-test-fixture: Add support for single-column inputs. Many thanks to Dave Shirley!</li>
+<li>bigquery-test-fixture: Allow larger outputs before switching to fallback mode. Thanks again to Dave Shirley!</li>
+</ul>
+<h2 id="050---2022-10-22"><a class="header" href="#050---2022-10-22">[0.5.0] - 2022-10-22</a></h2>
 <h3 id="added"><a class="header" href="#added">Added</a></h3>
 <ul>
 <li>New <code>bigquery-test-fixture:</code> schema creates small, read-only &quot;tables&quot; very quickly. Many thanks to Dave Shirley for the proof of concept and for pairing on the final implementation.</li>
 </ul>
-<h3 id="fixed"><a class="header" href="#fixed">Fixed</a></h3>
+<h3 id="fixed-1"><a class="header" href="#fixed-1">Fixed</a></h3>
 <ul>
 <li>Updated a few dependencies with (likely non-exploitable) security advisories. We have not update <em>all</em> our dependencies, because there are at least two regressions affecting supposedly semver-compatible dependencies. This is actually very rare in the Rust ecosystem, but we were unlucky this time.</li>
 </ul>
 <h2 id="050-beta4---2022-01-01"><a class="header" href="#050-beta4---2022-01-01">[0.5.0-beta.4] - 2022-01-01</a></h2>
-<h3 id="fixed-1"><a class="header" href="#fixed-1">Fixed</a></h3>
+<h3 id="fixed-2"><a class="header" href="#fixed-2">Fixed</a></h3>
 <ul>
 <li>gs: Retry <code>delete</code> operations after 403 Forbidden errors. This appears to be part of the same hypothesized permissions race that affected <code>extract</code> in v0.5.0-beta.3.</li>
 </ul>
 <h2 id="050-beta3---2021-12-31"><a class="header" href="#050-beta3---2021-12-31">[0.5.0-beta.3] - 2021-12-31</a></h2>
-<h3 id="fixed-2"><a class="header" href="#fixed-2">Fixed</a></h3>
+<h3 id="fixed-3"><a class="header" href="#fixed-3">Fixed</a></h3>
 <ul>
 <li>bigquery: Retry <code>extract</code> operations after <code>accessDenied</code> errors. These errors sometimes occur even when BigQuery <em>should</em> have the necessary access permissions. This may be caused by a permissions race condition somewhere in Google Cloud?</li>
 </ul>
@@ -1007,7 +1013,7 @@ interface OrderItem {
 <li>The format for printing backtraces has changed. We now use the standard <code>anyhow</code> format.</li>
 <li>Our logging format has changed considerably, thanks to switch from <code>slog</code> to the much more popular <code>tracing</code>. Some logging of complex async streams may be less well-organized, but there's <em>more</em> of it, especially at <code>RUST_LOG=dbcrossbarlib=trace,dbcrossbar=trace,warn</code> level.</li>
 </ul>
-<h3 id="fixed-3"><a class="header" href="#fixed-3">Fixed</a></h3>
+<h3 id="fixed-4"><a class="header" href="#fixed-4">Fixed</a></h3>
 <ul>
 <li>We no longer rely on the unmaintained <code>failure</code>, or the less popular <code>slog</code> ecosystem.</li>
 </ul>
@@ -1038,12 +1044,12 @@ interface OrderItem {
 <ul>
 <li>gs: Copying to a <code>gs://bucket/dir/</code> URL with <code>--if-exists=overwrite --display-output-locators</code> will print out a list of files in the destination bucket directory when we're done. Before, it just printed out the destination locator, which was technically allowed, but useless.</li>
 </ul>
-<h3 id="fixed-4"><a class="header" href="#fixed-4">Fixed</a></h3>
+<h3 id="fixed-5"><a class="header" href="#fixed-5">Fixed</a></h3>
 <ul>
 <li>Updated many dependencies, fixing several CVEs (none known to be meaningfully exploitable in typical use cases), and possibly some library bugs.</li>
 </ul>
 <h2 id="050-alpha2---2021-04-27"><a class="header" href="#050-alpha2---2021-04-27">[0.5.0-alpha.2] - 2021-04-27</a></h2>
-<h3 id="fixed-5"><a class="header" href="#fixed-5">Fixed</a></h3>
+<h3 id="fixed-6"><a class="header" href="#fixed-6">Fixed</a></h3>
 <ul>
 <li>bigml: Always map columns with a <code>one-of</code> type (aka <code>CREATE ENUM</code>) to BigML <code>categorical</code> columns.</li>
 </ul>
@@ -1074,17 +1080,17 @@ CREATE TABLE &quot;images&quot; (
 <ul>
 <li>BREAKING: The <code>dbcrossbar-schema</code> output format has changed! It now has top level <code>named_types</code> and <code>tables</code> members, and the old top-level table definition is now available as <code>.tables[0]</code>. See <a href="https://www.dbcrossbar.org/schema.html">the manual</a> for more details. However, <code>dbcrossbar</code> can still read the old input format with no problems, so this only affects other programs that parse native <code>dbcrossbar</code> schema.</li>
 </ul>
-<h3 id="fixed-6"><a class="header" href="#fixed-6">Fixed</a></h3>
+<h3 id="fixed-7"><a class="header" href="#fixed-7">Fixed</a></h3>
 <ul>
 <li>The suggested fixes for RUSTSEC-2020-0146, RUSTSEC-2021-0020 and RUSTSEC-2021-0023 have been applied.</li>
 </ul>
 <h2 id="042-beta11---2021-02-03"><a class="header" href="#042-beta11---2021-02-03">0.4.2-beta.11 - 2021-02-03</a></h2>
-<h3 id="fixed-7"><a class="header" href="#fixed-7">Fixed</a></h3>
+<h3 id="fixed-8"><a class="header" href="#fixed-8">Fixed</a></h3>
 <ul>
 <li>gcloud: Retry OAuth2 failures for service accounts.</li>
 </ul>
 <h2 id="042-beta10---2021-02-02"><a class="header" href="#042-beta10---2021-02-02">0.4.2-beta.10 - 2021-02-02</a></h2>
-<h3 id="fixed-8"><a class="header" href="#fixed-8">Fixed</a></h3>
+<h3 id="fixed-9"><a class="header" href="#fixed-9">Fixed</a></h3>
 <ul>
 <li>Build fixes for recently-added clippy warnings.</li>
 </ul>
@@ -1094,7 +1100,7 @@ CREATE TABLE &quot;images&quot; (
 <li>Update many dependencies, including <code>tokio</code> and our many network-related libraries. Tests pass, but this affects almost everything, in one fashion or another.</li>
 </ul>
 <h2 id="042-beta8---2020-10-16"><a class="header" href="#042-beta8---2020-10-16">0.4.2-beta.8 - 2020-10-16</a></h2>
-<h3 id="fixed-9"><a class="header" href="#fixed-9">Fixed</a></h3>
+<h3 id="fixed-10"><a class="header" href="#fixed-10">Fixed</a></h3>
 <ul>
 <li>Linux: Fix Linux binary builds by updating to latest <code>rust-musl-builder</code> release, which has the new <code>cargo-deny</code>.</li>
 </ul>
@@ -1104,12 +1110,12 @@ CREATE TABLE &quot;images&quot; (
 <li>shopify: Added a &quot;partner&quot; argument which can be used to include a &quot;-- partner:&quot; comment in all generated RedShift SQL for use by RedShift partners.</li>
 </ul>
 <h2 id="042-beta6---2020-09-15"><a class="header" href="#042-beta6---2020-09-15">0.4.2-beta.6 - 2020-09-15</a></h2>
-<h3 id="fixed-10"><a class="header" href="#fixed-10">Fixed</a></h3>
+<h3 id="fixed-11"><a class="header" href="#fixed-11">Fixed</a></h3>
 <ul>
 <li>shopify: Retry failed downloads a few times. We've been seeing some intermittent failures.</li>
 </ul>
 <h2 id="042-beta5---2020-08-01"><a class="header" href="#042-beta5---2020-08-01">0.4.2-beta.5 - 2020-08-01</a></h2>
-<h3 id="fixed-11"><a class="header" href="#fixed-11">Fixed</a></h3>
+<h3 id="fixed-12"><a class="header" href="#fixed-12">Fixed</a></h3>
 <ul>
 <li>gcloud: We now print more useful error messages when Google doesn't send JSON-formatted errors.</li>
 <li>gcloud: We now retry Google Cloud GET requests automatically a few times if it looks like it might help. We'd also love to retry POST requests, but that will require the ability to try to restart streams.</li>
@@ -1124,7 +1130,7 @@ CREATE TABLE &quot;images&quot; (
 <ul>
 <li>postgres: Our last <code>diesel</code> code has been removed, and replaced with <code>tokio-postgres</code> (which we use elsewhere).</li>
 </ul>
-<h3 id="fixed-12"><a class="header" href="#fixed-12">Fixed</a></h3>
+<h3 id="fixed-13"><a class="header" href="#fixed-13">Fixed</a></h3>
 <ul>
 <li>postgres: Fixed <a href="https://github.com/dbcrossbar/dbcrossbar/issues/148">#148</a> to improve support for PostGIS under PostgreSQL 12.</li>
 </ul>
@@ -1142,7 +1148,7 @@ CREATE TABLE &quot;images&quot; (
 <ul>
 <li>postgres: Temporary tables now use the same schema (i.e. namespace) as the tables they're linked to. This shouldn't be a breaking change unless you've set up your database permissions to forbid it.</li>
 </ul>
-<h3 id="fixed-13"><a class="header" href="#fixed-13">Fixed</a></h3>
+<h3 id="fixed-14"><a class="header" href="#fixed-14">Fixed</a></h3>
 <ul>
 <li>postgres: Fixed likely bug upserting into tables with a non-&quot;public&quot; schema.</li>
 <li>postgres: Verify that upsert columns are NOT NULL to prevent possible incorrect upserts. This may be a breaking change, but it also prevents a possible bug.</li>
@@ -1153,7 +1159,7 @@ CREATE TABLE &quot;images&quot; (
 <li>Mac: Move configuration directory from <code>~/Library/Preferences/dbcrossbar</code> to <code>~/Library/Application Support/dbcrossbar</code>. If we detect a config directory in the old location, we should print a deprecation warning and use it.</li>
 <li>Many dependencies have been updated.</li>
 </ul>
-<h3 id="fixed-14"><a class="header" href="#fixed-14">Fixed</a></h3>
+<h3 id="fixed-15"><a class="header" href="#fixed-15">Fixed</a></h3>
 <ul>
 <li>We should now handle multiple sets of Google Cloud OAuth2 credentials correctly.</li>
 </ul>
@@ -1163,7 +1169,7 @@ CREATE TABLE &quot;images&quot; (
 <ul>
 <li>Replace deprecated <code>tempdir</code> with <code>tempfile</code>.</li>
 </ul>
-<h3 id="fixed-15"><a class="header" href="#fixed-15">Fixed</a></h3>
+<h3 id="fixed-16"><a class="header" href="#fixed-16">Fixed</a></h3>
 <ul>
 <li>gs: Correctly pass <code>page_token</code> when listing. This prevents an infinite loop in large directories.</li>
 <li>Fix new Rust 0.44.0 warnings.</li>
@@ -1191,7 +1197,7 @@ CREATE TABLE &quot;images&quot; (
 <li>We replaced <code>gcloud auth</code>, <code>gsutil</code> and <code>bq</code> with native Rust. This simplifies installation and configuration substantially, and fixes a number of BigQuery-related issues.</li>
 <li>AWS credentials must now always be passed via <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>, <code>AWS_SESSION_TOKEN</code> (optional) and <code>AWS_DEFAULT_REGION</code> (required). This lays the groundwork for replacing the <code>aws</code> CLI tool with native Rust code, so that we will someday be able to remove our last CLI dependency.</li>
 </ul>
-<h3 id="fixed-16"><a class="header" href="#fixed-16">Fixed</a></h3>
+<h3 id="fixed-17"><a class="header" href="#fixed-17">Fixed</a></h3>
 <ul>
 <li>Lots of issues.</li>
 </ul>
@@ -1257,7 +1263,7 @@ CREATE TABLE &quot;images&quot; (
 </li>
 <li>postgres-sql: Use new format for parse errors.</li>
 </ul>
-<h3 id="fixed-17"><a class="header" href="#fixed-17">Fixed</a></h3>
+<h3 id="fixed-18"><a class="header" href="#fixed-18">Fixed</a></h3>
 <ul>
 <li>shopify: The example <code>shopify.ts</code> schema has been updated to use <code>Date</code> and <code>int64</code> in many places. <code>Address</code> and <code>CustomerAddress</code> are now distinct types, and several other minor issues have been fixed.</li>
 </ul>
@@ -1306,7 +1312,7 @@ CREATE TABLE &quot;images&quot; (
 <li>BREAKING: Some corner cases involving struct types and JSON may have changed subtly.</li>
 <li>We've upgraded to the latest <code>rust-peg</code> parser syntax everywhere.</li>
 </ul>
-<h3 id="fixed-18"><a class="header" href="#fixed-18">Fixed</a></h3>
+<h3 id="fixed-19"><a class="header" href="#fixed-19">Fixed</a></h3>
 <ul>
 <li><code>--if-exists=overwrite</code> now overwrites when writing to local files (instead of appending).</li>
 <li>We automatically create <code>~/.local/share</code> if it does not exist.</li>
@@ -1318,7 +1324,7 @@ CREATE TABLE &quot;images&quot; (
 <ul>
 <li>Replace <code>gcloud auth</code>, <code>gsutil</code> and <code>bq</code> with native Rust. This changes how we authenticate to Google Cloud. In particular, we now support <code>GCLOUD_CLIENT_SECRET</code>, <code>~/.config/dbcrossbar/gcloud_client_secret.json</code>, <code>GCLOUD_SERVICE_ACCOUNT_KEY</code> or <code>~/.config/dbcrossbar/gcloud_service_account_key.json</code>, as <a href="https://www.dbcrossbar.org/gs.html#configuration--authentication">explained in the manual</a>. We no longer use <code>gcloud auth</code>, and the Google Cloud SDK tools are no longer required. In the current alpha version, uploads and deletions are probably slower than before.</li>
 </ul>
-<h3 id="fixed-19"><a class="header" href="#fixed-19">Fixed</a></h3>
+<h3 id="fixed-20"><a class="header" href="#fixed-20">Fixed</a></h3>
 <ul>
 <li>gs: Avoid download stalls when backpressure is applied (<a href="https://github.com/dbcrossbar/dbcrossbar/issues/102">#103</a>).</li>
 <li>bigquery: Display error messages more reliably (<a href="https://github.com/dbcrossbar/dbcrossbar/issues/110">#110</a>).</li>
@@ -1330,7 +1336,7 @@ CREATE TABLE &quot;images&quot; (
 <li>BigML: Honor BIGML_DOMAIN, allowing the user to point the BigML driver to a custom VPC instance of BigML.</li>
 </ul>
 <h2 id="032---2020-03-30"><a class="header" href="#032---2020-03-30">0.3.2 - 2020-03-30</a></h2>
-<h3 id="fixed-20"><a class="header" href="#fixed-20">Fixed</a></h3>
+<h3 id="fixed-21"><a class="header" href="#fixed-21">Fixed</a></h3>
 <ul>
 <li>Correctly quote BigQuery column names again (which regressed in 0.3.0), and added test cases to prevent further regressions.</li>
 <li>Fix an error that caused <code>bigquery_upsert</code> test to fail.</li>
@@ -1345,7 +1351,7 @@ CREATE TABLE &quot;images&quot; (
 <li>Encapsulate all calls to <code>bq</code> and <code>gsutil</code></li>
 <li>Improve performance of <code>--stream-size</code></li>
 </ul>
-<h3 id="fixed-21"><a class="header" href="#fixed-21">Fixed</a></h3>
+<h3 id="fixed-22"><a class="header" href="#fixed-22">Fixed</a></h3>
 <ul>
 <li>BigQuery: Honor NOT NULL on import (fixes #45)</li>
 </ul>
@@ -1361,7 +1367,7 @@ CREATE TABLE &quot;images&quot; (
 <li>Replace <code>wkb</code> with <code>postgis</code> for licensing reasons</li>
 <li>BigML: Fail immediately if no S3 temporary bucket provided (fixes #101)</li>
 </ul>
-<h3 id="fixed-22"><a class="header" href="#fixed-22">Fixed</a></h3>
+<h3 id="fixed-23"><a class="header" href="#fixed-23">Fixed</a></h3>
 <ul>
 <li>BigQuery: Handle mixed-case column names using BigQuery semantics (fixes #84)</li>
 <li>PostgreSQL: Fix upserts with mixed-case column names</li>
