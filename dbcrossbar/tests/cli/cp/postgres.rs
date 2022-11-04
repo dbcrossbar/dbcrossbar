@@ -24,7 +24,7 @@ fn cp_csv_to_postgres_append() {
     // CSV to Postgres.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--schema=postgres-sql:{}", schema.display()),
@@ -37,7 +37,7 @@ fn cp_csv_to_postgres_append() {
     // CSV to Postgres, again, but appending.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=append",
             &format!("--schema=postgres-sql:{}", schema.display()),
@@ -60,7 +60,7 @@ fn cp_from_postgres_with_where() {
     // CSV to Postgres.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--schema=postgres-sql:{}", schema.display()),
@@ -73,7 +73,7 @@ fn cp_from_postgres_with_where() {
     // PostgreSQL back to CSV using --where.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             &format!("--schema=postgres-sql:{}", schema.display()),
             "--where",
@@ -113,7 +113,7 @@ fn postgres_upsert() {
             // Make sure we have a unique index on key1,key2 first.
             Command::new("psql")
                 .arg(postgres_test_url())
-                .args(&[
+                .args([
                     "--command",
                     "CREATE UNIQUE INDEX ON postgres_upsert (key1, key2)",
                 ])
@@ -124,7 +124,7 @@ fn postgres_upsert() {
         };
         testdir
             .cmd()
-            .args(&[
+            .args([
                 "cp",
                 if_exists,
                 &format!("--schema=postgres-sql:{}", schema.display()),
@@ -138,14 +138,14 @@ fn postgres_upsert() {
     // Postgres to CSV.
     testdir
         .cmd()
-        .args(&["cp", "--if-exists=overwrite", &pg_table, "csv:out.csv"])
+        .args(["cp", "--if-exists=overwrite", &pg_table, "csv:out.csv"])
         .tee_output()
         .expect_success();
 
     // We sort the lines of the CSVs because BigQuery outputs in any order.
     // This has the side effect of putting the headers at the end.
     let normalize_csv = |path: &Path| -> String {
-        let text = fs::read_to_string(&path).unwrap();
+        let text = fs::read_to_string(path).unwrap();
         let mut lines = text.lines().collect::<Vec<_>>();
         lines.sort_unstable();
         lines.join("\n")
@@ -169,11 +169,11 @@ fn cp_pg_append_upsert_legacy_json() {
     // types like `DataType::Json`.
     Command::new("psql")
         .arg(postgres_test_url())
-        .args(&["--command", "DROP TABLE IF EXISTS legacy_json;"])
+        .args(["--command", "DROP TABLE IF EXISTS legacy_json;"])
         .expect_success();
     Command::new("psql")
         .arg(postgres_test_url())
-        .args(&[
+        .args([
             "--command",
             include_str!("../../../fixtures/legacy_json.sql"),
         ])
@@ -182,7 +182,7 @@ fn cp_pg_append_upsert_legacy_json() {
     // CSV to PostgreSQL (append).
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=append",
             &format!("--schema=postgres-sql:{}", schema.display()),
@@ -195,7 +195,7 @@ fn cp_pg_append_upsert_legacy_json() {
     // CSV to PostgreSQL (upsert).
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=upsert-on:id",
             &format!("--schema=postgres-sql:{}", schema.display()),
@@ -208,7 +208,7 @@ fn cp_pg_append_upsert_legacy_json() {
     // PostgreSQL to CSV.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             &format!("--schema=postgres-sql:{}", schema.display()),
             &pg_table,
@@ -235,11 +235,11 @@ fn cp_pg_tricky_column_types() {
     // equivalents.
     Command::new("psql")
         .arg(postgres_test_url())
-        .args(&["--command", "DROP TABLE IF EXISTS more_pg_types;"])
+        .args(["--command", "DROP TABLE IF EXISTS more_pg_types;"])
         .expect_success();
     Command::new("psql")
         .arg(postgres_test_url())
-        .args(&[
+        .args([
             "--command",
             include_str!("../../../fixtures/more_pg_types.sql"),
         ])
@@ -248,7 +248,7 @@ fn cp_pg_tricky_column_types() {
     // CSV to PostgreSQL.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=append",
             &format!("--schema=postgres-sql:{}", schema.display()),
@@ -261,7 +261,7 @@ fn cp_pg_tricky_column_types() {
     // PostgreSQL to CSV.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             &format!("--schema=postgres-sql:{}", schema.display()),
             &pg_table,

@@ -21,7 +21,7 @@ fn cp_to_single_gs_csv() {
     // CSV file to Google Cloud Storage.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--schema=postgres-sql:{}", schema.display()),
@@ -34,7 +34,7 @@ fn cp_to_single_gs_csv() {
     // Google Cloud Storage back to a single CSV.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             &format!("--schema=postgres-sql:{}", schema.display()),
             &gs_out_dir,
@@ -64,7 +64,7 @@ fn cp_bigquery_single_gs_csv() {
     // CSV to BigQuery.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
@@ -79,7 +79,7 @@ fn cp_bigquery_single_gs_csv() {
     // BigQuery to a single CSV on Google Cloud Storage.
     let output = testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             "--display-output-locators",
@@ -97,7 +97,7 @@ fn cp_bigquery_single_gs_csv() {
     // Google Cloud Storage back to a single CSV.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             &format!("--schema=postgres-sql:{}", schema.display()),
             &gs_out_dir,

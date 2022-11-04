@@ -28,7 +28,7 @@ fn cp_shopify_to_bigquery() {
     // Shopify to BigQuery.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "--enable-unstable",
             "cp",
             "--if-exists=overwrite",
@@ -44,7 +44,7 @@ fn cp_shopify_to_bigquery() {
     // Shopify to BigQuery upsert.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "--enable-unstable",
             "cp",
             "--if-exists=upsert-on:id",
@@ -60,7 +60,7 @@ fn cp_shopify_to_bigquery() {
     // BigQuery to CSV (make sure we aren't hitting any surprising edge cases).
     testdir
         .cmd()
-        .args(&[
+        .args([
             "--enable-unstable",
             "cp",
             &format!("--temporary={}", gs_temp_dir),

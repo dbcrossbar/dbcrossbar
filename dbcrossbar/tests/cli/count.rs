@@ -17,7 +17,7 @@ fn count_bigquery() {
     // CSV to BigQuery.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
@@ -32,7 +32,7 @@ fn count_bigquery() {
     // Count BigQuery.
     let output = testdir
         .cmd()
-        .args(&["count", &bq_table])
+        .args(["count", &bq_table])
         .tee_output()
         .expect_success();
 
@@ -50,7 +50,7 @@ fn count_postgres() {
     // CSV to PostgreSQL.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--schema=postgres-sql:{}", schema.display()),
@@ -63,7 +63,7 @@ fn count_postgres() {
     // Count PostgreSQL.
     let output = testdir
         .cmd()
-        .args(&["count", &pg_table])
+        .args(["count", &pg_table])
         .tee_output()
         .expect_success();
 

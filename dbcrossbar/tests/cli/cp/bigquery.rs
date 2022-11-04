@@ -30,7 +30,7 @@ fn cp_from_bigquery_with_where() {
     // CSV to BigQuery.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
@@ -45,7 +45,7 @@ fn cp_from_bigquery_with_where() {
     // BigQuery back to CSV using --where.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             &format!("--temporary={}", gs_temp_dir),
             &format!("--temporary={}", bq_temp_ds),
@@ -76,7 +76,7 @@ fn cp_csv_to_bigquery_to_csv() {
     // CSV to BigQuery.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
@@ -92,7 +92,7 @@ fn cp_csv_to_bigquery_to_csv() {
     // BigQuery to CSV.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
@@ -118,7 +118,7 @@ fn cp_bigquery_if_exists_error() {
     // CSV to BigQuery (make sure we have a table).
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
@@ -133,7 +133,7 @@ fn cp_bigquery_if_exists_error() {
     // BigQuery to CSV (make sure it fails with --if-exists=error).
     let output = testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=error",
             &format!("--temporary={}", gs_temp_dir),
@@ -162,7 +162,7 @@ fn cp_more_bigquery_types() {
     // CSV to BigQuery.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
@@ -177,7 +177,7 @@ fn cp_more_bigquery_types() {
     // BigQuery to CSV.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
@@ -219,7 +219,7 @@ create table {dataset_name}.{table_name} AS (
 
     // Create a table with record columns.
     Command::new("bq")
-        .args(&[
+        .args([
             "query",
             "--nouse_legacy_sql",
             "--project_id",
@@ -231,7 +231,7 @@ create table {dataset_name}.{table_name} AS (
     // Try exporting the schema.
     let output = testdir
         .cmd()
-        .args(&["schema", "conv", &locator, "postgres-sql:out.sql"])
+        .args(["schema", "conv", &locator, "postgres-sql:out.sql"])
         .tee_output()
         .expect_success();
     output.stdout_str().contains(r#""record" jsonb"#);
@@ -240,7 +240,7 @@ create table {dataset_name}.{table_name} AS (
     // BigQuery to CSV.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
@@ -281,7 +281,7 @@ fn bigquery_upsert() {
         };
         testdir
             .cmd()
-            .args(&[
+            .args([
                 "cp",
                 if_exists,
                 &format!("--temporary={}", gs_temp_dir),
@@ -297,7 +297,7 @@ fn bigquery_upsert() {
     // BigQuery to CSV.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
@@ -311,7 +311,7 @@ fn bigquery_upsert() {
     // We sort the lines of the CSVs because BigQuery outputs in any order.
     // This has the side effect of putting the headers at the end.
     let normalize_csv = |path: &Path| -> String {
-        let text = fs::read_to_string(&path).unwrap();
+        let text = fs::read_to_string(path).unwrap();
         let mut lines = text.lines().collect::<Vec<_>>();
         lines.sort_unstable();
         lines.join("\n")
@@ -335,7 +335,7 @@ fn bigquery_honors_not_null_for_complex_inserts() {
     // CSV to BigQuery.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
@@ -350,7 +350,7 @@ fn bigquery_honors_not_null_for_complex_inserts() {
     // Extract the final schema.
     testdir
         .cmd()
-        .args(&["schema", "conv", &bq_table, "bigquery-schema:output.json"])
+        .args(["schema", "conv", &bq_table, "bigquery-schema:output.json"])
         .expect_success();
 
     // Make sure it contains REQUIRED columns.
@@ -416,7 +416,7 @@ fn bigquery_roundtrips_structs() {
     // Load our data into BigQuery.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
@@ -432,7 +432,7 @@ fn bigquery_roundtrips_structs() {
     let exported = testdir.path("structs.csv");
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
@@ -466,7 +466,7 @@ fn bigquery_roundtrips_structs() {
     let exported_schema = testdir.path("structs-schema.json");
     testdir
         .cmd()
-        .args(&[
+        .args([
             "schema",
             "conv",
             "--if-exists=overwrite",

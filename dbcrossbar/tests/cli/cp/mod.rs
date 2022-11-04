@@ -95,7 +95,7 @@ pub(crate) fn redshift_test_table_url(table_name: &str) -> Option<String> {
 #[test]
 fn cp_help_flag() {
     let testdir = TestDir::new("dbcrossbar", "cp_help_flag");
-    let output = testdir.cmd().args(&["cp", "--help"]).expect_success();
+    let output = testdir.cmd().args(["cp", "--help"]).expect_success();
     assert!(output.stdout_str().contains("EXAMPLE LOCATORS:"));
 }
 
@@ -132,7 +132,7 @@ pub(crate) fn assert_cp_to_exact_csv(test_name: &str, locator: &str) {
     // CSV to locator.
     let output = testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--display-output-locators",
             "--if-exists=overwrite",
@@ -157,7 +157,7 @@ pub(crate) fn assert_cp_to_exact_csv(test_name: &str, locator: &str) {
     // Locator to CSV.
     let output = testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             &format!("--temporary={}", gs_temp_dir),
             &format!("--temporary={}", bq_temp_ds),

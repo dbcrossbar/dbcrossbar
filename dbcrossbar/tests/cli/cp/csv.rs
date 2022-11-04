@@ -46,7 +46,7 @@ fn cp_csv_to_csv_piped() {
     let schema = testdir.src_path("fixtures/example.sql");
     let output = testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             &format!("--schema=postgres-sql:{}", schema.display()),
             "csv:-",

@@ -121,7 +121,7 @@ impl Configuration {
 
     /// Load the configuration file at `path`.
     pub(crate) fn from_path(path: &Path) -> Result<Self> {
-        match File::open(&path) {
+        match File::open(path) {
             Ok(rdr) => Ok(Self::from_reader(path.to_owned(), rdr)
                 .with_context(|| format!("could not read file {}", path.display()))?),
             Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(Self {
@@ -150,7 +150,7 @@ impl Configuration {
         let parent = self.path.parent().ok_or_else(|| {
             format_err!("cannot find parent directory of {}", self.path.display())
         })?;
-        create_dir_all(&parent)
+        create_dir_all(parent)
             .with_context(|| format!("cannot create {}", parent.display()))?;
         let data = self.doc.to_string();
         let mut f = File::create(&self.path)

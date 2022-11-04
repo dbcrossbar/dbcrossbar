@@ -18,7 +18,7 @@ pub(crate) async fn rmdir(url: &Url) -> Result<()> {
     }
     let status = aws_s3_command()
         .await?
-        .args(&["rm", "--recursive", url.as_str()])
+        .args(["rm", "--recursive", url.as_str()])
         // Throw away stdout so it doesn't corrupt our output.
         .stdout(Stdio::null())
         .status()

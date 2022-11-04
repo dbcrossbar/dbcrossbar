@@ -38,7 +38,7 @@ impl Hasher {
     /// string.
     pub(crate) fn finish_encoded(self) -> String {
         let bytes = self.finish().to_be_bytes();
-        base64::encode(&bytes)
+        base64::encode(bytes)
     }
 }
 

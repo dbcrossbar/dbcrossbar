@@ -36,7 +36,7 @@ fn cp_csv_to_redshift_to_csv() {
     // CSV to Redshift.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", s3_dir),
@@ -54,7 +54,7 @@ fn cp_csv_to_redshift_to_csv() {
     // Redshift to CSV.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", s3_dir),
@@ -110,7 +110,7 @@ fn redshift_upsert() {
         };
         testdir
             .cmd()
-            .args(&[
+            .args([
                 "cp",
                 if_exists,
                 &format!("--temporary={}", s3_dir),
@@ -131,7 +131,7 @@ fn redshift_upsert() {
     // Postgres to CSV.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", s3_dir),
@@ -151,7 +151,7 @@ fn redshift_upsert() {
     // we don't want to depend on Redshift doing things any more predictably.
     // This has the side effect of putting the headers at the end.
     let normalize_csv = |path: &Path| -> String {
-        let text = fs::read_to_string(&path).unwrap();
+        let text = fs::read_to_string(path).unwrap();
         let mut lines = text.lines().collect::<Vec<_>>();
         lines.sort_unstable();
         lines.join("\n")

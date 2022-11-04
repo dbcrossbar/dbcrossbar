@@ -24,7 +24,7 @@ fn cp_csv_to_bigquery_test_fixture_to_csv() {
     // CSV to BigQuery.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
@@ -40,7 +40,7 @@ fn cp_csv_to_bigquery_test_fixture_to_csv() {
     // BigQuery to CSV.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),
@@ -68,7 +68,7 @@ fn bigquery_test_fixture_load_single_column() {
     // CSV to BigQuery.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--schema=postgres-sql:{}", schema.display()),
@@ -82,7 +82,7 @@ fn bigquery_test_fixture_load_single_column() {
     // BigQuery to CSV.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", gs_temp_dir),

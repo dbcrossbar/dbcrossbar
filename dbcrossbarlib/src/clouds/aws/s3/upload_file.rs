@@ -16,7 +16,7 @@ pub(crate) async fn upload_file<'a>(
     debug!("uploading stream to `aws s3`");
     let mut child = aws_s3_command()
         .await?
-        .args(&["cp", "-", file_url.as_str()])
+        .args(["cp", "-", file_url.as_str()])
         .stdin(Stdio::piped())
         // Throw away stdout so it doesn't corrupt our output.
         .stdout(Stdio::null())

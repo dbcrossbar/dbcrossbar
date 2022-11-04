@@ -306,7 +306,7 @@ impl Read for SyncStreamReader {
         assert!(!self.buffer.is_empty());
         let count = min(self.buffer.len(), buf.len());
         buf[..count].copy_from_slice(&self.buffer.split_to(count));
-        Span::current().record("buf.read", &count);
+        Span::current().record("buf.read", count);
         trace!("read returned {} bytes", count);
         Ok(count)
     }

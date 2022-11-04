@@ -24,7 +24,7 @@ fn cp_csv_to_s3_to_csv() {
     // CSV to S3.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--schema=postgres-sql:{}", schema.display()),
@@ -37,7 +37,7 @@ fn cp_csv_to_s3_to_csv() {
     // S3 to CSV.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--schema=postgres-sql:{}", schema.display()),

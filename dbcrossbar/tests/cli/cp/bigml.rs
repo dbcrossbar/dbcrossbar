@@ -23,7 +23,7 @@ fn cp_csv_to_bigml_dataset_to_csv() {
     // CSV to BigML.
     let output = testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", s3_dir),
@@ -44,7 +44,7 @@ fn cp_csv_to_bigml_dataset_to_csv() {
     // BigML to CSV.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             dataset_locator,
@@ -63,7 +63,7 @@ fn cp_csv_to_bigml_dataset_to_csv() {
     // Verify SQL schema output contains correct column names, too.
     let output = testdir
         .cmd()
-        .args(&["schema", "conv", dataset_locator, "postgres-sql:-"])
+        .args(["schema", "conv", dataset_locator, "postgres-sql:-"])
         .expect_success();
     assert!(output.stdout_str().contains("CREATE TABLE"));
     assert!(output.stdout_str().contains("test_null"));

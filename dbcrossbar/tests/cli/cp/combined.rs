@@ -22,7 +22,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     // CSV to Postgres.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             "--max-streams=8",
@@ -37,7 +37,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     // messing up later tests.)
     testdir
         .cmd()
-        .args(&["schema", "conv", &pg_table, "postgres-sql:pg.sql"])
+        .args(["schema", "conv", &pg_table, "postgres-sql:pg.sql"])
         .stdout(Stdio::piped())
         .tee_output()
         .expect_success();
@@ -50,14 +50,14 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     // Postgres to gs://.
     testdir
         .cmd()
-        .args(&["cp", "--if-exists=overwrite", &pg_table, &gs_dir])
+        .args(["cp", "--if-exists=overwrite", &pg_table, &gs_dir])
         .tee_output()
         .expect_success();
 
     // gs:// to BigQuery.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--schema=postgres-sql:{}", schema.display()),
@@ -70,7 +70,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     // BigQuery to gs://.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--schema=postgres-sql:{}", schema.display()),
@@ -84,7 +84,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     // CSV file for the final comparison below.)
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--schema=postgres-sql:{}", schema.display()),
@@ -97,7 +97,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     // PostgreSQL back to CSV for the final comparison below.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             &format!("--schema=postgres-sql:{}", schema.display()),
             &pg_table_2,
@@ -127,7 +127,7 @@ fn cp_tricky_column_names_fails() {
     // CSV to Postgres.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--schema=postgres-sql:{}", schema.display()),
@@ -144,7 +144,7 @@ fn cp_tricky_column_names_fails() {
     // local machine and run `scrubcsv --clean-column-names`.
     testdir
         .cmd()
-        .args(&[
+        .args([
             "cp",
             "--if-exists=overwrite",
             &format!("--schema=postgres-sql:{}", schema.display()),

@@ -16,7 +16,7 @@ pub(crate) async fn download_file(
     debug!("streaming from {} using `aws s3 cp`", file_url);
     let mut child = aws_s3_command()
         .await?
-        .args(&["cp", file_url.as_str(), "-"])
+        .args(["cp", file_url.as_str(), "-"])
         .stdout(Stdio::piped())
         .spawn()
         .context("error running `aws s3 cp`")?;

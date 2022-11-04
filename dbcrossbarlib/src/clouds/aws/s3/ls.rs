@@ -19,7 +19,7 @@ pub(crate) async fn ls(
     debug!("listing {}", url);
     let mut child = aws_s3_command()
         .await?
-        .args(&["ls", "--recursive", url.as_str()])
+        .args(["ls", "--recursive", url.as_str()])
         .stdout(Stdio::piped())
         .spawn()
         .context("error running `aws s3 ls`")?;
