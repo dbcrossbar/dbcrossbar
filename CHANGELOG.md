@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.5.2] - 2022-11-03
+
+### Fixed
+
+- Fix CI build and binary releases broken by new warnings in latest Rust update.
+
 ## [0.5.1] - 2022-11-03
 
 ### Fixed
