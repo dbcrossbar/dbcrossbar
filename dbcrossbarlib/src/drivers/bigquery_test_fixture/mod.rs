@@ -262,7 +262,7 @@ fn write_csv_cell_as_bigquery_literal<W: Write>(
         BqDataType::Array(elem_ty) => {
             let json = serde_json::Value::from_csv_cell(cell)?;
             if let serde_json::Value::Array(arr) = json {
-                write!(sql, "[")?;
+                write!(sql, "ARRAY<{}>[", elem_ty)?;
                 for (idx, json) in arr.into_iter().enumerate() {
                     separator_comma(sql, idx)?;
                     write_json_value_as_bigquery_literal(elem_ty, &json, sql)?;
