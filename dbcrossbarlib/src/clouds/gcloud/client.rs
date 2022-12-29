@@ -22,6 +22,7 @@ use crate::tokio_glue::IdiomaticBytesStream;
 static SCOPES: &[&str] = &[
     "https://www.googleapis.com/auth/devstorage.read_write",
     "https://www.googleapis.com/auth/bigquery",
+    "https://www.googleapis.com/auth/drive",
 ];
 
 /// An empty `GET` query.
