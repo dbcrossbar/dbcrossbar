@@ -64,7 +64,7 @@ sha2 = "0.10.0"
 strum = "0.23.0"
 strum_macros = "0.23.1"
 termcolor = "1.1.0"
-tokio = { version = "1.0.1", features = ["fs", "io-std", "io-util", "process", "rt", "rt-multi-thread", "sync", "time"] }
+tokio = { version = "1.24.2", features = ["fs", "io-std", "io-util", "process", "rt", "rt-multi-thread", "sync", "time"] }
 tokio-stream = { version = "0.1.2", features = ["io-util"] }
 toml_edit = "0.11.0"
 tracing = "0.1.29"
