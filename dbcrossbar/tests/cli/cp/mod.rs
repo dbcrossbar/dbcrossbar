@@ -10,6 +10,7 @@ mod bigquery_test_fixture;
 mod combined;
 mod csv;
 mod gs;
+mod if_exists;
 mod postgres;
 mod redshift;
 mod s3;
