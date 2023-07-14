@@ -10,7 +10,7 @@ ignore = [
     #
     # This can probably be fixed once
     # https://github.com/chronotope/chrono/issues/602 has been addressed.
-    "RUSTSEC-2020-0159",
+    # "RUSTSEC-2020-0159",
     # Also `localtime_r`.
     "RUSTSEC-2020-0071",
 ]
@@ -29,6 +29,11 @@ allow = ["MIT", "Apache-2.0", "BSD-3-Clause", "CC0-1.0", "ISC", "OpenSSL", "Unic
 # Many organizations ban AGPL-licensed code
 # https://opensource.google/docs/using/agpl-policy/
 deny = ["AGPL-3.0"]
+
+# See https://github.com/dirs-dev/dirs-rs/issues/51
+[[licenses.exceptions]]
+allow = ["MPL-2.0"]
+name = "option-ext"
 
 [[licenses.clarify]]
 # Ring has a messy license.
@@ -57,12 +62,6 @@ deny = [
 ]
 
 skip = [
-    # clap v2.33.0 still uses an older version.
-    { name = "strsim", version = "0.8.0" },
-    # headers v0.3.2 still uses an older version.
-    { name = "sha-1", version = "0.9.8" },
-    # Several libraries still use the old version.
-    { name = "itoa", version = "0.4.8"},
     # yup-oauth2 still uses the old version.
     { name = "tokio-rustls", version = "0.22.0" },
     { name = "hyper-rustls", version = "0.22.1" },
