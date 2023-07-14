@@ -1,5 +1,6 @@
 //! Streams which keep a running CRC32 digest of the data that passes through them.
 
+use base64::{prelude::BASE64_STANDARD, Engine};
 use crc32c::crc32c_append;
 use futures::TryStream;
 use std::{pin::Pin, task::Poll};
@@ -38,7 +39,7 @@ impl Hasher {
     /// string.
     pub(crate) fn finish_encoded(self) -> String {
         let bytes = self.finish().to_be_bytes();
-        base64::encode(bytes)
+        BASE64_STANDARD.encode(bytes)
     }
 }
 
