@@ -21,7 +21,7 @@ pretty_assertions = "1.0.0"
 
 [dependencies]
 anyhow = "1.0.51"
-clap = { version = "2.32.0", features = ["wrap_help"] }
+clap = { version = "4.3.11", features = ["wrap_help", "derive"] }
 futures = "0.3.1"
 humanize-rs = "0.1.5"
 include-flate = { version = "0.2", features = ["stable"] }
@@ -30,8 +30,6 @@ openssl-probe = "0.1.2"
 dbcrossbarlib = { path = "../dbcrossbarlib", version = "=0.5.2" }
 serde = "1.0.79"
 serde_json = "1.0.32"
-structopt = "0.3.1"
-structopt-derive = "0.4"
 tempfile = "3.1.0"
 tokio = { version = "1.0.1", features = ["fs", "io-std", "io-util", "process", "rt", "rt-multi-thread", "sync", "time"] }
 tokio-util = { version = "0.6.1", features = ["codec"] }

@@ -1,30 +1,30 @@
 //! The `count` subcommand.
 
 use anyhow::{format_err, Context as _, Result};
+use clap::Parser;
 use dbcrossbarlib::{
     config::Configuration, Context, DriverArguments, SharedArguments, SourceArguments,
     TemporaryStorage, UnparsedLocator,
 };
-use structopt::{self, StructOpt};
 
 /// Count arguments.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub(crate) struct Opt {
     /// The schema to use (defaults to input table schema).
-    #[structopt(long = "schema")]
+    #[clap(long = "schema")]
     schema: Option<UnparsedLocator>,
 
     /// Temporary directories, cloud storage buckets, datasets to use during
     /// transfer (can be repeated).
-    #[structopt(long = "temporary")]
+    #[clap(long = "temporary")]
     temporaries: Vec<String>,
 
     /// Pass an extra argument of the form `key=value` to the source driver.
-    #[structopt(long = "from-arg")]
+    #[clap(long = "from-arg")]
     from_args: Vec<String>,
 
     /// SQL where clause specifying rows to use.
-    #[structopt(long = "where")]
+    #[clap(long = "where")]
     where_clause: Option<String>,
 
     /// The locator specifying the records to count.

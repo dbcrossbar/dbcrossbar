@@ -1,16 +1,24 @@
+use clap::Parser;
 use dbcrossbarlib::{config::Configuration, tokio_glue::BoxFuture, Context};
 use futures::FutureExt;
-use structopt_derive::StructOpt;
 
 pub(crate) mod conv;
 
+/// Commands related to schemas.
+#[derive(Debug, Parser)]
+pub(crate) struct Opt {
+    /// The command to run.
+    #[clap(subcommand)]
+    pub(crate) command: Cmd,
+}
+
 /// Schema-related commands.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 #[allow(clippy::large_enum_variant)]
-pub(crate) enum Opt {
+pub(crate) enum Cmd {
     /// Convert table schemas from one format to another.
-    #[structopt(name = "conv")]
-    #[structopt(after_help = r#"EXAMPLE LOCATORS:
+    #[clap(name = "conv")]
+    #[clap(after_help = r#"EXAMPLE LOCATORS:
     postgres-sql:table.sql
     postgres://localhost:5432/db#table
     bigquery-schema:table.json
@@ -28,8 +36,8 @@ pub(crate) fn run(
     opt: Opt,
 ) -> BoxFuture<()> {
     match opt {
-        Opt::Conv { command } => {
-            conv::run(ctx, config, enable_unstable, command).boxed()
-        }
+        Opt {
+            command: Cmd::Conv { command },
+        } => conv::run(ctx, config, enable_unstable, command).boxed(),
     }
 }

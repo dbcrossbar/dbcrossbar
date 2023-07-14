@@ -1,14 +1,14 @@
 //! The `features` subcommand.
 
 use anyhow::Result;
+use clap::Parser;
 use dbcrossbarlib::{
     config::Configuration,
     drivers::{all_drivers, find_driver},
 };
-use structopt::{self, StructOpt};
 
 /// Schema conversion arguments.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub(crate) struct Opt {
     /// Print help about a specific driver name.
     driver: Option<String>,

@@ -1,14 +1,14 @@
 //! The `conv` subcommand.
 
 use anyhow::{format_err, Result};
+use clap::Parser;
 use dbcrossbarlib::{config::Configuration, Context, IfExists, UnparsedLocator};
-use structopt::{self, StructOpt};
 
 /// Schema conversion arguments.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub(crate) struct Opt {
     /// One of `error`, `overrwrite` or `append`.
-    #[structopt(long = "if-exists", default_value = "error")]
+    #[clap(long = "if-exists", default_value = "error")]
     if_exists: IfExists,
 
     /// The input schema.

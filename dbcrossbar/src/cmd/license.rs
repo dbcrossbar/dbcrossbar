@@ -1,13 +1,13 @@
 //! The `license` subcommand.
 
 use anyhow::{Context as _, Result};
+use clap::Parser;
 use dbcrossbarlib::{config::Configuration, tokio_glue::spawn_blocking};
 use std::path::{Path, PathBuf};
-use structopt::StructOpt;
 use tokio::{fs, io::AsyncWriteExt};
 
 /// License output arguments.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub(crate) struct Opt {
     /// File in which to save the licenses [if missing, open in browser]
     out_html: Option<PathBuf>,

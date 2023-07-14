@@ -1,6 +1,7 @@
 //! The `cp` subcommand.
 
 use anyhow::{format_err, Context as _, Result};
+use clap::Parser;
 use dbcrossbarlib::{
     config::Configuration, rechunk::rechunk_csvs, tokio_glue::try_forward, Context,
     DestinationArguments, DisplayOutputLocators, DriverArguments, IfExists,
@@ -8,53 +9,52 @@ use dbcrossbarlib::{
 };
 use futures::{pin_mut, stream, FutureExt, StreamExt, TryStreamExt};
 use humanize_rs::bytes::Bytes as HumanizedBytes;
-use structopt::{self, StructOpt};
 use tokio::io;
 use tokio_util::codec::{FramedWrite, LinesCodec};
 use tracing::{debug, field, instrument, Span};
 
 /// Schema conversion arguments.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub(crate) struct Opt {
     /// One of `error`, `overwrite`, `append` or `upsert-on:COL`.
-    #[structopt(long = "if-exists", default_value = "error")]
+    #[clap(long = "if-exists", default_value = "error")]
     if_exists: IfExists,
 
     /// The schema to use (defaults to input table schema).
-    #[structopt(long = "schema")]
+    #[clap(long = "schema")]
     schema: Option<UnparsedLocator>,
 
     /// Temporary directories, cloud storage buckets, datasets to use during
     /// transfer (can be repeated).
-    #[structopt(long = "temporary")]
+    #[clap(long = "temporary")]
     temporaries: Vec<String>,
 
     /// Specify the approximate size of the CSV streams manipulated by
     /// `dbcrossbar`. This can be used to split a large input into multiple
     /// smaller outputs. Actual data streams may be bigger or smaller depending
     /// on a number of factors. Examples: "100000", "1Gb".
-    #[structopt(long = "stream-size")]
+    #[clap(long = "stream-size")]
     stream_size: Option<HumanizedBytes>, // usize
 
     /// Pass an extra argument of the form `key=value` to the source driver.
-    #[structopt(long = "from-arg")]
+    #[clap(long = "from-arg")]
     from_args: Vec<String>,
 
     /// Pass an extra argument of the form `key=value` to the destination
     /// driver.
-    #[structopt(long = "to-arg")]
+    #[clap(long = "to-arg")]
     to_args: Vec<String>,
 
     /// SQL where clause specifying rows to use.
-    #[structopt(long = "where")]
+    #[clap(long = "where")]
     where_clause: Option<String>,
 
     /// How many data streams should we attempt to copy in parallel?
-    #[structopt(long = "max-streams", short = "J", default_value = "4")]
+    #[clap(long = "max-streams", short = 'J', default_value = "4")]
     max_streams: usize,
 
     /// Display where we wrote our output data.
-    #[structopt(long = "display-output-locators")]
+    #[clap(long = "display-output-locators")]
     display_output_locators: bool,
 
     /// The input table.

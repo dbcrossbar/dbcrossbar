@@ -1,22 +1,22 @@
 //! The `config` subcommand.
 
 use anyhow::{format_err, Result};
+use clap::Parser;
 use dbcrossbarlib::{
     config::{Configuration, Key},
     tokio_glue::spawn_blocking,
 };
-use structopt::{self, StructOpt};
 
 /// Configutation-editing arguments.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub(crate) struct Opt {
     /// The command to perform on the configuration key.
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     command: Command,
 }
 
 /// Shared options that specify a key.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub(crate) struct KeyOpt {
     /// The configuration key to operate on [values: temporary].
     key: String,
@@ -35,12 +35,12 @@ impl KeyOpt {
 }
 
 /// A command that we can perform on a config key.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub(crate) enum Command {
     /// Add the specified value to the configuration key if it isn't already there.
-    #[structopt(name = "add")]
+    #[clap(name = "add")]
     Add {
-        #[structopt(flatten)]
+        #[clap(flatten)]
         key: KeyOpt,
 
         /// The value to add.
@@ -49,9 +49,9 @@ pub(crate) enum Command {
 
     /// Remove the specified value from the configuration key if it isn't
     /// already there.
-    #[structopt(name = "rm")]
+    #[clap(name = "rm")]
     Remove {
-        #[structopt(flatten)]
+        #[clap(flatten)]
         key: KeyOpt,
 
         /// The value to remove.

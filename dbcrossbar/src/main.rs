@@ -19,9 +19,9 @@
 use std::env;
 
 use anyhow::Result;
+use clap::Parser;
 use dbcrossbarlib::{config::Configuration, Context};
 use futures::try_join;
-use structopt::{self, StructOpt};
 use tracing::debug;
 use tracing_subscriber::{
     fmt::{format::FmtSpan, Subscriber},
@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
     debug!("SSL_CERT_FILE: {:?}", env::var("SSL_CERT_FILE").ok());
 
     // Parse our command-line arguments.
-    let opt = cmd::Opt::from_args();
+    let opt = cmd::Opt::parse();
     debug!("{:?}", opt);
 
     // Set up an execution context for our background workers, if any. The `ctx`

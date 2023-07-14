@@ -211,7 +211,7 @@ fn locator_from_str_to_string_roundtrip() {
 ///
 /// This is separate from `BoxLocator` because `BoxLocator` can only be parsed
 /// once we have the `enable_unstable` flag.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct UnparsedLocator(String);
 
 impl UnparsedLocator {

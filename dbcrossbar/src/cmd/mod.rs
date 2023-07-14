@@ -1,9 +1,8 @@
 //! Command parsing.
 
+use clap::Parser;
 use dbcrossbarlib::{config::Configuration, tokio_glue::BoxFuture, Context};
 use futures::FutureExt;
-//use structopt::StructOpt;
-use structopt_derive::StructOpt;
 
 pub(crate) mod config;
 pub(crate) mod count;
@@ -13,71 +12,73 @@ pub(crate) mod license;
 pub(crate) mod schema;
 
 /// Command-line options, parsed using `structopt`.
-#[derive(Debug, StructOpt)]
-#[structopt(
+#[derive(Debug, Parser)]
+#[clap(
     name = "dbcrossbar",
+    author,
+    version,
     about = "Convert schemas and data between databases."
 )]
 pub(crate) struct Opt {
     /// Enable unstable, experimental features.
-    #[structopt(long = "enable-unstable")]
+    #[clap(long = "enable-unstable")]
     pub(crate) enable_unstable: bool,
 
     /// The command to run.
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     pub(crate) cmd: Command,
 }
 
 /// The command to run.
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 #[allow(clippy::large_enum_variant)]
 pub(crate) enum Command {
     /// Update configuration.
-    #[structopt(name = "config")]
+    #[clap(name = "config")]
     Config {
-        #[structopt(flatten)]
+        #[clap(flatten)]
         command: config::Opt,
     },
 
     /// Count records.
-    #[structopt(name = "count")]
-    #[structopt(after_help = r#"EXAMPLE LOCATORS:
+    #[clap(name = "count")]
+    #[clap(after_help = r#"EXAMPLE LOCATORS:
     postgres://localhost:5432/db#table
     bigquery:project:dataset.table
 "#)]
     Count {
-        #[structopt(flatten)]
+        #[clap(flatten)]
         command: count::Opt,
     },
 
     /// Copy tables from one location to another.
-    #[structopt(name = "cp")]
-    #[structopt(after_help = r#"EXAMPLE LOCATORS:
+    #[clap(name = "cp")]
+    #[clap(after_help = r#"EXAMPLE LOCATORS:
     postgres://localhost:5432/db#table
     bigquery:project:dataset.table
 "#)]
     Cp {
-        #[structopt(flatten)]
+        #[clap(flatten)]
         command: cp::Opt,
     },
 
     /// List available drivers and supported features.
-    #[structopt(name = "features")]
+    #[clap(name = "features")]
     Features {
-        #[structopt(flatten)]
+        #[clap(flatten)]
         command: features::Opt,
     },
 
     /// Display license information.
-    #[structopt(name = "license")]
+    #[clap(name = "license")]
     License {
-        #[structopt(flatten)]
+        #[clap(flatten)]
         command: license::Opt,
     },
 
     /// Schema-related commands.
     Schema {
-        #[structopt(flatten)]
+        #[clap(flatten)]
         command: schema::Opt,
     },
 }
