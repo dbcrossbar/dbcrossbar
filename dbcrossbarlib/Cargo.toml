@@ -70,7 +70,7 @@ toml_edit = "0.19"
 tracing = "0.1.29"
 tracing-futures = "0.2.5"
 url = "2.1.0"
-uuid = "0.8.1"
+uuid = "1.4"
 walkdir = "2.2.9"
 # Locked because upgrading it breaks Google Cloud.
 yup-oauth2 = "= 6.1.0"
