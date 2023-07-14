@@ -52,7 +52,10 @@ fn signatures_are_valid() {
     let (signed_url, _x_amz_security_token) = sign_s3_url(
         &creds,
         "GET",
-        DateTime::from_utc(NaiveDateTime::from_timestamp(1_141_889_120, 0), Utc),
+        DateTime::from_utc(
+            NaiveDateTime::from_timestamp_opt(1_141_889_120, 0).unwrap(),
+            Utc,
+        ),
         &"s3://quotes/nelson".parse().unwrap(),
     )
     .unwrap();

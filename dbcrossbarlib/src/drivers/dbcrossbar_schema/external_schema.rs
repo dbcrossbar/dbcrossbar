@@ -28,11 +28,7 @@ impl ExternalSchema {
     /// Turn a portable schema into an external schema (we always use v2).
     pub(crate) fn from_schema(schema: Schema) -> Self {
         let v2 = ExternalSchemaV2 {
-            named_data_types: schema
-                .named_data_types
-                .into_iter()
-                .map(|(_, v)| v)
-                .collect(),
+            named_data_types: schema.named_data_types.into_values().collect(),
             tables: vec![schema.table],
         };
         ExternalSchema::V2(v2)

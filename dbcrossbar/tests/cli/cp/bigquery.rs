@@ -58,7 +58,7 @@ fn cp_from_bigquery_with_where() {
         .tee_output()
         .expect_success();
 
-    let expected = fs::read_to_string(&filtered).unwrap();
+    let expected = fs::read_to_string(filtered).unwrap();
     let actual = fs::read_to_string(testdir.path("out/000000000000.csv")).unwrap();
     assert_diff!(&expected, &actual, ",", 0);
 }
@@ -189,7 +189,7 @@ fn cp_more_bigquery_types() {
         .expect_success();
 
     let expected = fs::read_to_string(&src).unwrap();
-    testdir.expect_file_contents("out.csv", &expected);
+    testdir.expect_file_contents("out.csv", expected);
 }
 
 #[test]
@@ -373,7 +373,7 @@ fn bigquery_roundtrips_structs() {
     // Use our example JSON to create a CSV file with two columns: One
     // containing our struct, and the other containing a single-element array
     // containing our struct.
-    let raw_src = fs::read_to_string(&raw_src_path).unwrap();
+    let raw_src = fs::read_to_string(raw_src_path).unwrap();
     let src_data = format!(
         r#"struct,structs
 "{escaped}","[{escaped}]"

@@ -181,15 +181,24 @@ fn parse_naive_date_time() {
     let examples = &[
         (
             "1969-07-20 20:17:39",
-            NaiveDate::from_ymd(1969, 7, 20).and_hms(20, 17, 39),
+            NaiveDate::from_ymd_opt(1969, 7, 20)
+                .unwrap()
+                .and_hms_opt(20, 17, 39)
+                .unwrap(),
         ),
         (
             "1969-07-20 20:17:39.0",
-            NaiveDate::from_ymd(1969, 7, 20).and_hms(20, 17, 39),
+            NaiveDate::from_ymd_opt(1969, 7, 20)
+                .unwrap()
+                .and_hms_opt(20, 17, 39)
+                .unwrap(),
         ),
         (
             "1969-07-20T20:17:39",
-            NaiveDate::from_ymd(1969, 7, 20).and_hms(20, 17, 39),
+            NaiveDate::from_ymd_opt(1969, 7, 20)
+                .unwrap()
+                .and_hms_opt(20, 17, 39)
+                .unwrap(),
         ),
     ];
     for (s, expected) in examples {
@@ -222,19 +231,27 @@ fn parse_utc_timestamp() {
     let examples = &[
         (
             "1969-07-20 20:17:39+00",
-            Utc.ymd(1969, 7, 20).and_hms(20, 17, 39),
+            Utc.with_ymd_and_hms(1969, 7, 20, 20, 17, 39)
+                .single()
+                .unwrap(),
         ),
         (
             "1969-07-20 19:17:39.0-0100",
-            Utc.ymd(1969, 7, 20).and_hms(20, 17, 39),
+            Utc.with_ymd_and_hms(1969, 7, 20, 20, 17, 39)
+                .single()
+                .unwrap(),
         ),
         (
             "1969-07-20 21:17:39.0+01:00",
-            Utc.ymd(1969, 7, 20).and_hms(20, 17, 39),
+            Utc.with_ymd_and_hms(1969, 7, 20, 20, 17, 39)
+                .single()
+                .unwrap(),
         ),
         (
             "1969-07-20T21:17:39.0+01:00",
-            Utc.ymd(1969, 7, 20).and_hms(20, 17, 39),
+            Utc.with_ymd_and_hms(1969, 7, 20, 20, 17, 39)
+                .single()
+                .unwrap(),
         ),
     ];
     for (s, expected) in examples {

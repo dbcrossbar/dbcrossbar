@@ -33,7 +33,7 @@ impl TemporaryStorage {
     }
 
     /// Find a location with the specified scheme.
-    pub fn find_scheme<'a, 'b>(&'a self, scheme: &'b str) -> Option<&'a str> {
+    pub fn find_scheme<'a>(&'a self, scheme: &str) -> Option<&'a str> {
         assert!(scheme.ends_with(':'));
         self.locations
             .iter()

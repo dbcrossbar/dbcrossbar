@@ -44,7 +44,7 @@ impl WriteBinary for bool {
 
 impl WriteBinary for NaiveDate {
     fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
-        let epoch = NaiveDate::from_ymd(2000, 1, 1);
+        let epoch = NaiveDate::from_ymd_opt(2000, 1, 1).expect("invalid date");
         let day_number = i32::try_from((*self - epoch).num_days())?;
         wtr.write_len(size_of_val(&day_number))?;
         wtr.write_i32::<NE>(day_number)?;
@@ -143,7 +143,10 @@ impl<'a> WriteBinary for &'a [u8] {
 
 impl WriteBinary for NaiveDateTime {
     fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
-        let epoch = NaiveDate::from_ymd(2000, 1, 1).and_hms(0, 0, 0);
+        let epoch = NaiveDate::from_ymd_opt(2000, 1, 1)
+            .expect("invalid date")
+            .and_hms_opt(0, 0, 0)
+            .expect("invalid time");
         let duration = *self - epoch;
         let microseconds = duration
             .num_microseconds()
@@ -156,7 +159,10 @@ impl WriteBinary for NaiveDateTime {
 
 impl WriteBinary for DateTime<Utc> {
     fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
-        let epoch = Utc.ymd(2000, 1, 1).and_hms(0, 0, 0);
+        let epoch = Utc
+            .with_ymd_and_hms(2000, 1, 1, 0, 0, 0)
+            .single()
+            .expect("ambiguous or invalid datetime");
         let duration = *self - epoch;
         let microseconds = duration
             .num_microseconds()

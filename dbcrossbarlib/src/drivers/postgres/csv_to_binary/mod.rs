@@ -334,7 +334,7 @@ fn parse_ewkb_fallback() {
     // It's too annoying to actually get our data back out of the
     // `BufferedWriter` to check the actual value, so just make sure it parses.
     let cell = "0101000020E61000000000806A7CC351C093985E78E32E4540";
-    let mut out = BufferedWriter::new(Box::new(vec![]));
+    let mut out = BufferedWriter::new(Box::<Vec<u8>>::default());
     scalar_to_binary(&mut out, &PgScalarDataType::Geometry(Srid::wgs84()), cell)
         .unwrap();
 }

@@ -105,8 +105,8 @@ fn conv_bq_schema_to_pg_sql() {
             "postgres-sql:output.sql",
         ])
         .expect_success();
-    let expected = fs::read_to_string(&expected_sql).unwrap();
-    testdir.expect_file_contents("output.sql", &expected);
+    let expected = fs::read_to_string(expected_sql).unwrap();
+    testdir.expect_file_contents("output.sql", expected);
 }
 
 #[test]
@@ -126,7 +126,7 @@ fn conv_ts_to_portable() {
         ])
         .expect_success();
     let output = fs::read_to_string(&output_json).unwrap();
-    let expected = fs::read_to_string(&expected_json).unwrap();
+    let expected = fs::read_to_string(expected_json).unwrap();
     assert_eq!(
         serde_json::from_str::<serde_json::Value>(&output).unwrap(),
         serde_json::from_str::<serde_json::Value>(&expected).unwrap(),

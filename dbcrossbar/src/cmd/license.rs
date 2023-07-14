@@ -42,7 +42,7 @@ pub(crate) async fn run(
 
         // Open it in the browser.
         spawn_blocking(move || {
-            opener::open(&out_html).context("could not open temporary file in browser")
+            opener::open(out_html).context("could not open temporary file in browser")
         })
         .await?;
 

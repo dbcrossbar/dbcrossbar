@@ -121,6 +121,9 @@ impl IfExists {
     }
 }
 
+// Make our default explicit in the source, even though `#[derive(Default)]`
+// would pick the same value.
+#[allow(clippy::derivable_impls)]
 impl Default for IfExists {
     fn default() -> Self {
         IfExists::Error

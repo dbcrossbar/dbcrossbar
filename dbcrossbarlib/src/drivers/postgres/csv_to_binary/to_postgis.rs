@@ -87,7 +87,7 @@ impl ToPostgis for gt::Geometry<f64> {
     }
 }
 
-impl ToPostgis for gt::Coordinate<f64> {
+impl ToPostgis for gt::Coord<f64> {
     type PostgisType = ewkb::Point;
 
     fn to_postgis(&self) -> Self::PostgisType {

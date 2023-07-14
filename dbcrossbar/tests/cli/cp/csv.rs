@@ -20,7 +20,7 @@ fn cp_csv_to_csvs() {
         .arg("csv:out/")
         .expect_success();
     let expected = fs::read_to_string(&src).unwrap();
-    testdir.expect_file_contents("out/example.csv", &expected);
+    testdir.expect_file_contents("out/example.csv", expected);
 }
 
 #[test]
@@ -36,8 +36,8 @@ fn cp_csvs_to_csv() {
         .arg(&format!("csv:{}", concat_in.display()))
         .arg("csv:out.csv")
         .expect_success();
-    let expected = fs::read_to_string(&concat_out).unwrap();
-    testdir.expect_file_contents("out.csv", &expected);
+    let expected = fs::read_to_string(concat_out).unwrap();
+    testdir.expect_file_contents("out.csv", expected);
 }
 
 #[test]

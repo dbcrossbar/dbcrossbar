@@ -84,7 +84,7 @@ fn cp_from_postgres_with_where() {
         .tee_output()
         .expect_success();
 
-    let expected = fs::read_to_string(&filtered).unwrap();
+    let expected = fs::read_to_string(filtered).unwrap();
     let actual =
         fs::read_to_string(testdir.path("out/cp_from_postgres_with_where.csv"))
             .unwrap();

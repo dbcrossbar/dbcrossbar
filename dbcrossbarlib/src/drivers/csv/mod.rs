@@ -265,7 +265,7 @@ async fn write_local_data_helper(
                     async move {
                         // TODO: This join does not handle `..` or nested `/` in
                         // a particularly safe fashion.
-                        let csv_path = path.join(&format!("{}.csv", stream.name));
+                        let csv_path = path.join(format!("{}.csv", stream.name));
                         Span::current().record("path", &field::display(csv_path.display()));
                         write_stream_to_file(
                             stream.data,

@@ -195,10 +195,7 @@ impl Configuration {
     }
 
     /// Get our an array of strings in mutable form.
-    fn raw_string_array_mut<'a, 'b>(
-        &mut self,
-        key: &'a Key<'b>,
-    ) -> Result<&mut Array> {
+    fn raw_string_array_mut<'a>(&'a mut self, key: &Key<'_>) -> Result<&'a mut Array> {
         let array_value = self
             .doc
             .as_table_mut()

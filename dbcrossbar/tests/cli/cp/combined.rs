@@ -41,11 +41,11 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
         .stdout(Stdio::piped())
         .tee_output()
         .expect_success();
-    let postgres_sql = fs::read_to_string(&expected_schema).unwrap().replace(
+    let postgres_sql = fs::read_to_string(expected_schema).unwrap().replace(
         "\"many_types\"",
         "\"testme1\".\"cp_csv_to_postgres_to_gs_to_csv\"",
     );
-    testdir.expect_file_contents("pg.sql", &postgres_sql);
+    testdir.expect_file_contents("pg.sql", postgres_sql);
 
     // Postgres to gs://.
     testdir
