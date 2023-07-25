@@ -1,7 +1,6 @@
-//! Tests specific to the CSV driver.
-//!
-//! Note that lots of other tests use the CSV driver to set up inputs and
-//! extract outputs, but we keep all the official CSV-only tests here.
+//! Tests specific to the "csv:" driver. In new code, we should prefer the
+//! "file:" driver instead, but we keep this around for backwards compatibility.
+//! We keep the tests to make sure we don't break anything.
 
 use cli_test_dir::*;
 use std::fs;

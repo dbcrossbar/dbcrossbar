@@ -3,8 +3,8 @@
 use anyhow::{format_err, Context as _, Result};
 use clap::Parser;
 use dbcrossbarlib::{
-    config::Configuration, Context, DriverArguments, SharedArguments, SourceArguments,
-    TemporaryStorage, UnparsedLocator,
+    config::Configuration, Context, DataFormat, DriverArguments, SharedArguments,
+    SourceArguments, TemporaryStorage, UnparsedLocator,
 };
 
 /// Count arguments.
@@ -22,6 +22,11 @@ pub(crate) struct Opt {
     /// Pass an extra argument of the form `key=value` to the source driver.
     #[clap(long = "from-arg")]
     from_args: Vec<String>,
+
+    /// For directory- and file-like data sources, the format to assume. If not
+    /// specified, `dbcrossbar` will use the file extension to guess the format.
+    #[clap(long = "from-format")]
+    from_format: Option<DataFormat>,
 
     /// SQL where clause specifying rows to use.
     #[clap(long = "where")]
@@ -61,7 +66,11 @@ pub(crate) async fn run(
 
     // Build our source arguments.
     let from_args = DriverArguments::from_cli_args(&opt.from_args)?;
-    let source_args = SourceArguments::new(from_args, opt.where_clause.clone());
+    let source_args = SourceArguments::new(
+        from_args,
+        opt.from_format.clone(),
+        opt.where_clause.clone(),
+    );
 
     let count = locator.count(ctx.clone(), shared_args, source_args).await?;
     println!("{}", count);

@@ -9,6 +9,7 @@ mod bigquery;
 mod bigquery_test_fixture;
 mod combined;
 mod csv;
+mod file;
 mod gs;
 mod postgres;
 mod redshift;

@@ -3,6 +3,7 @@
 use std::{fmt, marker::PhantomData};
 
 use crate::common::*;
+use crate::data_stream::DataFormat;
 use crate::separator::Separator;
 
 /// Trait used to add new methods to `EnumSet`.
@@ -127,6 +128,7 @@ impl SharedArguments<Verified> {
 #[derive(Debug, EnumSetType)]
 pub enum SourceArgumentsFeatures {
     DriverArgs,
+    Format,
     WhereClause,
 }
 
@@ -149,6 +151,9 @@ pub struct SourceArguments<ArgumentState> {
     /// Driver-specific arguments for our data source.
     driver_args: DriverArguments,
 
+    /// The format to convert from, if applicable.
+    format: Option<DataFormat>,
+
     /// A `WHERE` clause for this query.
     where_clause: Option<String>,
 
@@ -160,9 +165,14 @@ pub struct SourceArguments<ArgumentState> {
 // These methods are only available in the `Unverified` state.
 impl SourceArguments<Unverified> {
     /// Construct a new `SourceArguments`.
-    pub fn new(driver_args: DriverArguments, where_clause: Option<String>) -> Self {
+    pub fn new(
+        driver_args: DriverArguments,
+        format: Option<DataFormat>,
+        where_clause: Option<String>,
+    ) -> Self {
         Self {
             driver_args,
+            format,
             where_clause,
             _phantom: PhantomData,
         }
@@ -171,7 +181,19 @@ impl SourceArguments<Unverified> {
     /// Construct a new `SourceArguments` with typical values for a temporary
     /// storage location.
     pub fn for_temporary() -> Self {
-        Self::new(DriverArguments::default(), None)
+        Self::new(DriverArguments::default(), None, None)
+    }
+
+    /// Set the format to CSV, returning an error if it was already set. This
+    /// is used by the `csv:` driver for backwards compatibility.
+    pub fn with_format_csv(mut self) -> Result<Self> {
+        if self.format.is_some() {
+            return Err(format_err!(
+                "--from-format cannot be specified with this driver"
+            ));
+        }
+        self.format = Some(DataFormat::Csv);
+        Ok(self)
     }
 
     /// Verify that this structure only contains supported arguments. This uses
@@ -189,6 +211,15 @@ impl SourceArguments<Unverified> {
         }
         if !features
             .source_args
+            .contains(SourceArgumentsFeatures::Format)
+            && self.format.is_some()
+        {
+            return Err(format_err!(
+                "this data source does not support --from-format"
+            ));
+        }
+        if !features
+            .source_args
             .contains(SourceArgumentsFeatures::WhereClause)
             && self.where_clause.is_some()
         {
@@ -196,6 +227,7 @@ impl SourceArguments<Unverified> {
         }
         Ok(SourceArguments {
             driver_args: self.driver_args,
+            format: self.format,
             where_clause: self.where_clause,
             _phantom: PhantomData,
         })
@@ -209,6 +241,11 @@ impl SourceArguments<Verified> {
         &self.driver_args
     }
 
+    /// The format for data associated with this locator, if applicable.
+    pub fn format(&self) -> Option<&DataFormat> {
+        self.format.as_ref()
+    }
+
     /// A `WHERE` clause for this query.
     pub fn where_clause(&self) -> Option<&str> {
         self.where_clause.as_ref().map(|s| &s[..])
@@ -219,6 +256,7 @@ impl SourceArguments<Verified> {
 #[derive(Debug, EnumSetType)]
 pub enum DestinationArgumentsFeatures {
     DriverArgs,
+    Format,
 }
 
 impl fmt::Display for DisplayEnumSet<DestinationArgumentsFeatures> {
@@ -239,6 +277,9 @@ pub struct DestinationArguments<ArgumentState> {
     /// What to do it the destination already exists.
     if_exists: IfExists,
 
+    /// The format we're converting to, if applicable.
+    format: Option<DataFormat>,
+
     /// We need to include a reference to `ArgumentState` somewhere, so use a
     /// 0-byte phantom value.
     _phantom: PhantomData<ArgumentState>,
@@ -247,9 +288,14 @@ pub struct DestinationArguments<ArgumentState> {
 // These methods are only available in the `Unverified` state.
 impl DestinationArguments<Unverified> {
     /// Construct a new `DestinationArguments`.
-    pub fn new(driver_args: DriverArguments, if_exists: IfExists) -> Self {
+    pub fn new(
+        driver_args: DriverArguments,
+        format: Option<DataFormat>,
+        if_exists: IfExists,
+    ) -> Self {
         DestinationArguments {
             driver_args,
+            format,
             if_exists,
             _phantom: PhantomData,
         }
@@ -258,7 +304,19 @@ impl DestinationArguments<Unverified> {
     /// Construct a new `DestinationArguments` with typical values for a
     /// temporary storage location.
     pub fn for_temporary() -> Self {
-        Self::new(DriverArguments::default(), IfExists::Overwrite)
+        Self::new(DriverArguments::default(), None, IfExists::Overwrite)
+    }
+
+    /// Set the format to CSV, returning an error if it was already set. This
+    /// is used by the `csv:` driver for backwards compatibility.
+    pub fn with_format_csv(mut self) -> Result<Self> {
+        if self.format.is_some() {
+            return Err(format_err!(
+                "--from-format cannot be specified with this driver"
+            ));
+        }
+        self.format = Some(DataFormat::Csv);
+        Ok(self)
     }
 
     /// Verify that this structure only contains supported arguments. This uses
@@ -276,10 +334,20 @@ impl DestinationArguments<Unverified> {
                 "this data destination does not support --to-args"
             ));
         }
+        if !features
+            .dest_args
+            .contains(DestinationArgumentsFeatures::Format)
+            && self.format.is_some()
+        {
+            return Err(format_err!(
+                "this data destination does not support --to-format"
+            ));
+        }
         self.if_exists.verify(features.dest_if_exists)?;
         Ok(DestinationArguments {
             driver_args: self.driver_args,
             if_exists: self.if_exists,
+            format: self.format,
             _phantom: PhantomData,
         })
     }
@@ -290,6 +358,11 @@ impl DestinationArguments<Verified> {
     /// Driver-specific arguments for our data destination.
     pub fn driver_args(&self) -> &DriverArguments {
         &self.driver_args
+    }
+
+    /// The format for data associated with this locator, if applicable.
+    pub fn format(&self) -> Option<&DataFormat> {
+        self.format.as_ref()
     }
 
     /// What to do it the destination already exists.

@@ -80,6 +80,22 @@ fn conv_csv_to_pg_sql() {
 }
 
 #[test]
+fn conv_file_fails_for_now() {
+    let testdir = TestDir::new("dbcrossbar", "conv_file_fails_for_now");
+    let src = testdir.src_path("fixtures/example.csv");
+    testdir
+        .cmd()
+        .args([
+            "schema",
+            "conv",
+            &format!("file:{}", src.display()),
+            "postgres-sql:-",
+        ])
+        .output()
+        .expect_failure();
+}
+
+#[test]
 fn conv_pg_sql_to_bq_schema() {
     let testdir = TestDir::new("dbcrossbar", "conv_pg_sql_to_bq_schema");
     let output = testdir

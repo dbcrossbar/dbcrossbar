@@ -2,10 +2,13 @@
 
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::ffi::OsStr;
+use std::path::Path;
 use std::{fmt, marker::PhantomData, str::FromStr};
 
 use crate::args::EnumSetExt;
 use crate::common::*;
+use crate::data_stream::DataFormat;
 use crate::drivers::find_driver;
 
 /// When called from the CLI, should we display a list of individual locators
@@ -195,6 +198,9 @@ fn locator_from_str_to_string_roundtrip() {
         "csv:dir/",
         "dbcrossbar-schema:file.json",
         "dbcrossbar-ts:file %231 20%25.ts#Type",
+        "file:dir/",
+        "file:dir/file.csv",
+        "file:dir/file.jsonl",
         "gs://example-bucket/tmp/",
         "postgres://localhost:5432/db#my_table",
         "postgres-sql:dir/my_table.sql",
@@ -204,6 +210,43 @@ fn locator_from_str_to_string_roundtrip() {
     for locator in locators.into_iter() {
         let parsed: BoxLocator = parse_locator(locator, true).unwrap();
         assert_eq!(parsed.to_string(), locator);
+    }
+}
+
+pub(crate) trait PathLikeLocator {
+    /// Return the path-like part of this locator, or `None`, if this locator
+    /// points to something like stdin or stdout.
+    ///
+    /// This is used to compute the [`DataFormat`] of a locator. We use `OsStr`,
+    /// because we may be working with `Path` values that are not valid UTF-8,
+    /// and we'd like to keep as much information as possible, as long as
+    /// possible. We _don't_ use `Path`, because that is intended for OS paths,
+    /// and we may be working with path components of URLs.
+    fn path(&self) -> Option<&OsStr>;
+
+    /// Is this locator a directory-like path?
+    fn is_directory_like(&self) -> bool {
+        match self.path() {
+            // `to_string_lossy` will replace invalid UTF-8 with `U+FFFD`, but
+            // this won't affect the presence or absence of a trailing slash.
+            Some(path) => path.to_string_lossy().ends_with('/'),
+            None => false,
+        }
+    }
+
+    /// The extension of this locator, if any.
+    fn extension(&self) -> Option<&OsStr> {
+        let path = self.path()?;
+        // We convert to a `Path` here for parsing convenience. This may be a
+        // bit sketch on Windows, but we have lots of unit tests that should
+        // hopefully catch any problems.
+        let path = Path::new(path);
+        path.extension()
+    }
+
+    /// The data format to use for this locator, if any.
+    fn data_format(&self) -> Option<DataFormat> {
+        self.extension().map(DataFormat::from_extension)
     }
 }
 

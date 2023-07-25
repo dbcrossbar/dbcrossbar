@@ -95,7 +95,7 @@ pub(crate) fn csv_stream_name<'a>(
         file_path
             .rsplit('/')
             .next()
-            .expect("should have '/' in URL")
+            .ok_or_else(|| format_err!("should have '/' in URL: {:?}", file_path))?
     } else if file_path.starts_with(base_path) {
         if base_path.ends_with('/') {
             // Our file_path starts with our base_path, which means that we have an

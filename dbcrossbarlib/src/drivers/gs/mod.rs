@@ -1,9 +1,11 @@
 //! Support for Google Cloud Storage.
 
+use std::ffi::OsStr;
 use std::{fmt, str::FromStr};
 
 use crate::common::*;
 use crate::drivers::bigquery::BigQueryLocator;
+use crate::locator::PathLikeLocator;
 
 mod local_data;
 mod prepare_as_destination;
@@ -131,11 +133,17 @@ impl LocatorStatic for GsLocator {
         Features {
             locator: LocatorFeatures::LocalData | LocatorFeatures::WriteLocalData,
             write_schema_if_exists: EnumSet::empty(),
-            source_args: EnumSet::empty(),
-            dest_args: EnumSet::empty(),
+            source_args: SourceArgumentsFeatures::Format.into(),
+            dest_args: DestinationArgumentsFeatures::Format.into(),
             dest_if_exists: IfExistsFeatures::Overwrite.into(),
             _placeholder: (),
         }
+    }
+}
+
+impl PathLikeLocator for GsLocator {
+    fn path(&self) -> Option<&OsStr> {
+        Some(OsStr::new(self.url.path()))
     }
 }
 
@@ -154,4 +162,37 @@ pub(crate) fn find_gs_temp_dir(
     temp.push_str(&TemporaryStorage::random_tag());
     temp.push('/');
     GsLocator::from_str(&temp)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::data_stream::DataFormat;
+
+    use super::*;
+
+    #[test]
+    fn test_s3_locator_url_parses() {
+        let locator = GsLocator::from_str("gs://bucket/path/").unwrap();
+        assert_eq!(locator.url.scheme(), "gs");
+        assert_eq!(locator.url.host_str(), Some("bucket"));
+        assert_eq!(locator.url.path(), "/path/");
+    }
+
+    #[test]
+    fn test_directory_locator_has_correct_path_like_properties() {
+        let locator = GsLocator::from_str("gs://bucket/path/").unwrap();
+        assert_eq!(locator.path().unwrap(), "/path/");
+        assert!(locator.is_directory_like());
+        assert!(locator.extension().is_none());
+        assert!(locator.data_format().is_none());
+    }
+
+    #[test]
+    fn test_file_locator_has_correct_path_like_properties() {
+        let locator = GsLocator::from_str("gs://bucket/path/file.csv").unwrap();
+        assert_eq!(locator.path().unwrap(), "/path/file.csv");
+        assert!(!locator.is_directory_like());
+        assert_eq!(locator.extension().unwrap(), "csv");
+        assert_eq!(locator.data_format(), Some(DataFormat::Csv));
+    }
 }

@@ -1,6 +1,11 @@
 //! Driver for working with CSV files.
 
-use std::{ffi::OsStr, fmt, path::PathBuf, str::FromStr};
+use std::{
+    ffi::{OsStr, OsString},
+    fmt,
+    path::PathBuf,
+    str::FromStr,
+};
 use tokio::{
     fs,
     io::{self, BufReader},
@@ -8,11 +13,10 @@ use tokio::{
 use tracing::{field, Span};
 use walkdir::WalkDir;
 
-use crate::concat::concatenate_csv_streams;
-use crate::csv_stream::csv_stream_name;
-use crate::schema::{Column, DataType, Table};
 use crate::tokio_glue::{copy_reader_to_stream, copy_stream_to_writer};
 use crate::{common::*, locator::PathLikeLocator};
+use crate::{concat::concatenate_csv_streams, data_stream::DataStream};
+use crate::{csv_stream::csv_stream_name, DataFormat};
 
 /// (Incomplete.) A CSV file containing data, or a directory containing CSV
 /// files.
@@ -20,12 +24,12 @@ use crate::{common::*, locator::PathLikeLocator};
 /// TODO: Right now, we take a file path as input and a directory path as
 /// output, because we're lazy and haven't finished building this.
 #[derive(Clone, Debug)]
-pub(crate) struct CsvLocator {
+pub(crate) struct FileLocator {
     path: PathOrStdio,
 }
 
-impl CsvLocator {
-    /// Construt a `CsvLocator` from a path.
+impl FileLocator {
+    /// Construt a `FileLocator` from a path.
     fn from_path<P: Into<PathBuf>>(path: P) -> Self {
         Self {
             path: PathOrStdio::Path(path.into()),
@@ -33,77 +37,33 @@ impl CsvLocator {
     }
 }
 
-impl fmt::Display for CsvLocator {
+impl fmt::Display for FileLocator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.path.fmt_locator_helper(Self::scheme(), f)
     }
 }
 
-impl FromStr for CsvLocator {
+impl FromStr for FileLocator {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
         let path = PathOrStdio::from_str_locator_helper(Self::scheme(), s)?;
-        Ok(CsvLocator { path })
+        Ok(FileLocator { path })
     }
 }
 
-impl Locator for CsvLocator {
+impl Locator for FileLocator {
     fn as_any(&self) -> &dyn Any {
         self
     }
 
-    #[instrument(level = "trace", name = "csv::schema")]
-    fn schema(&self, _ctx: Context) -> BoxFuture<Option<Schema>> {
-        // We're going to use a helper thread to do this, because `csv` is a
-        // purely synchrnous library.
-        let source = self.to_owned();
-        spawn_blocking(move || {
-            match &source.path {
-                PathOrStdio::Stdio => {
-                    // This is actually fairly tricky, because we may need to first
-                    // read the columns from stdin, _then_ start re-reading from the
-                    // beginning to read the data when `local_data` is called.
-                    Err(format_err!("cannot yet read CSV schema from stdin"))
-                }
-                PathOrStdio::Path(path) => {
-                    // Build our columns.
-                    let mut rdr = csv::Reader::from_path(path).with_context(|| {
-                        format!("error opening {}", path.display())
-                    })?;
-                    let mut columns = vec![];
-                    let headers = rdr.headers().with_context(|| {
-                        format!("error reading {}", path.display())
-                    })?;
-                    for col_name in headers {
-                        columns.push(Column {
-                            name: col_name.to_owned(),
-                            is_nullable: true,
-                            data_type: DataType::Text,
-                            comment: None,
-                        })
-                    }
-
-                    // Build our table.
-                    let name = path
-                        .file_stem()
-                        .unwrap_or_else(|| OsStr::new("data"))
-                        .to_string_lossy()
-                        .into_owned();
-                    Ok(Some(Schema::from_table(Table { name, columns })?))
-                }
-            }
-        })
-        .boxed()
-    }
-
     fn local_data(
         &self,
-        _ctx: Context,
+        ctx: Context,
         shared_args: SharedArguments<Unverified>,
         source_args: SourceArguments<Unverified>,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        local_data_helper(self.path.clone(), shared_args, source_args).boxed()
+        local_data_helper(ctx, self.path.clone(), shared_args, source_args).boxed()
     }
 
     fn display_output_locators(&self) -> DisplayOutputLocators {
@@ -134,22 +94,29 @@ impl Locator for CsvLocator {
     fields(path = %path)
 )]
 async fn local_data_helper(
+    ctx: Context,
     path: PathOrStdio,
     shared_args: SharedArguments<Unverified>,
     source_args: SourceArguments<Unverified>,
 ) -> Result<Option<BoxStream<CsvStream>>> {
-    let _shared_args = shared_args.verify(CsvLocator::features())?;
-    let _source_args = source_args.verify(CsvLocator::features())?;
+    let shared_args = shared_args.verify(FileLocator::features())?;
+    let schema = shared_args.schema().to_owned();
+
+    let source_args = source_args.verify(FileLocator::features())?;
+    let from_format = source_args.format().cloned();
+
     match path {
         PathOrStdio::Stdio => {
             let data = BufReader::with_capacity(BUFFER_SIZE, io::stdin());
             let stream = copy_reader_to_stream(data)?;
-            let csv_stream = CsvStream {
+            let data_stream = DataStream {
                 name: "data".to_owned(),
+                format: from_format.unwrap_or_default(),
                 data: stream
                     .map_err(move |e| format_err!("cannot read stdin: {}", e))
                     .boxed(),
             };
+            let csv_stream = data_stream.into_csv_stream(&ctx, &schema).await?;
             Ok(Some(box_stream_once(Ok(csv_stream))))
         }
         PathOrStdio::Path(base_path) => {
@@ -159,6 +126,7 @@ async fn local_data_helper(
             let mut paths = vec![];
             debug!("walking {}", base_path.display());
             let walker = WalkDir::new(&base_path).follow_links(true);
+            let mut common_ext: Option<Option<OsString>> = None;
             for dirent in walker.into_iter() {
                 let dirent = dirent.with_context(|| {
                     format!("error listing files in {}", base_path.display())
@@ -171,20 +139,32 @@ async fn local_data_helper(
                     return Err(format_err!("not a file: {}", p.display()));
                 }
 
-                let ext = p.extension();
-                if ext == Some(OsStr::new("csv")) || ext == Some(OsStr::new("CSV")) {
-                    paths.push(p.to_owned());
+                let ext = p.extension().map(OsStr::to_ascii_lowercase);
+                if let Some(common_ext) = &common_ext {
+                    if ext != *common_ext {
+                        return Err(format_err!(
+                            "all files in {} must have the same extension",
+                            base_path.display()
+                        ));
+                    }
                 } else {
-                    return Err(format_err!(
-                        "{} must end in *.csv or *.CSV",
-                        p.display()
-                    ));
+                    common_ext = Some(ext);
                 }
+                paths.push(p.to_owned());
             }
+            let common_ext = common_ext.ok_or_else(|| {
+                format_err!("no files found in {}", base_path.display())
+            })?;
+            let format = from_format
+                .or(common_ext.map(|ext| DataFormat::from_extension(&ext)))
+                .unwrap_or_default();
 
             let csv_streams = stream::iter(paths).map(Ok).and_then(move |file_path| {
+                let ctx = ctx.clone();
+                let schema = schema.clone();
                 let base_path = base_path.clone();
                 let file_path_copy = file_path.clone();
+                let format = format.clone();
                 async move {
                     // Get the name of our stream.
                     let name = csv_stream_name(
@@ -195,15 +175,12 @@ async fn local_data_helper(
                     Span::current().record("stream.name", &field::display(&name));
 
                     // Open our file.
-                    let data = fs::File::open(file_path.clone()).await.with_context(
+                    let f = fs::File::open(file_path.clone()).await.with_context(
                         || format!("cannot open {}", file_path.display()),
                     )?;
-                    let data = BufReader::with_capacity(BUFFER_SIZE, data);
-                    let stream = copy_reader_to_stream(data)?;
-
-                    Ok(CsvStream {
-                        name,
-                        data: stream
+                    let rdr = BufReader::with_capacity(BUFFER_SIZE, f);
+                    let stream = copy_reader_to_stream(rdr)?;
+                    let data = stream
                             .map_err(move |e| {
                                 format_err!(
                                     "cannot read {}: {}",
@@ -211,8 +188,13 @@ async fn local_data_helper(
                                     e
                                 )
                             })
-                            .boxed(),
-                    })
+                            .boxed();
+                    let data_stream = DataStream {
+                        name,
+                        format,
+                        data,
+                    };
+                    data_stream.into_csv_stream(&ctx, &schema).await
                 }
                 .instrument(debug_span!("stream_from_file", file_path = %file_path_copy.display(), stream.name = field::Empty))
                 .boxed()
@@ -236,8 +218,8 @@ async fn write_local_data_helper(
     shared_args: SharedArguments<Unverified>,
     dest_args: DestinationArguments<Unverified>,
 ) -> Result<BoxStream<BoxFuture<BoxLocator>>> {
-    let _shared_args = shared_args.verify(CsvLocator::features())?;
-    let dest_args = dest_args.verify(CsvLocator::features())?;
+    let _shared_args = shared_args.verify(FileLocator::features())?;
+    let dest_args = dest_args.verify(FileLocator::features())?;
     let if_exists = dest_args.if_exists().to_owned();
     match path {
         PathOrStdio::Stdio => {
@@ -247,7 +229,7 @@ async fn write_local_data_helper(
                 copy_stream_to_writer(stream.data, io::stdout())
                     .await
                     .context("error writing to stdout")?;
-                Ok(CsvLocator {
+                Ok(FileLocator {
                     path: PathOrStdio::Stdio,
                 }
                 .boxed())
@@ -273,7 +255,7 @@ async fn write_local_data_helper(
                             if_exists,
                         )
                         .await?;
-                        Ok(CsvLocator::from_path(csv_path).boxed())
+                        Ok(FileLocator::from_path(csv_path).boxed())
                     }.instrument(trace_span!("stream_to_file", stream.name = %stream_name, path = field::Empty))
                     .boxed()
                 });
@@ -286,7 +268,7 @@ async fn write_local_data_helper(
                 let fut = async move {
                     write_stream_to_file(stream.data, path.clone(), if_exists)
                         .await?;
-                    Ok(CsvLocator::from_path(path).boxed())
+                    Ok(FileLocator::from_path(path).boxed())
                 }.instrument(trace_span!("stream_to_file", stream.name = %stream_name, path = %path_copy.display()));
                 Ok(box_stream_once(Ok(fut.boxed())))
             }
@@ -321,26 +303,24 @@ async fn write_stream_to_file(
     Ok(())
 }
 
-impl LocatorStatic for CsvLocator {
+impl LocatorStatic for FileLocator {
     fn scheme() -> &'static str {
-        "csv:"
+        "file:"
     }
 
     fn features() -> Features {
         Features {
-            locator: LocatorFeatures::Schema
-                | LocatorFeatures::LocalData
-                | LocatorFeatures::WriteLocalData,
+            locator: LocatorFeatures::LocalData | LocatorFeatures::WriteLocalData,
             write_schema_if_exists: EnumSet::empty(),
-            source_args: EnumSet::empty(),
-            dest_args: EnumSet::empty(),
+            source_args: SourceArgumentsFeatures::Format.into(),
+            dest_args: DestinationArgumentsFeatures::Format.into(),
             dest_if_exists: IfExistsFeatures::no_append(),
             _placeholder: (),
         }
     }
 }
 
-impl PathLikeLocator for CsvLocator {
+impl PathLikeLocator for FileLocator {
     fn path(&self) -> Option<&OsStr> {
         match &self.path {
             PathOrStdio::Path(path) => Some(path.as_os_str()),
@@ -357,7 +337,7 @@ mod tests {
 
     #[test]
     fn test_directory_locator_has_correct_path_like_properties() {
-        let locator = CsvLocator::from_str("csv:/path/").unwrap();
+        let locator = FileLocator::from_str("file:/path/").unwrap();
         assert_eq!(locator.path().unwrap(), "/path/");
         assert!(locator.is_directory_like());
         assert!(locator.extension().is_none());
@@ -365,11 +345,20 @@ mod tests {
     }
 
     #[test]
-    fn test_file_locator_has_correct_path_like_properties() {
-        let locator = CsvLocator::from_str("csv:/path/file.csv").unwrap();
+    fn test_csv_file_locator_has_correct_path_like_properties() {
+        let locator = FileLocator::from_str("file:/path/file.csv").unwrap();
         assert_eq!(locator.path().unwrap(), "/path/file.csv");
         assert!(!locator.is_directory_like());
         assert_eq!(locator.extension().unwrap(), "csv");
         assert_eq!(locator.data_format(), Some(DataFormat::Csv));
+    }
+
+    #[test]
+    fn test_jsonl_file_locator_has_correct_path_like_properties() {
+        let locator = FileLocator::from_str("file:/path/file.jsonl").unwrap();
+        assert_eq!(locator.path().unwrap(), "/path/file.jsonl");
+        assert!(!locator.is_directory_like());
+        assert_eq!(locator.extension().unwrap(), "jsonl");
+        assert_eq!(locator.data_format(), Some(DataFormat::JsonLines));
     }
 }
