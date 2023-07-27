@@ -166,7 +166,7 @@ pub(crate) fn find_gs_temp_dir(
 
 #[cfg(test)]
 mod tests {
-    use crate::data_stream::DataFormat;
+    use crate::data_streams::DataFormat;
 
     use super::*;
 

@@ -8,7 +8,7 @@ use std::{fmt, marker::PhantomData, str::FromStr};
 
 use crate::args::EnumSetExt;
 use crate::common::*;
-use crate::data_stream::DataFormat;
+use crate::data_streams::DataFormat;
 use crate::drivers::find_driver;
 
 /// When called from the CLI, should we display a list of individual locators

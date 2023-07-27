@@ -100,3 +100,53 @@ fn cp_jsonl_to_csv_piped() {
     let expected = fs::read_to_string(expected_path).unwrap();
     assert_eq!(output.stdout_str(), expected);
 }
+
+#[test]
+fn cp_csv_jsonl_fails_for_now() {
+    let testdir = TestDir::new("dbcrossbar", "cp_csv_jsonl_fails_for_now");
+    let input = testdir.src_path("fixtures/example.csv");
+    let schema = testdir.src_path("fixtures/example.sql");
+    testdir
+        .cmd()
+        .args([
+            "cp",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("file:{}", input.display()),
+            "file:out.jsonl",
+        ])
+        .tee_output()
+        .expect_failure();
+}
+
+#[test]
+fn cp_csv_jsonl_dir_fails_for_now() {
+    let testdir = TestDir::new("dbcrossbar", "cp_csv_jsonl_fails_for_now");
+    let input = testdir.src_path("fixtures/example.csv");
+    let schema = testdir.src_path("fixtures/example.sql");
+    testdir
+        .cmd()
+        .args([
+            "cp",
+            "--to-format=jsonl",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("file:{}", input.display()),
+            "file:out/",
+        ])
+        .expect_failure();
+}
+#[test]
+fn cp_csv_jsonl_piped_fails_for_now() {
+    let testdir = TestDir::new("dbcrossbar", "cp_csv_jsonl_fails_for_now");
+    let input = testdir.src_path("fixtures/example.csv");
+    let schema = testdir.src_path("fixtures/example.sql");
+    testdir
+        .cmd()
+        .args([
+            "cp",
+            "--to-format=jsonl",
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("file:{}", input.display()),
+            "file:-",
+        ])
+        .expect_failure();
+}

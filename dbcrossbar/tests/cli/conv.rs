@@ -80,10 +80,10 @@ fn conv_csv_to_pg_sql() {
 }
 
 #[test]
-fn conv_file_fails_for_now() {
-    let testdir = TestDir::new("dbcrossbar", "conv_file_fails_for_now");
+fn conv_file_csv_to_pg_sql() {
+    let testdir = TestDir::new("dbcrossbar", "conv_file_csv_to_pg_sql");
     let src = testdir.src_path("fixtures/example.csv");
-    testdir
+    let output = testdir
         .cmd()
         .args([
             "schema",
@@ -92,7 +92,11 @@ fn conv_file_fails_for_now() {
             "postgres-sql:-",
         ])
         .output()
-        .expect_failure();
+        .expect_success();
+    assert!(output.stdout_str().contains("CREATE TABLE"));
+    assert!(output.stdout_str().contains("id"));
+    assert!(output.stdout_str().contains("first_name"));
+    assert!(output.stdout_str().contains("last_name"));
 }
 
 #[test]

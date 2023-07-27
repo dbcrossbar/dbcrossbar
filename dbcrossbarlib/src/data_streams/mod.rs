@@ -1,6 +1,11 @@
 use std::{ffi::OsStr, fmt, str::FromStr};
 
-use crate::{common::*, json_to_csv::json_lines_to_csv};
+use async_trait::async_trait;
+
+use crate::common::*;
+
+mod csv_converter;
+mod jsonl_converter;
 
 /// The format of a stream of data.
 ///
@@ -33,6 +38,15 @@ impl DataFormat {
             "csv" => Self::Csv,
             "jsonl" => Self::JsonLines,
             _ => Self::Unsupported(ext),
+        }
+    }
+
+    /// Look up the [`DataFormatConverter`] for a given data format.
+    fn converter(&self) -> Result<Box<dyn DataFormatConverter>> {
+        match self {
+            DataFormat::Csv => Ok(Box::new(csv_converter::CsvConverter)),
+            DataFormat::JsonLines => Ok(Box::new(jsonl_converter::JsonLinesConverter)),
+            other => Err(format_err!("cannot convert between `*.{}` and CSV", other)),
         }
     }
 }
@@ -73,23 +87,78 @@ pub(crate) struct DataStream {
 }
 
 impl DataStream {
+    /// Try to infer a schema from this `DataStream`.
+    pub(crate) async fn schema(self, ctx: &Context) -> Result<Option<Schema>> {
+        self.format
+            .converter()?
+            .schema(ctx, &self.name, self.data)
+            .await
+    }
+
     /// Convert this `DataStream` into a `CsvStream`. This is very cheap if
-    /// the data is already in CSV format,
+    /// the data is already in CSV format.
     pub(crate) async fn into_csv_stream(
         self,
         ctx: &Context,
         schema: &Schema,
     ) -> Result<CsvStream> {
-        match self.format {
-            DataFormat::Csv => Ok(CsvStream {
-                name: self.name,
-                data: self.data,
-            }),
-            DataFormat::JsonLines => Ok(CsvStream {
-                name: self.name,
-                data: json_lines_to_csv(ctx, schema, self.data).await?,
-            }),
-            other => Err(format_err!("cannot convert `*.{}` to CSV", other)),
-        }
+        let data = self
+            .format
+            .converter()?
+            .data_format_to_csv(ctx, schema, self.data)
+            .await?;
+        Ok(CsvStream {
+            name: self.name,
+            data,
+        })
     }
+
+    /// Convert a `CsvStream` into a `DataStream`. This is very cheap if
+    /// the data is already in CSV format.
+    pub(crate) async fn from_csv_stream(
+        ctx: &Context,
+        format: DataFormat,
+        schema: &Schema,
+        stream: CsvStream,
+    ) -> Result<Self> {
+        let data = format
+            .converter()?
+            .csv_to_data_format(ctx, schema, stream.data)
+            .await?;
+        Ok(Self {
+            name: stream.name,
+            format,
+            data,
+        })
+    }
+}
+
+/// Convert a format to and from CSV format.
+#[async_trait]
+pub(self) trait DataFormatConverter: Send + Sync {
+    /// Infer a schema from a stream of data.
+    async fn schema(
+        &self,
+        _ctx: &Context,
+        _table_name: &str,
+        _data: BoxStream<BytesMut>,
+    ) -> Result<Option<Schema>> {
+        Ok(None)
+    }
+
+    /// Convert a stream to CSV format.
+    async fn data_format_to_csv(
+        &self,
+        ctx: &Context,
+        schema: &Schema,
+        data: BoxStream<BytesMut>,
+    ) -> Result<BoxStream<BytesMut>>;
+
+    /// Convert a stream from CSV format.
+    async fn csv_to_data_format(
+        &self,
+        ctx: &Context,
+        schema: &Schema,
+        data: BoxStream<BytesMut>,
+    ) -> Result<BoxStream<BytesMut>>;
 }

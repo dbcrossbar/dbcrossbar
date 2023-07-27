@@ -15,7 +15,7 @@ use walkdir::WalkDir;
 
 use crate::tokio_glue::{copy_reader_to_stream, copy_stream_to_writer};
 use crate::{common::*, locator::PathLikeLocator};
-use crate::{concat::concatenate_csv_streams, data_stream::DataStream};
+use crate::{concat::concatenate_csv_streams, data_streams::DataStream};
 use crate::{csv_stream::csv_stream_name, DataFormat};
 
 /// (Incomplete.) A CSV file containing data, or a directory containing CSV
@@ -30,9 +30,16 @@ pub(crate) struct FileLocator {
 
 impl FileLocator {
     /// Construt a `FileLocator` from a path.
-    fn from_path<P: Into<PathBuf>>(path: P) -> Self {
+    pub(crate) fn from_path<P: Into<PathBuf>>(path: P) -> Self {
         Self {
             path: PathOrStdio::Path(path.into()),
+        }
+    }
+
+    /// Construct a `FileLocator` using stdin/stdout.
+    pub(crate) fn from_stdio() -> Self {
+        Self {
+            path: PathOrStdio::Stdio,
         }
     }
 }
@@ -55,6 +62,10 @@ impl FromStr for FileLocator {
 impl Locator for FileLocator {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
+        schema_helper(ctx, self.clone()).boxed()
     }
 
     fn local_data(
@@ -87,9 +98,34 @@ impl Locator for FileLocator {
     }
 }
 
+#[instrument(level = "trace", name = "file::schema")]
+async fn schema_helper(ctx: Context, locator: FileLocator) -> Result<Option<Schema>> {
+    match &locator.path {
+        PathOrStdio::Stdio => {
+            // This is actually fairly tricky, because we may need to first
+            // read the columns from stdin, _then_ start re-reading from the
+            // beginning to read the data when `local_data` is called.
+            Err(format_err!("cannot yet read schema from stdin"))
+        }
+        PathOrStdio::Path(_) if locator.is_directory_like() => {
+            Err(format_err!("cannot read schema from directory {}", locator))
+        }
+        PathOrStdio::Path(path) => {
+            let data_stream = path_to_data_stream(
+                ctx.clone(),
+                path.parent().unwrap().to_owned(),
+                path.to_owned(),
+                DataFormat::Csv,
+            )
+            .await?;
+            data_stream.schema(&ctx).await
+        }
+    }
+}
+
 #[instrument(
     level = "trace",
-    name = "csv::local_data",
+    name = "file::local_data",
     skip_all,
     fields(path = %path)
 )]
@@ -166,34 +202,12 @@ async fn local_data_helper(
                 let file_path_copy = file_path.clone();
                 let format = format.clone();
                 async move {
-                    // Get the name of our stream.
-                    let name = csv_stream_name(
-                        &base_path.to_string_lossy(),
-                        &file_path.to_string_lossy(),
-                    )?
-                    .to_owned();
-                    Span::current().record("stream.name", &field::display(&name));
-
-                    // Open our file.
-                    let f = fs::File::open(file_path.clone()).await.with_context(
-                        || format!("cannot open {}", file_path.display()),
-                    )?;
-                    let rdr = BufReader::with_capacity(BUFFER_SIZE, f);
-                    let stream = copy_reader_to_stream(rdr)?;
-                    let data = stream
-                            .map_err(move |e| {
-                                format_err!(
-                                    "cannot read {}: {}",
-                                    file_path.display(),
-                                    e
-                                )
-                            })
-                            .boxed();
-                    let data_stream = DataStream {
-                        name,
+                    let data_stream = path_to_data_stream(
+                        ctx.clone(),
+                        base_path.clone(),
+                        file_path,
                         format,
-                        data,
-                    };
+                    ).await?;
                     data_stream.into_csv_stream(&ctx, &schema).await
                 }
                 .instrument(debug_span!("stream_from_file", file_path = %file_path_copy.display(), stream.name = field::Empty))
@@ -207,7 +221,38 @@ async fn local_data_helper(
 
 #[instrument(
     level = "debug",
-    name = "csv::write_local_data",
+    name = "file::path_to_data_stream",
+    skip_all,
+    fields(file_path = %file_path.display(), stream.name = field::Empty),
+)]
+async fn path_to_data_stream(
+    _ctx: Context,
+    base_path: PathBuf,
+    file_path: PathBuf,
+    format: DataFormat,
+) -> Result<DataStream> {
+    // Get the name of our stream.
+    let name =
+        csv_stream_name(&base_path.to_string_lossy(), &file_path.to_string_lossy())?
+            .to_owned();
+    Span::current().record("stream.name", &field::display(&name));
+
+    // Open our file.
+    let f = fs::File::open(file_path.clone())
+        .await
+        .with_context(|| format!("cannot open {}", file_path.display()))?;
+    let rdr = BufReader::with_capacity(BUFFER_SIZE, f);
+    let stream = copy_reader_to_stream(rdr)?;
+    let data = stream
+        .map_err(move |e| format_err!("cannot read {}: {}", file_path.display(), e))
+        .boxed();
+    let data_stream = DataStream { name, format, data };
+    Ok(data_stream)
+}
+
+#[instrument(
+    level = "debug",
+    name = "file::write_local_data",
     skip_all,
     fields(path = %path)
 )]
@@ -218,15 +263,19 @@ async fn write_local_data_helper(
     shared_args: SharedArguments<Unverified>,
     dest_args: DestinationArguments<Unverified>,
 ) -> Result<BoxStream<BoxFuture<BoxLocator>>> {
-    let _shared_args = shared_args.verify(FileLocator::features())?;
+    let shared_args = shared_args.verify(FileLocator::features())?;
+    let schema = shared_args.schema().to_owned();
     let dest_args = dest_args.verify(FileLocator::features())?;
     let if_exists = dest_args.if_exists().to_owned();
     match path {
         PathOrStdio::Stdio => {
+            let format = dest_args.format().cloned().unwrap_or_default();
             if_exists.warn_if_not_default_for_stdout();
-            let stream = concatenate_csv_streams(ctx.clone(), data)?;
+            let csv_stream = concatenate_csv_streams(ctx.clone(), data)?;
+            let data_stream =
+                DataStream::from_csv_stream(&ctx, format, &schema, csv_stream).await?;
             let fut = async move {
-                copy_stream_to_writer(stream.data, io::stdout())
+                copy_stream_to_writer(data_stream.data, io::stdout())
                     .await
                     .context("error writing to stdout")?;
                 Ok(FileLocator {
@@ -239,8 +288,12 @@ async fn write_local_data_helper(
         PathOrStdio::Path(path) => {
             if path.to_string_lossy().ends_with('/') {
                 // Write streams to our directory as multiple files.
+                let format = dest_args.format().cloned().unwrap_or_default();
                 let result_stream = data.map_ok(move |stream| {
+                    let ctx = ctx.clone();
                     let path = path.clone();
+                    let schema = schema.clone();
+                    let format = format.clone();
                     let if_exists = if_exists.clone();
                     let stream_name = stream.name.clone();
 
@@ -249,8 +302,10 @@ async fn write_local_data_helper(
                         // a particularly safe fashion.
                         let csv_path = path.join(format!("{}.csv", stream.name));
                         Span::current().record("path", &field::display(csv_path.display()));
+                        let data_stream =
+                            DataStream::from_csv_stream(&ctx, format, &schema, stream).await?;
                         write_stream_to_file(
-                            stream.data,
+                            data_stream.data,
                             csv_path.clone(),
                             if_exists,
                         )
@@ -262,11 +317,20 @@ async fn write_local_data_helper(
                 Ok(result_stream.boxed())
             } else {
                 // Write all our streams as a single file.
+                let format_for_ext = path.extension().map(DataFormat::from_extension);
+                let format = dest_args
+                    .format()
+                    .cloned()
+                    .or(format_for_ext)
+                    .unwrap_or_default();
+
                 let stream = concatenate_csv_streams(ctx.clone(), data)?;
                 let stream_name = stream.name.clone();
                 let path_copy = path.clone();
+                let data_stream =
+                    DataStream::from_csv_stream(&ctx, format, &schema, stream).await?;
                 let fut = async move {
-                    write_stream_to_file(stream.data, path.clone(), if_exists)
+                    write_stream_to_file(data_stream.data, path.clone(), if_exists)
                         .await?;
                     Ok(FileLocator::from_path(path).boxed())
                 }.instrument(trace_span!("stream_to_file", stream.name = %stream_name, path = %path_copy.display()));
@@ -331,7 +395,7 @@ impl PathLikeLocator for FileLocator {
 
 #[cfg(test)]
 mod tests {
-    use crate::data_stream::DataFormat;
+    use crate::data_streams::DataFormat;
 
     use super::*;
 

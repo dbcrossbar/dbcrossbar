@@ -37,7 +37,7 @@ pub mod config;
 pub(crate) mod context;
 pub(crate) mod credentials;
 pub(crate) mod csv_stream;
-pub(crate) mod data_stream;
+pub(crate) mod data_streams;
 mod driver_args;
 pub mod drivers;
 pub(crate) mod from_csv_cell;
@@ -71,7 +71,7 @@ pub use args::{
 };
 pub use context::Context;
 pub use csv_stream::CsvStream;
-pub use data_stream::DataFormat;
+pub use data_streams::DataFormat;
 pub use driver_args::DriverArguments;
 pub use if_exists::IfExists;
 pub use locator::{BoxLocator, DisplayOutputLocators, Locator, UnparsedLocator};

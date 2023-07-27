@@ -3,7 +3,7 @@
 use std::{fmt, marker::PhantomData};
 
 use crate::common::*;
-use crate::data_stream::DataFormat;
+use crate::data_streams::DataFormat;
 use crate::separator::Separator;
 
 /// Trait used to add new methods to `EnumSet`.
