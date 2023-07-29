@@ -316,7 +316,9 @@ impl fmt::Display for Features {
         }
         if self.locator.contains(LocatorFeatures::WriteSchema) {
             writeln!(f, "- conv TO:")?;
-            writeln!(f, "  {}", self.write_schema_if_exists.display())?;
+            if !self.write_schema_if_exists.is_empty() {
+                writeln!(f, "  {}", self.write_schema_if_exists.display())?;
+            }
         }
         if self.locator.contains(LocatorFeatures::Count) {
             writeln!(f, "- count")?;
@@ -335,7 +337,9 @@ impl fmt::Display for Features {
             if !self.dest_args.is_empty() {
                 writeln!(f, "  {}", self.dest_args.display())?;
             }
-            writeln!(f, "  {}", self.dest_if_exists.display())?;
+            if !self.dest_if_exists.is_empty() {
+                writeln!(f, "  {}", self.dest_if_exists.display())?;
+            }
         }
         Ok(())
     }

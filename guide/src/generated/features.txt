@@ -2,9 +2,11 @@ Supported drivers:
 - bigml
 - bigquery
 - bigquery-schema
+- bigquery-test-fixture
 - csv
 - dbcrossbar-schema
 - dbcrossbar-ts (UNSTABLE)
+- file
 - gs
 - postgres
 - postgres-sql

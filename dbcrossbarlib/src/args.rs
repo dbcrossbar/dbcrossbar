@@ -138,6 +138,9 @@ impl fmt::Display for DisplayEnumSet<SourceArgumentsFeatures> {
         if self.0.contains(SourceArgumentsFeatures::DriverArgs) {
             write!(f, "{}--from-arg=$NAME=$VALUE", sep.display())?;
         }
+        if self.0.contains(SourceArgumentsFeatures::Format) {
+            write!(f, "{}--format=$FORMAT", sep.display())?;
+        }
         if self.0.contains(SourceArgumentsFeatures::WhereClause) {
             write!(f, "{}--where=$SQL_EXPR", sep.display())?;
         }
@@ -264,6 +267,9 @@ impl fmt::Display for DisplayEnumSet<DestinationArgumentsFeatures> {
         let mut sep = Separator::new(" ");
         if self.0.contains(DestinationArgumentsFeatures::DriverArgs) {
             write!(f, "{}--to-arg=$NAME=$VALUE", sep.display())?;
+        }
+        if self.0.contains(DestinationArgumentsFeatures::Format) {
+            write!(f, "{}--format=$FORMAT", sep.display())?;
         }
         Ok(())
     }
