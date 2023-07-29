@@ -11,9 +11,10 @@ use tokio::{
     time::{sleep, Duration},
 };
 
-use super::{json_to_csv::write_rows, ShopifyLocator};
+use super::ShopifyLocator;
 use crate::common::*;
 use crate::credentials::CredentialsManager;
+use crate::json_to_csv::write_rows;
 use crate::tokio_glue::{box_stream_once, bytes_channel, SendResultExt};
 
 #[instrument(

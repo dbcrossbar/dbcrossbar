@@ -1,10 +1,11 @@
 //! Write a JSON value in CSV-compatible format.
 
 use serde_json::Value;
-use std::io::Write;
+use std::io::{BufRead, BufReader, Write};
 
 use crate::common::*;
 use crate::schema::DataType;
+use crate::transform::spawn_sync_transform;
 
 /// Write a series of JSON values as a CSV file.
 pub(crate) fn write_rows<W: Write>(
@@ -16,7 +17,7 @@ pub(crate) fn write_rows<W: Write>(
     // Create a CSV writer and write our header.
     let mut wtr = csv::Writer::from_writer(wtr);
     if include_headers {
-        wtr.write_record(schema.table.columns.iter().map(|c| &c.name))?;
+        write_header(&mut wtr, schema)?;
     }
 
     // Output our rows, using `buffer` as scratch space.
@@ -24,6 +25,15 @@ pub(crate) fn write_rows<W: Write>(
     for row in rows {
         write_row(&mut wtr, schema, row, &mut buffer)?;
     }
+    Ok(())
+}
+
+/// Write our CSV header.
+fn write_header<W: Write>(
+    wtr: &mut csv::Writer<&mut W>,
+    schema: &Schema,
+) -> Result<(), Error> {
+    wtr.write_record(schema.table.columns.iter().map(|c| &c.name))?;
     Ok(())
 }
 
@@ -92,5 +102,45 @@ fn write_json_value<W: Write>(
             }
         }
     }
+    Ok(())
+}
+
+/// Convert a stream of JSON lines into a stream of CSV data.
+pub(crate) async fn json_lines_to_csv(
+    ctx: &Context,
+    schema: &Schema,
+    data: BoxStream<BytesMut>,
+) -> Result<BoxStream<BytesMut>> {
+    // Convert our CSV stream into a PostgreSQL `BINARY` stream.
+    let transform_schema = schema.clone();
+    let binary_stream = spawn_sync_transform(
+        ctx.clone(),
+        "copy_jsonl_to_csv".to_owned(),
+        data,
+        move |_ctx, rdr, wtr| copy_jsonl_to_csv(&transform_schema, rdr, wtr),
+    )?;
+
+    Ok(binary_stream)
+}
+
+fn copy_jsonl_to_csv(
+    schema: &Schema,
+    rdr: Box<dyn Read>,
+    mut wtr: Box<dyn Write>,
+) -> Result<()> {
+    let rdr = BufReader::new(rdr);
+    let mut wtr = csv::WriterBuilder::new()
+        .buffer_capacity(64 * 1024)
+        .from_writer(&mut wtr);
+
+    write_header(&mut wtr, schema)?;
+
+    let mut buffer = Vec::with_capacity(2 * 1024);
+    for line in rdr.lines() {
+        let line = line?;
+        let value: Value = serde_json::from_str(&line)?;
+        write_row(&mut wtr, schema, value, &mut buffer)?;
+    }
+
     Ok(())
 }

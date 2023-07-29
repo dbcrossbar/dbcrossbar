@@ -1,28 +1,20 @@
-Count records
 
-USAGE:
-    dbcrossbar count [OPTIONS] <locator>
+Usage: dbcrossbar count [OPTIONS] <LOCATOR>
 
-FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
+Arguments:
+  <LOCATOR>  The locator specifying the records to count
 
-OPTIONS:
-        --from-arg <from-args>...
-            Pass an extra argument of the form `key=value` to the
-            source driver
-        --schema <schema>
-            The schema to use (defaults to input table schema)
-
-        --temporary <temporaries>...
-            Temporary directories, cloud storage buckets, datasets to
-            use during transfer (can be repeated)
-        --where <where-clause>
-            SQL where clause specifying rows to use
-
-
-ARGS:
-    <locator>    The locator specifying the records to count
+Options:
+      --schema <SCHEMA>            The schema to use (defaults to input table schema)
+      --temporary <TEMPORARIES>    Temporary directories, cloud storage buckets, datasets to use
+                                   during transfer (can be repeated)
+      --from-arg <FROM_ARGS>       Pass an extra argument of the form `key=value` to the source
+                                   driver
+      --from-format <FROM_FORMAT>  For directory- and file-like data sources, the format to assume.
+                                   If not specified, `dbcrossbar` will use the file extension to
+                                   guess the format
+      --where <WHERE_CLAUSE>       SQL where clause specifying rows to use
+  -h, --help                       Print help
 
 EXAMPLE LOCATORS:
     postgres://localhost:5432/db#table

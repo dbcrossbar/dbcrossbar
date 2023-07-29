@@ -10,3 +10,11 @@ check:
     cargo fmt -- --check
     cargo deny check
     cargo test
+
+# Update various generated files (which need to be checked in).
+update-generated:
+    (cd guide/src/generated && ./generate.sh)
+
+# Build our guide. Requires mdbook and mbook-graphviz.
+guide:
+    (cd guide && mdbook build)

@@ -1,6 +1,6 @@
 # Shopify (UNSTABLE)
 
-**WARNING:** This is highly experimental and subject to change. To use it, you must enable it using the `--enable-unstable` flag.
+**WARNING:** This is highly experimental and will likely be removed in a future release in favor of the new JSON Lines support. To use it for now, you must enable it using the `--enable-unstable` flag.
 
 Shopify is an online e-commerce platform with a REST API for fetching data.
 

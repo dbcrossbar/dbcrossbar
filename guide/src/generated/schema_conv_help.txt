@@ -1,20 +1,13 @@
-Convert table schemas from one format to another
 
-USAGE:
-    dbcrossbar schema conv [OPTIONS] <from-locator> <to-locator>
+Usage: dbcrossbar schema conv [OPTIONS] <FROM_LOCATOR> <TO_LOCATOR>
 
-FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
+Arguments:
+  <FROM_LOCATOR>  The input schema
+  <TO_LOCATOR>    The output schema
 
-OPTIONS:
-        --if-exists <if-exists>
-            One of `error`, `overrwrite` or `append` [default: error]
-
-
-ARGS:
-    <from-locator>    The input schema
-    <to-locator>      The output schema
+Options:
+      --if-exists <IF_EXISTS>  One of `error`, `overrwrite` or `append` [default: error]
+  -h, --help                   Print help
 
 EXAMPLE LOCATORS:
     postgres-sql:table.sql

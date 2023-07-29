@@ -1,0 +1,6 @@
+file features:
+- cp FROM:
+  --format=$FORMAT
+- cp TO:
+  --format=$FORMAT
+  --if-exists=error --if-exists=overwrite

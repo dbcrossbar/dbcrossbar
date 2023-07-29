@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-cargo build
+cargo build --all
 
 function dbxb {
     ../../../target/debug/dbcrossbar --enable-unstable "$@" 2>&1
@@ -16,6 +16,6 @@ done
 
 dbxb features > features.txt
 
-for d in bigml bigquery csv gs postgres redshift s3 shopify; do
+for d in bigml bigquery csv file gs postgres redshift s3 shopify; do
     dbxb features $d > features_$d.txt
 done

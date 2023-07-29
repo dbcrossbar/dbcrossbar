@@ -4,8 +4,8 @@ use anyhow::{format_err, Context as _, Result};
 use clap::Parser;
 use dbcrossbarlib::{
     config::Configuration, rechunk::rechunk_csvs, tokio_glue::try_forward, Context,
-    DestinationArguments, DisplayOutputLocators, DriverArguments, IfExists,
-    SharedArguments, SourceArguments, TemporaryStorage, UnparsedLocator,
+    DataFormat, DestinationArguments, DisplayOutputLocators, DriverArguments,
+    IfExists, SharedArguments, SourceArguments, TemporaryStorage, UnparsedLocator,
 };
 use futures::{pin_mut, stream, FutureExt, StreamExt, TryStreamExt};
 use humanize_rs::bytes::Bytes as HumanizedBytes;
@@ -40,10 +40,21 @@ pub(crate) struct Opt {
     #[clap(long = "from-arg")]
     from_args: Vec<String>,
 
+    /// For directory- and file-like data sources, the format to assume. If not
+    /// specified, `dbcrossbar` will use the file extension to guess the format.
+    #[clap(long = "from-format")]
+    from_format: Option<DataFormat>,
+
     /// Pass an extra argument of the form `key=value` to the destination
     /// driver.
     #[clap(long = "to-arg")]
     to_args: Vec<String>,
+
+    /// For directory-like data destinations, the format to use. If not
+    /// specified, `dbcrossbar` will use the destination file extension (if
+    /// provided) or `csv`.
+    #[clap(long = "to-format", short = 'F')]
+    to_format: Option<DataFormat>,
 
     /// SQL where clause specifying rows to use.
     #[clap(long = "where")]
@@ -100,11 +111,16 @@ pub(crate) async fn run(
 
     // Build our source arguments.
     let from_args = DriverArguments::from_cli_args(&opt.from_args)?;
-    let source_args = SourceArguments::new(from_args, opt.where_clause.clone());
+    let source_args = SourceArguments::new(
+        from_args,
+        opt.from_format.clone(),
+        opt.where_clause.clone(),
+    );
 
     // Build our destination arguments.
     let to_args = DriverArguments::from_cli_args(&opt.to_args)?;
-    let dest_args = DestinationArguments::new(to_args, opt.if_exists);
+    let dest_args =
+        DestinationArguments::new(to_args, opt.to_format.clone(), opt.if_exists);
 
     // Can we short-circuit this particular copy using special features of the
     // the source and destination, or do we need to pull the data down to the
