@@ -1,3 +1,4 @@
+# Licenses we expect to see in the dependency graph.
 accepted = [
     "MIT",
     "Apache-2.0",
@@ -7,8 +8,30 @@ accepted = [
     "ISC",
     "OpenSSL",
     "Zlib",
-    "MPL-2.0"
+    "MPL-2.0",
+    "Unicode-DFS-2016",
 ]
 
+# Automatic workarounds for crates that have weird licensing information.
+workarounds = [
+    # This crate breaks the license detection tools, but there's an official
+    # workaround for it.
+    "ring",
+]
+
+# Since we're generating license information for our binary, we don't want to
+# include the licenses of things we don't ship.
 ignore-build-dependencies = true
 ignore-dev-dependencies = true
+
+# Use local license scanning when the online service reports "NOASSERTION".
+# This is currently necessary to avoid being confused by webpki.
+filter-noassertion = true
+
+# These are the only targets we currently ship or hope to ship someday.
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "x86_64-unknown-linux-musl",
+    "x86_64-pc-windows-msvc",
+    "x86_64-apple-darwin",
+]
