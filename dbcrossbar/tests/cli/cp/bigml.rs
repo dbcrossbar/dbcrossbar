@@ -9,12 +9,26 @@ use super::*;
 #[test]
 #[ignore]
 fn cp_from_bigml_to_exact_csv() {
+    // Skip test if BIGML_USERNAME isn't set. This driver is probably going away
+    // anyway.
+    if env::var("BIGML_USERNAME").is_err() {
+        eprintln!("Skipping cp_shopify_to_bigquery because BIGML_USERNAME isn't set");
+        return;
+    }
+
     assert_cp_to_exact_csv("cp_from_bigml_to_exact_csv", "bigml:dataset");
 }
 
 #[test]
 #[ignore]
 fn cp_csv_to_bigml_dataset_to_csv() {
+    // Skip test if BIGML_USERNAME isn't set. This driver is probably going away
+    // anyway.
+    if env::var("BIGML_USERNAME").is_err() {
+        eprintln!("Skipping cp_shopify_to_bigquery because BIGML_USERNAME isn't set");
+        return;
+    }
+
     let testdir = TestDir::new("dbcrossbar", "cp_csv_to_bigml_dataset_to_csv");
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
