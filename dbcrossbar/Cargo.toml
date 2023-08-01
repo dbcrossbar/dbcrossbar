@@ -1,6 +1,6 @@
 [package]
 name = "dbcrossbar"
-version = "0.5.2"
+version = "0.5.3"
 authors = ["Eric Kidd <git@randomhacks.net>"]
 edition = "2018"
 
@@ -27,7 +27,7 @@ humanize-rs = "0.1.5"
 include-flate = { version = "0.2", features = ["stable"] }
 opener = "0.6.1"
 openssl-probe = "0.1.2"
-dbcrossbarlib = { path = "../dbcrossbarlib", version = "=0.5.2" }
+dbcrossbarlib = { path = "../dbcrossbarlib", version = "=0.5.3" }
 serde = "1.0.79"
 serde_json = "1.0.32"
 tempfile = "3.1.0"

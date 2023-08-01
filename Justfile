@@ -16,7 +16,13 @@ check:
 
 # Check to make sure our working copy is clean.
 check-clean: update-generated
+    git status
     git diff-index --quiet HEAD --
+
+# Test all drivers. Requires lots of environment variables to be set and some
+# Docker containers to be running. Mostly for Faraday internal testing.
+test-all:
+    cargo test --all -- --include-ignored
 
 # Update various generated files (which need to be checked in).
 update-generated:
