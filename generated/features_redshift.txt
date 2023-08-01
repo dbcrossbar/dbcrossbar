@@ -4,4 +4,4 @@ redshift features:
   --from-arg=$NAME=$VALUE --where=$SQL_EXPR
 - cp TO:
   --to-arg=$NAME=$VALUE
-  --if-exists=append --if-exists=overwrite
+  --if-exists=error --if-exists=append --if-exists=overwrite --if-exists=upsert-on:col
