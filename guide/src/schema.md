@@ -43,7 +43,7 @@ The `data_type` field can contain any of:
 - `"decimal"`: A decimal integer (can represent currency, etc., without rounding errors).
 - `"float32"`: A 32-bit floating point number.
 - `"float64"`: A 64-bit floating point number.
-- `{ "geojson": srid }`: Geodata in GeoJSON format, using the specified [SRID][], to specify the spatial reference system.
+- `{ "geo_json": srid }`: Geodata in GeoJSON format, using the specified [SRID][], to specify the spatial reference system.
 - `"int16"`: A 16-bit signed integer.
 - `"int32"`: A 32-bit signed integer.
 - `"int64"`: A 64-bit signed integer.
