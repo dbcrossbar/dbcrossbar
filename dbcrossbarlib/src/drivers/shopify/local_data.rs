@@ -12,10 +12,9 @@ use tokio::{
 };
 
 use super::ShopifyLocator;
-use crate::common::*;
 use crate::credentials::CredentialsManager;
-use crate::json_to_csv::write_rows;
 use crate::tokio_glue::{box_stream_once, bytes_channel, SendResultExt};
+use crate::{common::*, data_streams::jsonl_converter::write_rows};
 
 #[instrument(
     level = "trace",

@@ -80,7 +80,7 @@ impl Locator for FileLocator {
     fn display_output_locators(&self) -> DisplayOutputLocators {
         match &self.path {
             // If we write our data to standard output, we don't also want to
-            // print out "csv:-" to the same standard output.
+            // print out "file:-" to the same standard output.
             PathOrStdio::Stdio => DisplayOutputLocators::Never,
             _ => DisplayOutputLocators::IfRequested,
         }
@@ -300,7 +300,8 @@ async fn write_local_data_helper(
                     async move {
                         // TODO: This join does not handle `..` or nested `/` in
                         // a particularly safe fashion.
-                        let csv_path = path.join(format!("{}.csv", stream.name));
+                        let ext = format.extension();
+                        let csv_path = path.join(format!("{}.{}", stream.name, ext));
                         Span::current().record("path", &field::display(csv_path.display()));
                         let data_stream =
                             DataStream::from_csv_stream(&ctx, format, &schema, stream).await?;

@@ -1,11 +1,11 @@
-use std::{ffi::OsStr, fmt, str::FromStr};
+use std::{borrow::Cow, ffi::OsStr, fmt, str::FromStr};
 
 use async_trait::async_trait;
 
 use crate::common::*;
 
 mod csv_converter;
-mod jsonl_converter;
+pub(crate) mod jsonl_converter;
 
 /// The format of a stream of data.
 ///
@@ -38,6 +38,15 @@ impl DataFormat {
             "csv" => Self::Csv,
             "jsonl" => Self::JsonLines,
             _ => Self::Unsupported(ext),
+        }
+    }
+
+    /// Fetch the default file extension for a given `DataFormat`.
+    pub(crate) fn extension(&self) -> Cow<str> {
+        match self {
+            Self::Csv => Cow::Borrowed("csv"),
+            Self::JsonLines => Cow::Borrowed("jsonl"),
+            Self::Unsupported(s) => Cow::Owned(s.to_ascii_lowercase()),
         }
     }
 

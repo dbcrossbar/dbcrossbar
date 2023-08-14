@@ -43,7 +43,6 @@ pub mod drivers;
 pub(crate) mod from_csv_cell;
 pub(crate) mod from_json_value;
 pub(crate) mod if_exists;
-pub(crate) mod json_to_csv;
 pub(crate) mod locator;
 pub(crate) mod parse_error;
 pub(crate) mod path_or_stdio;

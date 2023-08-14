@@ -6,8 +6,18 @@
 use cli_test_dir::*;
 use std::fs;
 
+use super::assert_cp_to_exact_csv;
+
 /// An example CSV file with columns corresponding to `EXAMPLE_SQL`.
 const EXAMPLE_CSV: &str = include_str!("../../../fixtures/example.csv");
+
+// This is `#[ignore]` because `assert_cp_to_exact_csv` currently wants to
+// configure all the standard temporary directories. We should fix that.
+#[test]
+#[ignore]
+fn cp_from_jsonl_to_exact_csv() {
+    assert_cp_to_exact_csv("cp_from_jsonl_to_exact_csv", "file:test.jsonl");
+}
 
 #[test]
 fn cp_csv_to_csvs() {
@@ -102,8 +112,8 @@ fn cp_jsonl_to_csv_piped() {
 }
 
 #[test]
-fn cp_csv_jsonl_fails_for_now() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_jsonl_fails_for_now");
+fn cp_csv_to_jsonl_file() {
+    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_jsonl_file");
     let input = testdir.src_path("fixtures/example.csv");
     let schema = testdir.src_path("fixtures/example.sql");
     testdir
@@ -115,12 +125,14 @@ fn cp_csv_jsonl_fails_for_now() {
             "file:out.jsonl",
         ])
         .tee_output()
-        .expect_failure();
+        .expect_success();
+    testdir.expect_path("out.jsonl");
+    testdir.expect_contains("out.jsonl", "{");
 }
 
 #[test]
-fn cp_csv_jsonl_dir_fails_for_now() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_jsonl_fails_for_now");
+fn cp_csv_to_jsonl_dir() {
+    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_jsonl_dir");
     let input = testdir.src_path("fixtures/example.csv");
     let schema = testdir.src_path("fixtures/example.sql");
     testdir
@@ -132,14 +144,17 @@ fn cp_csv_jsonl_dir_fails_for_now() {
             &format!("file:{}", input.display()),
             "file:out/",
         ])
-        .expect_failure();
+        .expect_success();
+    testdir.expect_path("out/example.jsonl");
+    testdir.expect_contains("out/example.jsonl", "{");
 }
+
 #[test]
-fn cp_csv_jsonl_piped_fails_for_now() {
+fn cp_csv_to_jsonl_piped() {
     let testdir = TestDir::new("dbcrossbar", "cp_csv_jsonl_fails_for_now");
     let input = testdir.src_path("fixtures/example.csv");
     let schema = testdir.src_path("fixtures/example.sql");
-    testdir
+    let output = testdir
         .cmd()
         .args([
             "cp",
@@ -148,5 +163,6 @@ fn cp_csv_jsonl_piped_fails_for_now() {
             &format!("file:{}", input.display()),
             "file:-",
         ])
-        .expect_failure();
+        .expect_success();
+    assert!(output.stdout_str().starts_with('{'));
 }
