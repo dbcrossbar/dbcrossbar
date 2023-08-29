@@ -78,7 +78,7 @@ fn bucket_url_extracts_bucket() {
 /// Given a line of `aws s3 ls` output, extract the path.
 fn path_from_line(line: &str) -> Result<String> {
     lazy_static! {
-        static ref RE: Regex = Regex::new(r#"^[-0-9]+ [:0-9]+ +[0-9]+ ([^\r\n]+)"#)
+        static ref RE: Regex = Regex::new(r"^[-0-9]+ [:0-9]+ +[0-9]+ ([^\r\n]+)")
             .expect("invalid regex in source");
     }
     let cap = RE

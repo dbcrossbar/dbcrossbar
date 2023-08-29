@@ -144,7 +144,7 @@ impl DataStream {
 
 /// Convert a format to and from CSV format.
 #[async_trait]
-pub(self) trait DataFormatConverter: Send + Sync {
+trait DataFormatConverter: Send + Sync {
     /// Infer a schema from a stream of data.
     async fn schema(
         &self,

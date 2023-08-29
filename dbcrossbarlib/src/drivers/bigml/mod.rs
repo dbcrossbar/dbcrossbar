@@ -34,7 +34,7 @@ enum BigMlAction {
 }
 
 /// (Internal.) Options for resource creation.
-pub(self) struct CreateOptions {
+struct CreateOptions {
     /// Should we concatenate our input CSVs into a single stream?
     pub(self) concat_csv_streams: bool,
     /// Should we convert our initial source into a dataset?

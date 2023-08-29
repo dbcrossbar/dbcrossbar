@@ -24,7 +24,7 @@ pub(crate) use upload_file::upload_file;
 /// bucket-specific credentials, once [`CredentialsManager`] supports per-host
 /// credentials. For now, this basically exists to (try to) ensure that we're
 /// not relying on `aws`'s built-in authentication.
-pub(self) async fn aws_s3_command() -> Result<Command> {
+async fn aws_s3_command() -> Result<Command> {
     let creds = CredentialsManager::singleton().get("aws").await?;
 
     let mut command = Command::new("aws");

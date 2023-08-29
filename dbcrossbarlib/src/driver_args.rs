@@ -76,7 +76,7 @@ fn to_json_detects_conflicts() {
 
 /// The name of a driver argument.
 #[derive(Clone, Debug)]
-pub(self) struct Arg {
+struct Arg {
     file_info: Arc<FileInfo>,
     name: ArgName,
     value: Value,
@@ -105,11 +105,11 @@ impl FromStr for Arg {
 /// non-`Component::FinalArray` value, and finish with a optional
 /// `Component::FinalArray`. These rules are enforced by the parser's grammar.
 #[derive(Clone, Debug)]
-pub(self) struct ArgName(Vec<Component>);
+struct ArgName(Vec<Component>);
 
 /// A component of the name of a driver argument.
 #[derive(Clone, Debug)]
-pub(self) enum Component {
+enum Component {
     /// A ".name" or `[name]` expression.
     Member(Range<usize>, String),
     /// A "[]" expression, which can only appear at the end.

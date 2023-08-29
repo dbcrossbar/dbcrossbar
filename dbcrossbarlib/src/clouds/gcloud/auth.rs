@@ -147,6 +147,7 @@ async fn installed_flow_authenticator() -> Result<Authenticator> {
     // times, but scoping session keys to the client ID seems reasonable.
     let token_file_path = token_file_path(&application_secret.client_id).await?;
     ensure_parent_directory(&token_file_path).await?;
+    info!("building InstalledFlowAuthenticator");
     yup_oauth2::InstalledFlowAuthenticator::builder(
         application_secret,
         InstalledFlowReturnMethod::HTTPRedirect,

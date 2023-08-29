@@ -20,7 +20,7 @@ pub(crate) use schema_grammar::schema as parse;
 
 /// A top-level definition in the SQL. We'll separate these into multiple lists
 /// before returning.
-pub(self) enum Definition {
+enum Definition {
     /// `CREATE TYPE`.
     Type(PgCreateType),
     /// `CREATE TABLE`.
@@ -28,7 +28,7 @@ pub(self) enum Definition {
 }
 
 /// Group `CREATE` definitions by type.
-pub(self) fn group_definitions(
+fn group_definitions(
     defs: Vec<Definition>,
 ) -> (Vec<PgCreateType>, Vec<PgCreateTable>) {
     let mut types = vec![];
