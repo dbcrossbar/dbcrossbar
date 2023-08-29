@@ -44,8 +44,6 @@ version:
 
 # Release via crates.io and GitHub.
 release: check check-clean
-  (cd dbcrossbarlib && cargo publish)
-  sleep 10
   (cd dbcrossbar && cargo publish)
   git tag v{{VERSION}}
   git push

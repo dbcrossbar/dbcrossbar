@@ -20,8 +20,8 @@
 //! deserialized using [`serde`](https://serde.rs/).
 //!
 //! ```
-//! use dbcrossbarlib::schema::Schema;
 //! use serde_json;
+//! use crate::schema::Schema;
 //!
 //! let json = r#"
 //! {

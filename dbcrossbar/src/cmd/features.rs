@@ -2,7 +2,8 @@
 
 use anyhow::Result;
 use clap::Parser;
-use dbcrossbarlib::{
+
+use crate::{
     config::Configuration,
     drivers::{all_drivers, find_driver},
 };

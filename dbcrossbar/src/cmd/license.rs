@@ -2,9 +2,10 @@
 
 use anyhow::{Context as _, Result};
 use clap::Parser;
-use dbcrossbarlib::{config::Configuration, tokio_glue::spawn_blocking};
 use std::path::{Path, PathBuf};
 use tokio::{fs, io::AsyncWriteExt};
+
+use crate::{config::Configuration, tokio_glue::spawn_blocking};
 
 /// License output arguments.
 #[derive(Debug, Parser)]

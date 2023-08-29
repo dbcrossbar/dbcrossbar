@@ -2,7 +2,8 @@
 
 use anyhow::{format_err, Result};
 use clap::Parser;
-use dbcrossbarlib::{
+
+use crate::{
     config::{Configuration, Key},
     tokio_glue::spawn_blocking,
 };

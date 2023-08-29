@@ -2,7 +2,8 @@
 
 use anyhow::{format_err, Result};
 use clap::Parser;
-use dbcrossbarlib::{config::Configuration, Context, IfExists, UnparsedLocator};
+
+use crate::{config::Configuration, Context, IfExists, UnparsedLocator};
 
 /// Schema conversion arguments.
 #[derive(Debug, Parser)]

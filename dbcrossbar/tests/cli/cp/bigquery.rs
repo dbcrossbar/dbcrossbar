@@ -1,13 +1,24 @@
 //! BigQuery-specific tests.
 
 use cli_test_dir::*;
-use dbcrossbarlib::{schema::DataType, TemporaryStorage};
 use difference::assert_diff;
 use pretty_assertions::assert_eq;
-use serde_json::json;
-use std::{fs, io::Write, path::Path, process::Command};
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use serde_json::{json, Value};
+use std::{fs, io::Write, iter, path::Path, process::Command};
 
 use super::*;
+
+/// Generate a random alphanumeric tag for use in temporary directory names.
+fn random_tag() -> String {
+    let mut rng = thread_rng();
+    let bytes = iter::repeat(())
+        .map(|()| rng.sample(Alphanumeric))
+        .take(10)
+        .collect::<Vec<u8>>();
+    String::from_utf8(bytes)
+        .expect("random alphanumeric value should always be valid UTF-8")
+}
 
 #[test]
 #[ignore]
@@ -202,7 +213,7 @@ fn bigquery_record_columns() {
     let dataset_name = bq_temp_dataset_name();
     let bare_dataset_name =
         &dataset_name[dataset_name.find(':').expect("no colon") + 1..];
-    let table_name = format!("record_cols_{}", TemporaryStorage::random_tag());
+    let table_name = format!("record_cols_{}", random_tag());
     let locator = format!("bigquery:{}.{}", dataset_name, table_name);
 
     // Create a BigQuery table containing record columns.
@@ -387,7 +398,7 @@ fn bigquery_roundtrips_structs() {
 
     // Load our data type and use it to create our schema. This actually needs two columns.
     let schema_from_file = |path: &Path| -> serde_json::Value {
-        let ty: DataType =
+        let ty: Value =
             serde_json::from_reader(fs::File::open(path).unwrap()).unwrap();
         json!({
             "named_data_types": [],

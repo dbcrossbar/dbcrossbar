@@ -2,16 +2,17 @@
 
 use anyhow::{format_err, Context as _, Result};
 use clap::Parser;
-use dbcrossbarlib::{
-    config::Configuration, rechunk::rechunk_csvs, tokio_glue::try_forward, Context,
-    DataFormat, DestinationArguments, DisplayOutputLocators, DriverArguments,
-    IfExists, SharedArguments, SourceArguments, TemporaryStorage, UnparsedLocator,
-};
 use futures::{pin_mut, stream, FutureExt, StreamExt, TryStreamExt};
 use humanize_rs::bytes::Bytes as HumanizedBytes;
 use tokio::io;
 use tokio_util::codec::{FramedWrite, LinesCodec};
 use tracing::{debug, field, instrument, Span};
+
+use crate::{
+    config::Configuration, rechunk::rechunk_csvs, tokio_glue::try_forward, Context,
+    DataFormat, DestinationArguments, DisplayOutputLocators, DriverArguments,
+    IfExists, SharedArguments, SourceArguments, TemporaryStorage, UnparsedLocator,
+};
 
 /// Schema conversion arguments.
 #[derive(Debug, Parser)]

@@ -2,7 +2,8 @@
 
 use anyhow::{format_err, Context as _, Result};
 use clap::Parser;
-use dbcrossbarlib::{
+
+use crate::{
     config::Configuration, Context, DataFormat, DriverArguments, SharedArguments,
     SourceArguments, TemporaryStorage, UnparsedLocator,
 };
