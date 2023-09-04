@@ -342,7 +342,7 @@ pub fn set_parent_span_from_env() {
 }
 
 /// Export the current [`tracing::Span`] using [`Injector`].
-pub fn export_current_span(injector: &mut dyn Injector) {
+pub fn inject_current_span_into(injector: &mut dyn Injector) {
     global::get_text_map_propagator(|propagator| {
         let span: tracing::Span = tracing::Span::current();
         let context: opentelemetry::Context = span.context();
@@ -352,15 +352,16 @@ pub fn export_current_span(injector: &mut dyn Injector) {
 
 /// Export the current [`tracing::Span`] in a format suitable for passing to
 /// [`tokio::process::Command::envs`].
-pub fn export_current_span_as_env() -> impl Iterator<Item = (String, String)> {
+pub fn current_span_as_env() -> impl Iterator<Item = (String, String)> {
     let mut injector = EnvInjector::new();
-    export_current_span(&mut injector);
+    inject_current_span_into(&mut injector);
     injector.into_iter()
 }
 
-/// Export the current [`tracing::Span`] as headers stored in a `HashMap`.
-pub fn export_current_span_as_headers() -> HashMap<String, String> {
+/// Export the current [`tracing::Span`] as HTTP-style headers stored in a
+/// `HashMap`.
+pub fn current_span_as_headers() -> HashMap<String, String> {
     let mut injector = HashMap::new();
-    export_current_span(&mut injector);
+    inject_current_span_into(&mut injector);
     injector
 }

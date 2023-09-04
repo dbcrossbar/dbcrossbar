@@ -2,8 +2,8 @@ use std::env::current_exe;
 
 use anyhow::{anyhow, Result};
 use opinionated_telemetry::{
-    export_current_span_as_env, export_current_span_as_headers, instrument,
-    run_with_telemetry, set_parent_span_from_env, Level,
+    current_span_as_env, current_span_as_headers, instrument, run_with_telemetry,
+    set_parent_span_from_env, Level,
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
@@ -50,7 +50,7 @@ async fn make_request_to_server() -> Result<()> {
     let mut rdr = BufReader::new(read_half);
 
     // Get our headers from OpenTracing and write them.
-    let headers = export_current_span_as_headers();
+    let headers = current_span_as_headers();
     eprintln!("Headers: {:?}", headers);
     for (header, value) in headers {
         if !value.is_empty() {
@@ -91,7 +91,7 @@ async fn call_cli_tool() -> Result<()> {
 
     // Build and run our command.
     let status = Command::new(cli_tracing_exe)
-        .envs(export_current_span_as_env())
+        .envs(current_span_as_env())
         .status()
         .await?;
     if !status.success() {

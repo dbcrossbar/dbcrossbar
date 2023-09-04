@@ -29,8 +29,8 @@ mod our_tracing;
 
 pub use self::error::{Error, Result};
 pub use self::our_tracing::{
-    end_tracing, export_current_span, export_current_span_as_env,
-    export_current_span_as_headers, set_parent_span_from, set_parent_span_from_env,
+    current_span_as_env, current_span_as_headers, end_tracing,
+    inject_current_span_into, set_parent_span_from, set_parent_span_from_env,
     start_tracing, SetParentFromExtractor,
 };
 
