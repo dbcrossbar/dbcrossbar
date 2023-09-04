@@ -1,7 +1,7 @@
 use std::{collections::HashMap, env::current_exe};
 
 use anyhow::{anyhow, Result};
-use opinionated_tracing::{
+use opinionated_telemetry::{
     debug_span, inject_current_context, instrument, trace_with_parent_span_from_env,
     EnvInjector,
 };

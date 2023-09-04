@@ -1672,7 +1672,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "opinionated-tracing"
+name = "opinionated-telemetry"
 version = "0.1.0"
 dependencies = [
  "anyhow",

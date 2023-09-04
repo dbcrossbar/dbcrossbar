@@ -1,2 +1,2 @@
 [workspace]
-members = ["crates/opinionated_tracing", "dbcrossbar"]
+members = ["crates/opinionated_telemetry", "dbcrossbar"]

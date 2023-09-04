@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, Result};
 use futures::Future;
-use opinionated_tracing::{
+use opinionated_telemetry::{
     info_span, instrument, start_tracing, Instrument, WithExternalContext,
 };
 use tokio::{

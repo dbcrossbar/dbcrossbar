@@ -1,5 +1,5 @@
 use anyhow::Result;
-use opinionated_tracing::{debug, debug_span, trace_with_parent_span_from_env};
+use opinionated_telemetry::{debug, debug_span, trace_with_parent_span_from_env};
 
 #[tokio::main]
 async fn main() -> Result<()> {
