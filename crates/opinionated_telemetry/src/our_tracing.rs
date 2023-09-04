@@ -1,6 +1,8 @@
 //! Tools for tracing, with OpenTelemetry integration.
 
-use std::{env, error, fmt, future::Future, path::Path, str::FromStr, time::Duration};
+use std::{
+    collections::HashMap, env, error, fmt, path::Path, str::FromStr, time::Duration,
+};
 
 use async_trait::async_trait;
 use futures::{future::BoxFuture, FutureExt};
@@ -21,15 +23,14 @@ use opentelemetry::{
         Resource,
     },
     trace::TracerProvider as _,
-    Context, KeyValue, Value,
+    KeyValue, Value,
 };
 use opentelemetry_stackdriver::{StackDriverExporter, YupAuthorizer};
 use tokio::{sync::RwLock, task::JoinHandle};
-use tracing::Instrument;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_subscriber::{fmt::format::FmtSpan, prelude::*, Registry};
 
-use crate::env_extractor::EnvExtractor;
+use crate::{env_extractor::EnvExtractor, env_injector::EnvInjector};
 
 use super::{debug_exporter::DebugExporter, Error, Result};
 
@@ -59,7 +60,7 @@ macro_rules! derive_extractor {
 }
 
 /// Our extensions to the `tracing::Span` type.
-pub trait SpanExt {
+trait SpanExt {
     /// Record `result` in this `Span`, and return it. Expects the span to have
     /// the following properties:
     ///
@@ -92,7 +93,7 @@ impl SpanExt for tracing::Span {
 
 /// An error occurred parsing a [`TracerType`].
 #[derive(Debug)]
-pub struct TracerTypeParseError(String);
+struct TracerTypeParseError(String);
 
 impl fmt::Display for TracerTypeParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -293,44 +294,55 @@ pub async fn end_tracing() {
     }
 }
 
-/// Run `body` inside `span`, calling [`start_tracing`] and [`end_tracing`].
-///
-/// This is suitable for CLI tools, not servers. It automatically and extract
-/// and use any trace state found in the following environment variables.
-///
-/// - `W3C_TRACEPARENT`
-/// - `W3C_TRACESTATE`
-/// - `W3C_BAGGGE`
-///
-/// For more information, see [W3C Trace Context][w3c-context] and [W3C
-/// Baggage][w3c-baggage].
-///
-/// [w3c-context]: https://www.w3.org/TR/trace-context/
-///
-/// [w3c-baggage]: https://www.w3.org/TR/baggage/
-pub async fn trace_with_parent_span_from_env<MakeSpan, Body, T, Err>(
-    service_name: &str,
-    service_version: &str,
-    make_span: MakeSpan,
-    body: Body,
-) -> Result<T, Err>
-where
-    MakeSpan: FnOnce() -> tracing::Span,
-    Body: Future<Output = Result<T, Err>>,
-    Err: From<Error>,
-{
-    start_tracing(service_name, service_version).await?;
-    let result = {
-        let extractor = EnvExtractor::from_env();
-        let span = make_span().with_external_context(&extractor);
-        body.instrument(span).await
-    };
-    end_tracing().await;
-    result
+/// Trait that allows adding an external [`opentelemetry::Context`] to an
+/// existing [`tracing::Span`].
+pub trait SetParentFromExtractor: Sized {
+    /// Extract an OpenTracing trace [`opentelemetry::Context`] from
+    /// `extractor`, and add it to this span.
+    fn set_parent_from_extractor(&mut self, extractor: &dyn Extractor);
+
+    /// Extract an OpenTracing trace [`opentelemetry::Context`] from
+    /// the environment, and add it to this span.
+    fn set_parent_from_env(&mut self) {
+        self.set_parent_from_extractor(&EnvExtractor::from_env());
+    }
 }
 
-/// Take the current tracing context, and export it using `Injector`.
-pub fn inject_current_context(injector: &mut dyn Injector) {
+impl SetParentFromExtractor for tracing::Span {
+    fn set_parent_from_extractor(&mut self, extractor: &dyn Extractor) {
+        global::get_text_map_propagator(|propagator| {
+            let context = propagator.extract(extractor);
+
+            // eprintln!(
+            //     "context: {:?} {:?} {:?} {:?}, {:?}",
+            //     context.get::<TraceId>(),
+            //     context.get::<SpanId>(),
+            //     context.get::<TraceState>(),
+            //     context.span(),
+            //     context.baggage(),
+            // );
+
+            self.set_parent(context);
+        });
+    }
+}
+
+/// Set the parent of the current span using the given extractor. If no
+/// trace span can be found using the extractor, start a new trace instead
+pub fn set_parent_span_from(extractor: &dyn Extractor) {
+    let mut span: tracing::Span = tracing::Span::current();
+    span.set_parent_from_extractor(extractor);
+}
+
+/// Set the parent of the current span using the environment. This will use
+/// the `TRACEPARENT` and `TRACESTATE` if present.
+pub fn set_parent_span_from_env() {
+    let mut span: tracing::Span = tracing::Span::current();
+    span.set_parent_from_env();
+}
+
+/// Export the current [`tracing::Span`] using [`Injector`].
+pub fn export_current_span(injector: &mut dyn Injector) {
     global::get_text_map_propagator(|propagator| {
         let span: tracing::Span = tracing::Span::current();
         let context: opentelemetry::Context = span.context();
@@ -338,34 +350,17 @@ pub fn inject_current_context(injector: &mut dyn Injector) {
     });
 }
 
-/// Extract a root OpenTracing context.
-///
-/// We support `traceparent`, `tracestate` and `baggage`.
-fn extract_external_context(extractor: &dyn Extractor) -> Context {
-    global::get_text_map_propagator(|propagator| propagator.extract(extractor))
+/// Export the current [`tracing::Span`] in a format suitable for passing to
+/// [`tokio::process::Command::envs`].
+pub fn export_current_span_as_env() -> impl Iterator<Item = (String, String)> {
+    let mut injector = EnvInjector::new();
+    export_current_span(&mut injector);
+    injector.into_iter()
 }
 
-/// Trait that allows adding an external [`opentelemetry::Context`] to a [`tracing::Span`].
-pub trait WithExternalContext: Sized {
-    /// Extract an OpenTracing trace [`opentelemetry::Context`] from
-    /// `extractor`, and add it to this span.
-    fn with_external_context(self, extractor: &dyn Extractor) -> Self;
-}
-
-impl WithExternalContext for tracing::Span {
-    fn with_external_context(self, extractor: &dyn Extractor) -> Self {
-        let context = extract_external_context(extractor);
-
-        // eprintln!(
-        //     "context: {:?} {:?} {:?} {:?}, {:?}",
-        //     context.get::<TraceId>(),
-        //     context.get::<SpanId>(),
-        //     context.get::<TraceState>(),
-        //     context.span(),
-        //     context.baggage(),
-        // );
-
-        self.set_parent(context);
-        self
-    }
+/// Export the current [`tracing::Span`] as headers stored in a `HashMap`.
+pub fn export_current_span_as_headers() -> HashMap<String, String> {
+    let mut injector = HashMap::new();
+    export_current_span(&mut injector);
+    injector
 }

@@ -1,18 +1,32 @@
 use anyhow::Result;
-use opinionated_telemetry::{debug, debug_span, trace_with_parent_span_from_env};
+use opinionated_telemetry::{
+    debug, instrument, run_with_telemetry, set_parent_span_from_env, Level,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    trace_with_parent_span_from_env(
+    // Set up all our telemetry.
+    //
+    // We can't create any spans until we're inside `main_helper`, because we
+    // need to wait for `run_with_telemetry` to start the tracing subsystem.
+    run_with_telemetry(
         env!("CARGO_PKG_NAME"),
         env!("CARGO_PKG_VERSION"),
-        // Your root span. Add any fields you want.
-        || debug_span!("cli-tracing", version = env!("CARGO_PKG_VERSION")),
-        // The body of the span.
-        async {
-            debug!("Hello, world!");
-            Ok(())
-        },
+        main_helper(),
     )
     .await
+}
+
+#[instrument(
+    level = Level::INFO,
+    name = "cli-tracing",
+    fields(version = env!("CARGO_PKG_VERSION"))
+)]
+async fn main_helper() -> Result<()> {
+    // Hook into any existing trace passed via `TRACEPARENT` and `TRACESTATE`
+    // headers. If we can't find one, start a new trace.
+    set_parent_span_from_env();
+
+    debug!("Hello, world!");
+    Ok(())
 }

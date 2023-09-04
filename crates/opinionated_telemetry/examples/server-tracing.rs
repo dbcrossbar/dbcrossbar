@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::{anyhow, Result};
 use futures::Future;
 use opinionated_telemetry::{
-    info_span, instrument, start_tracing, Instrument, WithExternalContext,
+    info_span, start_tracing, Instrument, SetParentFromExtractor,
 };
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter},
@@ -12,18 +12,15 @@ use tokio::{
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Set up all our telemetry.
     start_tracing(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")).await?;
 
-    // A simple TCP server.
+    // Listen for incoming connections and dispatch them.
     let listener = TcpListener::bind("127.0.0.1:9321").await?;
     loop {
         let (socket, _) = listener.accept().await?;
         tokio::spawn(log_error_wrapper(handle_request(socket)));
     }
-
-    // If our server shuts down cleanly, we would also want to do this.
-    //
-    // end_tracing().await;
 }
 
 /// Wrap a future, logging any errors.
@@ -35,6 +32,14 @@ async fn log_error_wrapper<T>(fut: impl Future<Output = Result<T>>) {
 
 /// Handle a single request.
 async fn handle_request(socket: TcpStream) -> Result<()> {
+    // Figure out who we're talking to.
+    let peer_addr = socket
+        .peer_addr()
+        .ok()
+        .map(|addr| addr.to_string())
+        .unwrap_or_default();
+
+    // Split our socket into a reader and writer.
     let (read_half, write_half) = socket.into_split();
     let mut rdr = BufReader::new(read_half);
     let mut wtr = BufWriter::new(write_half);
@@ -57,13 +62,26 @@ async fn handle_request(socket: TcpStream) -> Result<()> {
     }
     eprintln!("Headers: {:?}", headers);
 
-    // Create our span.
-    let span =
-        info_span!("server-tracing::handle_request").with_external_context(&headers);
+    // Create our span and call an appropriate handler. In a web server, we
+    // might name this span after the route (minus any IDs) like `"GET
+    // /foo/{ID}"`.
+    //
+    // We use `set_parent_from_extractor` to either get an existing trace and
+    // span from the headers, or start a new trace if none is present.
+    let mut span = info_span!(
+        "server-tracing::respond_to_request",
+        protocol = "tcp",
+        peer_addr = %peer_addr,
+    );
+    span.set_parent_from_extractor(&headers);
     respond_to_request(&mut wtr).instrument(span).await
 }
 
-#[instrument(skip(wtr))]
+/// Respond to a request.
+///
+/// We don't both with `#[instrument]` here, because the server request loop
+/// knows more about the request than we do, and it can build a more informative
+/// span.
 async fn respond_to_request(wtr: &mut BufWriter<OwnedWriteHalf>) -> Result<()> {
     // Write our response.
     wtr.write_all(b"Hello, world!\n").await?;

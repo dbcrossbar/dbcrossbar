@@ -1,9 +1,9 @@
-use std::{collections::HashMap, env::current_exe};
+use std::env::current_exe;
 
 use anyhow::{anyhow, Result};
 use opinionated_telemetry::{
-    debug_span, inject_current_context, instrument, trace_with_parent_span_from_env,
-    EnvInjector,
+    export_current_span_as_env, export_current_span_as_headers, instrument,
+    run_with_telemetry, set_parent_span_from_env, Level,
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
@@ -13,19 +13,31 @@ use tokio::{
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    trace_with_parent_span_from_env(
+    // Set up all our telemetry.
+    //
+    // We can't create any spans until we're inside `main_helper`, because we
+    // need to wait for `run_with_telemetry` to start the tracing subsystem.
+    run_with_telemetry(
         env!("CARGO_PKG_NAME"),
         env!("CARGO_PKG_VERSION"),
-        // Your root span. Add any fields you want.
-        || debug_span!("client-tracing", version = env!("CARGO_PKG_VERSION")),
-        // The body of the span.
-        async {
-            // Make some sample requests.
-            make_request_to_server().await?;
-            call_cli_tool().await
-        },
+        main_helper(),
     )
     .await
+}
+
+#[instrument(
+    level = Level::INFO,
+    name = "client-tracing",
+    fields(version = env!("CARGO_PKG_VERSION"))
+)]
+async fn main_helper() -> Result<()> {
+    // Hook into any existing trace passed via `TRACEPARENT` and `TRACESTATE`
+    // headers. If we can't find one, start a new trace.
+    set_parent_span_from_env();
+
+    // Make some sample requests.
+    make_request_to_server().await?;
+    call_cli_tool().await
 }
 
 /// Make a request to an HTTP server, passing the current trace information.
@@ -38,8 +50,7 @@ async fn make_request_to_server() -> Result<()> {
     let mut rdr = BufReader::new(read_half);
 
     // Get our headers from OpenTracing and write them.
-    let mut headers = HashMap::new();
-    inject_current_context(&mut headers);
+    let headers = export_current_span_as_headers();
     eprintln!("Headers: {:?}", headers);
     for (header, value) in headers {
         if !value.is_empty() {
@@ -71,23 +82,21 @@ async fn write_header_line(
 /// Invoke a CLI tool, passing the current trace information.
 #[instrument]
 async fn call_cli_tool() -> Result<()> {
-    // Find our example CLI tool and start building our command.
+    // Find our example CLI tool.
     let exe = current_exe()?;
     let exe_dir = exe
         .parent()
         .ok_or_else(|| anyhow!("expected executable to have a parent directory"))?;
     let cli_tracing_exe = exe_dir.join("cli-tracing");
-    let mut cmd = Command::new(cli_tracing_exe);
 
-    // Figure out what environment to pass to our child process.
-    let mut injector = EnvInjector::new();
-    inject_current_context(&mut injector);
-    for name in injector.remove_from_env() {
-        cmd.env_remove(name);
+    // Build and run our command.
+    let status = Command::new(cli_tracing_exe)
+        .envs(export_current_span_as_env())
+        .status()
+        .await?;
+    if !status.success() {
+        return Err(anyhow!("CLI tool failed: {:?}", status));
     }
-    cmd.envs(injector.add_to_env());
 
-    // Run our child process.
-    cmd.status().await?;
     Ok(())
 }

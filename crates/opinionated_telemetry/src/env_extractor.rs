@@ -2,18 +2,16 @@ use std::{collections::HashMap, env, ffi::OsString, iter::IntoIterator};
 
 use opentelemetry::propagation::Extractor;
 
-use super::warn;
-
-pub(crate) const ENV_VAR_PREFIX: &str = "W3C_";
-
-/// Extract trace information from environment variables.
+/// Extract trace information from the environment variables `TRACEPARENT` and
+/// `TRACESTATE`, if present.
 ///
-/// We expect environment variables to be of the form:
+/// See [opentelemetry-specification#740][issue] for background.
 ///
-/// - `W3C_TRACEPARENT`
-/// - `W3C_TRACESTATE`
-/// - `W3C_BAGGAGE`
+/// [issue]: https://github.com/open-telemetry/opentelemetry-specification/issues/740
 pub(crate) struct EnvExtractor {
+    /// A copy of the environment variables we care about. We need to store these
+    /// becase [`Extractor::get`] returns a `&str`, but [`std::env::var`] returns
+    /// an `String`.
     extracted: HashMap<String, String>,
 }
 
@@ -40,14 +38,11 @@ impl EnvExtractor {
         for (var, value) in iter.into_iter() {
             // Ignore anything we can't convert to UTF-8;
             if let (Some(var), Some(value)) = (var.to_str(), value.to_str()) {
-                if let Some(stripped) = var.strip_prefix(ENV_VAR_PREFIX) {
-                    let key = stripped.to_ascii_lowercase();
-                    if extracted.insert(key, value.to_owned()).is_some() {
-                        warn!(
-                            "multiple environment variable names similar to {:?}",
-                            var
-                        );
-                    }
+                // We ignore everything except the two widely-used values,
+                // because the environment may be large, and may contain
+                // sensitive credentials.
+                if var == "TRACEPARENT" || var == "TRACESTATE" {
+                    extracted.insert(var.to_ascii_lowercase(), value.to_owned());
                 }
             }
         }
@@ -57,9 +52,7 @@ impl EnvExtractor {
 
 impl Extractor for EnvExtractor {
     fn get(&self, key: &str) -> Option<&str> {
-        self.extracted
-            .get(&key.to_ascii_lowercase())
-            .map(|v| &v[..])
+        self.extracted.get(key).map(|v| &v[..])
     }
 
     fn keys(&self) -> Vec<&str> {
@@ -73,7 +66,7 @@ mod tests {
 
     #[test]
     fn parses_standard_headers() {
-        let traceparent_var = OsString::from("W3C_TRACEPARENT");
+        let traceparent_var = OsString::from("TRACEPARENT");
         let traceparent_val =
             OsString::from("00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01");
         let other_var = OsString::from("OTHER");
@@ -85,10 +78,6 @@ mod tests {
 
         assert_eq!(
             extractor.get("traceparent"),
-            Some("00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01")
-        );
-        assert_eq!(
-            extractor.get("TRACEPARENT"),
             Some("00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01")
         );
         assert_eq!(extractor.get("other"), None);
