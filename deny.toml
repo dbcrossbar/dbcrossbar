@@ -13,6 +13,9 @@ ignore = [
     # "RUSTSEC-2020-0159",
     # Also `localtime_r`.
     "RUSTSEC-2020-0071",
+    # CPU denial of service when validating certificate chains. To fix this,
+    # we need to update `yup-oauth2`, which breaks Google Cloud auth.
+    "RUSTSEC-2023-0052",
 ]
 
 [licenses]
