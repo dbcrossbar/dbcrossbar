@@ -169,19 +169,16 @@ impl BoxExporter {
             TracerType::CloudTrace => {
                 let credentials_str = env::var("GCLOUD_SERVICE_ACCOUNT_KEY_PATH")
                     .map_err(|_| {
-                        Error::EnvVarNotSet(
-                            "GCLOUD_SERVICE_ACCOUNT_KEY_PATH".to_owned(),
-                        )
+                        Error::env_var_not_set("GCLOUD_SERVICE_ACCOUNT_KEY_PATH")
                     })?;
                 let credentials_path = Path::new(&credentials_str);
-                let authenticator =
-                    YupAuthorizer::new(credentials_path, None).await.map_err(
-                        |err| Error::CouldNotConfigureTracing(Box::new(err)),
-                    )?;
+                let authenticator = YupAuthorizer::new(credentials_path, None)
+                    .await
+                    .map_err(Error::could_not_configure_tracing)?;
                 let (exporter, future) = StackDriverExporter::builder()
                     .build(authenticator)
                     .await
-                    .map_err(|err| Error::CouldNotConfigureTracing(Box::new(err)))?;
+                    .map_err(Error::could_not_configure_tracing)?;
                 Ok((BoxExporter::new(exporter), future.boxed()))
             }
             TracerType::Debug => {
@@ -223,7 +220,7 @@ pub async fn start_tracing(
         .ok()
         .map(|t| t.parse())
         .transpose()
-        .map_err(|err| Error::CouldNotConfigureTracing(Box::new(err)))?;
+        .map_err(Error::could_not_configure_tracing)?;
     if let Some(tracer_type) = tracer_type {
         //eprintln!("tracer_type: {}", tracer_type);
 

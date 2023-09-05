@@ -24,10 +24,13 @@ use hyper::{
     Body, Client, Method, Request, Response, Server, StatusCode,
 };
 use once_cell::sync::Lazy;
-use prometheus::{default_registry, TextEncoder};
 use tokio::sync::RwLock;
 
-use crate::{debug, error, AppType, Error, Result};
+use crate::{
+    debug, error,
+    prometheus_recorder::{PrometheusBuilder, PrometheusRenderer},
+    AppType, Error, Result,
+};
 
 /// If set, use this `Reporter` to report final metrics on program exit. This is
 /// only really relevant for CLI tools.
@@ -94,20 +97,21 @@ pub async fn start_metrics(
         .ok()
         .map(|s| s.parse())
         .transpose()
-        .map_err(|err| Error::CouldNotConfigureMetrics(Box::new(err)))?;
+        .map_err(Error::could_not_configure_metrics)?;
     if let Some(metrics_type) = metrics_type {
-        let _recorder = metrics_prometheus::install();
+        // Set up our `PrometheusRecorder`.
+        let recorder = PrometheusBuilder::new().build()?;
+        let renderer = recorder.renderer();
+        recorder.install()?;
         let reporter = match metrics_type {
             MetricsType::Prometheus => match app_type {
                 AppType::Server => {
-                    start_prometheus_server()
-                        .await
-                        .map_err(Error::CouldNotConfigureMetrics)?;
+                    start_prometheus_server(renderer).await?;
                     None
                 }
-                AppType::Cli => Some(Reporter::PrometheusPushGateway),
+                AppType::Cli => Some(Reporter::PrometheusPushGateway(renderer)),
             },
-            MetricsType::Debug => Some(Reporter::Debug),
+            MetricsType::Debug => Some(Reporter::Debug(renderer)),
         };
         *METRICS_REPORTER.write().await = reporter;
     } else {
@@ -138,29 +142,21 @@ pub async fn stop_metrics() {
     }
 }
 
-/// Internal error type used in `Reporter`, but never returned outside this
-/// crate.
-type ReporterError = Box<dyn std::error::Error + Send + Sync>;
-
-/// Internal result type used in `Reporter`, but never returned outside this
-/// crate.
-type ReporterResult<T> = Result<T, ReporterError>;
-
 /// An implementation-specific handle wrapper.
 enum Reporter {
-    PrometheusPushGateway,
-    Debug,
+    PrometheusPushGateway(PrometheusRenderer),
+    Debug(PrometheusRenderer),
 }
 
 impl Reporter {
     /// Report metrics using the chosen reporter.
-    pub async fn report(&self) -> ReporterResult<()> {
+    pub async fn report(&self) -> Result<()> {
         match self {
-            Reporter::PrometheusPushGateway => {
-                push_prometheus_metrics().await?;
+            Reporter::PrometheusPushGateway(renderer) => {
+                push_prometheus_metrics(renderer).await?;
             }
-            Reporter::Debug => {
-                let rendered = prometheus_metrics_as_string()?;
+            Reporter::Debug(renderer) => {
+                let rendered = renderer.render()?;
                 debug!("Metrics:\n{}", &rendered);
             }
         }
@@ -168,28 +164,31 @@ impl Reporter {
     }
 }
 
-/// Render Prometheus metrics from our default registry as a string.
-fn prometheus_metrics_as_string() -> ReporterResult<String> {
-    Ok(TextEncoder::new().encode_to_string(&default_registry().gather())?)
-}
-
 /// Start runnning a Prometheus server in the background.
-async fn start_prometheus_server() -> ReporterResult<()> {
+async fn start_prometheus_server(renderer: PrometheusRenderer) -> Result<()> {
     // Parse our listening address.
     let addr_string = env::var("OPINIONATED_TELEMETRY_PROMETHEUS_LISTEN_ADDR")
         .unwrap_or_else(|_| "0.0.0.0:9090".to_string());
-    let addr = addr_string.parse().map_err(|_| -> ReporterError {
-        format!(
-            "cannot parse Prometheus listener address: {:?}",
-            addr_string
+    let addr = addr_string.parse().map_err(|_| {
+        Error::CouldNotConfigureMetrics(
+            format!(
+                "cannot parse Prometheus listener address: {:?}",
+                addr_string
+            )
+            .into(),
         )
-        .into()
     })?;
 
     // Configure our server.
-    let make_svc = make_service_fn(|_conn| async {
-        Ok::<_, Infallible>(service_fn(prometheus_request_handler))
+    let make_svc = make_service_fn(move |_conn| {
+        let renderer = renderer.clone();
+        async {
+            Ok::<_, Infallible>(service_fn(move |body| {
+                prometheus_request_handler(renderer.clone(), body)
+            }))
+        }
     });
+
     let server = Server::bind(&addr).serve(make_svc);
 
     // Allow server shutdown.
@@ -211,9 +210,10 @@ async fn start_prometheus_server() -> ReporterResult<()> {
 
 /// Handle a request for Prometheus metrics.
 async fn prometheus_request_handler(
+    renderer: PrometheusRenderer,
     _: Request<Body>,
 ) -> Result<Response<Body>, Infallible> {
-    match prometheus_metrics_as_string() {
+    match renderer.render() {
         Ok(rendered) => Ok(Response::new(Body::from(rendered))),
         Err(err) => {
             error!("Error rendering Prometheus metrics: {}", err);
@@ -226,30 +226,36 @@ async fn prometheus_request_handler(
 }
 
 /// Push Prometheus metrics to a push gateway.
-async fn push_prometheus_metrics() -> ReporterResult<()> {
+async fn push_prometheus_metrics(renderer: &PrometheusRenderer) -> Result<()> {
     // Parse our push gateway address.
     let url = env::var("OPINIONATED_TELEMETRY_PROMETHEUS_PUSHGATEWAY_URL").map_err(
-        |_| -> ReporterError {
-            "OPINIONATED_TELEMETRY_PROMETHEUS_PUSHGATEWAY_URL not set".into()
-        },
+        |_| Error::env_var_not_set("OPINIONATED_TELEMETRY_PROMETHEUS_PUSHGATEWAY_URL"),
     )?;
 
     // Push our metrics.
-    let rendered = prometheus_metrics_as_string()?;
+    let rendered = renderer.render()?;
     let request = Request::builder()
         .method(Method::POST)
         .uri(&url)
-        .body(Body::from(rendered))?;
-    let response = Client::new().request(request).await?;
+        .body(Body::from(rendered))
+        .map_err(Error::could_not_report_metrics)?;
+    let response = Client::new()
+        .request(request)
+        .await
+        .map_err(Error::could_not_report_metrics)?;
     let status = response.status();
     if !status.is_success() {
-        let body = hyper::body::to_bytes(response.into_body()).await?;
+        let body = hyper::body::to_bytes(response.into_body())
+            .await
+            .map_err(Error::could_not_report_metrics)?;
         let body = String::from_utf8_lossy(&body);
-        return Err(format!(
-            "error pushing metrics to push gateway: {:?}: {:?}",
-            status, body
-        )
-        .into());
+        return Err(Error::CouldNotReportMetrics(
+            format!(
+                "error pushing metrics to push gateway: {:?}: {:?}",
+                status, body
+            )
+            .into(),
+        ));
     }
     Ok(())
 }

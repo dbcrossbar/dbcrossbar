@@ -88,6 +88,7 @@ mod env_injector;
 mod error;
 mod glue;
 mod metrics_support;
+mod prometheus_recorder;
 mod tracing_support;
 
 pub use self::error::{Error, Result};
@@ -142,7 +143,7 @@ pub async fn stop_telemetry() {
 /// ```
 /// use anyhow::Result;
 /// use opinionated_telemetry::{
-///   instrument, run_with_telemetry, set_parent_span_from_env,
+///   instrument, run_with_telemetry, set_parent_span_from_env, AppType,
 /// };
 ///
 /// #[tokio::main]

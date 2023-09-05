@@ -15,4 +15,40 @@ pub enum Error {
     CouldNotConfigureTracing(Box<dyn error::Error + Send + Sync>),
     #[error("Could not configure metrics reporting")]
     CouldNotConfigureMetrics(Box<dyn error::Error + Send + Sync>),
+    #[error("Could not report metrics")]
+    CouldNotReportMetrics(Box<dyn error::Error + Send + Sync>),
+}
+
+impl Error {
+    /// Build a new `Error::EnvVarNotSet` error.
+    pub(crate) fn env_var_not_set<S>(var: S) -> Self
+    where
+        S: Into<String>,
+    {
+        Error::EnvVarNotSet(var.into())
+    }
+
+    /// Build a new `Error::EnvVarNotSet` error.
+    pub(crate) fn could_not_configure_tracing<E>(err: E) -> Self
+    where
+        E: error::Error + Send + Sync + 'static,
+    {
+        Error::CouldNotConfigureTracing(Box::new(err))
+    }
+
+    /// Build a new `Error::CouldNotConfigureMetrics` error.
+    pub(crate) fn could_not_configure_metrics<E>(err: E) -> Self
+    where
+        E: error::Error + Send + Sync + 'static,
+    {
+        Error::CouldNotConfigureMetrics(Box::new(err))
+    }
+
+    // Build a new `Error::CouldNotReportMetrics` error.
+    pub(crate) fn could_not_report_metrics<E>(err: E) -> Self
+    where
+        E: error::Error + Send + Sync + 'static,
+    {
+        Error::CouldNotReportMetrics(Box::new(err))
+    }
 }
