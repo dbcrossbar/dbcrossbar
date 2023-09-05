@@ -1,17 +1,17 @@
 [package]
-name = "opinionated-telemetry"
+name = "opinionated_telemetry"
 version = "0.1.0"
 authors = ["Eric Kidd <git@randomhacks.net>"]
 edition = "2018"
 
-description = "Opinionated configuration for tracing, monitoring and OpenTelemetry."
-categories = []
-keywords = []
+description = "Opinionated configuration for tracing and metrics crates (with OpenTelemetry & Prometheus)."
+categories = ["development-tools::debugging", "development-tools::profiling"]
+keywords = ["opentelemetry", "prometheus", "tracing", "metrics"]
 license = "Apache-2.0 OR MIT"
 readme = "README.md"
-homepage = ""
+homepage = "https://github.com/dbcrossbar/dbcrossbar/tree/main/crates/opinionated_telemetry"
 repository = "https://github.com/dbcrossbar/dbcrossbar"
-documentation = ""
+documentation = "https://docs.rs/opinionated_telemetry/"
 
 [dev-dependencies]
 anyhow = "1.0.52"
