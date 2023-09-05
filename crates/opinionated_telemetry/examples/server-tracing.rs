@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use anyhow::{anyhow, Result};
 use futures::Future;
 use opinionated_telemetry::{
-    info_span, start_tracing, Instrument, SetParentFromExtractor,
+    describe_counter, increment_counter, info_span, start_telemetry, AppType,
+    Instrument, SetParentFromExtractor,
 };
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter},
@@ -13,7 +14,19 @@ use tokio::{
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Set up all our telemetry.
-    start_tracing(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")).await?;
+    start_telemetry(
+        AppType::Server,
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+    )
+    .await?;
+
+    // Declare any metrics. Note that we _must_ use valid Prometheus names,
+    // because our metrics backend will enforce this.
+    describe_counter!(
+        "servertracing_request_count",
+        "Number of requests handled by the server"
+    );
 
     // Listen for incoming connections and dispatch them.
     let listener = TcpListener::bind("127.0.0.1:9321").await?;
@@ -32,6 +45,9 @@ async fn log_error_wrapper<T>(fut: impl Future<Output = Result<T>>) {
 
 /// Handle a single request.
 async fn handle_request(socket: TcpStream) -> Result<()> {
+    // Update a metric.
+    increment_counter!("servertracing_request_count");
+
     // Figure out who we're talking to.
     let peer_addr = socket
         .peer_addr()

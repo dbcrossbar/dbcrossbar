@@ -1,6 +1,6 @@
 use anyhow::Result;
 use opinionated_telemetry::{
-    debug, instrument, run_with_telemetry, set_parent_span_from_env, Level,
+    debug, instrument, run_with_telemetry, set_parent_span_from_env, AppType, Level,
 };
 
 #[tokio::main]
@@ -10,6 +10,7 @@ async fn main() -> Result<()> {
     // We can't create any spans until we're inside `main_helper`, because we
     // need to wait for `run_with_telemetry` to start the tracing subsystem.
     run_with_telemetry(
+        AppType::Cli,
         env!("CARGO_PKG_NAME"),
         env!("CARGO_PKG_VERSION"),
         main_helper(),

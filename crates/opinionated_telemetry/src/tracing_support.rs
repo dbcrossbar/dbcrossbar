@@ -30,7 +30,7 @@ use tokio::{sync::RwLock, task::JoinHandle};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_subscriber::{fmt::format::FmtSpan, prelude::*, Registry};
 
-use crate::{env_extractor::EnvExtractor, env_injector::EnvInjector};
+use crate::{env_extractor::EnvExtractor, env_injector::EnvInjector, AppType};
 
 use super::{debug_exporter::DebugExporter, Error, Result};
 
@@ -176,14 +176,12 @@ impl BoxExporter {
                 let credentials_path = Path::new(&credentials_str);
                 let authenticator =
                     YupAuthorizer::new(credentials_path, None).await.map_err(
-                        |err| Error::CouldNotConnectToTraceExporter(Box::new(err)),
+                        |err| Error::CouldNotConfigureTracing(Box::new(err)),
                     )?;
                 let (exporter, future) = StackDriverExporter::builder()
                     .build(authenticator)
                     .await
-                    .map_err(|err| {
-                        Error::CouldNotConnectToTraceExporter(Box::new(err))
-                    })?;
+                    .map_err(|err| Error::CouldNotConfigureTracing(Box::new(err)))?;
                 Ok((BoxExporter::new(exporter), future.boxed()))
             }
             TracerType::Debug => {
@@ -212,14 +210,20 @@ static TRACER_JOIN_HANDLE: Lazy<RwLock<Option<JoinHandle<()>>>> =
     Lazy::new(|| RwLock::new(None));
 
 /// Configure tracing.
-pub async fn start_tracing(service_name: &str, service_version: &str) -> Result<()> {
+pub async fn start_tracing(
+    _app_type: AppType,
+    service_name: &str,
+    service_version: &str,
+) -> Result<()> {
     install_opentracing_globals();
 
     let filter = tracing_subscriber::EnvFilter::from_default_env();
 
-    let tracer_type = env::var("OPINIONATED_TRACING")
+    let tracer_type = env::var("OPINIONATED_TELEMETRY_TRACER")
         .ok()
-        .and_then(|t| t.parse().ok());
+        .map(|t| t.parse())
+        .transpose()
+        .map_err(|err| Error::CouldNotConfigureTracing(Box::new(err)))?;
     if let Some(tracer_type) = tracer_type {
         //eprintln!("tracer_type: {}", tracer_type);
 
@@ -287,7 +291,7 @@ pub async fn start_tracing(service_name: &str, service_version: &str) -> Result<
 }
 
 /// Shut down tracing and flush any pending trace information.
-pub async fn end_tracing() {
+pub async fn stop_tracing() {
     opentelemetry::global::shutdown_tracer_provider();
     if let Some(handle) = TRACER_JOIN_HANDLE.write().await.take() {
         handle.await.expect("could not join trace exporter");
