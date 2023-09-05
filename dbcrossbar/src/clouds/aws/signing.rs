@@ -53,7 +53,7 @@ fn signatures_are_valid() {
     let (signed_url, _x_amz_security_token) = sign_s3_url(
         &creds,
         "GET",
-        DateTime::from_utc(
+        DateTime::from_naive_utc_and_offset(
             NaiveDateTime::from_timestamp_opt(1_141_889_120, 0).unwrap(),
             Utc,
         ),
