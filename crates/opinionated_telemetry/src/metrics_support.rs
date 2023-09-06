@@ -28,8 +28,8 @@ use tokio::sync::RwLock;
 
 use crate::{
     debug, error,
-    prometheus_recorder::{PrometheusBuilder, PrometheusRenderer},
-    AppType, Error, Result,
+    prometheus_recorder::{PrometheusRecorder, PrometheusRenderer},
+    AppType, Error, Result, TelemetryConfig,
 };
 
 /// If set, use this `Reporter` to report final metrics on program exit. This is
@@ -88,11 +88,7 @@ impl fmt::Display for MetricsType {
 ///
 /// This should be called after `start_tracing()`, because it assumes that
 /// it can log via the tracing subsystem.
-pub async fn start_metrics(
-    app_type: AppType,
-    _service_name: &str,
-    _service_version: &str,
-) -> Result<()> {
+pub async fn start_metrics(config: &TelemetryConfig) -> Result<()> {
     let metrics_type = env::var("OPINIONATED_TELEMETRY_METRICS")
         .ok()
         .map(|s| s.parse())
@@ -100,11 +96,11 @@ pub async fn start_metrics(
         .map_err(Error::could_not_configure_metrics)?;
     if let Some(metrics_type) = metrics_type {
         // Set up our `PrometheusRecorder`.
-        let recorder = PrometheusBuilder::new().build()?;
+        let recorder = PrometheusRecorder::new(config.global_metrics_labels.clone());
         let renderer = recorder.renderer();
         recorder.install()?;
         let reporter = match metrics_type {
-            MetricsType::Prometheus => match app_type {
+            MetricsType::Prometheus => match config.app_type {
                 AppType::Server => {
                     start_prometheus_server(renderer).await?;
                     None

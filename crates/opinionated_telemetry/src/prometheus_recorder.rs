@@ -24,32 +24,14 @@ const DEFAULT_BUCKETS: &[f64] = &[
     50.0,
 ];
 
-/// Builder for creating and installing a `NewRelicRecoder` and exporter.
-pub(crate) struct PrometheusBuilder {}
-
-impl PrometheusBuilder {
-    /// Create a `NewRelicBuilder`, including our API key.
-    pub(crate) fn new() -> Self {
-        PrometheusBuilder {}
-    }
-
-    /// Construct a `NewRelicRecorder` with the specified parameters.
-    pub(crate) fn build(self) -> Result<PrometheusRecorder> {
-        Ok(PrometheusRecorder {
-            inner: Arc::new(Inner {
-                registry: Registry::new(AtomicStorage),
-                descriptions: RwLock::new(HashMap::new()),
-                histograms: RwLock::new(HashMap::new()),
-            }),
-        })
-    }
-}
-
 /// The actual implementation of `NewRelicRecorder`.
 ///
 /// We keep this behind `Inner` so that we can access it even after it has been
 /// installed.
 struct Inner {
+    /// Global labels to apply to all metrics.
+    global_labels: HashMap<String, String>,
+
     /// The registry which manages the low-level details of our metrics.
     registry: Registry<Key, AtomicStorage>,
 
@@ -154,20 +136,15 @@ impl Inner {
     /// Print `Key` in Prometheus format.
     fn print_key(&self, rendered: &mut Vec<u8>, key: &Key, suffix: &str) {
         write!(rendered, "{}{}", PrometheusName(key.name()), suffix).unwrap();
-        if key.labels().len() > 0 {
+        let (labels, len) = self.all_labels(key);
+        if len > 0 {
             write!(rendered, "{{").unwrap();
-            for (i, label) in key.labels().enumerate() {
+            for (i, (key, value)) in labels.enumerate() {
                 if i > 0 {
                     write!(rendered, ",").unwrap();
                 }
                 // TODO: Escape label values better than using Rust escaping.
-                write!(
-                    rendered,
-                    "{}={:?}",
-                    PrometheusName(label.key()),
-                    label.value()
-                )
-                .unwrap();
+                write!(rendered, "{}={:?}", PrometheusName(key), value).unwrap();
             }
             write!(rendered, "}}").unwrap();
         }
@@ -176,21 +153,36 @@ impl Inner {
     /// Like `print_key()`, but for histogram keys.
     fn print_bucket_key(&self, rendered: &mut Vec<u8>, key: &Key, le: f64) {
         write!(rendered, "{}_bucket{{", PrometheusName(key.name())).unwrap();
-        for label in key.labels() {
+        let (labels, _len) = self.all_labels(key);
+        for (key, value) in labels {
             // TODO: Escape label values better than using Rust escaping.
-            write!(
-                rendered,
-                "{}={:?},",
-                PrometheusName(label.key()),
-                label.value()
-            )
-            .unwrap();
+            write!(rendered, "{}={:?},", PrometheusName(key), value).unwrap();
         }
         if le.is_infinite() {
             write!(rendered, "le=\"+Inf\"}}").unwrap();
         } else {
             write!(rendered, "le=\"{}\"}}", le).unwrap();
         }
+    }
+
+    /// All labels for a `Key`, including global labels. Returns `(iter, len)`.
+    /// We return `len` separately, because `chain` doesn't implement
+    /// `ExactSizeIterator` (apparently because it might overflow).
+    fn all_labels<'a>(
+        &'a self,
+        key: &'a Key,
+    ) -> (impl Iterator<Item = (&str, &str)> + 'a, usize) {
+        let len = self
+            .global_labels
+            .len()
+            .checked_add(key.labels().len())
+            .expect("overflow counting labels(!?)");
+        let labels = self
+            .global_labels
+            .iter()
+            .map(|(k, v)| (&k[..], &v[..]))
+            .chain(key.labels().map(|l| (l.key(), l.value())));
+        (labels, len)
     }
 }
 
@@ -248,6 +240,18 @@ pub struct PrometheusRecorder {
 }
 
 impl PrometheusRecorder {
+    /// Create a new `PrometheusRecorder`, with the given global labels.
+    pub(crate) fn new(global_labels: HashMap<String, String>) -> Self {
+        PrometheusRecorder {
+            inner: Arc::new(Inner {
+                global_labels,
+                registry: Registry::new(AtomicStorage),
+                descriptions: RwLock::new(HashMap::new()),
+                histograms: RwLock::new(HashMap::new()),
+            }),
+        }
+    }
+
     /// Get a handle which can be used to access certain reporter features after
     /// it's installed.
     pub(crate) fn renderer(&self) -> PrometheusRenderer {
@@ -332,15 +336,5 @@ impl PrometheusRenderer {
     /// Render the current metrics as a string.
     pub(crate) fn render(&self) -> Result<String> {
         self.inner.render()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn build_reporter() {
-        PrometheusBuilder::new().build().unwrap();
     }
 }

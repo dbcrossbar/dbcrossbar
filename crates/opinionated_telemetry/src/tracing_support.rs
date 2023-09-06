@@ -30,7 +30,7 @@ use tokio::{sync::RwLock, task::JoinHandle};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_subscriber::{fmt::format::FmtSpan, prelude::*, Registry};
 
-use crate::{env_extractor::EnvExtractor, env_injector::EnvInjector, AppType};
+use crate::{env_extractor::EnvExtractor, env_injector::EnvInjector, TelemetryConfig};
 
 use super::{debug_exporter::DebugExporter, Error, Result};
 
@@ -207,11 +207,7 @@ static TRACER_JOIN_HANDLE: Lazy<RwLock<Option<JoinHandle<()>>>> =
     Lazy::new(|| RwLock::new(None));
 
 /// Configure tracing.
-pub async fn start_tracing(
-    _app_type: AppType,
-    service_name: &str,
-    service_version: &str,
-) -> Result<()> {
+pub async fn start_tracing(config: &TelemetryConfig) -> Result<()> {
     install_opentracing_globals();
 
     let filter = tracing_subscriber::EnvFilter::from_default_env();
@@ -251,8 +247,8 @@ pub async fn start_tracing(
         };
         if need_service_name {
             resource = resource.merge(&Resource::new(vec![
-                KeyValue::new("service.name", service_name.to_owned()),
-                KeyValue::new("service.version", service_version.to_owned()),
+                KeyValue::new("service.name", config.service_name.clone()),
+                KeyValue::new("service.version", config.service_version.clone()),
             ]));
         }
 

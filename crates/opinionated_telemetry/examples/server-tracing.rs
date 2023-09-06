@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use futures::Future;
 use opinionated_telemetry::{
     describe_counter, describe_histogram, histogram, increment_counter, info_span,
-    start_telemetry, AppType, Instrument, SetParentFromExtractor, Unit,
+    AppType, Instrument, SetParentFromExtractor, TelemetryConfig, Unit,
 };
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter},
@@ -14,11 +14,12 @@ use tokio::{
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Set up all our telemetry.
-    start_telemetry(
+    let _handle = TelemetryConfig::new(
         AppType::Server,
         env!("CARGO_PKG_NAME"),
         env!("CARGO_PKG_VERSION"),
     )
+    .install()
     .await?;
 
     // Declare any metrics.
@@ -52,7 +53,7 @@ async fn handle_request(socket: TcpStream) -> Result<()> {
     let start_time = Instant::now();
 
     // Update a metric.
-    increment_counter!("servertracing.request.count");
+    increment_counter!("servertracing.request.count", "protocol" => "tcp");
 
     // Figure out who we're talking to.
     let peer_addr = socket
@@ -101,7 +102,7 @@ async fn handle_request(socket: TcpStream) -> Result<()> {
     // Record elapsed time.
     histogram!(
         "servertracing.request.duration_seconds",
-        start_time.elapsed().as_secs_f64()
+        start_time.elapsed().as_secs_f64(),
     );
 
     response
