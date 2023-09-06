@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Instant};
 
 use anyhow::{anyhow, Result};
 use futures::Future;
 use opinionated_telemetry::{
-    describe_counter, increment_counter, info_span, start_telemetry, AppType,
-    Instrument, SetParentFromExtractor,
+    describe_counter, describe_histogram, histogram, increment_counter, info_span,
+    start_telemetry, AppType, Instrument, SetParentFromExtractor, Unit,
 };
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter},
@@ -21,11 +21,15 @@ async fn main() -> anyhow::Result<()> {
     )
     .await?;
 
-    // Declare any metrics. Note that we _must_ use valid Prometheus names,
-    // because our metrics backend will enforce this.
+    // Declare any metrics.
     describe_counter!(
-        "servertracing_request_count",
+        "servertracing.request.count",
         "Number of requests handled by the server"
+    );
+    describe_histogram!(
+        "servertracing.request.duration_seconds",
+        Unit::Seconds,
+        "Duration of requests handled by the server"
     );
 
     // Listen for incoming connections and dispatch them.
@@ -45,8 +49,10 @@ async fn log_error_wrapper<T>(fut: impl Future<Output = Result<T>>) {
 
 /// Handle a single request.
 async fn handle_request(socket: TcpStream) -> Result<()> {
+    let start_time = Instant::now();
+
     // Update a metric.
-    increment_counter!("servertracing_request_count");
+    increment_counter!("servertracing.request.count");
 
     // Figure out who we're talking to.
     let peer_addr = socket
@@ -66,7 +72,7 @@ async fn handle_request(socket: TcpStream) -> Result<()> {
     loop {
         line.clear();
         let header_line = rdr.read_line(&mut line).await?;
-        eprintln!("Header line: {:?}", line);
+        //eprintln!("Header line: {:?}", line);
         let line = line.trim_end_matches(|c| c == '\r' || c == '\n');
         if line.is_empty() {
             break;
@@ -90,7 +96,15 @@ async fn handle_request(socket: TcpStream) -> Result<()> {
         peer_addr = %peer_addr,
     );
     span.set_parent_from_extractor(&headers);
-    respond_to_request(&mut wtr).instrument(span).await
+    let response = respond_to_request(&mut wtr).instrument(span).await;
+
+    // Record elapsed time.
+    histogram!(
+        "servertracing.request.duration_seconds",
+        start_time.elapsed().as_secs_f64()
+    );
+
+    response
 }
 
 /// Respond to a request.

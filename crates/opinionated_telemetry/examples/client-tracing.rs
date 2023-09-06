@@ -39,8 +39,8 @@ async fn main_helper() -> Result<()> {
     // Update a metric. Note that if you want to do this from a CLI tool, you
     // probably want to run https://github.com/zapier/prom-aggregation-gateway
     // instead of the standard Prometheus push gateway.
-    describe_counter!("clienttracing_run_count", "Number of times we've run");
-    increment_counter!("clienttracing_run_count");
+    describe_counter!("clienttracing.run.count", "Number of times we've run");
+    increment_counter!("clienttracing.run.count");
 
     // Make some sample requests.
     make_request_to_server().await?;

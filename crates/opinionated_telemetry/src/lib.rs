@@ -75,7 +75,7 @@ use futures::Future;
 // Re-export all the APIs we encourage people to use.
 pub use ::metrics::{
     self, counter, decrement_gauge, describe_counter, describe_gauge,
-    describe_histogram, gauge, histogram, increment_counter, increment_gauge,
+    describe_histogram, gauge, histogram, increment_counter, increment_gauge, Unit,
 };
 pub use ::tracing::{
     self, debug, debug_span, error, error_span, event, info, info_span, instrument,
