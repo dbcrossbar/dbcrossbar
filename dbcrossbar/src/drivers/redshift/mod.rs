@@ -78,6 +78,10 @@ impl Locator for RedshiftLocator {
         self
     }
 
+    fn dyn_scheme(&self) -> &'static str {
+        <Self as LocatorStatic>::scheme()
+    }
+
     fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
         self.postgres_locator.schema(ctx)
     }

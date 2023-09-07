@@ -31,6 +31,10 @@ impl Locator for BigQuerySchemaLocator {
         self
     }
 
+    fn dyn_scheme(&self) -> &'static str {
+        <Self as LocatorStatic>::scheme()
+    }
+
     fn schema(&self, _ctx: Context) -> BoxFuture<Option<Schema>> {
         schema_helper(self.to_owned()).boxed()
     }

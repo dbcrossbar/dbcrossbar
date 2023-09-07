@@ -1,15 +1,17 @@
 use std::env::current_exe;
 
 use anyhow::{anyhow, Result};
+use metrics::{describe_counter, increment_counter};
 use opinionated_telemetry::{
-    current_span_as_env, current_span_as_headers, describe_counter, increment_counter,
-    instrument, run_with_telemetry, set_parent_span_from_env, AppType, Level,
+    current_span_as_env, current_span_as_headers, run_with_telemetry,
+    set_parent_span_from_env, AppType,
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
     net::tcp::OwnedWriteHalf,
     process::Command,
 };
+use tracing::{instrument, Level};
 
 #[tokio::main]
 async fn main() -> Result<()> {

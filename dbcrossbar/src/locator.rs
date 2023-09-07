@@ -51,6 +51,10 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     /// [so]: https://stackoverflow.com/a/33687996
     fn as_any(&self) -> &dyn Any;
 
+    /// Get the locator scheme, e.g., `postgres:`. This is similar to
+    /// `[LocatorStatic::scheme]`, but it can be called on a `&dyn Locator`.
+    fn dyn_scheme(&self) -> &'static str;
+
     /// Return a table schema, if available.
     fn schema(&self, _ctx: Context) -> BoxFuture<Option<Schema>> {
         async { Ok(None) }.boxed()

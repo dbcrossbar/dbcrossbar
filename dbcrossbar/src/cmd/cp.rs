@@ -88,6 +88,18 @@ pub(crate) async fn run(
     let from_locator = opt.from_locator.parse(enable_unstable)?;
     let to_locator = opt.to_locator.parse(enable_unstable)?;
 
+    describe_counter!(
+        "dbcrossbar.cp_from.count",
+        "The number of times we've copied data from a source"
+    );
+    describe_counter!(
+        "dbcrossbar.cp_to.count",
+        "The number of times we've copied data to a destination"
+    );
+
+    increment_counter!("dbcrossbar.cp_from.count", "scheme" => from_locator.dyn_scheme());
+    increment_counter!("dbcrossbar.cp_to.count", "scheme" => to_locator.dyn_scheme());
+
     // Fill in our span fields.
     let span = Span::current();
     span.record("from", &field::display(&from_locator));

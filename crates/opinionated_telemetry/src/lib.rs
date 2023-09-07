@@ -59,17 +59,13 @@
 
 use std::collections::HashMap;
 
+// We re-export `tracing` and `metrics`, but only so users can access
+// traits and functions. The macros won't re-export correctly.
 use futures::Future;
-// Re-export all the APIs we encourage people to use.
-pub use ::metrics::{
-    self, counter, decrement_gauge, describe_counter, describe_gauge,
-    describe_histogram, gauge, histogram, increment_counter, increment_gauge, Unit,
-};
-pub use ::tracing::{
-    self, debug, debug_span, error, error_span, event, info, info_span, instrument,
-    span, trace, trace_span, warn, warn_span, Instrument, Level,
-};
+pub use metrics;
 use metrics_support::{start_metrics, stop_metrics};
+pub use tracing;
+use tracing::{debug, error};
 use tracing_support::{start_tracing, stop_tracing};
 
 mod debug_exporter;
@@ -216,8 +212,9 @@ impl Drop for TelemetryHandle {
 /// ```
 /// use anyhow::Result;
 /// use opinionated_telemetry::{
-///   instrument, run_with_telemetry, set_parent_span_from_env, AppType,
+///   run_with_telemetry, set_parent_span_from_env, AppType,
 /// };
+/// use tracing::instrument;
 ///
 /// #[tokio::main]
 /// async fn main() -> Result<()> {

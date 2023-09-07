@@ -67,6 +67,10 @@ impl Locator for ShopifyLocator {
         self
     }
 
+    fn dyn_scheme(&self) -> &'static str {
+        <Self as LocatorStatic>::scheme()
+    }
+
     fn local_data(
         &self,
         ctx: Context,

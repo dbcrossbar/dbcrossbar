@@ -30,7 +30,8 @@ use std::env;
 use anyhow::{Error, Result};
 use clap::Parser;
 use futures::try_join;
-use opinionated_telemetry::{debug, TelemetryConfig};
+use opinionated_telemetry::TelemetryConfig;
+use tracing::debug;
 
 use self::config::Configuration;
 
@@ -94,10 +95,7 @@ pub(crate) mod common {
         join, stream, try_join, Future, FutureExt, Stream, StreamExt, TryFutureExt,
         TryStreamExt,
     };
-    pub(crate) use opinionated_telemetry::{
-        debug, debug_span, error, info, instrument, trace, trace_span, tracing, warn,
-        Instrument,
-    };
+    pub(crate) use metrics::{counter, describe_counter, increment_counter};
     pub(crate) use std::{
         any::Any,
         convert::{TryFrom, TryInto},
@@ -109,6 +107,10 @@ pub(crate) mod common {
             AsyncWriteExt,
         },
         sync::mpsc,
+    };
+    pub(crate) use tracing::{
+        debug, debug_span, error, info, instrument, trace, trace_span, warn,
+        Instrument,
     };
     pub(crate) use url::Url;
 

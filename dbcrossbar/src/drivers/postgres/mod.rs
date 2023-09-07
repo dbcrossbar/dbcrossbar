@@ -109,6 +109,10 @@ impl Locator for PostgresLocator {
         self
     }
 
+    fn dyn_scheme(&self) -> &'static str {
+        <Self as LocatorStatic>::scheme()
+    }
+
     fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
         let source = self.to_owned();
         async move {

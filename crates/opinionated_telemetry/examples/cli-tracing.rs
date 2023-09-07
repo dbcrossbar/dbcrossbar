@@ -1,7 +1,6 @@
 use anyhow::Result;
-use opinionated_telemetry::{
-    debug, instrument, run_with_telemetry, set_parent_span_from_env, AppType, Level,
-};
+use opinionated_telemetry::{run_with_telemetry, set_parent_span_from_env, AppType};
+use tracing::{debug, instrument, Level};
 
 #[tokio::main]
 async fn main() -> Result<()> {

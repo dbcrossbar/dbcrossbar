@@ -2,14 +2,15 @@ use std::{collections::HashMap, time::Instant};
 
 use anyhow::{anyhow, Result};
 use futures::Future;
-use opinionated_telemetry::{
-    describe_counter, describe_histogram, histogram, increment_counter, info_span,
-    AppType, Instrument, SetParentFromExtractor, TelemetryConfig, Unit,
+use metrics::{
+    describe_counter, describe_histogram, histogram, increment_counter, Unit,
 };
+use opinionated_telemetry::{AppType, SetParentFromExtractor, TelemetryConfig};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter},
     net::{tcp::OwnedWriteHalf, TcpListener, TcpStream},
 };
+use tracing::{info_span, Instrument};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
