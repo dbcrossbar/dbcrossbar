@@ -8,20 +8,6 @@
 //! We specifically try to integrate with OpenTelemetry and to support standard
 //! `"traceparent"` and `"tracestate"` headers.
 //!
-//! ## Supported backends
-//!
-//! Tracing:
-//!
-//! - [x] Google Cloud Trace
-//! - [ ] Jaeger (not yet supported, but we'd love a PR)
-//! - [x] Debug (printed to stderr)
-//!
-//! Metrics:
-//!
-//! - [x] Prometheus
-//! - [x] Prometheus (push gateway)
-//! - [x] Debug (logged via `tracing`)
-//!
 //! ## Environment Variables
 //!
 //! The following variables can be used to configure
