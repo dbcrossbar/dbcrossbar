@@ -273,7 +273,8 @@ pub async fn start_tracing(config: &TelemetryConfig) -> Result<()> {
         tracing_log::LogTracer::init().expect("could not hook up `log` to tracing");
     } else {
         tracing_subscriber::fmt::Subscriber::builder()
-            .with_span_events(FmtSpan::CLOSE)
+            .with_writer(std::io::stderr)
+            .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
             .with_env_filter(filter)
             .finish()
             //.with(MetricsLayer::new())
