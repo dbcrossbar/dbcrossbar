@@ -7,6 +7,9 @@
 # Look up our version using cargo.
 VERSION := `cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "dbcrossbar") | .version'`
 
+# Look up our `opinionated_telemetry` version using cargo.
+OPINIONATED_TELEMETRY := `cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "opinionated_telemetry") | .version'`
+
 # Run all checks and tests that we can run without credentials.
 check:
     cargo clippy -- -D warnings
@@ -46,5 +49,16 @@ version:
 release: check check-clean
   (cd dbcrossbar && cargo publish)
   git tag v{{VERSION}}
+  git push
+  git push --tags
+
+# Print the current version of opinionated-tracing.
+opinionated-telemetry-version:
+    @echo "{{OPINIONATED_TELEMETRY}}"
+
+# Release opinionated_telemetry via crates.io.
+release-opinionated-telemetry: check check-clean
+  (cd crates/opinionated_telemetry && cargo publish)
+  git tag opinionated_telemetry_v{{OPINIONATED_TELEMETRY}}
   git push
   git push --tags
