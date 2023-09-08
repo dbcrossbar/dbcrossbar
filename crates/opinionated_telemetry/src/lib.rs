@@ -84,6 +84,7 @@ pub use self::tracing_support::{
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum AppType {
     /// A CLI tool.
     Cli,

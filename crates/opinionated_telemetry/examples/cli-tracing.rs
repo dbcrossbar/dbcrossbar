@@ -24,7 +24,7 @@ async fn main() -> Result<()> {
 )]
 async fn main_helper() -> Result<()> {
     // Hook into any existing trace passed via `TRACEPARENT` and `TRACESTATE`
-    // headers. If we can't find one, start a new trace.
+    // environment variables. If we can't find one, start a new trace.
     set_parent_span_from_env();
 
     debug!("Hello, world!");
