@@ -97,8 +97,9 @@ pub enum AppType {
 /// ```
 /// use anyhow::Result;
 /// use opinionated_telemetry::{
-///   instrument, set_parent_span_from_env, AppType, TelemetryConfig,
+///   set_parent_span_from_env, AppType, TelemetryConfig,
 /// };
+/// use tracing::instrument;
 ///
 /// #[tokio::main]
 /// async fn main() -> Result<()> {

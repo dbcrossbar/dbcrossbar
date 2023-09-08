@@ -95,7 +95,7 @@ pub(crate) mod common {
         join, stream, try_join, Future, FutureExt, Stream, StreamExt, TryFutureExt,
         TryStreamExt,
     };
-    pub(crate) use metrics::{counter, describe_counter, increment_counter};
+    pub(crate) use metrics::{counter, describe_counter, increment_counter, Unit};
     pub(crate) use std::{
         any::Any,
         convert::{TryFrom, TryInto},

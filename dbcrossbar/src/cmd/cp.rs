@@ -89,16 +89,29 @@ pub(crate) async fn run(
     let to_locator = opt.to_locator.parse(enable_unstable)?;
 
     describe_counter!(
-        "dbcrossbar.cp_from.count",
-        "The number of times we've copied data from a source"
+        "dbcrossbar.cp.count",
+        "The number of times we've copied data"
     );
     describe_counter!(
-        "dbcrossbar.cp_to.count",
-        "The number of times we've copied data to a destination"
+        "dbcrossbar.cp_streams.count",
+        "The number of streams we've used to copy data"
+    );
+    describe_counter!(
+        "dbcrossbar.cp_local.bytes_count",
+        Unit::Bytes,
+        "The number of bytes we've copied"
     );
 
-    increment_counter!("dbcrossbar.cp_from.count", "scheme" => from_locator.dyn_scheme());
-    increment_counter!("dbcrossbar.cp_to.count", "scheme" => to_locator.dyn_scheme());
+    // We include both the `from` and `to` locator scheme, even though that
+    // potentially increases our label cardinality to `num_schemes^2`. This is
+    // because knowing the source and dest for a copy will allow us to consider
+    // focused optimizations.
+    let from_scheme: &'static str = from_locator.dyn_scheme().trim_end_matches(':');
+    let to_scheme: &'static str = to_locator.dyn_scheme().trim_end_matches(':');
+    increment_counter!(
+        "dbcrossbar.cp.count",
+        "from" => from_scheme, "to" => to_scheme,
+    );
 
     // Fill in our span fields.
     let span = Span::current();
@@ -160,6 +173,9 @@ pub(crate) async fn run(
             .ok_or_else(|| {
                 format_err!("don't know how to read data from {}", from_locator)
             })?;
+
+        // Record the amount of data we're copying locally.
+        data = report_cp_local_metrics(from_scheme, to_scheme, data);
 
         // Honor --stream-size if passed.
         if let Some(stream_size) = opt.stream_size {
@@ -231,4 +247,36 @@ pub(crate) async fn run(
         debug!("destination locators: {:?}", dests);
     }
     Ok(())
+}
+
+/// Wrap `data` with a metrics reporter that keeps track of:
+///
+/// 1. How many streams of data we use.
+/// 2. How many bytes we copy through the local machine.
+fn report_cp_local_metrics(
+    from_scheme: &'static str,
+    to_scheme: &'static str,
+    data: BoxStream<CsvStream>,
+) -> BoxStream<CsvStream> {
+    data.map_ok(move |mut csv_stream| {
+        // No real point in capturing `from` and `to` here, and increasing
+        // the cardinality of our metrics.
+        increment_counter!("dbcrossbar.cp_streams.count", "format" => "csv");
+
+        let from_scheme: &'static str = from_scheme;
+        let to_scheme: &'static str = to_scheme;
+        csv_stream.data = csv_stream
+            .data
+            .map_ok(move |bytes| {
+                counter!(
+                    "dbcrossbar.cp_local.bytes_count",
+                    bytes.len() as u64,
+                    "from" => from_scheme, "to" => to_scheme,
+                );
+                bytes
+            })
+            .boxed();
+        csv_stream
+    })
+    .boxed()
 }
