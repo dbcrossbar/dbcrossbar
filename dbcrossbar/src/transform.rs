@@ -30,9 +30,11 @@ where
     let transform_ctx = ctx.clone();
     let transform_fut = spawn_blocking(move || -> Result<()> {
         transform(transform_ctx, Box::new(rdr), Box::new(wtr))
-    })
-    .instrument(debug_span!("sync_transform", name = ?name));
-    ctx.spawn_worker(transform_fut.boxed());
+    });
+    ctx.spawn_worker(
+        debug_span!("sync_transform", name = ?name),
+        transform_fut.boxed(),
+    );
 
     Ok(output.boxed())
 }

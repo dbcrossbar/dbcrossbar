@@ -2,13 +2,17 @@
 
 use cli_test_dir::*;
 use difference::assert_diff;
+use opinionated_telemetry::{
+    current_span_as_env, set_parent_span_from_env, AppType, TelemetryConfig,
+};
 use std::{fs, process::Stdio};
+use tracing::info_span;
 
 use super::*;
 
-#[test]
+#[tokio::test]
 #[ignore]
-fn cp_csv_to_postgres_to_gs_to_csv() {
+async fn cp_csv_to_postgres_to_gs_to_csv() {
     let testdir = TestDir::new("dbcrossbar", "cp_csv_to_postgres_to_gs_to_csv");
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
@@ -19,9 +23,22 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     let gs_dir_2 = gs_test_dir_url("cp_csv_to_postgres_to_gs_to_csv_2");
     let pg_table_2 = post_test_table_url("cp_csv_to_postgres_to_gs_to_csv_2");
 
+    // Just for fun, set up a trace across multiple calls to `dbcrossbar`.
+    let telemetry_handle = TelemetryConfig::new(
+        AppType::Cli,
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+    )
+    .install()
+    .await
+    .expect("could not install telemetry");
+    let span = info_span!("cp_csv_to_postgres_to_gs_to_csv").entered();
+    set_parent_span_from_env();
+
     // CSV to Postgres.
     testdir
         .cmd()
+        .envs(current_span_as_env())
         .args([
             "cp",
             "--if-exists=overwrite",
@@ -37,6 +54,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     // messing up later tests.)
     testdir
         .cmd()
+        .envs(current_span_as_env())
         .args(["schema", "conv", &pg_table, "postgres-sql:pg.sql"])
         .stdout(Stdio::piped())
         .tee_output()
@@ -50,6 +68,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     // Postgres to gs://.
     testdir
         .cmd()
+        .envs(current_span_as_env())
         .args(["cp", "--if-exists=overwrite", &pg_table, &gs_dir])
         .tee_output()
         .expect_success();
@@ -57,6 +76,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     // gs:// to BigQuery.
     testdir
         .cmd()
+        .envs(current_span_as_env())
         .args([
             "cp",
             "--if-exists=overwrite",
@@ -70,6 +90,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     // BigQuery to gs://.
     testdir
         .cmd()
+        .envs(current_span_as_env())
         .args([
             "cp",
             "--if-exists=overwrite",
@@ -84,6 +105,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     // CSV file for the final comparison below.)
     testdir
         .cmd()
+        .envs(current_span_as_env())
         .args([
             "cp",
             "--if-exists=overwrite",
@@ -97,6 +119,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
     // PostgreSQL back to CSV for the final comparison below.
     testdir
         .cmd()
+        .envs(current_span_as_env())
         .args([
             "cp",
             &format!("--schema=postgres-sql:{}", schema.display()),
@@ -111,6 +134,9 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
         fs::read_to_string(testdir.path("out/cp_csv_to_postgres_to_gs_to_csv_2.csv"))
             .unwrap();
     assert_diff!(&expected, &actual, ",", 0);
+
+    drop(span);
+    telemetry_handle.flush_and_shutdown().await;
 }
 
 #[test]

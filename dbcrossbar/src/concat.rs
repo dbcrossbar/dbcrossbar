@@ -53,7 +53,7 @@ pub(crate) fn concatenate_csv_streams(
     };
 
     // Run the worker in the background, and return our combined stream.
-    ctx.spawn_worker(worker.boxed());
+    ctx.spawn_worker(debug_span!("concatenate_csv_streams"), worker.boxed());
     Ok(new_csv_stream)
 }
 
@@ -162,7 +162,7 @@ fn strip_csv_header(
     .instrument(debug_span!("strip_csv_header"));
 
     // Run the worker in the background, and return our receiver.
-    ctx.spawn_worker(worker.boxed());
+    ctx.spawn_worker(debug_span!("strip_csv_header"), worker.boxed());
     Ok(receiver.boxed())
 }
 

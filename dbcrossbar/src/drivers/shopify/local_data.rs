@@ -107,7 +107,7 @@ pub(crate) async fn local_data_helper(
         }
     }
     .boxed();
-    ctx.spawn_worker(worker);
+    ctx.spawn_worker(debug_span!("shopify::local_data helper"), worker);
 
     Ok(Some(box_stream_once(Ok(CsvStream {
         name: "data".to_owned(),

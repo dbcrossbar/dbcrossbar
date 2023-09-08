@@ -44,9 +44,12 @@ pub(crate) async fn connect(
         .context("could not connect to PostgreSQL")?;
 
     // The docs say we need to run this connection object in the background.
-    ctx.spawn_worker(connection.map_err(|e| -> Error {
-        Error::new(e).context("error on PostgreSQL connection")
-    }));
+    ctx.spawn_worker(
+        debug_span!("postgres_shared::connect worker"),
+        connection.map_err(|e| -> Error {
+            Error::new(e).context("error on PostgreSQL connection")
+        }),
+    );
 
     Ok(client)
 }

@@ -133,7 +133,7 @@ pub async fn stop_metrics() {
     if let Some(handle) = METRICS_REPORTER.write().await.take() {
         debug!("Shutting down metrics reporting");
         if let Err(err) = handle.report().await {
-            error!("Error reporting metrics: {}", err);
+            error!("Error reporting metrics: {:?}", err);
         }
     }
 }
@@ -197,7 +197,7 @@ async fn start_prometheus_server(renderer: PrometheusRenderer) -> Result<()> {
     // Run our server in the background.
     tokio::spawn(async move {
         if let Err(err) = graceful.await {
-            error!("Error running Prometheus server: {}", err);
+            error!("Error running Prometheus server: {:?}", err);
         }
     });
 

@@ -30,8 +30,8 @@ use std::env;
 use anyhow::{Error, Result};
 use clap::Parser;
 use futures::try_join;
-use opinionated_telemetry::TelemetryConfig;
-use tracing::debug;
+use opinionated_telemetry::{set_parent_span_from_env, TelemetryConfig};
+use tracing::{debug, info_span};
 
 use self::config::Configuration;
 
@@ -154,6 +154,9 @@ async fn main() -> Result<()> {
     .await?;
     debug!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
+    let span = info_span!("dbcrossbar", version = env!("CARGO_PKG_VERSION")).entered();
+    set_parent_span_from_env();
+
     // Find our system SSL configuration, even if we're statically linked.
     openssl_probe::init_ssl_cert_env_vars();
     debug!("SSL_CERT_DIR: {:?}", env::var("SSL_CERT_DIR").ok());
@@ -178,6 +181,9 @@ async fn main() -> Result<()> {
 
     // Run our futures.
     let result = try_join!(cmd_fut, worker_fut);
+
+    // Shut down telemetry and return our result.
+    drop(span);
     telemetry_handle.flush_and_shutdown().await;
     result?;
     Ok(())

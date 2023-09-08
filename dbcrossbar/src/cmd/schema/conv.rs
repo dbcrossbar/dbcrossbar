@@ -2,6 +2,7 @@
 
 use anyhow::{format_err, Result};
 use clap::Parser;
+use tracing::{field, instrument, Span};
 
 use crate::{config::Configuration, Context, IfExists, UnparsedLocator};
 
@@ -20,6 +21,7 @@ pub(crate) struct Opt {
 }
 
 /// Perform our schema conversion.
+#[instrument(level = "debug", name = "conv", skip_all, fields(from, to))]
 pub(crate) async fn run(
     ctx: Context,
     _config: Configuration,
@@ -28,6 +30,12 @@ pub(crate) async fn run(
 ) -> Result<()> {
     let from_locator = opt.from_locator.parse(enable_unstable)?;
     let to_locator = opt.to_locator.parse(enable_unstable)?;
+
+    // Fill in our span fields.
+    let span = Span::current();
+    span.record("from", &field::display(&from_locator));
+    span.record("to", &field::display(&to_locator));
+
     let schema = from_locator.schema(ctx.clone()).await?.ok_or_else(|| {
         format_err!("don't know how to read schema from {}", from_locator)
     })?;

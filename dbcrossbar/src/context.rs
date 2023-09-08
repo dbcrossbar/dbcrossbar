@@ -2,6 +2,7 @@
 
 use tokio::process::Child;
 use tokio_stream::wrappers::ReceiverStream;
+use tracing::Span;
 
 use crate::common::*;
 
@@ -35,7 +36,7 @@ impl Context {
 
     /// Spawn an async worker in this context, and report any errors to the
     /// future returned by `create`.
-    pub fn spawn_worker<W>(&self, worker: W)
+    pub fn spawn_worker<W>(&self, span: Span, worker: W)
     where
         W: Future<Output = Result<()>> + Send + 'static,
     {
@@ -49,7 +50,7 @@ impl Context {
                     }
                 }
             }
-            .instrument(debug_span!("worker"))
+            .instrument(span)
             .boxed(),
         );
     }
@@ -64,8 +65,10 @@ impl Context {
                 Ok(status) => Err(format_err!("{} failed with {}", name, status)),
                 Err(err) => Err(format_err!("{} failed with error: {}", name, err)),
             }
-        }
-        .instrument(debug_span!("process", name = ?name_copy));
-        self.spawn_worker(worker.boxed());
+        };
+        self.spawn_worker(
+            debug_span!("spawn_process", name = ?name_copy),
+            worker.boxed(),
+        );
     }
 }

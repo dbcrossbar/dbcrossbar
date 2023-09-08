@@ -495,10 +495,8 @@ pub(crate) fn idiomatic_bytes_stream(
     // drastic measures, and forward our stream through a channel.
     let (mut sender, receiver) = mpsc::channel::<Result<Bytes, Error>>(1);
     let forwarder: BoxFuture<()> =
-        async move { try_forward_to_sender(to_forward, &mut sender).await }
-            .instrument(trace_span!("idiomatic_bytes_stream"))
-            .boxed();
-    ctx.spawn_worker(forwarder);
+        async move { try_forward_to_sender(to_forward, &mut sender).await }.boxed();
+    ctx.spawn_worker(trace_span!("idiomatic_bytes_stream"), forwarder);
 
     let stream = ReceiverStream::new(receiver)
         .map_err(|err| -> Box<dyn error::Error + Send + Sync> { err.into() });

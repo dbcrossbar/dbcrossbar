@@ -10,7 +10,7 @@ use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter},
     net::{tcp::OwnedWriteHalf, TcpListener, TcpStream},
 };
-use tracing::{info_span, Instrument};
+use tracing::{error, info_span, Instrument};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -45,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
 /// Wrap a future, logging any errors.
 async fn log_error_wrapper<T>(fut: impl Future<Output = Result<T>>) {
     if let Err(err) = fut.await {
-        tracing::error!(%err, "Error");
+        error!("Error: {:?}", err);
     }
 }
 

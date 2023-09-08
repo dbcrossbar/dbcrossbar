@@ -122,7 +122,7 @@ pub fn rechunk_csvs(
         Ok(())
     })
     .instrument(debug_span!("rechunk_csvs"));
-    ctx.spawn_worker(worker_fut.boxed());
+    ctx.spawn_worker(debug_span!("rechunk"), worker_fut.boxed());
 
     let csv_streams = ReceiverStream::new(csv_stream_receiver).boxed();
     Ok(csv_streams)

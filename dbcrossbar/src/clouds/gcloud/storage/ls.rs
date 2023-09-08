@@ -147,8 +147,7 @@ pub(crate) async fn ls(
         }
         Ok(())
     }
-    .in_current_span()
     .boxed();
-    ctx.spawn_worker(worker);
+    ctx.spawn_worker(debug_span!("ls_worker"), worker);
     Ok(ReceiverStream::new(receiver))
 }
