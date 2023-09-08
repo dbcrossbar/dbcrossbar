@@ -4,13 +4,13 @@ use anyhow::{format_err, Context as _, Result};
 use clap::Parser;
 use futures::{pin_mut, stream, FutureExt, StreamExt, TryStreamExt};
 use humanize_rs::bytes::Bytes as HumanizedBytes;
+use opinionated_telemetry::tracing::{field, Span};
 use tokio::io;
 use tokio_util::codec::{FramedWrite, LinesCodec};
-use tracing::{debug, field, instrument, Span};
 
 use crate::{
-    config::Configuration, rechunk::rechunk_csvs, tokio_glue::try_forward, Context,
-    DataFormat, DestinationArguments, DisplayOutputLocators, DriverArguments,
+    common::*, config::Configuration, rechunk::rechunk_csvs, tokio_glue::try_forward,
+    Context, DataFormat, DestinationArguments, DisplayOutputLocators, DriverArguments,
     IfExists, SharedArguments, SourceArguments, TemporaryStorage, UnparsedLocator,
 };
 
@@ -87,6 +87,18 @@ pub(crate) async fn run(
     let schema_opt = opt.schema.map(|s| s.parse(enable_unstable)).transpose()?;
     let from_locator = opt.from_locator.parse(enable_unstable)?;
     let to_locator = opt.to_locator.parse(enable_unstable)?;
+
+    describe_counter!(
+        "dbcrossbar.cp_from.count",
+        "The number of times we've copied data from a source"
+    );
+    describe_counter!(
+        "dbcrossbar.cp_to.count",
+        "The number of times we've copied data to a destination"
+    );
+
+    increment_counter!("dbcrossbar.cp_from.count", "scheme" => from_locator.dyn_scheme());
+    increment_counter!("dbcrossbar.cp_to.count", "scheme" => to_locator.dyn_scheme());
 
     // Fill in our span fields.
     let span = Span::current();

@@ -1,0 +1,37 @@
+[package]
+name = "opinionated_telemetry"
+version = "0.1.0"
+authors = ["Eric Kidd <git@randomhacks.net>"]
+edition = "2018"
+
+description = "Opinionated configuration for tracing and metrics crates (with OpenTelemetry & Prometheus)."
+categories = ["development-tools::debugging", "development-tools::profiling"]
+keywords = ["opentelemetry", "prometheus", "tracing", "metrics"]
+license = "Apache-2.0 OR MIT"
+readme = "README.md"
+homepage = "https://github.com/dbcrossbar/dbcrossbar/tree/main/crates/opinionated_telemetry"
+repository = "https://github.com/dbcrossbar/dbcrossbar"
+documentation = "https://docs.rs/opinionated_telemetry/"
+
+[dev-dependencies]
+anyhow = "1.0.52"
+tokio = { version = "1", default-features = false, features = ["io-util", "macros", "net", "process", "rt-multi-thread"] }
+
+[dependencies]
+async-trait = "0.1"
+futures = "0.3"
+# Try to track the same version of `hyper` as `opentelemetry-stackdriver`
+# if we can, just to keep the binary size down.
+hyper = { version = "0.14.27", default-features = false, features = ["client", "server", "tcp", "http1", "http2"] }
+metrics = "0.21.1"
+metrics-util = "0.15.1"
+once_cell = "1.18.0"
+opentelemetry = "0.20.0"
+opentelemetry-stackdriver = "0.17.0"
+serde_json = "1"
+thiserror = "1"
+tracing = "0.1.29"
+tracing-log = "0.1.2"
+tracing-opentelemetry = "0.21.0"
+tracing-subscriber = { version = "0.3.3", features = ["env-filter"] }
+tokio = { version = "1", default-features = false }

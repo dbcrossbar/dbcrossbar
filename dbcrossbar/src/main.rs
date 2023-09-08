@@ -30,12 +30,8 @@ use std::env;
 use anyhow::{Error, Result};
 use clap::Parser;
 use futures::try_join;
+use opinionated_telemetry::TelemetryConfig;
 use tracing::debug;
-use tracing_subscriber::{
-    fmt::{format::FmtSpan, Subscriber},
-    prelude::*,
-    EnvFilter,
-};
 
 use self::config::Configuration;
 
@@ -99,6 +95,7 @@ pub(crate) mod common {
         join, stream, try_join, Future, FutureExt, Stream, StreamExt, TryFutureExt,
         TryStreamExt,
     };
+    pub(crate) use metrics::{counter, describe_counter, increment_counter};
     pub(crate) use std::{
         any::Any,
         convert::{TryFrom, TryInto},
@@ -113,8 +110,8 @@ pub(crate) mod common {
     };
     pub(crate) use tracing::{
         debug, debug_span, error, info, instrument, trace, trace_span, warn,
+        Instrument,
     };
-    pub(crate) use tracing_futures::Instrument;
     pub(crate) use url::Url;
 
     pub(crate) use crate::{
@@ -147,14 +144,14 @@ pub(crate) mod common {
 // Our main entry point.
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Configure tracing.
-    let filter = EnvFilter::from_default_env();
-    Subscriber::builder()
-        .with_writer(std::io::stderr)
-        .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
-        .with_env_filter(filter)
-        .finish()
-        .init();
+    // Configure telemetry.
+    let telemetry_handle = TelemetryConfig::new(
+        opinionated_telemetry::AppType::Cli,
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+    )
+    .install()
+    .await?;
     debug!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
     // Find our system SSL configuration, even if we're statically linked.
@@ -180,6 +177,8 @@ async fn main() -> Result<()> {
     let cmd_fut = cmd::run(ctx, config, opt);
 
     // Run our futures.
-    try_join!(cmd_fut, worker_fut)?;
+    let result = try_join!(cmd_fut, worker_fut);
+    telemetry_handle.flush_and_shutdown().await;
+    result?;
     Ok(())
 }

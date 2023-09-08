@@ -47,6 +47,10 @@ impl Locator for CsvLocator {
         self
     }
 
+    fn dyn_scheme(&self) -> &'static str {
+        <Self as LocatorStatic>::scheme()
+    }
+
     #[instrument(level = "trace", name = "csv::schema")]
     fn schema(&'_ self, ctx: Context) -> BoxFuture<Option<Schema>> {
         if self.is_directory_like() {
