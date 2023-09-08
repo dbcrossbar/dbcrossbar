@@ -6,7 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
-## [0.5.3] - 2022-08-01
+## [0.5.4] - 2023-09-08
+
+### Added
+
+- Output in JSON Lines format.
+- Experimental new support for Prometheus and Google Cloud Trace via [`opinionated_telemetry`](https://github.com/dbcrossbar/dbcrossbar/blob/main/crates/opinionated_telemetry/README.md).
+
+### Removed
+
+- `dbcrossbarlib` is not longer provided separately. As before, we recommend calling out to `dbcrossbar` using the CLI, rather than trying to link against its relatively complex dependencies.
+
+## [0.5.3] - 2023-08-01
 
 ### Changed
 
