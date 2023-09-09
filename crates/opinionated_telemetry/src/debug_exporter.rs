@@ -5,7 +5,6 @@ use std::{
     io::{self, Write},
 };
 
-use async_trait::async_trait;
 use futures::{future::BoxFuture, FutureExt, TryFutureExt};
 use opentelemetry::{
     sdk::export::{
@@ -19,7 +18,6 @@ use opentelemetry::{
 #[derive(Debug)]
 pub(crate) struct DebugExporter;
 
-#[async_trait]
 impl SpanExporter for DebugExporter {
     fn export(&mut self, batch: Vec<SpanData>) -> BoxFuture<'static, ExportResult> {
         export_helper(batch)

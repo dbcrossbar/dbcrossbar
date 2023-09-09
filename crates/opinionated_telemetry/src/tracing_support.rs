@@ -4,7 +4,6 @@ use std::{
     collections::HashMap, env, error, fmt, path::Path, str::FromStr, time::Duration,
 };
 
-use async_trait::async_trait;
 use futures::{future::BoxFuture, FutureExt};
 use once_cell::sync::Lazy;
 use opentelemetry::{
@@ -164,7 +163,6 @@ impl BoxExporter {
 }
 
 // Forward the `export` method.
-#[async_trait]
 impl SpanExporter for BoxExporter {
     fn export(&mut self, batch: Vec<SpanData>) -> BoxFuture<'static, ExportResult> {
         // DEBUG: This tends to hit ugly recursive loops when the exporter

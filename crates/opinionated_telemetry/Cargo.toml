@@ -18,7 +18,6 @@ anyhow = "1.0.52"
 tokio = { version = "1", default-features = false, features = ["io-util", "macros", "net", "process", "rt-multi-thread"] }
 
 [dependencies]
-async-trait = "0.1"
 futures = "0.3"
 # Try to track the same version of `hyper` as `opentelemetry-stackdriver`
 # if we can, just to keep the binary size down.
