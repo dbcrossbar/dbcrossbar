@@ -8,9 +8,52 @@
 //! We specifically try to integrate with OpenTelemetry and to support standard
 //! `"traceparent"` and `"tracestate"` headers.
 //!
+//! ## Usage
+//!
+//! For a simple async CLI tool, you could use this library like this:
+//! ```
+//! use anyhow::Result;
+//! use opinionated_telemetry::{
+//!   run_with_telemetry, set_parent_span_from_env, AppType,
+//! };
+//! use tracing::instrument;
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<()> {
+//!   run_with_telemetry(
+//!     AppType::Cli,
+//!     env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"),
+//!     main_helper(),
+//!   ).await
+//! }
+//!
+//! // Note that `instrument` will only work correctly on functions called from
+//! // inside `run_with_telemetry`.
+//! #[instrument(
+//!   name = "my-app",
+//!   fields(version = env!("CARGO_PKG_VERSION"))
+//! )]
+//! async fn main_helper() -> Result<()> {
+//!  // Use TRACEPARENT and TRACESTATE from the environment to link into any
+//!  // existing trace. Or start a new trace if none are present.
+//!  set_parent_span_from_env();
+//!  Ok(())
+//! }
+//! ```
+//!
+//! For more complex applications, you can use [`TelemetryConfig`]. For
+//! synchronous applications, see [`run_with_telemetry_sync`] and
+//! [`TelemetryConfig::install_sync`], which are available if the `sync` feature
+//! is enabled.
+//!
+//! ## Features
+//!
+//! - `sync`: Enable synchronous telemetry support. Use this for otherwise
+//!   synchronous applications. This is not enabled by default.
+//!
 //! ## Environment Variables
 //!
-//! The following variables can be used to configure
+//! The following variables can be used to configure telemetry:
 //!
 //! - `RUST_LOG` can be used to control our logging levels in the normal
 //!   fashion.
@@ -29,9 +72,9 @@
 //!   `pushgateway`](https://github.com/prometheus/pushgateway/).
 //! - `OTEL_SERVICE_NAME` and `OTEL_SERVICE_VERSION` can be used to identify
 //!   your service. If not set, we will use the `service_name` and
-//!   `service_version` parameters to [`start_telemetry`] or
-//!   [`run_with_telemetry`]. Other `OTEL_` variables supported by the
-//!   [`opentelemetry`] crate may also be respected.
+//!   `service_version` parameters to [`TelemetryConfig`],
+//!   [`run_with_telemetry`] or [`run_with_telemetry_sync`]. Other `OTEL_`
+//!   variables supported by the [`opentelemetry`] crate may also be respected.
 //!
 //! For CLI tools, these variables will normally be set by the calling app:
 //!
@@ -75,14 +118,23 @@ mod error;
 mod glue;
 mod metrics_support;
 mod prometheus_recorder;
+#[cfg(feature = "sync")]
+mod sync;
 mod tracing_support;
 
 pub use self::error::{Error, Result};
+#[cfg(feature = "sync")]
+pub use self::sync::TelemetrySyncHandle;
 pub use self::tracing_support::{
     current_span_as_env, current_span_as_headers, inject_current_span_into,
     set_parent_span_from, set_parent_span_from_env, SetParentFromExtractor,
 };
 
+/// What type of application should we configure telemetry for? This will affect
+/// how various kinds of telemetry are configured. For example,
+/// [`AppType::Server`] would create a Prometheus scape endpoint, but
+/// [`AppType::Cli`] would push metrics to a Prometheus push gateway once on
+/// shutdown.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum AppType {
@@ -175,6 +227,47 @@ impl TelemetryConfig {
         start_metrics(&self).await?;
         Ok(TelemetryHandle { running: true })
     }
+
+    /// Install telemetry synchronously. This creates a single-threaded `tokio`
+    /// runtime behind the scenes. This is only available if the `sync` feature
+    /// is enabled.
+    ///
+    /// ```
+    /// use anyhow::Result;
+    /// use opinionated_telemetry::{
+    ///   set_parent_span_from_env, AppType, TelemetryConfig,
+    /// };
+    ///
+    /// fn main() -> Result<()> {
+    ///   // Configure and install our telemetry.
+    ///   let handle = TelemetryConfig::new(
+    ///     AppType::Cli, env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"),
+    ///   ).install_sync()?;
+    ///
+    ///   // Call our real `main` function.
+    ///   let result = main_helper();
+    ///   handle.flush_and_shutdown();
+    ///   result
+    /// }
+    ///
+    /// // Note that `instrument` will only work correctly on functions called
+    /// // _after_ we call `TelemetryConfig::install_sync`.
+    /// #[tracing::instrument(
+    ///   name = "my-app",
+    ///   fields(version = env!("CARGO_PKG_VERSION"))
+    /// )]
+    /// fn main_helper() -> Result<()> {
+    ///   // Use TRACEPARENT and TRACESTATE from the environment to link into any
+    ///   // existing trace. Or start a new trace if none are present.
+    ///   set_parent_span_from_env();
+    ///   Ok(())
+    /// }
+    /// ```
+    #[cfg(feature = "sync")]
+    pub fn install_sync(self) -> Result<TelemetrySyncHandle> {
+        use crate::sync::install_sync_helper;
+        install_sync_helper(self)
+    }
 }
 
 /// A handle that can be used to shut down telemetry and flush any remaining
@@ -255,5 +348,53 @@ where
         .await?;
     let result = fut.await;
     handle.flush_and_shutdown().await;
+    result
+}
+
+/// Like [`run_with_telemetry`], but for synchronous telemetry.
+///
+/// ```
+/// use anyhow::Result;
+/// use opinionated_telemetry::{
+///   run_with_telemetry_sync, set_parent_span_from_env, AppType,
+/// };
+/// use tracing::instrument;
+///
+/// fn main() -> Result<()> {
+///   run_with_telemetry_sync(
+///     AppType::Cli,
+///     env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"),
+///     main_helper,
+///   )
+/// }
+///
+/// // Note that `instrument` will only work correctly on functions called from
+/// // inside `run_with_telemetry_sync`.
+/// #[instrument(
+///   name = "my-app",
+///   fields(version = env!("CARGO_PKG_VERSION"))
+/// )]
+/// fn main_helper() -> Result<()> {
+///  // Use TRACEPARENT and TRACESTATE from the environment to link into any
+///  // existing trace. Or start a new trace if none are present.
+///  set_parent_span_from_env();
+///  Ok(())
+/// }
+/// ```
+#[cfg(feature = "sync")]
+pub fn run_with_telemetry_sync<T, E, F>(
+    app_type: AppType,
+    service_name: &str,
+    service_version: &str,
+    fut: F,
+) -> Result<T, E>
+where
+    F: FnOnce() -> Result<T, E>,
+    E: From<Error>,
+{
+    let handle = TelemetryConfig::new(app_type, service_name, service_version)
+        .install_sync()?;
+    let result = fut();
+    handle.flush_and_shutdown();
     result
 }

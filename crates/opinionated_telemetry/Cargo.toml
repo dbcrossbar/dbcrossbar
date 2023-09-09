@@ -13,6 +13,11 @@ homepage = "https://github.com/dbcrossbar/dbcrossbar/tree/main/crates/opinionate
 repository = "https://github.com/dbcrossbar/dbcrossbar"
 documentation = "https://docs.rs/opinionated_telemetry/"
 
+[features]
+default = []
+# Optional: Provide a synchronous API for telemetry.
+sync = ["tokio/rt"]
+
 [dev-dependencies]
 anyhow = "1.0.52"
 tokio = { version = "1", default-features = false, features = ["io-util", "macros", "net", "process", "rt-multi-thread"] }
@@ -33,4 +38,4 @@ tracing = "0.1.29"
 tracing-log = "0.1.2"
 tracing-opentelemetry = "0.21.0"
 tracing-subscriber = { version = "0.3.3", features = ["env-filter"] }
-tokio = { version = "1", default-features = false }
+tokio = { version = "1", default-features = false, features = ["sync"] }

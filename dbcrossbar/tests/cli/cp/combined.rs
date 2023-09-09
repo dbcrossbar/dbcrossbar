@@ -10,9 +10,9 @@ use tracing::info_span;
 
 use super::*;
 
-#[tokio::test]
+#[test]
 #[ignore]
-async fn cp_csv_to_postgres_to_gs_to_csv() {
+fn cp_csv_to_postgres_to_gs_to_csv() {
     let testdir = TestDir::new("dbcrossbar", "cp_csv_to_postgres_to_gs_to_csv");
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
@@ -29,8 +29,7 @@ async fn cp_csv_to_postgres_to_gs_to_csv() {
         env!("CARGO_PKG_NAME"),
         env!("CARGO_PKG_VERSION"),
     )
-    .install()
-    .await
+    .install_sync()
     .expect("could not install telemetry");
     let span = info_span!("cp_csv_to_postgres_to_gs_to_csv").entered();
     set_parent_span_from_env();
@@ -136,7 +135,7 @@ async fn cp_csv_to_postgres_to_gs_to_csv() {
     assert_diff!(&expected, &actual, ",", 0);
 
     drop(span);
-    telemetry_handle.flush_and_shutdown().await;
+    telemetry_handle.flush_and_shutdown();
 }
 
 #[test]

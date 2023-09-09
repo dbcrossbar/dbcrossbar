@@ -15,6 +15,8 @@ pub enum Error {
     CouldNotConfigureTracing(#[source] Box<dyn error::Error + Send + Sync>),
     #[error("Could not configure metrics reporting")]
     CouldNotConfigureMetrics(#[source] Box<dyn error::Error + Send + Sync>),
+    #[error("Could not install telemetry")]
+    CouldNotInstallTelemetry(#[source] Box<dyn error::Error + Send + Sync>),
     #[error("Could not report metrics")]
     CouldNotReportMetrics(#[source] Box<dyn error::Error + Send + Sync>),
 }
@@ -44,7 +46,15 @@ impl Error {
         Error::CouldNotConfigureMetrics(Box::new(err))
     }
 
-    // Build a new `Error::CouldNotReportMetrics` error.
+    /// Build a new `Error::CouldNotInstallTelemetry` error.
+    pub(crate) fn could_not_install_telemetry<E>(err: E) -> Self
+    where
+        E: error::Error + Send + Sync + 'static,
+    {
+        Error::CouldNotInstallTelemetry(Box::new(err))
+    }
+
+    /// Build a new `Error::CouldNotReportMetrics` error.
     pub(crate) fn could_not_report_metrics<E>(err: E) -> Self
     where
         E: error::Error + Send + Sync + 'static,

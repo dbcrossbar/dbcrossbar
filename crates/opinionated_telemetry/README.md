@@ -2,6 +2,8 @@
 
 This is a single crate that provides a simple, opinionated backend for `metrics` and `tracing`. The goal is to easily enable an existing Rust app to emit metrics and traces, without having to spend a lot of effort on configuration.
 
+[Documentation](https://docs.rs/opinionated_telemetry/)
+
 ## This crate's opinions
 
 All opionated software should try to list what opinions it holds, so users know
