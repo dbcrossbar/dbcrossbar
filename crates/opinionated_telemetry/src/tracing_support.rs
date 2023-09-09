@@ -34,31 +34,6 @@ use crate::{env_extractor::EnvExtractor, env_injector::EnvInjector, TelemetryCon
 
 use super::{debug_exporter::DebugExporter, Error, Result};
 
-/// Implement
-#[macro_export]
-macro_rules! derive_extractor {
-    ($type:ty, $($field:ident),+) => {
-        impl ::opentelemetry::propagation::Extractor for $type {
-            fn get(&self, key: &str) -> Option<&str> {
-                match key {
-                    $( stringify!($field) => self.$field.as_deref(), )*
-                    _ => None,
-                }
-            }
-
-            fn keys(&self) -> Vec<&str> {
-                let mut result = vec![];
-                $(
-                    if self.$field.is_some() {
-                        result.push(stringify!($field));
-                    }
-                )*
-                result
-            }
-        }
-    };
-}
-
 /// Our extensions to the `tracing::Span` type.
 trait SpanExt {
     /// Record `result` in this `Span`, and return it. Expects the span to have
