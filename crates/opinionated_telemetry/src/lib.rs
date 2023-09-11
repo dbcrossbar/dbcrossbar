@@ -228,9 +228,9 @@ impl TelemetryConfig {
         Ok(TelemetryHandle { running: true })
     }
 
-    /// Install telemetry synchronously. This creates a single-threaded `tokio`
-    /// runtime behind the scenes. This is only available if the `sync` feature
-    /// is enabled.
+    /// EXPERIMENTAL: Install telemetry synchronously. This creates a
+    /// single-threaded `tokio` runtime behind the scenes. This is only
+    /// available if the `sync` feature is enabled.
     ///
     /// ```
     /// use anyhow::Result;
@@ -351,7 +351,7 @@ where
     result
 }
 
-/// Like [`run_with_telemetry`], but for synchronous telemetry.
+/// EXPERIMENTAL: Like [`run_with_telemetry`], but for synchronous telemetry.
 ///
 /// ```
 /// use anyhow::Result;

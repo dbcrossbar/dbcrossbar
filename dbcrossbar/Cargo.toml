@@ -17,7 +17,7 @@ documentation = "https://www.dbcrossbar.org/"
 cli_test_dir = "0.1.5"
 csv = "1.0.5"
 difference = "2.0"
-opinionated_telemetry = { version = "0.1.0", path = "../crates/opinionated_telemetry", features = ["sync"] }
+opinionated_telemetry = { version = "0.2.0", path = "../crates/opinionated_telemetry", features = ["sync"] }
 pretty_assertions = "1.0.0"
 tempfile = "3.1.0"
 tracing-subscriber = "0.3.3"
@@ -54,7 +54,7 @@ metrics = "0.21.1"
 mime = "0.3.16"
 opener = "0.6.1"
 openssl-probe = "0.1.2"
-opinionated_telemetry = { version = "0.1.0", path = "../crates/opinionated_telemetry" }
+opinionated_telemetry = { version = "0.2.0", path = "../crates/opinionated_telemetry" }
 parse_link_header = "0.3"
 peg = "0.8"
 percent-encoding = "2.1.0"
