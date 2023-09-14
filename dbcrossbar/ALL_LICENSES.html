@@ -1824,36 +1824,6 @@ pub(super) use verify::{check_name_constraints, verify_cert_dns_name};
                 <h3 id="ISC">ISC License</h3>
                 <h4>Used by:</h4>
                 <ul class="license-used-by">
-                    <li><a href=" https://github.com/rustls/webpki ">rustls-webpki 0.101.4</a></li>
-                </ul>
-                <pre class="license-text">// Copyright 2021 Brian Smith.
-//
-// Permission to use, copy, modify, and/or distribute this software for any
-// purpose with or without fee is hereby granted, provided that the above
-// copyright notice and this permission notice appear in all copies.
-//
-// THE SOFTWARE IS PROVIDED &quot;AS IS&quot; AND THE AUTHORS DISCLAIM ALL WARRANTIES
-// WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-// MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR
-// ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-// WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-// ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-// OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-
-#[test]
-fn cert_without_extensions_test() {
-    // Check the certificate is valid with
-    // &#x60;openssl x509 -in cert_without_extensions.der -inform DER -text -noout&#x60;
-    const CERT_WITHOUT_EXTENSIONS_DER: &amp;[u8] &#x3D; include_bytes!(&quot;cert_without_extensions.der&quot;);
-
-    assert!(webpki::EndEntityCert::try_from(CERT_WITHOUT_EXTENSIONS_DER).is_ok());
-}
-</pre>
-            </li>
-            <li class="license">
-                <h3 id="ISC">ISC License</h3>
-                <h4>Used by:</h4>
-                <ul class="license-used-by">
                     <li><a href=" https://github.com/briansmith/webpki ">webpki 0.21.4</a></li>
                 </ul>
                 <pre class="license-text">Except as otherwise noted, this project is licensed under the following
@@ -1875,6 +1845,22 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 The files under third-party/chromium are licensed as described in
 third-party/chromium/LICENSE.
+</pre>
+            </li>
+            <li class="license">
+                <h3 id="ISC">ISC License</h3>
+                <h4>Used by:</h4>
+                <ul class="license-used-by">
+                    <li><a href=" https://github.com/rustls/webpki ">rustls-webpki 0.101.4</a></li>
+                </ul>
+                <pre class="license-text">ISC License:
+
+Copyright (c) 2004-2010 by Internet Systems Consortium, Inc. (&quot;ISC&quot;)
+Copyright (c) 1995-2003 by Internet Software Consortium
+
+Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED &quot;AS IS&quot; AND ISC DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 </pre>
             </li>
             <li class="license">
@@ -5277,7 +5263,7 @@ SOFTWARE.
                     <li><a href=" https://github.com/faradayio/bigml-rs ">bigml_derive 0.4.1</a></li>
                     <li><a href=" https://github.com/chronotope/chrono ">chrono 0.4.29</a></li>
                     <li><a href=" https://github.com/zowens/crc32c ">crc32c 0.6.4</a></li>
-                    <li><a href=" https://github.com/dbcrossbar/dbcrossbar ">dbcrossbar 0.5.4</a></li>
+                    <li><a href=" https://github.com/dbcrossbar/dbcrossbar ">dbcrossbar 0.5.5</a></li>
                     <li><a href=" https://github.com/georust/geo ">geo-types 0.7.11</a></li>
                     <li><a href=" https://github.com/dbcrossbar/dbcrossbar ">opinionated_telemetry 0.2.0</a></li>
                     <li><a href=" https://github.com/ctz/rustls ">rustls 0.19.1</a></li>

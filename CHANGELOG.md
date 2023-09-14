@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.5.5] - 2023-09-14
+
+### Added
+
+- Update to latest `opinionated_telemetry`. This should not affect users.
+
 ## [0.5.4] - 2023-09-08
 
 ### Added
