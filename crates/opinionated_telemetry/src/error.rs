@@ -47,6 +47,7 @@ impl Error {
     }
 
     /// Build a new `Error::CouldNotInstallTelemetry` error.
+    #[allow(dead_code)]
     pub(crate) fn could_not_install_telemetry<E>(err: E) -> Self
     where
         E: error::Error + Send + Sync + 'static,
