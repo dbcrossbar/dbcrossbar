@@ -396,6 +396,8 @@ pub enum DataType {
     TimestampWithTimeZone,
     /// A UUID.
     Uuid,
+    /// A time of day without a timezone.
+    TimeWithoutTimeZone,
 }
 
 impl DataType {
@@ -428,6 +430,7 @@ impl DataType {
             | DataType::Text
             | DataType::TimestampWithoutTimeZone
             | DataType::TimestampWithTimeZone
+            | DataType::TimeWithoutTimeZone
             | DataType::Uuid => Ok(()),
 
             DataType::Array(ty) => ty.validate_recursive(schema, seen),
@@ -480,7 +483,8 @@ impl DataType {
             | DataType::Text
             | DataType::TimestampWithoutTimeZone
             | DataType::TimestampWithTimeZone
-            | DataType::Uuid => false,
+            | DataType::Uuid
+            | DataType::TimeWithoutTimeZone => false,
 
             DataType::Named(name) => {
                 let dt = schema.data_type_for_name(name);

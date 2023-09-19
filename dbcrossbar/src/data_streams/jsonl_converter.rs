@@ -344,6 +344,11 @@ fn convert_csv_field_to_json(
                 let value: Uuid = FromCsvCell::from_csv_cell(value)?;
                 Ok(Value::String(value.to_string()))
             }
+            DataType::TimeWithoutTimeZone => {
+                let value: NaiveDateTime =
+                    FromCsvCell::from_csv_cell(&("2000-01-01T".to_owned() + value))?;
+                Ok(Value::String(value.format("%H:%M:%S%.f").to_string()))
+            }
         }
     }
 }

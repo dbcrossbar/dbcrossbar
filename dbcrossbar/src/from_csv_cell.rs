@@ -1,6 +1,6 @@
 //! Parsing values found in CSV cells.
 
-use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, Utc};
+use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use geo_types::Geometry;
 use geojson::GeoJson;
 use lazy_static::lazy_static;
@@ -173,6 +173,14 @@ impl FromCsvCell for NaiveDateTime {
                 NaiveDateTime::parse_from_str(cell, "%Y-%m-%dT%H:%M:%S%.f")
             })
             .with_context(|| format!("cannot parse {:?} as timestamp", cell))
+    }
+}
+
+impl FromCsvCell for NaiveTime {
+    fn from_csv_cell(cell: &str) -> Result<Self> {
+        NaiveTime::parse_from_str(cell, "%H:%M:%S%.f")
+            .or_else(|_err| NaiveTime::parse_from_str(cell, "%H:%M:%S%.f"))
+            .with_context(|| format!("cannot parse {:?} as time", cell))
     }
 }
 
