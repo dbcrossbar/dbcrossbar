@@ -553,6 +553,10 @@ fn data_type_serialization_examples() {
             DataType::TimestampWithTimeZone,
             json!("timestamp_with_time_zone"),
         ),
+        (
+            DataType::TimeWithoutTimeZone,
+            json!("time_without_time_zone"),
+        ),
         (DataType::Uuid, json!("uuid")),
     ];
     for (data_type, serialized) in examples {
@@ -593,6 +597,7 @@ fn data_type_roundtrip() {
         DataType::TimestampWithoutTimeZone,
         DataType::TimestampWithTimeZone,
         DataType::Uuid,
+        DataType::TimeWithoutTimeZone,
     ];
     for data_type in &data_types {
         let serialized = serde_json::to_string(data_type).unwrap();

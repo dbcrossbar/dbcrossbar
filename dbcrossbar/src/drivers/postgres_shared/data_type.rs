@@ -190,10 +190,10 @@ impl PgScalarDataType {
             DataType::TimestampWithTimeZone => {
                 Ok(PgScalarDataType::TimestampWithTimeZone)
             }
+            DataType::Uuid => Ok(PgScalarDataType::Uuid),
             DataType::TimeWithoutTimeZone => {
                 Ok(PgScalarDataType::TimeWithoutTimeZone)
             }
-            DataType::Uuid => Ok(PgScalarDataType::Uuid),
         }
     }
 
