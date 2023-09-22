@@ -11,7 +11,7 @@ use crate::common::*;
 
 /// Return `dirs::config_dir()`.
 #[cfg(not(target_os = "macos"))]
-fn system_config_dir() -> Option<PathBuf> {
+pub(crate) fn system_config_dir() -> Option<PathBuf> {
     dirs::config_dir()
 }
 
