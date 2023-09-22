@@ -7,11 +7,14 @@ use sha2::{Digest, Sha256};
 use std::{
     fmt::Write,
     path::{Path, PathBuf},
+    process,
     time::Duration,
 };
 use tokio::fs;
 pub(crate) use yup_oauth2::AccessToken;
 use yup_oauth2::{
+    authenticator::ApplicationDefaultCredentialsTypes,
+    authorized_user::AuthorizedUserSecret, ApplicationDefaultCredentialsFlowOpts,
     ApplicationSecret, ConsoleApplicationSecret, InstalledFlowReturnMethod,
     ServiceAccountKey,
 };
@@ -158,6 +161,62 @@ async fn installed_flow_authenticator() -> Result<Authenticator> {
     .context("failed to create authenticator")
 }
 
+async fn authorized_user_secret() -> Result<AuthorizedUserSecret> {
+    let creds = CredentialsManager::singleton()
+        .get("gcloud_authorized_user_secret")
+        .await?;
+    serde_json::from_str(creds.get_required("value")?)
+        .context("could not parse autorized user secret")
+}
+
+/// Build an authenticator for a user logged in with
+/// "gcloud auth application-default login""
+async fn authorized_user_authenticator() -> Result<Authenticator> {
+    let authorized_user_secret = authorized_user_secret().await?;
+    // Keying our token file path by the client ID seems to work here, because
+    // there might be multiple client IDs passed in as env vars at different
+    // times, but scoping session keys to the client ID seems reasonable.
+    let token_file_path = token_file_path(&authorized_user_secret.client_id).await?;
+    ensure_parent_directory(&token_file_path).await?;
+    info!("building InstalledFlowAuthenticator");
+    yup_oauth2::AuthorizedUserAuthenticator::builder(authorized_user_secret)
+        .persist_tokens_to_disk(token_file_path)
+        .build()
+        .await
+        .context("failed to create authenticator")
+}
+
+/// Build an authenticator for application default credentials
+/// This will forst look for a service account key stored in the
+/// location indicated by the $GOOGLE_APPLICATION_CREDENTIALS
+/// env variable. If that is not defined, or authentication fails,
+/// it will assume we're running on a Google Compute Engine instance,
+/// and query its metadata service.
+async fn application_default_authenticator() -> Result<Authenticator> {
+    // Keying our token file path by the current process id. We don't have any information
+    // about which user will eventually be authenticated at this point
+    let token_file_path = token_file_path(&format!("pid-{}", process::id())).await?;
+    ensure_parent_directory(&token_file_path).await?;
+    info!("building ApplicationDefaultCredentialsAuthenticator");
+    let adc_authenticator =
+        yup_oauth2::ApplicationDefaultCredentialsAuthenticator::builder(
+            ApplicationDefaultCredentialsFlowOpts { metadata_url: None },
+        );
+
+    match adc_authenticator.await {
+        ApplicationDefaultCredentialsTypes::InstanceMetadata(auth) => auth
+            .persist_tokens_to_disk(token_file_path)
+            .build()
+            .await
+            .context("failed to create instance metadata authenticator"),
+        ApplicationDefaultCredentialsTypes::ServiceAccount(auth) => auth
+            .persist_tokens_to_disk(token_file_path)
+            .build()
+            .await
+            .context("failed to create service account authenticator"),
+    }
+}
+
 /// Create an authenticator using service account credentials if available, and
 /// interactive credentials otherwise.
 #[instrument(level = "trace")]
@@ -170,7 +229,25 @@ pub(crate) async fn authenticator() -> Result<Authenticator> {
                 "trying \"installed flow\" auth because service account auth failed because: {:?}",
                 err,
             );
-            installed_flow_authenticator().await
+            match installed_flow_authenticator().await {
+                Ok(auth) => Ok(auth),
+                Err(err) => {
+                    trace!(
+                        "trying \"application default credentials\" auth because installed flow auth failed because: {:?}",
+                        err,
+                    );
+                    match application_default_authenticator().await {
+                        Ok(auth) => Ok(auth),
+                        Err(err) => {
+                            trace!(
+                                "trying \"authorized user\" auth because application default credentials auth failed because: {:?}",
+                                err,
+                            );
+                            authorized_user_authenticator().await
+                        }
+                    }
+                }
+            }
         }
     }
 }

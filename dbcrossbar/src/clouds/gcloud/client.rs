@@ -131,7 +131,7 @@ impl Client {
                 let resp_result = self
                     .client
                     .get(url.as_str())
-                    .bearer_auth(token.as_str())
+                    .bearer_auth(token.token().expect("Token missing"))
                     .headers(headers)
                     .send()
                     .await;
@@ -230,7 +230,7 @@ impl Client {
         let http_resp = self
             .client
             .post(url.as_str())
-            .bearer_auth(token.as_str())
+            .bearer_auth(token.token().expect("Token missing"))
             .json(&body)
             .send()
             .await
@@ -257,7 +257,7 @@ impl Client {
         let http_resp = self
             .client
             .post(url.as_str())
-            .bearer_auth(token.as_str())
+            .bearer_auth(token.token().expect("Token missing"))
             .body(body)
             .send()
             .await
@@ -286,7 +286,7 @@ impl Client {
         let http_resp = self
             .client
             .delete(url.as_str())
-            .bearer_auth(token.as_str())
+            .bearer_auth(token.token().expect("Token missing"))
             .send()
             .await
             .with_context(|| format!("error deleting {}", url))?;

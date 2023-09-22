@@ -11,8 +11,8 @@ use std::{
 };
 use tokio::{fs, sync::Mutex};
 
-use crate::common::*;
 use crate::config::config_dir;
+use crate::{common::*, config::system_config_dir};
 
 /// A set of credentials that we can use to access a service.
 ///
@@ -82,6 +82,8 @@ impl CredentialsManager {
     fn new() -> Result<CredentialsManager> {
         let mut sources = HashMap::new();
         let config_dir = config_dir()?;
+        let system_config_dir =
+            system_config_dir().expect("Failed to resolve system config path");
 
         // Specify how to connect to AWS.
         let aws = EnvCredentialsSource::new(vec![
@@ -126,6 +128,20 @@ impl CredentialsManager {
         sources.insert(
             "gcloud_client_secret".to_owned(),
             Mutex::new(gcloud_client_secret.boxed()),
+        );
+
+        // Specify how to find Google autorized user secret.
+        let gcloud_authorized_user_secret =
+            CredentialsSources::new(vec![FileCredentialsSource::new(
+                "value",
+                system_config_dir
+                    .join("gcloud")
+                    .join("application_default_credentials.json"),
+            )
+            .boxed()]);
+        sources.insert(
+            "gcloud_authorized_user_secret".to_owned(),
+            Mutex::new(gcloud_authorized_user_secret.boxed()),
         );
 
         // Specify how to find a Shopify secret.
