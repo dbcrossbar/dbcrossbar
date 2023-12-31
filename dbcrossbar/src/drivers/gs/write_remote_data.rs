@@ -61,6 +61,17 @@ pub(crate) async fn write_remote_data_helper(
         .job_labels
         .to_owned();
 
+    let job_project_id = source_args
+        .driver_args()
+        .deserialize::<GCloudDriverArguments>()
+        .context("error parsing --from-args")?
+        .job_project_id
+        .to_owned();
+
+    // In case the user wants to run the job in a different project for billing purposes
+    let final_job_project_id =
+        job_project_id.unwrap_or_else(|| source.project().to_owned());
+
     // Construct a `BqTable` describing our source table.
     let source_table = BqTable::for_table_name_and_columns(
         schema,
@@ -87,7 +98,7 @@ pub(crate) async fn write_remote_data_helper(
 
     // Run our query.
     bigquery::query_to_table(
-        source.project(),
+        &final_job_project_id,
         &export_sql,
         &temp_table_name,
         &IfExists::Overwrite,

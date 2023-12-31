@@ -54,6 +54,17 @@ pub(crate) async fn write_remote_data_helper(
         .job_labels
         .to_owned();
 
+    let job_project_id = dest_args
+        .driver_args()
+        .deserialize::<GCloudDriverArguments>()
+        .context("error parsing --to-args")?
+        .job_project_id
+        .to_owned();
+
+    // In case the user wants to run the job in a different project for billing purposes
+    let final_job_project_id =
+        job_project_id.unwrap_or_else(|| dest.project().to_owned());
+
     // If our URL looks like a directory, add a glob.
     //
     // TODO: Is this the right way to default this? Or should we make users
@@ -102,6 +113,7 @@ pub(crate) async fn write_remote_data_helper(
         &initial_table,
         if_initial_table_exists,
         &job_labels,
+        &final_job_project_id,
     )
     .await?;
 
@@ -123,7 +135,7 @@ pub(crate) async fn write_remote_data_helper(
         let query =
             String::from_utf8(query).expect("generated SQL should always be UTF-8");
         debug!("import sql: {}", query);
-        bigquery::execute_sql(dest.project(), &query, &job_labels).await?;
+        bigquery::execute_sql(&final_job_project_id, &query, &job_labels).await?;
 
         // Delete temp table.
         bigquery::drop_table(initial_table.name(), &job_labels).await?;

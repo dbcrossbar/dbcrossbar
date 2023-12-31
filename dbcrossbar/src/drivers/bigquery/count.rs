@@ -31,6 +31,17 @@ pub(crate) async fn count_helper(
         .job_labels
         .to_owned();
 
+    let job_project_id = source_args
+        .driver_args()
+        .deserialize::<GCloudDriverArguments>()
+        .context("error parsing --from-args")?
+        .job_project_id
+        .to_owned();
+
+    // In case the user wants to run the job in a different project for billing purposes
+    let final_job_project_id =
+        job_project_id.unwrap_or_else(|| locator.project().to_owned());
+
     // Look up the arguments we need.
     let schema = shared_args.schema();
 
@@ -54,10 +65,13 @@ pub(crate) async fn count_helper(
     struct CountRow {
         count: String,
     }
-    let count_str =
-        bigquery::query_one::<CountRow>(locator.project(), &count_sql, &job_labels)
-            .await?
-            .count;
+    let count_str = bigquery::query_one::<CountRow>(
+        &final_job_project_id,
+        &count_sql,
+        &job_labels,
+    )
+    .await?
+    .count;
     count_str
         .parse::<usize>()
         .context("could not parse count output")

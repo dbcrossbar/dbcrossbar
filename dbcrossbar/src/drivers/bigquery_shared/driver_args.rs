@@ -11,4 +11,8 @@ pub(crate) struct GCloudDriverArguments {
     /// Billing labels to apply to objects and jobs.
     #[serde(default)]
     pub(crate) job_labels: Labels,
+
+    /// Project id, in case you want to not use the project implied by the source/dest table locator
+    #[serde(default)]
+    pub(crate) job_project_id: Option<String>,
 }
