@@ -19,6 +19,7 @@ pub(crate) async fn load(
     dest_table: &BqTable,
     if_exists: &IfExists,
     labels: &Labels,
+    job_project_id: &str,
 ) -> Result<()> {
     trace!("loading {} into {}", gs_url, dest_table.name);
 
@@ -39,7 +40,7 @@ pub(crate) async fn load(
     let client = Client::new().await?;
     run_job(
         &client,
-        dest_table.name.project(),
+        job_project_id,
         Job::new_load(config, labels.to_owned()),
     )
     .await?;

@@ -53,13 +53,17 @@ pub(crate) async fn write_remote_data_helper(
     let temporary_storage = shared_args.temporary_storage();
     let if_exists = dest_args.if_exists().to_owned();
 
-    // Get our billing labels.
-    let job_labels = source_args
+    let driver_args = source_args
         .driver_args()
         .deserialize::<GCloudDriverArguments>()
-        .context("error parsing --from-args")?
-        .job_labels
-        .to_owned();
+        .context("error parsing --from-args")?;
+
+    // In case the user wants to run the job in a different project for billing purposes
+    let final_job_project_id = driver_args
+        .job_project_id
+        .unwrap_or_else(|| source.project().to_owned());
+
+    let job_labels = driver_args.job_labels.to_owned();
 
     // Construct a `BqTable` describing our source table.
     let source_table = BqTable::for_table_name_and_columns(
@@ -87,7 +91,7 @@ pub(crate) async fn write_remote_data_helper(
 
     // Run our query.
     bigquery::query_to_table(
-        source.project(),
+        &final_job_project_id,
         &export_sql,
         &temp_table_name,
         &IfExists::Overwrite,
