@@ -46,24 +46,18 @@ pub(crate) async fn write_remote_data_helper(
     let temporary_storage = shared_args.temporary_storage();
     let if_exists = dest_args.if_exists();
 
-    // Get our billing labels.
-    let job_labels = dest_args
+    let driver_args = dest_args
         .driver_args()
         .deserialize::<GCloudDriverArguments>()
-        .context("error parsing --to-args")?
-        .job_labels
-        .to_owned();
+        .context("error parsing --to-args")?;
 
-    let job_project_id = dest_args
-        .driver_args()
-        .deserialize::<GCloudDriverArguments>()
-        .context("error parsing --to-args")?
-        .job_project_id
-        .to_owned();
+    // Get our billing labels.
+    let job_labels = driver_args.job_labels.to_owned();
 
     // In case the user wants to run the job in a different project for billing purposes
-    let final_job_project_id =
-        job_project_id.unwrap_or_else(|| dest.project().to_owned());
+    let final_job_project_id = driver_args
+        .job_project_id
+        .unwrap_or_else(|| dest.project().to_owned());
 
     // If our URL looks like a directory, add a glob.
     //
