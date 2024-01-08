@@ -6,11 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
-## [0.5.6] - 2023-12-13
-
 ### Added
 
-- bigquery: Users can now specify an alternate job project, for example for billing purposes.
+- bigquery: Users can now specify an alternate job project, for example for billing purposes. See docs for details.
 
 ## [0.5.5] - 2023-09-14
 

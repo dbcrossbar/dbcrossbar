@@ -12,7 +12,7 @@ pub(crate) struct GCloudDriverArguments {
     #[serde(default)]
     pub(crate) job_labels: Labels,
 
-    /// Project id, in case you want to not use the project implied by the source/dest table locator
+    /// Project id, in case you want to not use the project implied by the source/dest table locator.
     #[serde(default)]
     pub(crate) job_project_id: Option<String>,
 }

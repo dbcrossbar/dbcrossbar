@@ -23,7 +23,7 @@ You can also specify Google Cloud resource labels to apply to all BigQuery jobs.
 - `--from-arg=job_labels[department]=marketing`
 - `--to-arg=job_labels[project]=project1`
 
-You can pick a project to run jobs in, for example for billing purposes
+You can pick a project to run jobs in, for example for billing purposes.
 
 - `--from-arg=job_project_id=my-gcp-billing-project`
 - `--to-arg=job_project_id=my-gcp-billing-project`
