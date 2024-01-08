@@ -1,6 +1,6 @@
 [package]
 name = "dbcrossbar"
-version = "0.5.5"
+version = "0.5.6"
 authors = ["Eric Kidd <git@randomhacks.net>"]
 edition = "2018"
 
@@ -17,7 +17,9 @@ documentation = "https://www.dbcrossbar.org/"
 cli_test_dir = "0.1.5"
 csv = "1.0.5"
 difference = "2.0"
-opinionated_telemetry = { version = "0.2.0", path = "../crates/opinionated_telemetry", features = ["sync"] }
+opinionated_telemetry = { version = "0.2.0", path = "../crates/opinionated_telemetry", features = [
+    "sync",
+] }
 pretty_assertions = "1.0.0"
 tempfile = "3.1.0"
 tracing-subscriber = "0.3.3"
@@ -61,7 +63,11 @@ percent-encoding = "2.1.0"
 postgis = "0.9.0"
 rand = "0.8.1"
 regex = "1.5.4"
-reqwest = { version = "0.11.0", default-features = false, features = ["rustls-tls-native-roots", "json", "stream"] }
+reqwest = { version = "0.11.0", default-features = false, features = [
+    "rustls-tls-native-roots",
+    "json",
+    "stream",
+] }
 rustls = "0.20.1"
 rustls-native-certs = "0.6.1"
 sha-1 = "0.10.0"
@@ -74,7 +80,16 @@ strum = "0.25"
 strum_macros = "0.25"
 tempfile = "3.1.0"
 termcolor = "1.1.0"
-tokio = { version = "1.0.1", features = ["fs", "io-std", "io-util", "process", "rt", "rt-multi-thread", "sync", "time"] }
+tokio = { version = "1.0.1", features = [
+    "fs",
+    "io-std",
+    "io-util",
+    "process",
+    "rt",
+    "rt-multi-thread",
+    "sync",
+    "time",
+] }
 tokio-postgres = "0.7.0"
 tokio-postgres-rustls = "0.9.0"
 tokio-stream = { version = "0.1.2", features = ["io-util"] }

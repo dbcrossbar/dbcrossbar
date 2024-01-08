@@ -6,13 +6,12 @@ Arguments:
 
 Options:
       --schema <SCHEMA>            The schema to use (defaults to input table schema)
-      --temporary <TEMPORARIES>    Temporary directories, cloud storage buckets, datasets to use
-                                   during transfer (can be repeated)
-      --from-arg <FROM_ARGS>       Pass an extra argument of the form `key=value` to the source
-                                   driver
-      --from-format <FROM_FORMAT>  For directory- and file-like data sources, the format to assume.
-                                   If not specified, `dbcrossbar` will use the file extension to
-                                   guess the format
+      --temporary <TEMPORARIES>    Temporary directories, cloud storage buckets, datasets to use during
+                                   transfer (can be repeated)
+      --from-arg <FROM_ARGS>       Pass an extra argument of the form `key=value` to the source driver
+      --from-format <FROM_FORMAT>  For directory- and file-like data sources, the format to assume. If
+                                   not specified, `dbcrossbar` will use the file extension to guess the
+                                   format
       --where <WHERE_CLAUSE>       SQL where clause specifying rows to use
   -h, --help                       Print help
 
