@@ -170,13 +170,18 @@
 <p>All notable changes to this project will be documented in this file.</p>
 <p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>, and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased"><a class="header" href="#unreleased">[Unreleased]</a></h2>
-<h2 id="055---2023-09-14"><a class="header" href="#055---2023-09-14">[0.5.5] - 2023-09-14</a></h2>
+<h2 id="056---2024-01-08"><a class="header" href="#056---2024-01-08">[0.5.6] - 2024-01-08</a></h2>
 <h3 id="added"><a class="header" href="#added">Added</a></h3>
+<ul>
+<li>bigquery: Users can now specify an alternate job project, for example for billing purposes. See docs for details.</li>
+</ul>
+<h2 id="055---2023-09-14"><a class="header" href="#055---2023-09-14">[0.5.5] - 2023-09-14</a></h2>
+<h3 id="added-1"><a class="header" href="#added-1">Added</a></h3>
 <ul>
 <li>Update to latest <code>opinionated_telemetry</code>. This should not affect users.</li>
 </ul>
 <h2 id="054---2023-09-08"><a class="header" href="#054---2023-09-08">[0.5.4] - 2023-09-08</a></h2>
-<h3 id="added-1"><a class="header" href="#added-1">Added</a></h3>
+<h3 id="added-2"><a class="header" href="#added-2">Added</a></h3>
 <ul>
 <li>Output in JSON Lines format.</li>
 <li>Experimental new support for Prometheus and Google Cloud Trace via <a href="https://github.com/dbcrossbar/dbcrossbar/blob/main/crates/opinionated_telemetry/README.md"><code>opinionated_telemetry</code></a>.</li>
@@ -208,7 +213,7 @@
 <li>bigquery-test-fixture: Allow larger outputs before switching to fallback mode. Thanks again to Dave Shirley!</li>
 </ul>
 <h2 id="050---2022-10-22"><a class="header" href="#050---2022-10-22">[0.5.0] - 2022-10-22</a></h2>
-<h3 id="added-2"><a class="header" href="#added-2">Added</a></h3>
+<h3 id="added-3"><a class="header" href="#added-3">Added</a></h3>
 <ul>
 <li>New <code>bigquery-test-fixture:</code> schema creates small, read-only &quot;tables&quot; very quickly. Many thanks to Dave Shirley for the proof of concept and for pairing on the final implementation.</li>
 </ul>
@@ -241,7 +246,7 @@
 <li>The <code>--log-format</code> and <code>--log-extra</code> commands have been removed.</li>
 </ul>
 <h2 id="050-beta1---2021-12-15"><a class="header" href="#050-beta1---2021-12-15">[0.5.0-beta.1] - 2021-12-15</a></h2>
-<h3 id="added-3"><a class="header" href="#added-3">Added</a></h3>
+<h3 id="added-4"><a class="header" href="#added-4">Added</a></h3>
 <ul>
 <li>We provide MacOS X binaries for the new M1 processors. These are unsigned, like our existing Apple Intel binaries. So you'll need to continue to use <code>xattr -d com.apple.quarantine dbcrossbar</code> or a similar technique to run them. Or you could build your own binaries.</li>
 </ul>
@@ -255,7 +260,7 @@
 <li>We no longer support hosted Citus from Citus Data, because their TLS certificates do not include <code>subjectAltName</code>, which is <a href="https://github.com/briansmith/webpki/issues/11">required by the <code>rustls</code> library</a>. Citus Data will be shutting down shortly, so we recommend keeping around an older <code>dbcrossbar</code> for a few more weeks if you need to talk to them.</li>
 </ul>
 <h2 id="050-alpha3---2021-12-14"><a class="header" href="#050-alpha3---2021-12-14">[0.5.0-alpha.3] - 2021-12-14</a></h2>
-<h3 id="added-4"><a class="header" href="#added-4">Added</a></h3>
+<h3 id="added-5"><a class="header" href="#added-5">Added</a></h3>
 <ul>
 <li>gs: Allow single-file CSV output. This involves copying out of Google Cloud Storage, concatenating, and copying back. But it's handy when you need it.</li>
 </ul>
@@ -274,7 +279,7 @@
 </ul>
 <h2 id="050-alpha1---2021-03-04"><a class="header" href="#050-alpha1---2021-03-04">[0.5.0-alpha.1] - 2021-03-04</a></h2>
 <p>This release contains a breaking change to the <code>dbcrossbar-schema</code> output format to enable supporting named types and enumeration types. See below.</p>
-<h3 id="added-5"><a class="header" href="#added-5">Added</a></h3>
+<h3 id="added-6"><a class="header" href="#added-6">Added</a></h3>
 <ul>
 <li>
 <p>(EXPERIMENTAL) postgres: The <code>postgres-sql</code> and <code>postgres</code> drivers now <code>CREATE TYPE</code> statements (but only in the <code>&quot;public&quot;</code> schema). These can be used as follows:</p>
@@ -324,7 +329,7 @@ CREATE TABLE &quot;images&quot; (
 <li>Linux: Fix Linux binary builds by updating to latest <code>rust-musl-builder</code> release, which has the new <code>cargo-deny</code>.</li>
 </ul>
 <h2 id="042-beta7---2020-10-14"><a class="header" href="#042-beta7---2020-10-14">0.4.2-beta.7 - 2020-10-14</a></h2>
-<h3 id="added-6"><a class="header" href="#added-6">Added</a></h3>
+<h3 id="added-7"><a class="header" href="#added-7">Added</a></h3>
 <ul>
 <li>shopify: Added a &quot;partner&quot; argument which can be used to include a &quot;-- partner:&quot; comment in all generated RedShift SQL for use by RedShift partners.</li>
 </ul>
@@ -358,7 +363,7 @@ CREATE TABLE &quot;images&quot; (
 <li>The experimental <code>citus</code>-related APIs have been removed from <code>dbcrossbarlib</code>, because they used <code>diesel</code>. This is technically a breaking change for <code>dbcrosslib</code>, but we don't claim to honor semver for <code>dbcrossbarlib</code> 0.x.y releases.</li>
 </ul>
 <h2 id="042-beta2---2020-06-28"><a class="header" href="#042-beta2---2020-06-28">0.4.2-beta.2 - 2020-06-28</a></h2>
-<h3 id="added-7"><a class="header" href="#added-7">Added</a></h3>
+<h3 id="added-8"><a class="header" href="#added-8">Added</a></h3>
 <ul>
 <li>redshift: Support <code>--if-exists=upsert-on:key1,key2</code>.</li>
 <li>redshift: Enable <code>--if-exists=error</code>.</li>
@@ -395,7 +400,7 @@ CREATE TABLE &quot;images&quot; (
 </ul>
 <h2 id="040---2020-06-02"><a class="header" href="#040---2020-06-02">0.4.0 - 2020-06-02</a></h2>
 <p>This is a summary of all the major changes since the 0.3.3 release. For more details and minor changes, see the individual CHANGELOG entries for the 0.4.0 preleases.</p>
-<h3 id="added-8"><a class="header" href="#added-8">Added</a></h3>
+<h3 id="added-9"><a class="header" href="#added-9">Added</a></h3>
 <ul>
 <li><code>dbcrossbar</code> now supports &quot;struct&quot; types, which have a fixed set of named fields. These will be automatically translated to BigQuery STRUCT types or to JSON columns, depending on the destination database.</li>
 <li>We now support a CLI-editable config file using commands like <code>dbcrossbar config add temporary s3://example/temp/</code>.</li>
@@ -438,7 +443,7 @@ CREATE TABLE &quot;images&quot; (
 <li>Rename <code>dbcrossbar conv</code> to <code>dbcrossbar schema conv</code>.</li>
 <li>s3: Require <code>AWS_DEFAULT_REGION</code> instead of optionally using <code>AWS_REGION</code>. This is more compatiable with the <code>aws</code> CLI command, and it doesn't rely on undocumented region defaults or <code>aws</code> configuration files.</li>
 </ul>
-<h3 id="added-9"><a class="header" href="#added-9">Added</a></h3>
+<h3 id="added-10"><a class="header" href="#added-10">Added</a></h3>
 <ul>
 <li>Document our portable schema format.</li>
 <li>Document schema-only drivers.</li>
@@ -457,7 +462,7 @@ CREATE TABLE &quot;images&quot; (
 </ul>
 <h2 id="040-alpha7---2020-05-26"><a class="header" href="#040-alpha7---2020-05-26">0.4.0-alpha.7 - 2020-05-26</a></h2>
 <p>This release adds support for labeling BigQuery jobs.</p>
-<h3 id="added-10"><a class="header" href="#added-10">Added</a></h3>
+<h3 id="added-11"><a class="header" href="#added-11">Added</a></h3>
 <ul>
 <li>bigquery: Optionally specify billing labels for jobs. See the manual for details.</li>
 <li>Allow driver argument names to be specified as either <code>x.y</code> or <code>x[y]</code>, interchangeably. This makes <code>job_labels</code> look nicer.</li>
@@ -471,7 +476,7 @@ CREATE TABLE &quot;images&quot; (
 </ul>
 <h2 id="040-alpha6---2020-05-22"><a class="header" href="#040-alpha6---2020-05-22">0.4.0-alpha.6 - 2020-05-22</a></h2>
 <p>This release improves the example <code>shopify.ts</code> schema, and adds new features to <code>dbcrossbar-ts</code> to parse it.</p>
-<h3 id="added-11"><a class="header" href="#added-11">Added</a></h3>
+<h3 id="added-12"><a class="header" href="#added-12">Added</a></h3>
 <ul>
 <li>dbcrossbar-ts:
 <ul>
@@ -487,7 +492,7 @@ CREATE TABLE &quot;images&quot; (
 <li>shopify: The example <code>shopify.ts</code> schema has been updated to use <code>Date</code> and <code>int64</code> in many places. <code>Address</code> and <code>CustomerAddress</code> are now distinct types, and several other minor issues have been fixed.</li>
 </ul>
 <h2 id="040-alpha5---2020-05-21"><a class="header" href="#040-alpha5---2020-05-21">0.4.0-alpha.5 - 2020-05-21</a></h2>
-<h3 id="added-12"><a class="header" href="#added-12">Added</a></h3>
+<h3 id="added-13"><a class="header" href="#added-13">Added</a></h3>
 <ul>
 <li>BigQuery: Support <code>--if-exists=error</code>.</li>
 </ul>
@@ -497,7 +502,7 @@ CREATE TABLE &quot;images&quot; (
 <li>AWS credentials must now always be passed via <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>, <code>AWS_SESSION_TOKEN</code> (optional) and <code>AWS_REGION</code> (optional). This lays the groundwork for replacing the <code>aws</code> CLI tool with native Rust code, so that we will someday be able to remove our last CLI dependency.</li>
 </ul>
 <h2 id="040-alpha4---2020-05-19"><a class="header" href="#040-alpha4---2020-05-19">0.4.0-alpha.4 - 2020-05-19</a></h2>
-<h3 id="added-13"><a class="header" href="#added-13">Added</a></h3>
+<h3 id="added-14"><a class="header" href="#added-14">Added</a></h3>
 <ul>
 <li>BigQuery now imports and exports decimal (aka NUMERIC) values everywhere.</li>
 <li>The <code>dbcrossbar-ts</code> driver now supports magic type aliases that will convert to the corresponding <code>dbcrossbar</code> types:
@@ -517,7 +522,7 @@ CREATE TABLE &quot;images&quot; (
 <p>This release was yanked because it was missing several things it should have included.</p>
 <h2 id="040-alpha2---2020-05-19"><a class="header" href="#040-alpha2---2020-05-19">0.4.0-alpha.2 - 2020-05-19</a></h2>
 <p>This is a significant release, with support for &quot;struct&quot; types.</p>
-<h3 id="added-14"><a class="header" href="#added-14">Added</a></h3>
+<h3 id="added-15"><a class="header" href="#added-15">Added</a></h3>
 <ul>
 <li>The portable schema now supports a <code>DataType::Struct(fields)</code> type that can be used to represent BigQuery STRUCT values (as long as they have unique, named fields) and JSON objects with known keys.</li>
 <li>The BigQuery driver now supports importing and exporting <code>STRUCT</code> fields using the new <code>DataType::Struct(fields)</code> type.</li>
@@ -550,7 +555,7 @@ CREATE TABLE &quot;images&quot; (
 <li>bigquery: Detect &quot;`&quot; quotes in the CLI form of table names, and report an error.</li>
 </ul>
 <h2 id="033---2020-03-30"><a class="header" href="#033---2020-03-30">0.3.3 - 2020-03-30</a></h2>
-<h3 id="added-15"><a class="header" href="#added-15">Added</a></h3>
+<h3 id="added-16"><a class="header" href="#added-16">Added</a></h3>
 <ul>
 <li>BigML: Honor BIGML_DOMAIN, allowing the user to point the BigML driver to a custom VPC instance of BigML.</li>
 </ul>
@@ -561,7 +566,7 @@ CREATE TABLE &quot;images&quot; (
 <li>Fix an error that caused <code>bigquery_upsert</code> test to fail.</li>
 </ul>
 <h2 id="031---2020-03-29"><a class="header" href="#031---2020-03-29">0.3.1 - 2020-03-29</a></h2>
-<h3 id="added-16"><a class="header" href="#added-16">Added</a></h3>
+<h3 id="added-17"><a class="header" href="#added-17">Added</a></h3>
 <ul>
 <li>Write a new <a href="https://www.dbcrossbar.org/">manual</a>!</li>
 </ul>
@@ -575,7 +580,7 @@ CREATE TABLE &quot;images&quot; (
 <li>BigQuery: Honor NOT NULL on import (fixes #45)</li>
 </ul>
 <h2 id="030---2020-03-26"><a class="header" href="#030---2020-03-26">0.3.0 - 2020-03-26</a></h2>
-<h3 id="added-17"><a class="header" href="#added-17">Added</a></h3>
+<h3 id="added-18"><a class="header" href="#added-18">Added</a></h3>
 <ul>
 <li>Use <code>cargo deny</code> to enforce license and duplicate dependency policies</li>
 <li>Add notes about license and contribution policies</li>
