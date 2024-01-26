@@ -8,7 +8,7 @@ use std::{
 };
 
 use super::{BqColumn, ColumnBigQueryExt, ColumnName, TableName, Usage};
-use crate::clouds::gcloud::bigquery;
+use crate::clouds::gcloud::{bigquery, Client};
 use crate::common::*;
 use crate::schema::{Column, Table};
 
@@ -96,8 +96,11 @@ impl BqTable {
     }
 
     /// Given a table name, look up the schema and return a `BqTable`.
-    pub(crate) async fn read_from_table(name: &TableName) -> Result<BqTable> {
-        bigquery::schema(name).await
+    pub(crate) async fn read_from_table(
+        client: &Client,
+        name: &TableName,
+    ) -> Result<BqTable> {
+        bigquery::schema(client, name).await
     }
 
     /// Create a new table based on this table, but with columns matching the

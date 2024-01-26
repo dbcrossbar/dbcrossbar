@@ -68,7 +68,11 @@ impl Locator for FileLocator {
         <Self as LocatorStatic>::scheme()
     }
 
-    fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
+    fn schema(
+        &self,
+        ctx: Context,
+        _source_args: SourceArguments<Unverified>,
+    ) -> BoxFuture<Option<Schema>> {
         schema_helper(ctx, self.clone()).boxed()
     }
 

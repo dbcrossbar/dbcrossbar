@@ -52,7 +52,16 @@ pub(crate) async fn write_remote_data_helper(
         .context("error parsing --to-args")?;
 
     // Get our billing labels.
-    let job_labels = driver_args.job_labels.to_owned();
+    let dest_driver_args = GCloudDriverArguments::try_from(&dest_args)?;
+    let job_labels = dest_driver_args.job_labels.to_owned();
+
+    // We want to use the `GCloudDriverArgs` for our destination, because that's
+    // the part that does the actual work.
+    //
+    // TODO: Technically, if the `GCloudDriverArgs` for `SourceArguments` and
+    // `DestinationArguments` are different enough, we probably want to avoid
+    // calling `write_remote_data` at all.
+    let dest_client = dest_driver_args.client().await?;
 
     // In case the user wants to run the job in a different project for billing purposes
     let final_job_project_id = driver_args
@@ -103,6 +112,7 @@ pub(crate) async fn write_remote_data_helper(
 
     // Load our data.
     bigquery::load(
+        &dest_client,
         &source_url,
         &initial_table,
         if_initial_table_exists,
@@ -129,10 +139,16 @@ pub(crate) async fn write_remote_data_helper(
         let query =
             String::from_utf8(query).expect("generated SQL should always be UTF-8");
         debug!("import sql: {}", query);
-        bigquery::execute_sql(&final_job_project_id, &query, &job_labels).await?;
+        bigquery::execute_sql(
+            &dest_client,
+            &final_job_project_id,
+            &query,
+            &job_labels,
+        )
+        .await?;
 
         // Delete temp table.
-        bigquery::drop_table(initial_table.name(), &job_labels).await?;
+        bigquery::drop_table(&dest_client, initial_table.name(), &job_labels).await?;
     }
 
     Ok(vec![dest.boxed()])

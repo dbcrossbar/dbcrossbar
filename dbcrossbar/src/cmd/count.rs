@@ -47,11 +47,19 @@ pub(crate) async fn run(
     let schema_opt = opt.schema.map(|s| s.parse(enable_unstable)).transpose()?;
     let locator = opt.locator.parse(enable_unstable)?;
 
+    // Build our source arguments.
+    let from_args = DriverArguments::from_cli_args(&opt.from_args)?;
+    let source_args = SourceArguments::new(
+        from_args,
+        opt.from_format.clone(),
+        opt.where_clause.clone(),
+    );
+
     // Figure out what table schema to use.
     let schema = {
         let schema_locator = schema_opt.as_ref().unwrap_or(&locator);
         schema_locator
-            .schema(ctx.clone())
+            .schema(ctx.clone(), source_args.clone())
             .await
             .with_context(|| format!("error reading schema from {}", schema_locator))?
             .ok_or_else(|| {
@@ -64,14 +72,6 @@ pub(crate) async fn run(
     let temporaries = opt.temporaries.clone();
     let temporary_storage = TemporaryStorage::with_config(temporaries, &config)?;
     let shared_args = SharedArguments::new(schema, temporary_storage, 1);
-
-    // Build our source arguments.
-    let from_args = DriverArguments::from_cli_args(&opt.from_args)?;
-    let source_args = SourceArguments::new(
-        from_args,
-        opt.from_format.clone(),
-        opt.where_clause.clone(),
-    );
 
     let count = locator.count(ctx.clone(), shared_args, source_args).await?;
     println!("{}", count);

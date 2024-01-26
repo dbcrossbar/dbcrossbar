@@ -37,7 +37,11 @@ impl Locator for DbcrossbarSchemaLocator {
         <Self as LocatorStatic>::scheme()
     }
 
-    fn schema(&self, _ctx: Context) -> BoxFuture<Option<Schema>> {
+    fn schema(
+        &self,
+        _ctx: Context,
+        _source_args: SourceArguments<Unverified>,
+    ) -> BoxFuture<Option<Schema>> {
         schema_helper(self.to_owned()).boxed()
     }
 
@@ -46,6 +50,7 @@ impl Locator for DbcrossbarSchemaLocator {
         _ctx: Context,
         schema: Schema,
         if_exists: IfExists,
+        _dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<()> {
         write_schema_helper(self.to_owned(), schema, if_exists).boxed()
     }

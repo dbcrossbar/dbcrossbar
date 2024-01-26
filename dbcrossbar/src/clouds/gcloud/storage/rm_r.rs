@@ -14,14 +14,16 @@ use crate::{clouds::gcloud::ClientError, common::*};
 const PARALLEL_DELETIONS: usize = 10;
 
 /// Recursively delete a `gs://` path without deleting the bucket.
-#[instrument(level = "trace", skip(ctx))]
-pub(crate) async fn rm_r(ctx: &Context, url: &Url) -> Result<()> {
+#[instrument(level = "trace", skip(ctx, client))]
+pub(crate) async fn rm_r(ctx: &Context, client: &Client, url: &Url) -> Result<()> {
     debug!("deleting existing {}", url);
 
     // TODO: Used batched commands to delete 100 URLs at a time.
-    let url_stream = ls(ctx, url).await?;
+    let url_stream = ls(ctx, client, url).await?;
+    let client = client.to_owned();
     let del_fut_stream: BoxStream<BoxFuture<()>> = url_stream
         .map_ok(move |item| {
+            let client = client.clone();
             async move {
                 let url = item.to_url_string();
                 trace!("deleting {}", url);
@@ -32,7 +34,6 @@ pub(crate) async fn rm_r(ctx: &Context, url: &Url) -> Result<()> {
                     percent_encode(&bucket),
                     percent_encode(&object),
                 );
-                let client = Client::new().await?;
 
                 let opt = gcs_write_access_denied_wait_options();
                 wait(&opt, || async {

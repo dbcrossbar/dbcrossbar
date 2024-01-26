@@ -29,9 +29,10 @@ struct UploadQuery {
 /// Docs: https://cloud.google.com/storage/docs/json_api/v1/objects/insert
 ///
 /// TODO: Support https://cloud.google.com/storage/docs/performing-resumable-uploads.
-#[instrument(level = "trace", skip(ctx, data))]
+#[instrument(level = "trace", skip(ctx, client, data))]
 pub(crate) async fn upload_file<'a>(
     ctx: &'a Context,
+    client: &Client,
     data: BoxStream<BytesMut>,
     file_url: &'a Url,
 ) -> Result<StorageObject> {
@@ -51,7 +52,6 @@ pub(crate) async fn upload_file<'a>(
         if_generation_match: 0,
         name: object.clone(),
     };
-    let client = Client::new().await?;
     client
         .post_stream(&url, query, idiomatic_bytes_stream(ctx, stream.boxed()))
         .await?;

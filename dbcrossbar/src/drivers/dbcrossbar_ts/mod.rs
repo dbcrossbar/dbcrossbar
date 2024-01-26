@@ -69,7 +69,11 @@ impl Locator for DbcrossbarTsLocator {
         <Self as LocatorStatic>::scheme()
     }
 
-    fn schema(&self, _ctx: Context) -> BoxFuture<Option<Schema>> {
+    fn schema(
+        &self,
+        _ctx: Context,
+        _source_args: SourceArguments<Unverified>,
+    ) -> BoxFuture<Option<Schema>> {
         schema_helper(self.to_owned()).boxed()
     }
 }

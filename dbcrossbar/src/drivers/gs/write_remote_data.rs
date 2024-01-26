@@ -47,6 +47,8 @@ pub(crate) async fn write_remote_data_helper(
     let shared_args = shared_args.verify(GsLocator::features())?;
     let source_args = source_args.verify(BigQueryLocator::features())?;
     let dest_args = dest_args.verify(GsLocator::features())?;
+    let source_driver_args = GCloudDriverArguments::try_from(&source_args)?;
+    let dest_driver_args = GCloudDriverArguments::try_from(&dest_args)?;
 
     // Look up the arguments we need.
     let schema = shared_args.schema();
@@ -63,7 +65,18 @@ pub(crate) async fn write_remote_data_helper(
         .job_project_id
         .unwrap_or_else(|| source.project().to_owned());
 
-    let job_labels = driver_args.job_labels.to_owned();
+    // Get our billing labels.
+    let job_labels = source_driver_args.job_labels.to_owned();
+
+    // We try to use `GCloudDriverArgs` for either the source or the
+    // destination, as appropriate. But it's not clear that this is really
+    // sufficient.
+    //
+    // TODO: Technically, if the `GCloudDriverArgs` for `SourceArguments` and
+    // `DestinationArguments` are different enough, we probably want to avoid
+    // calling `write_remote_data` at all.
+    let source_client = source_driver_args.client().await?;
+    let dest_client = dest_driver_args.client().await?;
 
     // Construct a `BqTable` describing our source table.
     let source_table = BqTable::for_table_name_and_columns(
@@ -76,7 +89,8 @@ pub(crate) async fn write_remote_data_helper(
     // Look up our _actual_ table schema, which we'll need to handle the finer
     // details of exporting RECORDs and other things which aren't visible in the
     // portable schema. We do something similar in PostgreSQL imports.
-    let mut real_source_table = BqTable::read_from_table(&source_table_name).await?;
+    let mut real_source_table =
+        BqTable::read_from_table(&source_client, &source_table_name).await?;
     real_source_table = real_source_table.aligned_with(&source_table)?;
 
     // We need to build a temporary export table.
@@ -91,6 +105,7 @@ pub(crate) async fn write_remote_data_helper(
 
     // Run our query.
     bigquery::query_to_table(
+        &source_client,
         &final_job_project_id,
         &export_sql,
         &temp_table_name,
@@ -118,6 +133,7 @@ pub(crate) async fn write_remote_data_helper(
         try_with_permanent_failure!(
             prepare_as_destination_helper(
                 ctx.clone(),
+                &dest_client,
                 dest.as_url().to_owned(),
                 if_exists.clone(),
             )
@@ -125,7 +141,14 @@ pub(crate) async fn write_remote_data_helper(
         );
 
         // Build and run a `bq extract` command.
-        match bigquery::extract(&temp_table_name, dest.as_url(), &job_labels).await {
+        match bigquery::extract(
+            &source_client,
+            &temp_table_name,
+            dest.as_url(),
+            &job_labels,
+        )
+        .await
+        {
             Ok(()) => WaitStatus::Finished(()),
             Err(err) if should_retry_extract(&err) => {
                 WaitStatus::FailedTemporarily(err)
@@ -136,13 +159,14 @@ pub(crate) async fn write_remote_data_helper(
     .await?;
 
     // Delete temp table.
-    bigquery::drop_table(&temp_table_name, &job_labels).await?;
+    bigquery::drop_table(&source_client, &temp_table_name, &job_labels).await?;
 
     // List the files in that bucket and return them, at least in
     // `IfExists::Overwrite` mode, where we know we created them (barring race
     // conditions).
     if if_exists == IfExists::Overwrite {
-        let mut storage_object_stream = storage::ls(&ctx, &dest.url).await?;
+        let mut storage_object_stream =
+            storage::ls(&ctx, &dest_client, &dest.url).await?;
         let mut dest_urls = vec![];
         while let Some(storage_object) = storage_object_stream.next().await {
             let storage_object = storage_object?;

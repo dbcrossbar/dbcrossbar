@@ -58,9 +58,10 @@ macro_rules! try_and_forward_errors {
 /// handle prefix matches using ordinary file-system behavior.
 ///
 /// [list]: https://cloud.google.com/storage/docs/json_api/v1/objects/list
-#[instrument(level = "trace", skip(ctx))]
+#[instrument(level = "trace", skip(ctx, client))]
 pub(crate) async fn ls(
     ctx: &Context,
+    client: &Client,
     url: &Url,
 ) -> Result<impl Stream<Item = Result<StorageObject>> + Send + Unpin + 'static> {
     debug!("listing {}", url);
@@ -78,10 +79,8 @@ pub(crate) async fn ls(
     // should also forward all errors to `sender`, except errors that occur when
     // fowarding other errors.
     let (sender, receiver) = mpsc::channel::<Result<StorageObject>>(1);
+    let client = client.to_owned();
     let worker: BoxFuture<()> = async move {
-        // Make our client.
-        let client = try_and_forward_errors!(worker_ctx, Client::new().await, sender,);
-
         // Keep track of URLs that we've seen.
         let mut seen = HashSet::new();
 

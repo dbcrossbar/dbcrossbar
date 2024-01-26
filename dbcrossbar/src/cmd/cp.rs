@@ -118,23 +118,6 @@ pub(crate) async fn run(
     span.record("from", &field::display(&from_locator));
     span.record("to", &field::display(&to_locator));
 
-    // Figure out what table schema to use.
-    let schema = {
-        let schema_locator = schema_opt.as_ref().unwrap_or(&from_locator);
-        schema_locator
-            .schema(ctx.clone())
-            .await
-            .with_context(|| format!("error reading schema from {}", schema_locator))?
-            .ok_or_else(|| {
-                format_err!("don't know how to read schema from {}", schema_locator)
-            })
-    }?;
-
-    // Build our shared arguments.
-    let temporaries = opt.temporaries.clone();
-    let temporary_storage = TemporaryStorage::with_config(temporaries, &config)?;
-    let shared_args = SharedArguments::new(schema, temporary_storage, opt.max_streams);
-
     // Build our source arguments.
     let from_args = DriverArguments::from_cli_args(&opt.from_args)?;
     let source_args = SourceArguments::new(
@@ -147,6 +130,23 @@ pub(crate) async fn run(
     let to_args = DriverArguments::from_cli_args(&opt.to_args)?;
     let dest_args =
         DestinationArguments::new(to_args, opt.to_format.clone(), opt.if_exists);
+
+    // Figure out what table schema to use.
+    let schema = {
+        let schema_locator = schema_opt.as_ref().unwrap_or(&from_locator);
+        schema_locator
+            .schema(ctx.clone(), source_args.clone())
+            .await
+            .with_context(|| format!("error reading schema from {}", schema_locator))?
+            .ok_or_else(|| {
+                format_err!("don't know how to read schema from {}", schema_locator)
+            })
+    }?;
+
+    // Build our shared arguments.
+    let temporaries = opt.temporaries.clone();
+    let temporary_storage = TemporaryStorage::with_config(temporaries, &config)?;
+    let shared_args = SharedArguments::new(schema, temporary_storage, opt.max_streams);
 
     // Can we short-circuit this particular copy using special features of the
     // the source and destination, or do we need to pull the data down to the

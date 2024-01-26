@@ -56,17 +56,36 @@ pub trait Locator: fmt::Debug + fmt::Display + Send + Sync + 'static {
     fn dyn_scheme(&self) -> &'static str;
 
     /// Return a table schema, if available.
-    fn schema(&self, _ctx: Context) -> BoxFuture<Option<Schema>> {
+    ///
+    /// This takes `SourceArguments` so that it has access to `DriverArguments`
+    /// for things like extra OAuth2 scopes. But it can't take
+    /// `SharedArguments`, because we may need call `schema` to build
+    /// `SharedArguments` in the first place.
+    fn schema(
+        &self,
+        _ctx: Context,
+        _source_args: SourceArguments<Unverified>,
+    ) -> BoxFuture<Option<Schema>> {
         async { Ok(None) }.boxed()
     }
 
     /// Write a table schema to this locator, if that's the sort of thing that
-    /// we can do.
+    /// we can do. This doesn't take `SharedArguments` because we've never
+    /// actually needed it.
+    ///
+    /// TODO: Note that we do _not_ use the `if_exists` field in
+    /// `DestinationArguments` here. That is currently meant for use by the
+    /// `write_local_data` and `write_remote_data` methods, and it is validated
+    /// using `Features::dest_if_exists`. Our `if_exists` parameter would be
+    /// validated by to `Features::write_schema_if_exists`. This may need to be
+    /// looked at in more detail before we try to use `_dest_args` for anything
+    /// serious.
     fn write_schema(
         &self,
         _ctx: Context,
         _schema: Schema,
         _if_exists: IfExists,
+        _dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<()> {
         let err = format_err!("cannot write schema to {}", self);
         async move { Err(err) }.boxed()

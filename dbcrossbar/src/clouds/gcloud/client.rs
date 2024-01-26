@@ -90,7 +90,13 @@ impl From<bigml::Error> for ClientError {
 }
 
 /// A Google Cloud REST client using OAuth2.
+#[derive(Clone)]
 pub(crate) struct Client {
+    /// OAuth2 scopes needed for this client. We allow overriding these because
+    /// there are some weird kinds of BigQuery tables (including Google
+    /// Drive-mapped tables) that require special scopes.
+    scopes: Vec<String>,
+
     /// An authenticator that provides OAuth2 tokens.
     authenticator: Authenticator,
 
@@ -101,10 +107,17 @@ pub(crate) struct Client {
 impl Client {
     /// Create a new Google Cloud client.
     #[instrument(level = "trace")]
-    pub(crate) async fn new() -> Result<Client, ClientError> {
+    pub(crate) async fn new(extra_scopes: &[String]) -> Result<Client, ClientError> {
+        let scopes = SCOPES
+            .iter()
+            .cloned()
+            .map(str::to_string)
+            .chain(extra_scopes.iter().cloned())
+            .collect::<Vec<_>>();
         let authenticator = authenticator().await?;
         let client = reqwest::Client::new();
         Ok(Client {
+            scopes,
             authenticator,
             client,
         })
@@ -301,7 +314,7 @@ impl Client {
     #[instrument(level = "trace", skip(self))]
     async fn token(&self) -> Result<AccessToken> {
         self.authenticator
-            .token(SCOPES)
+            .token(&self.scopes)
             .await
             .context("could not get Google Cloud OAuth2 token")
     }

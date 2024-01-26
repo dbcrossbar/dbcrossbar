@@ -20,6 +20,8 @@ pub(crate) use queries::*;
 pub(crate) use schema::*;
 pub(crate) use tables::*;
 
+use super::Client;
+
 /// A BigQuery error.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -78,10 +80,14 @@ pub(crate) struct TableSchema {
 }
 
 /// Drop a table from BigQuery.
-#[instrument(level = "trace", skip(labels))]
-pub(crate) async fn drop_table(table_name: &TableName, labels: &Labels) -> Result<()> {
+#[instrument(level = "trace", skip(client, labels))]
+pub(crate) async fn drop_table(
+    client: &Client,
+    table_name: &TableName,
+    labels: &Labels,
+) -> Result<()> {
     // Delete temp table.
     debug!("deleting table: {}", table_name);
     let sql = format!("DROP TABLE {};\n", table_name.dotted_and_quoted());
-    execute_sql(table_name.project(), &sql, labels).await
+    execute_sql(client, table_name.project(), &sql, labels).await
 }

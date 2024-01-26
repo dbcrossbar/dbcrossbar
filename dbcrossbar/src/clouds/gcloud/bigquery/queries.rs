@@ -16,19 +16,20 @@ use crate::drivers::bigquery_shared::{BqColumn, TableName};
 
 /// Execute an SQL statement.
 pub(crate) async fn execute_sql(
+    client: &Client,
     project: &str,
     sql: &str,
     labels: &Labels,
 ) -> Result<()> {
     trace!("executing SQL: {}", sql);
     let config = JobConfigurationQuery::new(sql);
-    let client = Client::new().await?;
-    run_job(&client, project, Job::new_query(config, labels.to_owned())).await?;
+    run_job(client, project, Job::new_query(config, labels.to_owned())).await?;
     Ok(())
 }
 
 /// Run an SQL query and save the results to a table.
 pub(crate) async fn query_to_table(
+    client: &Client,
     project: &str,
     sql: &str,
     dest_table: &TableName,
@@ -44,8 +45,7 @@ pub(crate) async fn query_to_table(
     config.write_disposition = Some(WriteDisposition::try_from(if_exists)?);
 
     // Run our query.
-    let client = Client::new().await?;
-    run_job(&client, project, Job::new_query(config, labels.to_owned())).await?;
+    run_job(client, project, Job::new_query(config, labels.to_owned())).await?;
     Ok(())
 }
 
@@ -138,8 +138,9 @@ impl Value {
 
 /// Run a query that should return a small number of records, and return them as
 /// a JSON string.
-#[instrument(level = "trace", skip(labels))]
+#[instrument(level = "trace", skip(client, labels))]
 async fn query_all_json(
+    client: &Client,
     project: &str,
     sql: &str,
     labels: &Labels,
@@ -148,9 +149,8 @@ async fn query_all_json(
 
     // Run our query.
     let config = JobConfigurationQuery::new(sql);
-    let client = Client::new().await?;
     let job =
-        run_job(&client, project, Job::new_query(config, labels.to_owned())).await?;
+        run_job(client, project, Job::new_query(config, labels.to_owned())).await?;
 
     // Look up our query results.
     let reference = job.reference()?;
@@ -173,8 +173,9 @@ async fn query_all_json(
 }
 
 /// Run a query that should return a small number of records, and deserialize them.
-#[instrument(level = "trace", skip(labels))]
+#[instrument(level = "trace", skip(client, labels))]
 pub(crate) async fn query_all<T>(
+    client: &Client,
     project: &str,
     sql: &str,
     labels: &Labels,
@@ -182,7 +183,7 @@ pub(crate) async fn query_all<T>(
 where
     T: DeserializeOwned,
 {
-    let output = query_all_json(project, sql, labels).await?;
+    let output = query_all_json(client, project, sql, labels).await?;
     let rows = output
         .into_iter()
         .map(serde_json::from_value::<T>)
@@ -192,8 +193,9 @@ where
 }
 
 /// Run a query that should return exactly one record, and deserialize it.
-#[instrument(level = "trace", skip(labels))]
+#[instrument(level = "trace", skip(client, labels))]
 pub(crate) async fn query_one<T>(
+    client: &Client,
     project: &str,
     sql: &str,
     labels: &Labels,
@@ -201,7 +203,7 @@ pub(crate) async fn query_one<T>(
 where
     T: DeserializeOwned,
 {
-    let mut rows = query_all(project, sql, labels).await?;
+    let mut rows = query_all(client, project, sql, labels).await?;
     if rows.len() == 1 {
         Ok(rows.remove(0))
     } else {

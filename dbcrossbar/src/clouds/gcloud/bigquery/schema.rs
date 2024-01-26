@@ -17,8 +17,8 @@ struct Table {
 }
 
 /// Look up the schema of the specified table.
-#[instrument(level = "trace")]
-pub(crate) async fn schema(name: &TableName) -> Result<BqTable> {
+#[instrument(level = "trace", skip(client))]
+pub(crate) async fn schema(client: &Client, name: &TableName) -> Result<BqTable> {
     trace!("fetching schema for {:?}", name);
 
     // Build our URL.
@@ -30,7 +30,6 @@ pub(crate) async fn schema(name: &TableName) -> Result<BqTable> {
     );
 
     // Look up our schema.
-    let client = Client::new().await?;
     let table = client.get::<Table, _, _>(&url, NoQuery).await?;
     Ok(BqTable {
         name: name.to_owned(),

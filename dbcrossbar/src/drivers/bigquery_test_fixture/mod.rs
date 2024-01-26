@@ -8,7 +8,7 @@ use crate::{
     clouds::gcloud::bigquery,
     common::*,
     concat::concatenate_csv_streams,
-    drivers::bigquery_shared::{BqTable, Usage},
+    drivers::bigquery_shared::{BqTable, GCloudDriverArguments, Usage},
     from_csv_cell::FromCsvCell,
     from_json_value::FromJsonValue,
 };
@@ -71,8 +71,12 @@ impl Locator for BigQueryTestFixtureLocator {
         <Self as LocatorStatic>::scheme()
     }
 
-    fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
-        self.bigquery.schema(ctx)
+    fn schema(
+        &self,
+        ctx: Context,
+        source_args: SourceArguments<Unverified>,
+    ) -> BoxFuture<Option<Schema>> {
+        self.bigquery.schema(ctx, source_args)
     }
 
     fn count(
@@ -173,6 +177,7 @@ async fn write_local_data_helper(
     // Validate our driver arguments.
     let shared_args = shared_args.verify(BigQueryTestFixtureLocator::features())?;
     let dest_args = dest_args.verify(BigQueryTestFixtureLocator::features())?;
+    let driver_args = GCloudDriverArguments::try_from(&dest_args)?;
 
     // Make sure we're in a supported `--if-exists` mode.
     let if_exists = dest_args.if_exists();
@@ -237,10 +242,11 @@ async fn write_local_data_helper(
     // `bigquery::delete_table` and `bigquery::create_view` gets it down under
     // 0.7 seconds.
     debug!("import sql: {}", sql);
+    let client = driver_args.client().await?;
     if if_exists == &IfExists::Overwrite {
-        bigquery::delete_table(dest.bigquery.as_table_name(), true).await?;
+        bigquery::delete_table(&client, dest.bigquery.as_table_name(), true).await?;
     }
-    bigquery::create_view(dest.bigquery.as_table_name(), &sql).await?;
+    bigquery::create_view(&client, dest.bigquery.as_table_name(), &sql).await?;
 
     // We don't need any parallelism after the BigQuery step, so just return
     // a stream containing a single future.

@@ -24,12 +24,8 @@ pub(crate) async fn count_helper(
     let source_args = source_args.verify(BigQueryLocator::features())?;
 
     // Get our billing labels.
-    let job_labels = source_args
-        .driver_args()
-        .deserialize::<GCloudDriverArguments>()
-        .context("error parsing --from-args")?
-        .job_labels
-        .to_owned();
+    let driver_args = GCloudDriverArguments::try_from(&source_args)?;
+    let job_labels = driver_args.job_labels.to_owned();
 
     let job_project_id = source_args
         .driver_args()
@@ -65,7 +61,9 @@ pub(crate) async fn count_helper(
     struct CountRow {
         count: String,
     }
+    let client = driver_args.client().await?;
     let count_str = bigquery::query_one::<CountRow>(
+        &client,
         &final_job_project_id,
         &count_sql,
         &job_labels,

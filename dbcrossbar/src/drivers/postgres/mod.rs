@@ -113,7 +113,11 @@ impl Locator for PostgresLocator {
         <Self as LocatorStatic>::scheme()
     }
 
-    fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
+    fn schema(
+        &self,
+        ctx: Context,
+        _source_args: SourceArguments<Unverified>,
+    ) -> BoxFuture<Option<Schema>> {
         let source = self.to_owned();
         async move {
             let schema =

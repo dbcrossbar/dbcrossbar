@@ -51,15 +51,19 @@ impl Locator for CsvLocator {
         <Self as LocatorStatic>::scheme()
     }
 
-    #[instrument(level = "trace", name = "csv::schema")]
-    fn schema(&'_ self, ctx: Context) -> BoxFuture<Option<Schema>> {
+    #[instrument(level = "trace", name = "csv::schema", skip(source_args))]
+    fn schema(
+        &'_ self,
+        ctx: Context,
+        source_args: SourceArguments<Unverified>,
+    ) -> BoxFuture<Option<Schema>> {
         if self.is_directory_like() {
             async { Err(format_err!("cannot get schema for directory")) }.boxed()
         } else if self.extension() != Some(OsStr::new("csv")) {
             async { Err(format_err!("cannot get schema for non-CSV file")) }.boxed()
         } else {
             let locator = self.to_file_locator();
-            locator.schema(ctx)
+            locator.schema(ctx, source_args)
         }
     }
 

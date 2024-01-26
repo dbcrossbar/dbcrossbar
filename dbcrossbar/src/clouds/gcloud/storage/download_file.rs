@@ -28,8 +28,9 @@ struct DownloadQuery {
 }
 
 /// Download the file at the specified URL as a stream.
-#[instrument(level = "trace", skip(item), fields(item = %item.to_url_string()))]
+#[instrument(level = "trace", skip(client, item), fields(item = %item.to_url_string()))]
 pub(crate) async fn download_file(
+    client: &Client,
     item: &StorageObject,
 ) -> Result<BoxStream<BytesMut>> {
     let file_url = item.to_url_string().parse::<Url>()?;
@@ -47,10 +48,17 @@ pub(crate) async fn download_file(
 
     // Build a stream of download tasks.
     let generation = item.generation;
+    let client = client.to_owned();
     let stream = stream::iter(chunk_ranges(CHUNK_SIZE, item.size))
         .map(move |range| {
-            download_range(url.clone(), generation, common_headers.clone(), range)
-                .boxed()
+            download_range(
+                client.clone(),
+                url.clone(),
+                generation,
+                common_headers.clone(),
+                range,
+            )
+            .boxed()
         })
         // Use `tokio` magic to download up to `PARALLEL_DOWNLOADS` chunks in parallel.
         .buffered(PARALLEL_DOWNLOADS)
@@ -64,8 +72,11 @@ pub(crate) async fn download_file(
 /// Unlike typical Rust futures *will not block the download*, even if you don't
 /// poll it. This runs the download in a separate `tokio` task. We do this to avoid
 /// downloads that get stalled halfway through by backpressure.
-#[instrument(level = "trace", skip(headers))]
+#[instrument(level = "trace", skip(client, headers))]
 async fn download_range(
+    // We take `client` by value so that we can move it into the background
+    // task.
+    client: Client,
     url: String,
     generation: i64,
     mut headers: HeaderMap,
@@ -78,7 +89,6 @@ async fn download_range(
     // predictable size.
     let task_fut = async move {
         // Make our request.
-        let client = Client::new().await?;
         headers.typed_insert(Range::bytes(range.clone())?);
         let query = DownloadQuery {
             alt: Alt::Media,

@@ -63,8 +63,12 @@ impl Locator for BigQueryLocator {
         <Self as LocatorStatic>::scheme()
     }
 
-    fn schema(&self, _ctx: Context) -> BoxFuture<Option<Schema>> {
-        schema_helper(self.to_owned()).boxed()
+    fn schema(
+        &self,
+        _ctx: Context,
+        source_args: SourceArguments<Unverified>,
+    ) -> BoxFuture<Option<Schema>> {
+        schema_helper(self.to_owned(), source_args).boxed()
     }
 
     fn count(

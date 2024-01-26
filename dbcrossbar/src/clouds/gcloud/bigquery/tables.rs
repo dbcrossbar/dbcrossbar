@@ -9,8 +9,12 @@ use crate::common::*;
 use crate::drivers::bigquery_shared::TableName;
 
 /// Delete the specified table.
-#[instrument(level = "trace")]
-pub(crate) async fn delete_table(name: &TableName, not_found_ok: bool) -> Result<()> {
+#[instrument(level = "trace", skip(client))]
+pub(crate) async fn delete_table(
+    client: &Client,
+    name: &TableName,
+    not_found_ok: bool,
+) -> Result<()> {
     let url = format!(
         "https://bigquery.googleapis.com/bigquery/v2/projects/{}/datasets/{}/tables/{}",
         percent_encode(name.project()),
@@ -19,7 +23,6 @@ pub(crate) async fn delete_table(name: &TableName, not_found_ok: bool) -> Result
     );
 
     // Delete the specified table.
-    let client = Client::new().await?;
     match client.delete(&url, NoQuery).await {
         Ok(_) => Ok(()),
         Err(ClientError::NotFound { .. }) if not_found_ok => Ok(()),
@@ -50,8 +53,12 @@ struct ViewDefintion<'a> {
 struct Table {}
 
 /// Create a view using the specied table name and SQL.
-#[instrument(level = "trace")]
-pub(crate) async fn create_view(name: &TableName, view_sql: &str) -> Result<()> {
+#[instrument(level = "trace", skip(client))]
+pub(crate) async fn create_view(
+    client: &Client,
+    name: &TableName,
+    view_sql: &str,
+) -> Result<()> {
     // Build our URL.
     let url = format!(
         "https://bigquery.googleapis.com/bigquery/v2/projects/{}/datasets/{}/tables",
@@ -69,7 +76,6 @@ pub(crate) async fn create_view(name: &TableName, view_sql: &str) -> Result<()> 
     };
 
     // Create our view.
-    let client = Client::new().await?;
     client.post::<Table, _, _, _>(&url, NoQuery, table).await?;
     Ok(())
 }

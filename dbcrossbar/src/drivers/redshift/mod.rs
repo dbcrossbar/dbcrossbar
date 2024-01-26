@@ -82,8 +82,12 @@ impl Locator for RedshiftLocator {
         <Self as LocatorStatic>::scheme()
     }
 
-    fn schema(&self, ctx: Context) -> BoxFuture<Option<Schema>> {
-        self.postgres_locator.schema(ctx)
+    fn schema(
+        &self,
+        ctx: Context,
+        source_args: SourceArguments<Unverified>,
+    ) -> BoxFuture<Option<Schema>> {
+        self.postgres_locator.schema(ctx, source_args)
     }
 
     fn local_data(
