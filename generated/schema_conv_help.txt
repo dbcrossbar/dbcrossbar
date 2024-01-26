@@ -7,6 +7,8 @@ Arguments:
 
 Options:
       --if-exists <IF_EXISTS>  One of `error`, `overrwrite` or `append` [default: error]
+      --from-arg <FROM_ARGS>   Pass an extra argument of the form `key=value` to the source driver
+      --to-arg <TO_ARGS>       Pass an extra argument of the form `key=value` to the destination driver
   -h, --help                   Print help
 
 EXAMPLE LOCATORS:
