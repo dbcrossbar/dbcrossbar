@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.5.7] - 2024-01-26
+
+### Added
+
+- gcloud: Allow passing `extra_scopes` to Google OAuth2.
+
+### Security
+
+- Fix [RUSTSEC-2024-0003](https://rustsec.org/advisories/RUSTSEC-2024-0003), a Denial of Service vulnerability which could apparently cause a hostile HTTP server to cause out-of-memory errors
+in a client. Since `dbcrossbar` is unlikely to connect to many hostile HTTP servers, this is probably a low-priority fix for almost all users.
+
 ## [0.5.6] - 2024-01-08
 
 ### Added
