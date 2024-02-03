@@ -178,8 +178,8 @@ fn upsert_sql(
     Ok(vec![
         format!(
             r"-- Update matching rows in dest table using source table.
-UPDATE {dest_table} 
-SET {value_updates} 
+UPDATE {dest_table}
+SET {value_updates}
 FROM {temp_table}
 WHERE {keys_match}",
             dest_table = dest_table_name,
@@ -267,7 +267,8 @@ impl VerifyRedshiftCanImportFromCsv for DataType {
             | DataType::Json
             | DataType::Named(_) // We could expand these, maybe.
             | DataType::Struct(_)
-            | DataType::Uuid => Err(format_err!(
+            | DataType::Uuid
+            | DataType::TimeWithoutTimeZone => Err(format_err!(
                 "Redshift driver does not support data type {:?}",
                 self
             )),

@@ -301,6 +301,7 @@ impl BqNonArrayDataType {
             // to UTC.
             DataType::TimestampWithTimeZone => Ok(BqNonArrayDataType::Timestamp),
             DataType::Uuid => Ok(BqNonArrayDataType::Stringified(DataType::Uuid)),
+            DataType::TimeWithoutTimeZone => Ok(BqNonArrayDataType::Time),
         }
     }
 

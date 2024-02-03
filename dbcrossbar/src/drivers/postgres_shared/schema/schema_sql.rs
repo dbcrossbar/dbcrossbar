@@ -154,6 +154,12 @@ peg::parser! {
                 PgScalarDataType::TimestampWithoutTimeZone
             }
             / i("uuid") { PgScalarDataType::Uuid }
+            / i("time") ws() i("without") ws() i("time") ws() i("zone") {
+                PgScalarDataType::TimeWithoutTimeZone
+            }
+            / i("time") {
+                PgScalarDataType::TimeWithoutTimeZone
+            }
             / name:name() { PgScalarDataType::Named(name) }
 
         /// A GeoJSON SRID number, used to identify a coordinate system.
