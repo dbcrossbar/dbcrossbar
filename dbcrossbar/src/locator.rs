@@ -229,6 +229,7 @@ fn locator_from_str_to_string_roundtrip() {
         "postgres-sql:dir/my_table.sql",
         "s3://example/my-dir/",
         "shopify://example.myshopify.com/admin/api/2020-04/orders.json",
+        "trino://anyone@localhost:8088/memory/default/table",
     ];
     for locator in locators.into_iter() {
         let parsed: BoxLocator = parse_locator(locator, true).unwrap();

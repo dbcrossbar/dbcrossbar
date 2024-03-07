@@ -2,7 +2,8 @@
 
 use cli_test_dir::*;
 use difference::assert_diff;
-use std::{env, fs};
+use rand::{distributions::Alphanumeric, thread_rng, Rng as _};
+use std::{env, fs, iter};
 
 mod bigml;
 mod bigquery;
@@ -15,6 +16,18 @@ mod postgres;
 mod redshift;
 mod s3;
 mod shopify;
+mod trino;
+
+/// Generate a random alphanumeric tag for use in temporary directory names.
+fn random_tag() -> String {
+    let mut rng = thread_rng();
+    let bytes = iter::repeat(())
+        .map(|()| rng.sample(Alphanumeric))
+        .take(10)
+        .collect::<Vec<u8>>();
+    String::from_utf8(bytes)
+        .expect("random alphanumeric value should always be valid UTF-8")
+}
 
 /// The URL of our test database.
 pub(crate) fn postgres_test_url() -> String {

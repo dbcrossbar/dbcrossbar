@@ -3,22 +3,10 @@
 use cli_test_dir::*;
 use difference::assert_diff;
 use pretty_assertions::assert_eq;
-use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use serde_json::{json, Value};
-use std::{fs, io::Write, iter, path::Path, process::Command};
+use std::{fs, io::Write, path::Path, process::Command};
 
 use super::*;
-
-/// Generate a random alphanumeric tag for use in temporary directory names.
-fn random_tag() -> String {
-    let mut rng = thread_rng();
-    let bytes = iter::repeat(())
-        .map(|()| rng.sample(Alphanumeric))
-        .take(10)
-        .collect::<Vec<u8>>();
-    String::from_utf8(bytes)
-        .expect("random alphanumeric value should always be valid UTF-8")
-}
 
 #[test]
 #[ignore]
