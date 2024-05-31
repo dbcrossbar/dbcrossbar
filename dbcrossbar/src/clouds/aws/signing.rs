@@ -41,8 +41,6 @@ pub(crate) fn sign_s3_url<'creds>(
 
 #[test]
 fn signatures_are_valid() {
-    use chrono::NaiveDateTime;
-
     // Example is taken from
     // https://s3.amazonaws.com/doc/s3-developer-guide/RESTAuthentication.html.
     let creds = AwsCredentials {
@@ -53,10 +51,7 @@ fn signatures_are_valid() {
     let (signed_url, _x_amz_security_token) = sign_s3_url(
         &creds,
         "GET",
-        DateTime::from_naive_utc_and_offset(
-            NaiveDateTime::from_timestamp_opt(1_141_889_120, 0).unwrap(),
-            Utc,
-        ),
+        DateTime::from_timestamp(1_141_889_120, 0).unwrap(),
         &"s3://quotes/nelson".parse().unwrap(),
     )
     .unwrap();
