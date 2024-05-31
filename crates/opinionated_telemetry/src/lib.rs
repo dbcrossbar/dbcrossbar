@@ -115,7 +115,6 @@ mod debug_exporter;
 mod env_extractor;
 mod env_injector;
 mod error;
-mod glue;
 mod metrics_support;
 mod prometheus_recorder;
 #[cfg(feature = "sync")]
@@ -127,7 +126,7 @@ pub use self::error::{Error, Result};
 pub use self::sync::TelemetrySyncHandle;
 pub use self::tracing_support::{
     current_span_as_env, current_span_as_headers, inject_current_span_into,
-    set_parent_span_from, set_parent_span_from_env, SetParentFromExtractor,
+    set_parent_span_from, set_parent_span_from_env, SetParentFromExtractor, SpanExt,
 };
 
 /// What type of application should we configure telemetry for? This will affect

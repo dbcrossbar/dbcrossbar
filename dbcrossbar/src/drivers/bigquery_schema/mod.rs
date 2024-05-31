@@ -91,7 +91,7 @@ async fn schema_helper(source: BigQuerySchemaLocator) -> Result<Option<Schema>> 
         columns,
     };
     let mut table = bq_table.to_table()?;
-    table.name = "unnamed".to_owned();
+    "unnamed".clone_into(&mut table.name);
     Ok(Some(Schema::from_table(table)?))
 }
 

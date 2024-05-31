@@ -34,7 +34,7 @@ use crate::{env_extractor::EnvExtractor, env_injector::EnvInjector, TelemetryCon
 use super::{debug_exporter::DebugExporter, Error, Result};
 
 /// Our extensions to the `tracing::Span` type.
-trait SpanExt {
+pub trait SpanExt {
     /// Record `result` in this `Span`, and return it. Expects the span to have
     /// the following properties:
     ///

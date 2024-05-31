@@ -120,7 +120,7 @@ pub(crate) async fn write_local_data_helper(
                 if let Some(name) = &bigml_dest_args.name {
                     args.name = Some(name.to_owned());
                 }
-                args.tags = bigml_dest_args.tags.clone();
+                args.tags.clone_from(&bigml_dest_args.tags);
                 let client = bigml::Client::new_from_env()?;
                 let source = client.create(&args).await?;
 
@@ -179,7 +179,7 @@ pub(crate) async fn write_local_data_helper(
                 if let Some(name) = &bigml_dest_args.name {
                     args.name = Some(name.to_owned());
                 }
-                args.tags = bigml_dest_args.tags.clone();
+                args.tags.clone_from(&bigml_dest_args.tags);
                 let dataset = client.create_and_wait(&args).await?;
                 debug!("converted to {}", dataset.id().to_owned());
                 Ok(BigMlLocator::read_dataset(dataset.id().to_owned()).boxed())

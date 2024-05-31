@@ -8,6 +8,7 @@ use std::{fmt, marker::PhantomData, str::FromStr};
 
 use crate::args::EnumSetExt;
 use crate::common::*;
+#[cfg(test)]
 use crate::data_streams::DataFormat;
 use crate::drivers::find_driver;
 
@@ -268,6 +269,7 @@ pub(crate) trait PathLikeLocator {
     }
 
     /// The data format to use for this locator, if any.
+    #[cfg(test)]
     fn data_format(&self) -> Option<DataFormat> {
         self.extension().map(DataFormat::from_extension)
     }

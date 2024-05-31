@@ -1,4 +1,4 @@
-//!
+//! Tests for the `count` subcommand.
 
 use cli_test_dir::*;
 
