@@ -28,6 +28,10 @@ async fn aws_s3_command() -> Result<Command> {
     let creds = CredentialsManager::singleton().get("aws").await?;
 
     let mut command = Command::new("aws");
+    if let Some(endpoint) = creds.get_optional("endpoint") {
+        // We can't pass this via an environment variable, because older AWS CLI doesn't support it.
+        command.args(["--endpoint-url", endpoint]);
+    }
     command.env("AWS_ACCESS_KEY_ID", creds.get_required("access_key_id")?);
     command.env(
         "AWS_SECRET_ACCESS_KEY",
