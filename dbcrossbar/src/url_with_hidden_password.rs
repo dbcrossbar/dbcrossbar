@@ -1,6 +1,6 @@
 //! Support for URLs with passwords that can be printed and debugged safely.
 
-use std::{borrow::Cow, fmt};
+use std::{borrow::Cow, fmt, str::FromStr};
 
 use crate::common::*;
 
@@ -17,6 +17,11 @@ impl UrlWithHiddenPassword {
 
     // Get our actual URL, including the password.
     pub(crate) fn with_password(&self) -> &Url {
+        &self.0
+    }
+
+    // Get a copy of our underlying URL.
+    pub(crate) fn as_url(&self) -> &Url {
         &self.0
     }
 
@@ -48,5 +53,16 @@ impl fmt::Debug for UrlWithHiddenPassword {
 impl fmt::Display for UrlWithHiddenPassword {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&self.without_password(), f)
+    }
+}
+
+impl FromStr for UrlWithHiddenPassword {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        Ok(UrlWithHiddenPassword(
+            // Be careful not to print the password if you change this error!
+            Url::parse(s).context("cannot parse URL")?,
+        ))
     }
 }
