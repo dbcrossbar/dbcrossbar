@@ -2,8 +2,6 @@
 
 use core::fmt;
 
-use anyhow::Ok;
-
 use crate::{
     common::*,
     schema::{DataType, StructField},
@@ -25,7 +23,7 @@ pub enum TrinoDataType {
     /// A 64-bit signed integer value.
     BigInt,
     /// A 32-bit floating-point value.
-    Float,
+    Real,
     /// A 64-bit floating-point value.
     Double,
     /// A fixed-point decimal value.
@@ -129,7 +127,7 @@ impl TrinoDataType {
             // TODO: Document `DataType::Decimal` as having some limited
             // precision and scale?
             DataType::Decimal => Ok(Self::bigquery_sized_decimal()),
-            DataType::Float32 => Ok(TrinoDataType::Float),
+            DataType::Float32 => Ok(TrinoDataType::Real),
             DataType::Float64 => Ok(TrinoDataType::Double),
             // Map all SRIDs to spherical geography. You're responsible for
             // remembering what SRIDs you're using. Unlike BigQuery, Trino doesn't
@@ -170,7 +168,7 @@ impl TrinoDataType {
             TrinoDataType::TinyInt | TrinoDataType::SmallInt => Ok(DataType::Int16),
             TrinoDataType::Int => Ok(DataType::Int32),
             TrinoDataType::BigInt => Ok(DataType::Int64),
-            TrinoDataType::Float => Ok(DataType::Float32),
+            TrinoDataType::Real => Ok(DataType::Float32),
             TrinoDataType::Double => Ok(DataType::Float64),
             TrinoDataType::Decimal { .. } => Ok(DataType::Decimal),
             TrinoDataType::Varchar { .. } | TrinoDataType::Char { .. } => {
@@ -231,7 +229,7 @@ impl fmt::Display for TrinoDataType {
             TrinoDataType::SmallInt => write!(f, "SMALLINT"),
             TrinoDataType::Int => write!(f, "INT"),
             TrinoDataType::BigInt => write!(f, "BIGINT"),
-            TrinoDataType::Float => write!(f, "FLOAT"),
+            TrinoDataType::Real => write!(f, "REAL"),
             TrinoDataType::Double => write!(f, "DOUBLE"),
             TrinoDataType::Decimal { precision, scale } => {
                 write!(f, "DECIMAL({}, {})", precision, scale)
@@ -247,13 +245,13 @@ impl fmt::Display for TrinoDataType {
             TrinoDataType::Date => write!(f, "DATE"),
             TrinoDataType::Time { precision } => write!(f, "TIME({})", precision),
             TrinoDataType::TimeWithTimeZone { precision } => {
-                write!(f, "TIME WITH TIME ZONE({})", precision)
+                write!(f, "TIME({}) WITH TIME ZONE", precision)
             }
             TrinoDataType::Timestamp { precision } => {
                 write!(f, "TIMESTAMP({})", precision)
             }
             TrinoDataType::TimestampWithTimeZone { precision } => {
-                write!(f, "TIMESTAMP WITH TIME ZONE({})", precision)
+                write!(f, "TIMESTAMP({}) WITH TIME ZONE", precision)
             }
             TrinoDataType::IntervalDayToSecond => write!(f, "INTERVAL DAY TO SECOND"),
             TrinoDataType::IntervalYearToMonth => write!(f, "INTERVAL YEAR TO MONTH"),
@@ -291,6 +289,22 @@ pub struct TrinoField {
 }
 
 impl TrinoField {
+    /// Create an anonymous `TrinoField` with a data type.
+    pub(crate) fn anonymous(data_type: TrinoDataType) -> Self {
+        TrinoField {
+            name: None,
+            data_type,
+        }
+    }
+
+    /// Create a named `TrinoField` with a data type.
+    pub(crate) fn named(name: TrinoIdent, data_type: TrinoDataType) -> Self {
+        TrinoField {
+            name: Some(name),
+            data_type,
+        }
+    }
+
     /// Given a `StructField`, try to find a corresponding `TrinoField`.
     pub(crate) fn from_struct_field(
         schema: &Schema,

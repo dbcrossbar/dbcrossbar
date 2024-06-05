@@ -201,3 +201,77 @@ fn conv_old_dbcrossbar_schema_to_new() {
         serde_json::from_str::<serde_json::Value>(EXPECTED).unwrap(),
     );
 }
+
+#[test]
+fn conv_bigquery_schema_to_trino_sql() {
+    let testdir = TestDir::new("dbcrossbar", "conv_bigquery_schema_to_trino_sql");
+    let input_json = testdir.src_path("fixtures/bigquery_schema.json");
+    let expected_sql = testdir.src_path("fixtures/trino/from_bigquery.sql");
+    testdir
+        .cmd()
+        .args([
+            "schema",
+            "conv",
+            &format!("bigquery-schema:{}", input_json.display()),
+            "trino-sql:output.sql",
+        ])
+        .expect_success();
+    let expected = fs::read_to_string(expected_sql).unwrap();
+    testdir.expect_file_contents("output.sql", expected);
+}
+
+#[test]
+fn conv_postgres_schema_to_trino_sql() {
+    let testdir = TestDir::new("dbcrossbar", "conv_postgres_schema_to_trino_sql");
+    let input_sql = INPUT_SQL;
+    let expected_sql = testdir.src_path("fixtures/trino/from_postgres.sql");
+    testdir
+        .cmd()
+        .args(["schema", "conv", "postgres-sql:-", "trino-sql:output.sql"])
+        .output_with_stdin(input_sql)
+        .expect_success();
+    let expected = fs::read_to_string(expected_sql).unwrap();
+    testdir.expect_file_contents("output.sql", expected);
+}
+
+#[test]
+fn conv_dbcrossbar_schema_to_trino_sql() {
+    let testdir = TestDir::new("dbcrossbar", "conv_dbcrossbar_schema_to_trino_sql");
+    let input_json = testdir.src_path("fixtures/dbcrossbar_schema.json");
+    let expected_sql = testdir.src_path("fixtures/trino/from_dbcrossbar.sql");
+    testdir
+        .cmd()
+        .args([
+            "schema",
+            "conv",
+            &format!("dbcrossbar-schema:{}", input_json.display()),
+            "trino-sql:output.sql",
+        ])
+        .expect_success();
+    let expected = fs::read_to_string(expected_sql).unwrap();
+    testdir.expect_file_contents("output.sql", expected);
+}
+
+#[test]
+fn conv_trino_sql_to_dbcrossbar_schema() {
+    let testdir = TestDir::new("dbcrossbar", "conv_trino_sql_to_dbcrossbar_schema");
+    let input_sql = testdir.src_path("fixtures/trino/schema.sql");
+    let output_json = testdir.path("output.json");
+    let expected_json =
+        testdir.src_path("fixtures/trino/dbcrossbar_schema_expected.json");
+    testdir
+        .cmd()
+        .args([
+            "schema",
+            "conv",
+            &format!("trino-sql:{}", input_sql.display()),
+            &format!("dbcrossbar-schema:{}", output_json.display()),
+        ])
+        .expect_success();
+    let output = fs::read_to_string(&output_json).unwrap();
+    let expected = fs::read_to_string(expected_json).unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&output).unwrap(),
+        serde_json::from_str::<serde_json::Value>(&expected).unwrap(),
+    );
+}

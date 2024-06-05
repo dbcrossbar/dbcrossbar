@@ -24,6 +24,9 @@ pub mod postgres_sql;
 pub mod redshift;
 pub mod s3;
 pub mod shopify;
+//pub mod trino;
+pub mod trino_shared;
+pub mod trino_sql;
 
 /// A helper which builds a `Box<dyn LocatorDriver>` for a type implementating
 /// `LocatorStatic`.
@@ -48,6 +51,8 @@ lazy_static! {
         driver::<redshift::RedshiftLocator>(),
         driver::<s3::S3Locator>(),
         driver::<shopify::ShopifyLocator>(),
+        //driver::<trino::TrinoLocator>(),
+        driver::<trino_sql::TrinoSqlLocator>(),
     ];
 
     /// A hash table of all known drivers, indexed by scheme and computed the

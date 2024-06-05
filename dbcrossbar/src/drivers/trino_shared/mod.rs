@@ -11,8 +11,8 @@ use crate::common::*;
 mod create_table;
 mod data_type;
 
-pub use create_table::TrinoCreateTable;
-pub use data_type::TrinoDataType;
+pub use create_table::{TrinoColumn, TrinoCreateTable};
+pub use data_type::{TrinoDataType, TrinoField};
 
 /// A Trino identifier, which [may need to be quoted][idents], depending on
 /// contents.
@@ -80,12 +80,12 @@ pub enum TrinoTableName {
 
 impl TrinoTableName {
     /// Create a new `TrinoTableName` from a table.
-    pub fn table(table: &str) -> Result<Self> {
+    pub fn new(table: &str) -> Result<Self> {
         Ok(Self::Table(TrinoIdent::new(table)?))
     }
 
     /// Create a new `TrinoTableName` from a schema and table.
-    pub fn schema(schema: &str, table: &str) -> Result<Self> {
+    pub fn with_schema(schema: &str, table: &str) -> Result<Self> {
         Ok(Self::Schema(
             TrinoIdent::new(schema)?,
             TrinoIdent::new(table)?,
@@ -93,12 +93,39 @@ impl TrinoTableName {
     }
 
     /// Create a new `TrinoTableName` from a catalog, schema, and table.
-    pub fn catalog(catalog: &str, schema: &str, table: &str) -> Result<Self> {
+    pub fn with_catalog(catalog: &str, schema: &str, table: &str) -> Result<Self> {
         Ok(Self::Catalog(
             TrinoIdent::new(catalog)?,
             TrinoIdent::new(schema)?,
             TrinoIdent::new(table)?,
         ))
+    }
+
+    /// Get the table name.
+    pub fn table(&self) -> &TrinoIdent {
+        match self {
+            TrinoTableName::Table(table) => table,
+            TrinoTableName::Schema(_, table) => table,
+            TrinoTableName::Catalog(_, _, table) => table,
+        }
+    }
+
+    /// Get the schema name, if any.
+    pub fn schema(&self) -> Option<&TrinoIdent> {
+        match self {
+            TrinoTableName::Table(_) => None,
+            TrinoTableName::Schema(schema, _) => Some(schema),
+            TrinoTableName::Catalog(_, schema, _) => Some(schema),
+        }
+    }
+
+    /// Get the catalog name, if any.
+    pub fn catalog(&self) -> Option<&TrinoIdent> {
+        match self {
+            TrinoTableName::Table(_) => None,
+            TrinoTableName::Schema(_, _) => None,
+            TrinoTableName::Catalog(catalog, _, _) => Some(catalog),
+        }
     }
 }
 
