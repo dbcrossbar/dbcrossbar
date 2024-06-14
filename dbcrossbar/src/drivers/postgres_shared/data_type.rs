@@ -137,6 +137,7 @@ pub(crate) enum PgScalarDataType {
     TimestampWithoutTimeZone,
     TimestampWithTimeZone,
     Uuid,
+    TimeWithoutTimeZone,
 }
 
 impl PgScalarDataType {
@@ -190,6 +191,9 @@ impl PgScalarDataType {
                 Ok(PgScalarDataType::TimestampWithTimeZone)
             }
             DataType::Uuid => Ok(PgScalarDataType::Uuid),
+            DataType::TimeWithoutTimeZone => {
+                Ok(PgScalarDataType::TimeWithoutTimeZone)
+            }
         }
     }
 
@@ -217,6 +221,7 @@ impl PgScalarDataType {
                 Ok(DataType::TimestampWithTimeZone)
             }
             PgScalarDataType::Uuid => Ok(DataType::Uuid),
+            PgScalarDataType::TimeWithoutTimeZone => Ok(DataType::TimeWithoutTimeZone),
         }
     }
 
@@ -246,6 +251,7 @@ impl PgScalarDataType {
             PgScalarDataType::TimestampWithoutTimeZone => Ok(1114),
             PgScalarDataType::TimestampWithTimeZone => Ok(1184),
             PgScalarDataType::Uuid => Ok(2950),
+            PgScalarDataType::TimeWithoutTimeZone => Ok(1183),
         }
     }
 }
@@ -275,6 +281,9 @@ impl fmt::Display for PgScalarDataType {
                 write!(f, "timestamp with time zone")?
             }
             PgScalarDataType::Uuid => write!(f, "uuid")?,
+            PgScalarDataType::TimeWithoutTimeZone => {
+                write!(f, "time without time zone")?
+            }
         }
         Ok(())
     }

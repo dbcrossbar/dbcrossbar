@@ -321,6 +321,12 @@ mod test {
                         data_type: DataType::Named("mood".to_owned()),
                         comment: None,
                     },
+                    Column {
+                        name: "n".to_string(),
+                        is_nullable: true,
+                        data_type: DataType::TimeWithoutTimeZone,
+                        comment: None,
+                    },
                 ],
             },
         };
