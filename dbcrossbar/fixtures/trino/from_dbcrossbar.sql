@@ -4,4 +4,4 @@ CREATE TABLE images (
     format VARCHAR,
     metadata JSON,
     thumbnails ARRAY(ROW(url VARCHAR, width DOUBLE, height DOUBLE))
-);
+)

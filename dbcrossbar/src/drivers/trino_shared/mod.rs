@@ -4,15 +4,41 @@
 use std::fmt;
 
 use lazy_static::lazy_static;
+#[cfg(test)]
+use proptest_derive::Arbitrary;
 use regex::Regex;
 
 use crate::common::*;
 
+mod connector_type;
 mod create_table;
 mod data_type;
+mod driver_args;
 
-pub use create_table::{TrinoColumn, TrinoCreateTable};
+pub use connector_type::TrinoConnectorType;
+pub use create_table::{parse_data_type, TrinoColumn, TrinoCreateTable};
 pub use data_type::{TrinoDataType, TrinoField};
+pub use driver_args::TrinoDriverArguments;
+
+/// A Trino string literal. Used for formatting only.
+pub(crate) struct TrinoStringLiteral<'a>(pub(crate) &'a str);
+
+impl<'a> fmt::Display for TrinoStringLiteral<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // If the string contains single quotes, double them.
+        if self.0.contains('\'') {
+            write!(f, "'{}'", self.0.replace('\'', "''"))
+        } else {
+            write!(f, "'{}'", self.0)
+        }
+    }
+}
+
+#[test]
+fn test_trino_string_literal() {
+    assert_eq!(TrinoStringLiteral("foo").to_string(), "'foo'");
+    assert_eq!(TrinoStringLiteral("foo'bar").to_string(), "'foo''bar'");
+}
 
 /// A Trino identifier, which [may need to be quoted][idents], depending on
 /// contents.
@@ -35,7 +61,11 @@ pub struct TrinoIdent(String);
 impl TrinoIdent {
     /// Create a new `TrinoIdent`.
     pub fn new(ident: &str) -> Result<Self> {
-        Ok(Self(ident.to_ascii_lowercase()))
+        if ident.is_empty() {
+            Err(format_err!("Trino identifiers cannot be the empty string"))
+        } else {
+            Ok(Self(ident.to_ascii_lowercase()))
+        }
     }
 
     /// Get the underlying string.
@@ -68,7 +98,8 @@ fn is_valid_bare_ident(s: &str) -> bool {
 }
 
 /// A Trino table name. May include catalog and schema.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub enum TrinoTableName {
     /// Just a table name, like `my_table`.
     Table(TrinoIdent),
@@ -138,5 +169,48 @@ impl fmt::Display for TrinoTableName {
                 write!(f, "{}.{}.{}", catalog, schema, table)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use proptest::prelude::*;
+
+    use super::*;
+
+    // Only generate identifiers with at least one character.
+    impl Arbitrary for TrinoIdent {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: ()) -> Self::Strategy {
+            ".+".prop_map(|s| TrinoIdent::new(&s).unwrap()).boxed()
+        }
+    }
+
+    #[test]
+    fn test_trino_ident() {
+        assert_eq!(TrinoIdent::new("foo").unwrap().to_string(), "foo");
+        assert_eq!(
+            TrinoIdent::new("foo\"bar").unwrap().to_string(),
+            r#""foo""bar""#
+        );
+    }
+
+    #[test]
+    fn test_trino_table_name() {
+        assert_eq!(TrinoTableName::new("foo").unwrap().to_string(), "foo");
+        assert_eq!(
+            TrinoTableName::with_schema("bar", "foo")
+                .unwrap()
+                .to_string(),
+            "bar.foo",
+        );
+        assert_eq!(
+            TrinoTableName::with_catalog("baz", "bar", "fo o")
+                .unwrap()
+                .to_string(),
+            r#"baz.bar."fo o""#,
+        );
     }
 }

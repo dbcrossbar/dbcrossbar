@@ -1,6 +1,9 @@
 //! A Trino-compatible `CREATE TABLE` statement.
 
-use std::{fmt, sync::Arc};
+use std::{collections::HashMap, fmt, sync::Arc};
+
+#[cfg(test)]
+use proptest_derive::Arbitrary;
 
 use crate::{
     common::*,
@@ -8,13 +11,20 @@ use crate::{
     schema::Column,
 };
 
-use super::{TrinoDataType, TrinoField, TrinoIdent, TrinoTableName};
+use super::{
+    TrinoConnectorType, TrinoDataType, TrinoField, TrinoIdent, TrinoStringLiteral,
+    TrinoTableName,
+};
 
 /// A Trino-compatible `CREATE TABLE` statement.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TrinoCreateTable {
+    separate_drop_if_exists: bool,
+    or_replace: bool,
+    if_not_exists: bool,
     name: TrinoTableName,
     columns: Vec<TrinoColumn>,
+    with: HashMap<TrinoIdent, TrinoLiteral>,
 }
 
 impl TrinoCreateTable {
@@ -23,17 +33,34 @@ impl TrinoCreateTable {
         path: &str,
         sql: &str,
     ) -> Result<TrinoCreateTable, ParseError> {
-        let file_info = Arc::new(FileInfo::new(path.to_owned(), sql.to_owned()));
-        trino_parser::create_table(&file_info.contents).map_err(|err| {
-            ParseError::new(
-                file_info,
-                vec![Annotation::primary(
-                    err.location.offset,
-                    format!("expected {}", err.expected),
-                )],
-                "error parsing Postgres CREATE TABLE",
-            )
-        })
+        parse_rule(
+            trino_parser::create_table,
+            path,
+            sql,
+            "error parsing Postgres CREATE TABLE",
+        )
+    }
+
+    /// Create from [`TrinoColumn`] values.
+    pub fn from_trino_columns_and_name(
+        columns: Vec<TrinoColumn>,
+        name: TrinoTableName,
+    ) -> Result<Self> {
+        if columns.is_empty() {
+            Err(format_err!(
+                "Trino table {} must have at least one column",
+                name
+            ))
+        } else {
+            Ok(Self {
+                separate_drop_if_exists: false,
+                or_replace: false,
+                if_not_exists: false,
+                name,
+                columns,
+                with: HashMap::new(),
+            })
+        }
     }
 
     /// Create from a table name and a portable schema.
@@ -47,10 +74,7 @@ impl TrinoCreateTable {
             .iter()
             .map(|column| TrinoColumn::from_column(schema, column))
             .collect::<Result<Vec<_>>>()?;
-        Ok(Self {
-            name: name.clone(),
-            columns,
-        })
+        Self::from_trino_columns_and_name(columns, name.clone())
     }
 
     /// Convert to a portable schema.
@@ -66,27 +90,132 @@ impl TrinoCreateTable {
             columns,
         })
     }
+
+    /// Set our table creation options. You probably want to follow this with a
+    /// call to [`downgrade_for_connector_type`] to ensure that the options
+    /// selected will actually work with a given Trino connector.
+    pub fn set_if_exists_options(&mut self, if_exists: IfExists) {
+        self.separate_drop_if_exists = false;
+        match if_exists {
+            IfExists::Error => {
+                self.or_replace = false;
+                self.if_not_exists = false;
+            }
+            IfExists::Append | IfExists::Upsert(_) => {
+                self.or_replace = false;
+                self.if_not_exists = true;
+            }
+            IfExists::Overwrite => {
+                self.or_replace = true;
+                self.if_not_exists = false;
+            }
+        }
+    }
+
+    /// Downgrade this for a specific connector type, as needed. This is
+    /// necessary because not all of Trino's connectors support the same table
+    /// declaration features and they tend to error out if we use an unsupported
+    /// feature. But `dbcrossbar`'s job is to create a table as close as
+    /// possible to the one requested, even if this means occasionally
+    /// "downgrading" something like `NOT NULL`.
+    pub fn downgrade_for_connector_type(
+        &mut self,
+        connector_type: &TrinoConnectorType,
+    ) {
+        // Erase `NOT NULL` constraints if the connector doesn't support them.
+        if !connector_type.supports_not_null_constraint() {
+            for column in &mut self.columns {
+                column.is_nullable = true;
+            }
+        }
+
+        // Erase `OR REPLACE` if the connector doesn't support it.
+        if !connector_type.supports_replace_table() && self.or_replace {
+            self.or_replace = false;
+            self.separate_drop_if_exists = true;
+        }
+    }
+
+    /// A separate `DROP TABLE IF EXISTS` statement.
+    pub fn separate_drop_if_exists(&self) -> Option<String> {
+        if self.separate_drop_if_exists {
+            Some(format!("DROP TABLE IF EXISTS {}", self.name))
+        } else {
+            None
+        }
+    }
+
+    /// Add `WITH` clauses for a CSV files stored in the specified external
+    /// location, and accessed via a Hive connector. We assume that these CSV
+    /// files have a single-line header, and are otherwise in `dbcrossbar`'s CSV
+    /// interchange format.
+    pub fn add_csv_external_location(&mut self, location: &str) -> Result<()> {
+        self.with.insert(
+            TrinoIdent::new("format")?,
+            TrinoLiteral::String("csv".to_owned()),
+        );
+        self.with.insert(
+            TrinoIdent::new("external_location")?,
+            TrinoLiteral::String(location.to_owned()),
+        );
+        self.with.insert(
+            TrinoIdent::new("skip_header_line_count")?,
+            TrinoLiteral::Integer(1),
+        );
+        Ok(())
+    }
 }
 
 impl fmt::Display for TrinoCreateTable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "CREATE TABLE {} (\n    ", self.name)?;
+        // NOTE: We don't include `self.separate_drop_if_exists` because it's
+        // no longer part of the create table. This is somewhat of a kludge,
+        // because Trino doesn't allow semi-colons between statements. But we
+        // can at least include a commented version.
+        if self.separate_drop_if_exists {
+            writeln!(f, "-- DROP TABLE IF EXISTS {};", self.name)?;
+        }
+
+        write!(f, "CREATE ")?;
+        if self.or_replace {
+            write!(f, "OR REPLACE ")?;
+        }
+        write!(f, "TABLE ")?;
+        if self.if_not_exists {
+            write!(f, "IF NOT EXISTS ")?;
+        }
+        write!(f, "{} (\n    ", self.name)?;
         for (i, column) in self.columns.iter().enumerate() {
             if i > 0 {
                 write!(f, ",\n    ")?;
             }
             write!(f, "{}", column)?;
         }
-        write!(f, "\n);\n")
+        write!(f, "\n)")?;
+        if !self.with.is_empty() {
+            write!(f, " WITH (\n    ")?;
+            for (i, (key, value)) in self.with.iter().enumerate() {
+                if i > 0 {
+                    write!(f, ",\n    ")?;
+                }
+                write!(f, "{} = {}", key, value)?;
+            }
+            write!(f, "\n)")?;
+        }
+        writeln!(f)
     }
 }
 
 /// A Trino column.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub struct TrinoColumn {
-    name: TrinoIdent,
-    data_type: TrinoDataType,
-    is_nullable: bool,
+    /// The name of this column.
+    pub name: TrinoIdent,
+    /// The data type of this column.
+    pub data_type: TrinoDataType,
+    /// Can we store NULL values in this column?
+    pub is_nullable: bool,
 }
 
 impl TrinoColumn {
@@ -120,12 +249,68 @@ impl fmt::Display for TrinoColumn {
     }
 }
 
+/// An SQL literal value, for use in `CREATE TABLE ... WITH` clauses.
+///
+/// We only include types that we need, at least for now.
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(test, derive(Arbitrary))]
+pub enum TrinoLiteral {
+    /// A string literal.
+    String(String),
+    /// An integer literal.
+    Integer(i64),
+}
+
+impl fmt::Display for TrinoLiteral {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TrinoLiteral::String(s) => write!(f, "{}", TrinoStringLiteral(s)),
+            TrinoLiteral::Integer(i) => write!(f, "{}", i),
+        }
+    }
+}
+
+/// Parse a data type (without any surrounding whitespace, because this is used
+/// to parse `information_schema.columns`).
+pub fn parse_data_type(data_type: &str) -> Result<TrinoDataType, ParseError> {
+    parse_rule(
+        trino_parser::ty,
+        "data_type",
+        data_type,
+        "error parsing Trino data type",
+    )
+}
+
+/// Wrap a [`peg`] parser function and convert the error to a pretty
+/// [`ParseError`].
+fn parse_rule<Output, ParseFn>(
+    parse_fn: ParseFn,
+    path: &str,
+    s: &str,
+    err_msg: &str,
+) -> Result<Output, ParseError>
+where
+    ParseFn: Fn(&str) -> Result<Output, peg::error::ParseError<peg::str::LineCol>>,
+{
+    let file_info = Arc::new(FileInfo::new(path.to_owned(), s.to_owned()));
+    parse_fn(&file_info.contents).map_err(|err| {
+        ParseError::new(
+            file_info,
+            vec![Annotation::primary(
+                err.location.offset,
+                format!("expected {}", err.expected),
+            )],
+            err_msg,
+        )
+    })
+}
+
 // `rustpeg` grammar for parsing Trino data types.
 peg::parser! {
     grammar trino_parser() for str {
         rule _ = quiet! { (
             [' ' | '\t' | '\r' | '\n']
-            / "--" ([^'\n']* "\n")
+            / "--" [^'\n']* "\n"
             / "/*" (!"*/" [_])* "*/"
         )* }
 
@@ -144,9 +329,11 @@ peg::parser! {
             // Note: No leading underscores allowed.
             = quiet! {
                 s:$(['a'..='z' | 'A'..='Z'] ['a'..='z' | 'A'..='Z' | '_' | '0'..='9']*) {
+                    // `unwrap` is safe because the parser controls our input.
                     TrinoIdent::new(s).unwrap()
                 }
-                / "\"" s:$(([^ '"'] / "\"\"")*) "\"" {
+                / "\"" s:$(([^ '"'] / "\"\"")+) "\"" {
+                    // `unwrap` is safe because the parser controls our input.
                     TrinoIdent::new(&s.replace("\"\"", "\"")).unwrap()
                 }
             } / expected!("identifier")
@@ -165,18 +352,33 @@ peg::parser! {
             } }
             / expected!("table name")
 
-        // An integer literal.
-        rule uint() -> u32
-            // `unwrap` is safe because the parser controls our input.
-            = quiet! { n:$(['0'..='9']+) { n.parse().unwrap() } }
-            / expected!("integer")
+        // A signed integer literal.
+        rule i64() -> i64
+            = quiet! { n:$("-"? ['0'..='9']+) {?
+                n.parse().map_err(|_| "64-bit signed integer")
+            } }
+            / expected!("64-bit signed integer")
+
+        // An unsigned integer literal.
+        rule u32() -> u32
+            = quiet! { n:$(['0'..='9']+) {?
+                n.parse().map_err(|_| "32-bit unsigned integer")
+            } }
+            / expected!("32-bit unsigned integer")
+
+        // A string literal.
+        rule string() -> String
+            = quiet! { "\'" s:$(([^ '\''] / "''")*) "\'" {
+                s.replace("''", "'")
+            } }
+            / expected!("string literal")
 
         rule size_opt() -> Option<u32>
-            = _? "(" _? size:uint() _? ")" { Some(size) }
+            = _? "(" _? size:u32() _? ")" { Some(size) }
             / { None }
 
         rule size_default(default: u32) -> u32
-            = _? "(" _? size:uint() _? ")" { size }
+            = _? "(" _? size:u32() _? ")" { size }
             / { default }
 
         rule boolean_ty() -> TrinoDataType
@@ -201,7 +403,7 @@ peg::parser! {
             = k("double") { TrinoDataType::Double }
 
         rule decimal_ty() -> TrinoDataType
-            = k("decimal") _? "(" _? precision:uint() _? "," _? scale:uint() _? ")" {
+            = k("decimal") _? "(" _? precision:u32() _? "," _? scale:u32() _? ")" {
                 TrinoDataType::Decimal { precision, scale }
             }
 
@@ -245,10 +447,10 @@ peg::parser! {
             }
 
         rule interval_day_to_second_ty() -> TrinoDataType
-            = k("interval") _ "day" _ "to" _ "second" { TrinoDataType::IntervalDayToSecond }
+            = k("interval") _ k("day") _ k("to") _ k("second") { TrinoDataType::IntervalDayToSecond }
 
         rule interval_year_to_month_ty() -> TrinoDataType
-            = k("interval") _ "year" _ "to" _ "month" { TrinoDataType::IntervalYearToMonth }
+            = k("interval") _ k("year") _ k("to") _ k("month") { TrinoDataType::IntervalYearToMonth }
 
         rule array_ty() -> TrinoDataType
             = k("array") _? "(" _? elem_ty:ty() _? ")" {
@@ -278,7 +480,7 @@ peg::parser! {
         rule spherical_geography_ty() -> TrinoDataType
             = k("sphericalgeography") { TrinoDataType::SphericalGeography }
 
-        rule ty() -> TrinoDataType
+        pub rule ty() -> TrinoDataType
             = boolean_ty()
             / tinyint_ty()
             / smallint_ty()
@@ -306,12 +508,47 @@ peg::parser! {
             / spherical_geography_ty()
 
         pub rule create_table() -> TrinoCreateTable
-            = _? "CREATE" _ "TABLE" _ name:table_name() _?
-              "(" _? columns:(column() ++ (_? "," _?)) _? ")" _? ";"
+            = _?
+              "CREATE" or_replace:or_replace() _ "TABLE"
+                if_not_exists:if_not_exists() _
+                name:table_name() _?
+              "(" _? columns:(column() ++ (_? "," _?)) _? ")"
+              with:with()
+              (_? ";")?
               _?
             {
-                TrinoCreateTable { name, columns }
+                TrinoCreateTable {
+                    separate_drop_if_exists: false,
+                    or_replace,
+                    if_not_exists,
+                    name,
+                    columns,
+                    with,
+                }
             }
+
+        rule or_replace() -> bool
+            = _ "OR" _ "REPLACE" { true }
+            / { false }
+
+        rule if_not_exists() -> bool
+            = _ "IF" _ "NOT" _ "EXISTS" { true }
+            / { false }
+
+        rule with() -> HashMap<TrinoIdent, TrinoLiteral>
+            = _? "WITH" _? "(" _? properties:(property() ** (_? "," _?)) _? ")" {
+                properties.into_iter().collect()
+            }
+            / { HashMap::new() }
+
+        rule property() -> (TrinoIdent, TrinoLiteral)
+            = key:ident() _? "=" _? value:literal() {
+                (key, value)
+            }
+
+        rule literal() -> TrinoLiteral
+            = s:string() { TrinoLiteral::String(s) }
+            / i:i64() { TrinoLiteral::Integer(i) }
 
         rule column() -> TrinoColumn
             = name:ident() _ ty:ty() is_nullable:is_nullable() {
@@ -321,5 +558,97 @@ peg::parser! {
         rule is_nullable() -> bool
             = _ "NOT" _ "NULL" { false }
             / { true }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use prop::collection;
+    use proptest::prelude::*;
+
+    use super::*;
+
+    impl Arbitrary for TrinoCreateTable {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: ()) -> Self::Strategy {
+            (
+                any::<bool>(),
+                any::<bool>(),
+                any::<bool>(),
+                any::<TrinoTableName>(),
+                // Make sure we have at least one column.
+                collection::vec(any::<TrinoColumn>(), 1..5),
+                collection::hash_map(any::<TrinoIdent>(), any::<TrinoLiteral>(), 0..3),
+            )
+                .prop_map(
+                    |(
+                        separate_drop_if_exists,
+                        or_replace,
+                        if_not_exists,
+                        name,
+                        columns,
+                        with,
+                    )| {
+                        TrinoCreateTable {
+                            separate_drop_if_exists,
+                            or_replace,
+                            if_not_exists,
+                            name,
+                            columns,
+                            with,
+                        }
+                    },
+                )
+                .boxed()
+        }
+    }
+
+    #[test]
+    fn test_trino_create_table() {
+        let create_table = TrinoCreateTable::parse(
+            "test_trino_create_table",
+            "CREATE TABLE foo.bar (id INT NOT NULL, name VARCHAR(255));",
+        )
+        .unwrap();
+        assert_eq!(
+            create_table.to_string(),
+            "CREATE TABLE foo.bar (\n    id INT NOT NULL,\n    name VARCHAR(255)\n)\n"
+        );
+    }
+
+    // A few odd tables, mostly found by proptest, that should parse. We put
+    // these into a separate test to prevent future regressions, and to
+    // pretty-print any parse errors they produce.
+    #[test]
+    fn odd_tables_parse() {
+        let odd_tables = &[r#"CREATE TABLE "¡" (id INT)"#];
+        for odd_table in odd_tables {
+            let result = TrinoCreateTable::parse("test", odd_table);
+            if let Err(err) = result {
+                // Pretty-print our error.
+                panic!("A parsing error occurred:\n{}", err);
+            }
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn serialize_and_parse_is_identity(mut create_table in any::<TrinoCreateTable>()) {
+            // We don't recover this when parsing, so don't generate it.
+            create_table.separate_drop_if_exists = false;
+
+            let s = create_table.to_string();
+            match TrinoCreateTable::parse("test", &s) {
+                Err(err) => {
+                    // Pretty-print our error.
+                    panic!("A parsing error occurred:\n{}", err);
+                }
+                Ok(parsed) => {
+                    prop_assert_eq!(parsed, create_table);
+                }
+            }
+        }
     }
 }

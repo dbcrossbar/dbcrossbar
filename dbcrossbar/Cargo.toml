@@ -21,6 +21,8 @@ opinionated_telemetry = { version = "0.2.0", path = "../crates/opinionated_telem
     "sync",
 ] }
 pretty_assertions = "1.0.0"
+proptest = "1.4.0"
+proptest-derive = "0.4.0"
 tempfile = "3.1.0"
 tracing-subscriber = "0.3.3"
 
@@ -61,6 +63,7 @@ parse_link_header = "0.3"
 peg = "0.8"
 percent-encoding = "2.1.0"
 postgis = "0.9.0"
+prusto = "0.5.1"
 rand = "0.8.1"
 regex = "1.5.4"
 reqwest = { version = "0.11.0", default-features = false, features = [

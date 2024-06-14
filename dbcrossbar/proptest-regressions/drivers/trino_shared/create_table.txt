@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 846cf0b347de80c32e0a5b27032bc20b1e1784088cc5a71d29f70f6a2ff982f8 # shrinks to create_table = TrinoCreateTable { separate_drop_if_exists: false, or_replace: false, if_not_exists: false, name: Table(TrinoIdent("")), columns: [] }
+cc bf5d47a6d342de10e0fdb0e38b933a7e18e6b8c83ef865bbccee772ff629ffef # shrinks to create_table = TrinoCreateTable { separate_drop_if_exists: true, or_replace: false, if_not_exists: false, name: Table(TrinoIdent("¡")), columns: [] }
+cc 20efb090c79b011869b23d73d66b9b412e1b5bc45234c81ff6ba120fcdd1140e # shrinks to mut create_table = TrinoCreateTable { separate_drop_if_exists: false, or_replace: false, if_not_exists: false, name: Table(TrinoIdent("0")), columns: [TrinoColumn { name: TrinoIdent("\0"), data_type: Boolean, is_nullable: false }], with: {TrinoIdent(" "): String("")} }

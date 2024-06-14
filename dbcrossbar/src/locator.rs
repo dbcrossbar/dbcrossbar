@@ -231,7 +231,7 @@ fn locator_from_str_to_string_roundtrip() {
         "postgres-sql:dir/my_table.sql",
         "s3://example/my-dir/",
         "shopify://example.myshopify.com/admin/api/2020-04/orders.json",
-        //"trino://localhost:8080/catalog/schema#table",
+        "trino://localhost:8080/catalog/schema#table",
         "trino-sql:dir/my_table.sql",
     ];
     for locator in locators.into_iter() {

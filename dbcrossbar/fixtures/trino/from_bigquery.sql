@@ -28,4 +28,4 @@ CREATE TABLE unnamed (
     test_uuid_array ARRAY(VARCHAR),
     record ROW(nested ROW(i1 BIGINT)),
     records ARRAY(ROW(i2 BIGINT))
-);
+)

@@ -12,4 +12,4 @@ CREATE TABLE example (
     k TIMESTAMP(3),
     l VARCHAR,
     m VARCHAR
-);
+)

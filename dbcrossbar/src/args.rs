@@ -127,8 +127,11 @@ impl SharedArguments<Verified> {
 /// What `SourceArguments` features are supported by a given driver?
 #[derive(Debug, EnumSetType)]
 pub enum SourceArgumentsFeatures {
+    /// Accepts `--from-arg` arguments with custom driver configuration.
     DriverArgs,
+    /// Accepts `--format` to specify a file format.
     Format,
+    /// Accepts `--where` to specify a database-specific `WHERE` clause.
     WhereClause,
 }
 
@@ -258,7 +261,9 @@ impl SourceArguments<Verified> {
 /// What `DestinationArguments` features are supported by a given driver?
 #[derive(Debug, EnumSetType)]
 pub enum DestinationArgumentsFeatures {
+    /// Accepts `--to-arg` arguments.
     DriverArgs,
+    /// Accepts `--format` to specify a file format.
     Format,
 }
 

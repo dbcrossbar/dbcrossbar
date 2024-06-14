@@ -1,6 +1,6 @@
 //! A Trino data type.
 
-use core::fmt;
+use std::fmt;
 
 use crate::{
     common::*,
@@ -10,7 +10,7 @@ use crate::{
 use super::TrinoIdent;
 
 /// A Trino data type.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TrinoDataType {
     /// A boolean value.
     Boolean,
@@ -280,7 +280,7 @@ impl fmt::Display for TrinoDataType {
 }
 
 /// A field in a [`TrinoDataType::Row`] data type.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TrinoField {
     /// The name of the field.
     name: Option<TrinoIdent>,
@@ -338,5 +338,103 @@ impl fmt::Display for TrinoField {
             write!(f, "{} ", name)?;
         }
         write!(f, "{}", self.data_type)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use proptest::prelude::*;
+
+    use super::*;
+
+    impl Arbitrary for TrinoDataType {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        /// Generate an arbitrary [`TrinoDataType`]. We need to implement this
+        /// manually because [`TrinoDataType`] is recursive, both on its own,
+        /// and mututally recursive with [`TrinoField`].
+        ///
+        /// To learn more about this, read [the `proptest` book][proptest], and
+        /// specifically the section on [recursive data][recursive].
+        ///
+        /// We don't export this directly. Instead, we wrap it in an `Arbitrary`
+        /// implementation so it can be called as `any::<TrinoDataType>()`.
+        ///
+        /// [proptest]: https://proptest-rs.github.io/proptest/intro.html
+        /// [recursion]: https://proptest-rs.github.io/proptest/proptest/tutorial/recursive.html
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            {
+                let leaf = prop_oneof![
+                    Just(TrinoDataType::Boolean),
+                    Just(TrinoDataType::TinyInt),
+                    Just(TrinoDataType::SmallInt),
+                    Just(TrinoDataType::Int),
+                    Just(TrinoDataType::BigInt),
+                    Just(TrinoDataType::Real),
+                    Just(TrinoDataType::Double),
+                    (1..=38u32, 0..=9u32).prop_map(|(precision, scale)| {
+                        TrinoDataType::Decimal { precision, scale }
+                    }),
+                    Just(TrinoDataType::Varchar { length: None }),
+                    (1..=255u32).prop_map(|length| TrinoDataType::Varchar {
+                        length: Some(length)
+                    }),
+                    Just(TrinoDataType::Char { length: 1 }),
+                    (1..=255u32).prop_map(|length| TrinoDataType::Char { length }),
+                    Just(TrinoDataType::Varbinary),
+                    Just(TrinoDataType::Json),
+                    Just(TrinoDataType::Date),
+                    Just(TrinoDataType::Time { precision: 3 }),
+                    (0..=9u32).prop_map(|precision| TrinoDataType::Time { precision }),
+                    Just(TrinoDataType::TimeWithTimeZone { precision: 3 }),
+                    (0..=9u32).prop_map(|precision| TrinoDataType::TimeWithTimeZone {
+                        precision
+                    }),
+                    Just(TrinoDataType::Timestamp { precision: 3 }),
+                    (0..=9u32)
+                        .prop_map(|precision| TrinoDataType::Timestamp { precision }),
+                    Just(TrinoDataType::TimestampWithTimeZone { precision: 3 }),
+                    (0..=9u32).prop_map(|precision| {
+                        TrinoDataType::TimestampWithTimeZone { precision }
+                    }),
+                    Just(TrinoDataType::IntervalDayToSecond),
+                    Just(TrinoDataType::IntervalYearToMonth),
+                    Just(TrinoDataType::Uuid),
+                    Just(TrinoDataType::SphericalGeography),
+                ];
+                leaf.prop_recursive(3, 10, 5, |inner| {
+                    prop_oneof![
+                        inner
+                            .clone()
+                            .prop_map(|ty| TrinoDataType::Array(Box::new(ty))),
+                        (inner.clone(), inner.clone()).prop_map(
+                            |(key_type, value_type)| {
+                                TrinoDataType::Map {
+                                    key_type: Box::new(key_type),
+                                    value_type: Box::new(value_type),
+                                }
+                            }
+                        ),
+                        (prop::collection::vec(
+                            (any::<Option<TrinoIdent>>(), inner),
+                            1..=3
+                        ))
+                        .prop_map(|fields| {
+                            TrinoDataType::Row(
+                                fields
+                                    .into_iter()
+                                    .map(|(name, data_type)| TrinoField {
+                                        name,
+                                        data_type,
+                                    })
+                                    .collect(),
+                            )
+                        }),
+                    ]
+                })
+                .boxed()
+            }
+        }
     }
 }
