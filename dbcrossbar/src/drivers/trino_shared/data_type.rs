@@ -10,6 +10,9 @@ use crate::{
 use super::TrinoIdent;
 
 /// A Trino data type.
+///
+/// If you add new types here, be sure to also add them to our
+/// [`proptest::Arbitrary`] implementation.
 #[derive(Clone, Debug, PartialEq)]
 pub enum TrinoDataType {
     /// A boolean value.
@@ -219,6 +222,59 @@ impl TrinoDataType {
             TrinoDataType::SphericalGeography => Ok(DataType::Json),
         }
     }
+
+    /// Write the SQL to import `name` as a value of type `self`.
+    ///
+    /// TODO: This used `std::io::Write` but I think we might want to use
+    /// `std::fmt::Write` instead.
+    pub(crate) fn write_import_sql(
+        &self,
+        wtr: &mut dyn std::io::Write,
+        name: &TrinoIdent,
+    ) -> io::Result<()> {
+        match self {
+            // This one is fairly tricky because we need to parse it as if it
+            // had a time zone, then strip the time zone.
+            TrinoDataType::Timestamp { .. } => write!(
+                wtr,
+                "CAST(FROM_ISO8601_TIMESTAMP(CONCAT({}, 'Z')) AS {})",
+                name, self
+            )?,
+
+            TrinoDataType::TimestampWithTimeZone { .. } => {
+                write!(wtr, "FROM_ISO8601_TIMESTAMP({})", name)?
+            }
+
+            // Many types can be handled using `CAST`.
+            _ => write!(wtr, "CAST({} AS {})", name, self)?,
+        }
+        Ok(())
+    }
+
+    /// Write the SQL to export `name` as a value of type `self`.
+    pub(crate) fn write_export_sql(
+        &self,
+        wtr: &mut dyn fmt::Write,
+        name: &TrinoIdent,
+    ) -> fmt::Result {
+        // TODO: CAST(... AS VARCHAR) probably goes in our caller.
+        match self {
+            TrinoDataType::Boolean => write!(
+                wtr,
+                "CAST(CASE {} WHEN NULL THEN '' WHEN TRUE THEN 't' WHEN FALSE THEN 'f' END AS VARCHAR)",
+                name
+            )?,
+            TrinoDataType::Timestamp { .. } => {
+                write!(wtr, "CAST(REGEXP_REPLACE(TO_ISO8601({}), '.0+$', '') AS VARCHAR)", name)?
+            }
+            TrinoDataType::TimestampWithTimeZone { .. } => {
+                write!(wtr, "CAST(REGEXP_REPLACE(TO_ISO8601({}), '.0+Z$', 'Z') AS VARCHAR)", name)?
+            }
+            // Many types can be handled using `CAST`.
+            _ => write!(wtr, "CAST({} AS VARCHAR)", name)?,
+        }
+        Ok(())
+    }
 }
 
 impl fmt::Display for TrinoDataType {
@@ -319,7 +375,7 @@ impl TrinoField {
     /// Convert this `TrinoField` to a portable `StructField`.
     pub(crate) fn to_struct_field(&self, idx: usize) -> Result<StructField> {
         let name = if let Some(name) = &self.name {
-            name.to_string()
+            name.as_unquoted_str().to_owned()
         } else {
             format!("_f{}", idx)
         };
@@ -358,13 +414,11 @@ mod test {
         /// To learn more about this, read [the `proptest` book][proptest], and
         /// specifically the section on [recursive data][recursive].
         ///
-        /// We don't export this directly. Instead, we wrap it in an `Arbitrary`
-        /// implementation so it can be called as `any::<TrinoDataType>()`.
-        ///
         /// [proptest]: https://proptest-rs.github.io/proptest/intro.html
         /// [recursion]: https://proptest-rs.github.io/proptest/proptest/tutorial/recursive.html
         fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
             {
+                // Our "leaf" types.
                 let leaf = prop_oneof![
                     Just(TrinoDataType::Boolean),
                     Just(TrinoDataType::TinyInt),
@@ -403,11 +457,18 @@ mod test {
                     Just(TrinoDataType::Uuid),
                     Just(TrinoDataType::SphericalGeography),
                 ];
-                leaf.prop_recursive(3, 10, 5, |inner| {
+
+                // Our "recursive" types.
+                //
+                // Pass smallish numbers to `prop_recursive` because generating
+                // hugely complex types is unlikely to find additional bugs.
+                leaf.prop_recursive(3, 6, 3, |inner| {
                     prop_oneof![
+                        // TrinoDataType::Array.
                         inner
                             .clone()
                             .prop_map(|ty| TrinoDataType::Array(Box::new(ty))),
+                        // TrinoDataType::Map.
                         (inner.clone(), inner.clone()).prop_map(
                             |(key_type, value_type)| {
                                 TrinoDataType::Map {
@@ -416,11 +477,16 @@ mod test {
                                 }
                             }
                         ),
+                        // TrinoDataType::Row.
                         (prop::collection::vec(
                             (any::<Option<TrinoIdent>>(), inner),
                             1..=3
                         ))
                         .prop_map(|fields| {
+                            // We do this here, and not in `TrinoField`, because
+                            // it's mutually recursive with `TrinoDataType`, and
+                            // we want to allow `prop_recursive` to see the
+                            // entire mutually recursive structure.
                             TrinoDataType::Row(
                                 fields
                                     .into_iter()

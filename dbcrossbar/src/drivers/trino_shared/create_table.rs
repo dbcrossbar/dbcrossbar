@@ -22,7 +22,7 @@ pub struct TrinoCreateTable {
     separate_drop_if_exists: bool,
     or_replace: bool,
     if_not_exists: bool,
-    name: TrinoTableName,
+    pub(crate) name: TrinoTableName,
     columns: Vec<TrinoColumn>,
     with: HashMap<TrinoIdent, TrinoLiteral>,
 }
@@ -149,20 +149,139 @@ impl TrinoCreateTable {
     /// location, and accessed via a Hive connector. We assume that these CSV
     /// files have a single-line header, and are otherwise in `dbcrossbar`'s CSV
     /// interchange format.
-    pub fn add_csv_external_location(&mut self, location: &str) -> Result<()> {
+    pub fn add_csv_external_location(&mut self, location: &Url) -> Result<()> {
         self.with.insert(
             TrinoIdent::new("format")?,
             TrinoLiteral::String("csv".to_owned()),
         );
         self.with.insert(
             TrinoIdent::new("external_location")?,
-            TrinoLiteral::String(location.to_owned()),
+            TrinoLiteral::String(location.as_str().to_owned()),
         );
         self.with.insert(
             TrinoIdent::new("skip_header_line_count")?,
             TrinoLiteral::Integer(1),
         );
         Ok(())
+    }
+
+    /// Generate a version of this table that can be used with a Hive S3
+    /// backend. Among other things, all our columns will be `VARCHAR`, and we
+    /// need to set up `WITH` options.
+    pub fn hive_csv_wrapper_table(&self, external_csv_url: &Url) -> Result<Self> {
+        let mut table = self.clone();
+        // TODO: Allow the user to specify which Hive catalog and schema to use
+        // for temp tables?
+        table.name = TrinoTableName::with_catalog(
+            "dbcrossbar",
+            "default",
+            &format!("dbcrossbar_temp_{}", TemporaryStorage::random_tag()),
+        )?;
+        table.set_if_exists_options(IfExists::Error);
+        for column in &mut table.columns {
+            column.data_type = TrinoDataType::Varchar { length: None };
+            column.is_nullable = true;
+        }
+        table.add_csv_external_location(external_csv_url)?;
+        Ok(table)
+    }
+
+    /// A list of column names, separated by commas. Used for `INSERT INTO` and
+    /// other places where we need to get columns in the right order.
+    pub fn column_name_list(&self) -> Result<String> {
+        let mut wtr = Vec::new();
+        for (i, column) in self.columns.iter().enumerate() {
+            if i > 0 {
+                write!(wtr, ", ")?;
+            }
+            write!(wtr, "{}", column.name)?;
+        }
+        Ok(String::from_utf8(wtr).expect("expected valid UTF-8"))
+    }
+
+    /// Generate a `SELECT` expression that will fetch data for this table from
+    /// a wrapper table, and convert it the appropriate data types.
+    pub(crate) fn select_from_wrapper_table(
+        &self,
+        wrapper_table: &TrinoTableName,
+    ) -> Result<String> {
+        // Format using `std::fmt` and a buffer.
+        let mut wtr = Vec::new();
+        write!(wtr, "SELECT\n    ")?;
+        for (i, column) in self.columns.iter().enumerate() {
+            if i > 0 {
+                write!(wtr, ",\n    ")?;
+            }
+            column.write_import_sql(&mut wtr, &column.name)?;
+        }
+        write!(wtr, "\nFROM {}", wrapper_table)?;
+        Ok(String::from_utf8(wtr).expect("expected valid UTF-8"))
+    }
+
+    /// Print the `CREATE [OR REPLACE] TABLE [IF NOT EXISTS] name` portion of
+    /// the `CREATE TABLE` statement.
+    fn write_create_table_and_name(&self, f: &mut dyn fmt::Write) -> fmt::Result {
+        write!(f, "CREATE ")?;
+        if self.or_replace {
+            write!(f, "OR REPLACE ")?;
+        }
+        write!(f, "TABLE ")?;
+        if self.if_not_exists {
+            write!(f, "IF NOT EXISTS ")?;
+        }
+        write!(f, "{}", self.name)
+    }
+
+    /// Write the `WITH` block if it's not empty.
+    fn write_with(&self, f: &mut dyn fmt::Write) -> fmt::Result {
+        if !self.with.is_empty() {
+            write!(f, " WITH (\n    ")?;
+            for (i, (key, value)) in self.with.iter().enumerate() {
+                if i > 0 {
+                    write!(f, ",\n    ")?;
+                }
+                write!(f, "{} = {}", key, value)?;
+            }
+            write!(f, "\n)")?;
+        }
+        Ok(())
+    }
+
+    /// Write SQL including `CREATE TABLE ... [WITH ...] AS`. This is normally used together
+    /// with [`Self::select_as_named_varchar_values_sql`] below, _except_ that:
+    ///
+    /// - `create_as_prologue_sql` is called on a temporary table configured
+    ///   to store data as CSV, and
+    /// - `select_as_named_varchar_values_sql` is called on the source table from
+    ///   which we're copying data.
+    pub(crate) fn create_as_prologue_sql(&self) -> Result<String> {
+        let mut wtr = String::new();
+        {
+            let wtr = &mut wtr as &mut dyn fmt::Write;
+            self.write_create_table_and_name(wtr)?;
+            self.write_with(wtr)?;
+            write!(wtr, " AS")?;
+        }
+        Ok(wtr)
+    }
+
+    /// Write a `SELECT` statement that converts all columns to `VARCHAR` in
+    /// `dbcrossbar` CSV interchange format, but preserves column names. This is
+    /// normally used together with [`Self::create_as_prologue_sql`] above.
+    pub(crate) fn select_as_named_varchar_values_sql(&self) -> Result<String> {
+        let mut wtr = String::new();
+        {
+            let wtr = &mut wtr as &mut dyn fmt::Write;
+            write!(wtr, "SELECT\n    ")?;
+            for (i, column) in self.columns.iter().enumerate() {
+                if i > 0 {
+                    write!(wtr, ",\n    ")?;
+                }
+                column.write_export_sql(wtr)?;
+            }
+            write!(wtr, "\nFROM {}", self.name)?;
+        }
+        Ok(wtr)
     }
 }
 
@@ -175,16 +294,8 @@ impl fmt::Display for TrinoCreateTable {
         if self.separate_drop_if_exists {
             writeln!(f, "-- DROP TABLE IF EXISTS {};", self.name)?;
         }
-
-        write!(f, "CREATE ")?;
-        if self.or_replace {
-            write!(f, "OR REPLACE ")?;
-        }
-        write!(f, "TABLE ")?;
-        if self.if_not_exists {
-            write!(f, "IF NOT EXISTS ")?;
-        }
-        write!(f, "{} (\n    ", self.name)?;
+        self.write_create_table_and_name(f)?;
+        write!(f, " (\n    ")?;
         for (i, column) in self.columns.iter().enumerate() {
             if i > 0 {
                 write!(f, ",\n    ")?;
@@ -192,16 +303,7 @@ impl fmt::Display for TrinoCreateTable {
             write!(f, "{}", column)?;
         }
         write!(f, "\n)")?;
-        if !self.with.is_empty() {
-            write!(f, " WITH (\n    ")?;
-            for (i, (key, value)) in self.with.iter().enumerate() {
-                if i > 0 {
-                    write!(f, ",\n    ")?;
-                }
-                write!(f, "{} = {}", key, value)?;
-            }
-            write!(f, "\n)")?;
-        }
+        self.write_with(f)?;
         writeln!(f)
     }
 }
@@ -236,6 +338,28 @@ impl TrinoColumn {
             data_type: self.data_type.to_data_type()?,
             comment: None,
         })
+    }
+
+    /// Write the SQL for importing this column from a wrapper table.
+    pub(crate) fn write_import_sql(
+        &self,
+        wtr: &mut dyn std::io::Write,
+        name: &TrinoIdent,
+    ) -> io::Result<()> {
+        if self.is_nullable {
+            write!(wtr, "IF(LENGTH({}) = 0, NULL, ", name)?;
+        }
+        self.data_type.write_import_sql(wtr, name)?;
+        if self.is_nullable {
+            write!(wtr, ")")?;
+        }
+        Ok(())
+    }
+
+    /// Write the SQL for exporting this column to a wrapper table.
+    pub(crate) fn write_export_sql(&self, wtr: &mut dyn fmt::Write) -> fmt::Result {
+        self.data_type.write_export_sql(wtr, &self.name)?;
+        write!(wtr, " AS {}", self.name)
     }
 }
 
@@ -579,7 +703,7 @@ mod tests {
                 any::<bool>(),
                 any::<TrinoTableName>(),
                 // Make sure we have at least one column.
-                collection::vec(any::<TrinoColumn>(), 1..5),
+                collection::vec(any::<TrinoColumn>(), 1..3),
                 collection::hash_map(any::<TrinoIdent>(), any::<TrinoLiteral>(), 0..3),
             )
                 .prop_map(
@@ -614,7 +738,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             create_table.to_string(),
-            "CREATE TABLE foo.bar (\n    id INT NOT NULL,\n    name VARCHAR(255)\n)\n"
+            "CREATE TABLE \"foo\".\"bar\" (\n    \"id\" INT NOT NULL,\n    \"name\" VARCHAR(255)\n)\n",
         );
     }
 

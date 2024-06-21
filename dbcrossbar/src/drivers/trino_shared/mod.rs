@@ -3,10 +3,8 @@
 
 use std::fmt;
 
-use lazy_static::lazy_static;
 #[cfg(test)]
 use proptest_derive::Arbitrary;
-use regex::Regex;
 
 use crate::common::*;
 
@@ -76,25 +74,14 @@ impl TrinoIdent {
 
 impl fmt::Display for TrinoIdent {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if is_valid_bare_ident(&self.0) {
-            write!(f, "{}", self.0)
-        } else {
+        if self.0.contains('"') {
             // Double any double quotes in the identifier.
             let escaped = self.0.replace('"', r#""""#);
             write!(f, r#""{}""#, escaped)
+        } else {
+            write!(f, r#""{}""#, self.0)
         }
     }
-}
-
-/// Is `s` a valid bare identifier?
-///
-/// TODO: Handle reserved words. Should we just quote everything, always?
-fn is_valid_bare_ident(s: &str) -> bool {
-    lazy_static! {
-        // Note that we don't allow a leading `_`. That's what the docs say.
-        static ref RE: Regex = Regex::new(r"^[a-zA-Z][a-zA-Z0-9_]*$").unwrap();
-    }
-    RE.is_match(s)
 }
 
 /// A Trino table name. May include catalog and schema.
@@ -190,7 +177,7 @@ mod tests {
 
     #[test]
     fn test_trino_ident() {
-        assert_eq!(TrinoIdent::new("foo").unwrap().to_string(), "foo");
+        assert_eq!(TrinoIdent::new("foo").unwrap().to_string(), r#""foo""#);
         assert_eq!(
             TrinoIdent::new("foo\"bar").unwrap().to_string(),
             r#""foo""bar""#
@@ -199,18 +186,18 @@ mod tests {
 
     #[test]
     fn test_trino_table_name() {
-        assert_eq!(TrinoTableName::new("foo").unwrap().to_string(), "foo");
+        assert_eq!(TrinoTableName::new("foo").unwrap().to_string(), r#""foo""#);
         assert_eq!(
             TrinoTableName::with_schema("bar", "foo")
                 .unwrap()
                 .to_string(),
-            "bar.foo",
+            r#""bar"."foo""#,
         );
         assert_eq!(
             TrinoTableName::with_catalog("baz", "bar", "fo o")
                 .unwrap()
                 .to_string(),
-            r#"baz.bar."fo o""#,
+            r#""baz"."bar"."fo o""#,
         );
     }
 }

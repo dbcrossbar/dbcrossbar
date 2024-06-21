@@ -6,7 +6,10 @@ use prusto::Presto;
 
 use crate::{common::*, drivers::trino_shared::TrinoStringLiteral};
 
+use self::local_data::local_data_helper;
 use self::schema::schema_helper;
+use self::write_local_data::write_local_data_helper;
+use self::write_remote_data::write_remote_data_helper;
 use self::write_schema::write_schema_helper;
 
 use super::{
@@ -14,7 +17,10 @@ use super::{
     trino_shared::{TrinoConnectorType, TrinoTableName},
 };
 
+mod local_data;
 mod schema;
+mod write_local_data;
+mod write_remote_data;
 mod write_schema;
 
 /// A locator for a Trino table. JDBC uses `trino://host:port/catalog/schema` to
@@ -46,7 +52,7 @@ impl TrinoLocator {
     }
 
     /// Get a Trino client from a URL.
-    fn client(&self) -> Result<prusto::Client> {
+    pub(crate) fn client(&self) -> Result<prusto::Client> {
         // Parse basic parts of our URL.
         let bare_url = self.url.as_url();
         let host = bare_url
@@ -87,7 +93,7 @@ impl TrinoLocator {
 
     /// Get the connector type for this locator.
     #[instrument(level = "debug", name = "TrinoLocator::connector_type", skip_all)]
-    async fn connector_type(
+    pub(crate) async fn connector_type(
         &self,
         client: &prusto::Client,
     ) -> Result<TrinoConnectorType> {
@@ -178,22 +184,22 @@ impl Locator for TrinoLocator {
 
     fn local_data(
         &self,
-        _ctx: Context,
-        _shared_args: SharedArguments<Unverified>,
-        _source_args: SourceArguments<Unverified>,
+        ctx: Context,
+        shared_args: SharedArguments<Unverified>,
+        source_args: SourceArguments<Unverified>,
     ) -> BoxFuture<Option<BoxStream<CsvStream>>> {
-        // Turn our result into a future.
-        todo!("TrinoLocator::local_data")
+        local_data_helper(ctx, self.to_owned(), shared_args, source_args).boxed()
     }
 
     fn write_local_data(
         &self,
-        _ctx: Context,
-        _data: BoxStream<CsvStream>,
-        _shared_args: SharedArguments<Unverified>,
-        _dest_args: DestinationArguments<Unverified>,
+        ctx: Context,
+        data: BoxStream<CsvStream>,
+        shared_args: SharedArguments<Unverified>,
+        dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<BoxStream<BoxFuture<BoxLocator>>> {
-        todo!("TrinoLocator::write_local_data")
+        write_local_data_helper(ctx, self.to_owned(), data, shared_args, dest_args)
+            .boxed()
     }
 
     fn supports_write_remote_data(&self, source: &dyn Locator) -> bool {
@@ -203,12 +209,19 @@ impl Locator for TrinoLocator {
     fn write_remote_data(
         &self,
         _ctx: Context,
-        _source: BoxLocator,
-        _shared_args: SharedArguments<Unverified>,
-        _source_args: SourceArguments<Unverified>,
-        _dest_args: DestinationArguments<Unverified>,
+        source: BoxLocator,
+        shared_args: SharedArguments<Unverified>,
+        source_args: SourceArguments<Unverified>,
+        dest_args: DestinationArguments<Unverified>,
     ) -> BoxFuture<Vec<BoxLocator>> {
-        todo!("TrinoLocator::write_remote_data")
+        write_remote_data_helper(
+            self.to_owned(),
+            source,
+            shared_args,
+            source_args,
+            dest_args,
+        )
+        .boxed()
     }
 }
 

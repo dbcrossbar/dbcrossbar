@@ -77,6 +77,21 @@ impl<S: ArgumentState> SharedArguments<S> {
     pub fn max_streams(&self) -> usize {
         self.max_streams
     }
+
+    /// Create a new `SharedArguments` structure with a modified schema. This
+    /// is useful for drivers that call other drivers, and which need to make
+    /// minor changes to the schema.
+    pub fn with_modified_schema<F>(&self, f: F) -> Self
+    where
+        F: FnOnce(Schema) -> Schema,
+    {
+        SharedArguments {
+            schema: f(self.schema.clone()),
+            temporary_storage: self.temporary_storage.clone(),
+            max_streams: self.max_streams,
+            _phantom: PhantomData,
+        }
+    }
 }
 
 // These methods are only available in the `Unverified` state.
