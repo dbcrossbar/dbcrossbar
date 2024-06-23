@@ -32,8 +32,10 @@ pub(super) enum Expr {
     },
     /// A function call.
     Func {
-        /// The name of the function.
-        name: TrinoIdent,
+        /// The name of the function. We could use `TrinoIdent` here, but that
+        /// automatically downcases and quotes function nmaes. And we have a
+        /// fixed set of function names that we know at compile time.
+        name: &'static str,
         /// The arguments to the function.
         args: Vec<Expr>,
     },
@@ -102,11 +104,8 @@ impl Expr {
     }
 
     /// A function call.
-    pub(super) fn func(s: &'static str, args: Vec<Expr>) -> Expr {
-        Expr::Func {
-            name: ident(s),
-            args,
-        }
+    pub(super) fn func(name: &'static str, args: Vec<Expr>) -> Expr {
+        Expr::Func { name, args }
     }
 
     /// A cast.
@@ -195,6 +194,8 @@ impl fmt::Display for Expr {
 }
 
 /// A Trino literal value.
+///
+/// TODO: Merge with literal type used for `WITH` expressions.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) enum Literal {
     /// A string literal.
