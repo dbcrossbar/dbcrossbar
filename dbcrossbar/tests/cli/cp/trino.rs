@@ -49,6 +49,10 @@ fn cp_csv_to_trino_to_csv() {
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", s3_temp_dir),
+            // Including a portable schema currently helps with exporting
+            // GeoJSON columns, because Trino doesn't know the SRID, and so we
+            // can't necessarily choose a good portable column type.
+            &format!("--schema=postgres-sql:{}", schema.display()),
             &trino_table,
             "csv:out/",
         ])

@@ -283,6 +283,14 @@ impl TrinoDataType {
             }
 
             TrinoDataType::Row(_) => todo!(),
+
+            // TODO: This is importing as
+            //
+            // ```
+            // "{""type"":""Point"",""coordinates"":[-71,42],""crs"":{""type"":""name"",""properties"":{""name"":""EPSG:0""}}}"
+            // ```
+            //
+            // Figure out what's up with ESPG.
             TrinoDataType::SphericalGeography => {
                 Ok(Expr::func("FROM_GEOJSON_GEOMETRY", vec![value.to_owned()]))
             }
@@ -413,7 +421,7 @@ impl TrinoDataType {
             // This is bit messy, because we need to convert it from JSON back to string,
             // then parse it.
             TrinoDataType::SphericalGeography => {
-                let str_expr = Expr::func("JSON_STRING", vec![value.to_owned()]);
+                let str_expr = Expr::func("JSON_FORMAT", vec![value.to_owned()]);
                 self.string_import_expr(&str_expr)
             }
 
@@ -478,21 +486,18 @@ impl TrinoDataType {
             // Serialize JSON to a string. We have accept that this may use
             // various whitespace and ordering conventions. `dbcrossbar` doesn't
             // make any promises about the exact format of JSON output.
-            TrinoDataType::Json => {
-                Ok(Expr::func("JSON_STRING", vec![value.to_owned()]))
-            }
+            TrinoDataType::Json => Ok(Expr::json_to_string(value.to_owned())),
 
             // "Trivial" ARRAY and ROW types can be serialized as JSON without any
             // further processing.
             TrinoDataType::Array(_) | TrinoDataType::Row { .. }
                 if !self.exported_json_needs_conversion()? =>
             {
-                Ok(Expr::func("JSON_STRING", vec![value.to_owned()]))
+                Ok(Expr::json_to_string_with_cast(value.to_owned()))
             }
 
-            TrinoDataType::Array(_) => Ok(Expr::func(
-                "JSON_STRING",
-                vec![self.json_export_expr(value)?],
+            TrinoDataType::Array(_) => Ok(Expr::json_to_string_with_cast(
+                self.json_export_expr(value)?,
             )),
 
             TrinoDataType::Row { .. } => todo!("string_export_expr Row"),
@@ -539,7 +544,8 @@ impl TrinoDataType {
             | TrinoDataType::TimestampWithTimeZone { .. }
             | TrinoDataType::Uuid => Ok(true),
 
-            // This would naturally convert to a numeric value, I think, but we want to force it to always be a string.
+            // This would naturally convert to a numeric value, I think, but we
+            // want to force it to always be a string.
             TrinoDataType::Decimal { .. } => Ok(true),
 
             // Arrays need conversion if their elements need conversion.
@@ -548,7 +554,9 @@ impl TrinoDataType {
             // Rows need conversion if any of their fields need conversion.
             TrinoDataType::Row(fields) => {
                 for field in fields {
-                    if field.data_type.exported_json_needs_conversion()? {
+                    if field.name.is_none()
+                        || field.data_type.exported_json_needs_conversion()?
+                    {
                         return Ok(true);
                     }
                 }
@@ -589,22 +597,53 @@ impl TrinoDataType {
             TrinoDataType::Date
             | TrinoDataType::Time { .. }
             | TrinoDataType::Timestamp { .. }
-            | TrinoDataType::TimestampWithTimeZone { .. }
-            | TrinoDataType::Uuid => self.string_export_expr(value),
+            | TrinoDataType::TimestampWithTimeZone { .. } => {
+                self.string_export_expr(value)
+            }
+
+            // Force to a string now, because `CAST(value AS VARCHAR)` will work
+            // but `CAST(ARRAY[value] AS JSON)` will not.
+            TrinoDataType::Uuid => {
+                Ok(Expr::cast(value.to_owned(), TrinoDataType::varchar()))
+            }
 
             // Force this to a JSON string, so that it doesn't lose precision.
             //
-            // TODO: Do the other drivers do this? They should. Do we specify
-            // it? We should.
+            // TODO: Do the other drivers do this for DECIMAL? They should. Do
+            // we specify it? We should.
             TrinoDataType::Decimal { .. } => {
                 Ok(Expr::cast(value.to_owned(), TrinoDataType::varchar()))
             }
 
-            TrinoDataType::Array(_) => todo!("json_export_expr Array"),
-            TrinoDataType::Row(_) => todo!("json_export_expr Row"),
-            TrinoDataType::SphericalGeography => {
-                todo!("json_export_expr SphericalGeography")
+            // Can we end our recursion here?
+            TrinoDataType::Array(_) | TrinoDataType::Row(_)
+                if !self.exported_json_needs_conversion()? =>
+            {
+                Ok(value.to_owned())
             }
+
+            TrinoDataType::Array(elem_ty) => {
+                let elem = ident("elem");
+                Ok(Expr::func(
+                    "TRANSFORM",
+                    vec![
+                        value.to_owned(),
+                        Expr::lambda(
+                            elem.clone(),
+                            elem_ty.json_export_expr(&Expr::Var(elem))?,
+                        ),
+                    ],
+                ))
+            }
+
+            TrinoDataType::Row(_) => todo!("json_export_expr Row"),
+
+            // TODO: I _think_ this is how we want to handle this? Or should the
+            // GeoJSON be stored as a string inside our larger JSON object?
+            TrinoDataType::SphericalGeography => Ok(Expr::func(
+                "JSON_PARSE",
+                vec![self.string_export_expr(value)?],
+            )),
 
             TrinoDataType::Varbinary
             | TrinoDataType::TimeWithTimeZone { .. }

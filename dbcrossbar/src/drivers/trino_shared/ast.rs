@@ -146,6 +146,16 @@ impl Expr {
             body: Box::new(body),
         }
     }
+
+    /// Serialize as JSON.
+    pub(super) fn json_to_string(expr: Expr) -> Expr {
+        Expr::func("JSON_FORMAT", vec![expr])
+    }
+
+    // Cast to JSON, then serialize.
+    pub(super) fn json_to_string_with_cast(expr: Expr) -> Expr {
+        Self::json_to_string(Self::cast(expr, TrinoDataType::Json))
+    }
 }
 
 impl fmt::Display for Expr {
