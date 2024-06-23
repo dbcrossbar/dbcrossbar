@@ -5,7 +5,7 @@ use difference::assert_diff;
 
 use crate::cp::trino_test_url;
 
-use super::{assert_cp_to_exact_csv, TempType};
+use super::{assert_cp_to_exact_csv, s3_test_dir_url, TempType};
 
 /// Generate a locator for a test table in Trino.
 fn trino_test_table(table_name: &str) -> String {
@@ -17,6 +17,43 @@ fn trino_test_table(table_name: &str) -> String {
 fn cp_from_trino_to_exact_csv() {
     let table = trino_test_table("cp_from_trino_to_exact_csv");
     assert_cp_to_exact_csv("cp_from_trino_to_exact_csv", &table, TempType::S3.into());
+}
+
+#[test]
+#[ignore]
+fn cp_csv_to_trino_to_csv() {
+    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_trino_to_csv");
+    let src = testdir.src_path("fixtures/many_types.csv");
+    let schema = testdir.src_path("fixtures/many_types.sql");
+    let s3_temp_dir = s3_test_dir_url("cp_csv_to_trino_to_csv");
+    let trino_table = trino_test_table("cp_csv_to_trino_to_csv");
+
+    // CSV to Trino.
+    testdir
+        .cmd()
+        .args([
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--temporary={}", s3_temp_dir),
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("csv:{}", src.display()),
+            &trino_table,
+        ])
+        .tee_output()
+        .expect_success();
+
+    // Trino to CSV.
+    testdir
+        .cmd()
+        .args([
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--temporary={}", s3_temp_dir),
+            &trino_table,
+            "csv:out/",
+        ])
+        .tee_output()
+        .expect_success();
 }
 
 // Create table using `schema conv` and dump the schema.

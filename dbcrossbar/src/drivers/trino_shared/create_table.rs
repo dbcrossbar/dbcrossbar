@@ -7,13 +7,14 @@ use proptest_derive::Arbitrary;
 
 use crate::{
     common::*,
+    drivers::trino_shared::ast::BinOp,
     parse_error::{Annotation, FileInfo, ParseError},
     schema::Column,
 };
 
 use super::{
-    TrinoConnectorType, TrinoDataType, TrinoField, TrinoIdent, TrinoStringLiteral,
-    TrinoTableName,
+    ast::Expr, TrinoConnectorType, TrinoDataType, TrinoField, TrinoIdent,
+    TrinoStringLiteral, TrinoTableName,
 };
 
 /// A Trino-compatible `CREATE TABLE` statement.
@@ -212,7 +213,7 @@ impl TrinoCreateTable {
             if i > 0 {
                 write!(wtr, ",\n    ")?;
             }
-            column.write_import_sql(&mut wtr, &column.name)?;
+            write!(wtr, "{}", column.import_expr()?)?;
         }
         write!(wtr, "\nFROM {}", wrapper_table)?;
         Ok(String::from_utf8(wtr).expect("expected valid UTF-8"))
@@ -277,7 +278,7 @@ impl TrinoCreateTable {
                 if i > 0 {
                     write!(wtr, ",\n    ")?;
                 }
-                column.write_export_sql(wtr)?;
+                write!(wtr, "{} AS {}", column.export_expr()?, column.name)?;
             }
             write!(wtr, "\nFROM {}", self.name)?;
         }
@@ -341,25 +342,29 @@ impl TrinoColumn {
     }
 
     /// Write the SQL for importing this column from a wrapper table.
-    pub(crate) fn write_import_sql(
-        &self,
-        wtr: &mut dyn std::io::Write,
-        name: &TrinoIdent,
-    ) -> io::Result<()> {
+    fn import_expr(&self) -> Result<Expr> {
+        let var = Expr::Var(self.name.clone());
+        let expr = self.data_type.string_import_expr(&var)?;
         if self.is_nullable {
-            write!(wtr, "IF(LENGTH({}) = 0, NULL, ", name)?;
+            Ok(Expr::r#if(
+                Expr::binop(Expr::func("LENGTH", vec![var]), BinOp::Eq, Expr::int(0)),
+                Expr::null(),
+                expr,
+            ))
+        } else {
+            Ok(expr)
         }
-        self.data_type.write_import_sql(wtr, name)?;
-        if self.is_nullable {
-            write!(wtr, ")")?;
-        }
-        Ok(())
     }
 
     /// Write the SQL for exporting this column to a wrapper table.
-    pub(crate) fn write_export_sql(&self, wtr: &mut dyn fmt::Write) -> fmt::Result {
-        self.data_type.write_export_sql(wtr, &self.name)?;
-        write!(wtr, " AS {}", self.name)
+    fn export_expr(&self) -> Result<Expr> {
+        let var = Expr::Var(self.name.clone());
+        // This always needs to be a VARCHAR with no length, or else the Hive
+        // connector will refuse to store it in a table represented as CSV.
+        Ok(Expr::cast(
+            self.data_type.string_export_expr(&var)?,
+            TrinoDataType::varchar(),
+        ))
     }
 }
 

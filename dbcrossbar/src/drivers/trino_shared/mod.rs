@@ -8,6 +8,7 @@ use proptest_derive::Arbitrary;
 
 use crate::common::*;
 
+mod ast;
 mod connector_type;
 mod create_table;
 mod data_type;
