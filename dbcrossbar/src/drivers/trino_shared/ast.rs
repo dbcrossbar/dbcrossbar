@@ -160,7 +160,7 @@ impl Expr {
     }
 
     /// Return a pretty-printed version of `self``.
-    fn to_doc(&self) -> RcDoc<'static, ()> {
+    pub(super) fn to_doc(&self) -> RcDoc<'static, ()> {
         match self {
             Expr::Lit(lit) => lit.to_doc(),
             Expr::Var(ident) => RcDoc::as_string(ident),

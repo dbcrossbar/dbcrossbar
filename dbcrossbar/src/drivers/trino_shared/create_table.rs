@@ -2,6 +2,7 @@
 
 use std::{collections::HashMap, fmt, sync::Arc};
 
+use pretty::RcDoc;
 #[cfg(test)]
 use proptest_derive::Arbitrary;
 
@@ -278,12 +279,13 @@ impl TrinoCreateTable {
                 if i > 0 {
                     write!(wtr, ",\n    ")?;
                 }
-                write!(
-                    wtr,
-                    "{} AS {}",
-                    column.export_expr()?.pretty(4, WIDTH),
-                    column.name
-                )?;
+                let doc = RcDoc::concat(vec![
+                    column.export_expr()?.to_doc(),
+                    RcDoc::as_string(" AS "),
+                    RcDoc::as_string(&column.name),
+                ])
+                .nest(4);
+                write!(wtr, "{}", doc.pretty(WIDTH))?;
             }
             write!(wtr, "\nFROM {}", self.name)?;
         }
@@ -362,7 +364,7 @@ impl TrinoColumn {
     }
 
     /// Write the SQL for exporting this column to a wrapper table.
-    fn export_expr(&self) -> Result<Expr> {
+    pub(super) fn export_expr(&self) -> Result<Expr> {
         let var = Expr::Var(self.name.clone());
         // This always needs to be a VARCHAR with no length, or else the Hive
         // connector will refuse to store it in a table represented as CSV.
