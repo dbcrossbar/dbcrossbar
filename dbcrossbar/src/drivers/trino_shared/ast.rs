@@ -6,7 +6,7 @@ use std::fmt::{self, Debug};
 use pretty::RcDoc;
 
 use super::{
-    pretty::{comma_sep_list, parens, PrettyFmt, INDENT},
+    pretty::{comma_sep_list, parens, square_brackets, PrettyFmt, INDENT},
     TrinoDataType, TrinoIdent, TrinoStringLiteral,
 };
 
@@ -66,6 +66,15 @@ pub(super) enum Expr {
         arg: TrinoIdent,
         /// The body of the lambda.
         body: Box<Expr>,
+    },
+    /// An `ARRAY` expression.
+    Array(Vec<Expr>),
+    /// An array or row element access.
+    Index {
+        /// The array or row.
+        expr: Box<Expr>,
+        /// The index.
+        index: Box<Expr>,
     },
 }
 
@@ -146,6 +155,36 @@ impl Expr {
     // Cast to JSON, then serialize.
     pub(super) fn json_to_string_with_cast(expr: Expr) -> Expr {
         Self::json_to_string(Self::cast(expr, TrinoDataType::Json))
+    }
+
+    /// An `ARRAY` expression.
+    pub(super) fn array(exprs: Vec<Expr>) -> Expr {
+        Expr::Array(exprs)
+    }
+
+    /// An array or row element access.
+    pub(super) fn index(expr: Expr, index: Expr) -> Expr {
+        Expr::Index {
+            expr: Box::new(expr),
+            index: Box::new(index),
+        }
+    }
+
+    /// Bind a variable in a lambda. We fake this using `ARRAY` and `TRANSFORM`,
+    /// because Trino doesn't seem to have any better way to do this.
+    pub(super) fn bind_var(var: TrinoIdent, expr: Expr, body: Expr) -> Expr {
+        Expr::index(
+            Expr::func(
+                "TRANSFORM",
+                vec![Expr::array(vec![expr]), Expr::lambda(var, body)],
+            ),
+            Expr::int(1),
+        )
+    }
+
+    /// A `ROW` expression with a `CAST`
+    pub(super) fn row(ty: TrinoDataType, exprs: Vec<Expr>) -> Expr {
+        Expr::cast(Expr::func("ROW", exprs), ty)
     }
 }
 
@@ -243,6 +282,17 @@ impl Expr {
                     .group(),
             ])
             .group(),
+            Expr::Array(exprs) => RcDoc::concat(vec![
+                RcDoc::as_string("ARRAY"),
+                square_brackets(comma_sep_list(
+                    exprs.iter().map(|e| e.to_doc().group()),
+                )),
+            ])
+            .group(),
+            Expr::Index { expr, index } => RcDoc::concat(vec![
+                expr.to_doc(),
+                square_brackets(index.to_doc().group()),
+            ]),
         }
     }
 }

@@ -84,10 +84,10 @@ pub(super) fn parens(doc: RcDoc<'static, ()>) -> RcDoc<'static, ()> {
     brackets("(", doc, ")")
 }
 
-// /// Wrap an [`RcDoc`] in square brackets.
-// pub(super) fn square_brackets(doc: RcDoc<'static, ()>) -> RcDoc<'static, ()> {
-//     brackets("[", doc, "]")
-// }
+/// Wrap an [`RcDoc`] in square brackets.
+pub(super) fn square_brackets(doc: RcDoc<'static, ()>) -> RcDoc<'static, ()> {
+    brackets("[", doc, "]")
+}
 
 /// Comma separator.
 pub(super) fn comma_sep() -> RcDoc<'static, ()> {

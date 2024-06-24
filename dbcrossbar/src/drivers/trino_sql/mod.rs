@@ -87,6 +87,7 @@ async fn schema_helper(source: TrinoSqlLocator) -> Result<Option<Schema>> {
         .await
         .with_context(|| format!("error reading {}", source.path))?;
     let create_table = TrinoCreateTable::parse(&source.path.to_string(), &sql)?;
+    trace!(table = %create_table, "parsed CREATE TABLE");
     let schema = create_table.to_schema()?;
     Ok(Some(schema))
 }

@@ -132,7 +132,9 @@
                 {
                     "name": "test_spherical_geography",
                     "is_nullable": true,
-                    "data_type": "json"
+                    "data_type": {
+                        "geo_json": 4326
+                    }
                 }
             ]
         }

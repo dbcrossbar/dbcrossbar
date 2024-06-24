@@ -9,7 +9,7 @@ CREATE TABLE "schema_conv_on_trino_table" (
     "test_float32_array" real[],
     "test_float64" double precision,
     "test_float64_array" double precision[],
-    "test_geojson" jsonb,
+    "test_geojson" public.geometry(Geometry, 4326),
     "test_geojson_3857" jsonb,
     "test_int16" smallint,
     "test_int16_array" smallint[],

@@ -6,7 +6,7 @@ use pretty::RcDoc;
 
 use crate::{
     common::*,
-    schema::{DataType, StructField},
+    schema::{DataType, Srid, StructField},
 };
 
 use super::{
@@ -138,11 +138,21 @@ impl TrinoDataType {
             DataType::Decimal => Ok(Self::bigquery_sized_decimal()),
             DataType::Float32 => Ok(TrinoDataType::Real),
             DataType::Float64 => Ok(TrinoDataType::Double),
-            // Map all SRIDs to spherical geography. You're responsible for
-            // remembering what SRIDs you're using. Unlike BigQuery, Trino doesn't
-            // seem to have an expected SRID, and unlike Postgres, it doesn't
-            // record the SRID in the column type.
-            DataType::GeoJson(_srid) => Ok(TrinoDataType::SphericalGeography),
+            // Map WGS84 to a spherical coordinate system. This is consistent
+            // with how we handle BigQuery, which originally only supported a
+            // WGS84-based GEOGRAPHY type and no GEOMETRY type.
+            //
+            // PostGIS has a newer `GEOGRAPHY` type that was limited to WGS84
+            // but has since been generalized to support other spherical
+            // coordinate systems. But `dbcrossbar` still uses the older
+            // `GEOGRAPHY(srid)` type in PostgreSQL.
+            //
+            // Trino's SRID handling is not particularly documented.
+            DataType::GeoJson(srid) if *srid == Srid::wgs84() => {
+                Ok(TrinoDataType::SphericalGeography)
+            }
+            // Map other GeoJSON types to JSON.
+            DataType::GeoJson(_) => Ok(TrinoDataType::Json),
             DataType::Int16 => Ok(TrinoDataType::SmallInt),
             DataType::Int32 => Ok(TrinoDataType::Int),
             DataType::Int64 => Ok(TrinoDataType::BigInt),
@@ -223,9 +233,8 @@ impl TrinoDataType {
                 Ok(DataType::Struct(fields))
             }
             TrinoDataType::Uuid => Ok(DataType::Uuid),
-            // We don't know the SRID for a spherical geography, so we can't
-            // map it to [`DataType::GeoJson(srid)`]. So just export it as JSON.
-            TrinoDataType::SphericalGeography => Ok(DataType::Json),
+            // We assume that SphericalGeography uses WGS84.
+            TrinoDataType::SphericalGeography => Ok(DataType::GeoJson(Srid::wgs84())),
         }
     }
 
@@ -270,8 +279,9 @@ impl TrinoDataType {
                 Ok(Expr::func("FROM_ISO8601_TIMESTAMP", vec![value.to_owned()]))
             }
 
-            TrinoDataType::Array(_) => {
-                // Figure out the closest type we can convert to using `CAST`.
+            TrinoDataType::Array(_) | TrinoDataType::Row(_) => {
+                // Figure out the closest type we can convert to using `CAST`
+                // from JSON.
                 let casted_ty = self.cast_parsed_json_as()?;
                 let cast_expr = Expr::cast(
                     Expr::func("JSON_PARSE", vec![value.to_owned()]),
@@ -284,15 +294,13 @@ impl TrinoDataType {
                 }
             }
 
-            TrinoDataType::Row(_) => todo!(),
-
-            // TODO: This is importing as
+            // TODO: This is eventually re-exporting as
             //
             // ```
             // "{""type"":""Point"",""coordinates"":[-71,42],""crs"":{""type"":""name"",""properties"":{""name"":""EPSG:0""}}}"
             // ```
             //
-            // Figure out what's up with ESPG.
+            // Figure out what's up with Trino & ESPG.
             TrinoDataType::SphericalGeography => {
                 Ok(Expr::func("FROM_GEOJSON_GEOMETRY", vec![value.to_owned()]))
             }
@@ -417,7 +425,28 @@ impl TrinoDataType {
                 ))
             }
 
-            TrinoDataType::Row(_) => todo!("json_import_expr Row"),
+            TrinoDataType::Row(fields) => {
+                let row = ident("row");
+                let row_expr = Expr::Var(row.clone());
+                Ok(Expr::bind_var(
+                    row.clone(),
+                    value.to_owned(),
+                    Expr::row(
+                        self.to_owned(),
+                        fields
+                            .iter()
+                            .enumerate()
+                            .map(|(idx, field)| {
+                                // We need to use a 1-based index with Trino.
+                                let idx = i64::try_from(idx)? + 1;
+                                let field_value =
+                                    Expr::index(row_expr.clone(), Expr::int(idx));
+                                field.data_type.json_import_expr(&field_value)
+                            })
+                            .collect::<Result<Vec<_>>>()?,
+                    ),
+                ))
+            }
 
             // This is bit messy, because we need to convert it from JSON back to string,
             // then parse it.
@@ -498,11 +527,9 @@ impl TrinoDataType {
                 Ok(Expr::json_to_string_with_cast(value.to_owned()))
             }
 
-            TrinoDataType::Array(_) => Ok(Expr::json_to_string_with_cast(
-                self.json_export_expr(value)?,
-            )),
-
-            TrinoDataType::Row { .. } => todo!("string_export_expr Row"),
+            TrinoDataType::Array(_) | TrinoDataType::Row { .. } => Ok(
+                Expr::json_to_string_with_cast(self.json_export_expr(value)?),
+            ),
 
             // Serialize as GeoJSON.
             TrinoDataType::SphericalGeography => Ok(Expr::func(
@@ -523,8 +550,10 @@ impl TrinoDataType {
         }
     }
 
-    /// Does our exported JSON need conversion?
-    fn exported_json_needs_conversion(&self) -> Result<bool> {
+    /// Before casting to JSON, what is the type of mostly-exported value?
+    /// This is needed for `CAST(... AS ROW(...))` expressions which we use
+    /// to name fields while preparing to `CAST(... AS JSON)`.
+    pub(super) fn cast_exported_json_as(&self) -> Result<Self> {
         match self {
             // Types that are represented as themselves in exported JSON.
             TrinoDataType::Boolean
@@ -536,39 +565,52 @@ impl TrinoDataType {
             | TrinoDataType::Double
             | TrinoDataType::Varchar { .. }
             | TrinoDataType::Char { .. }
-            | TrinoDataType::Json => Ok(false),
+            | TrinoDataType::Json => Ok(self.clone()),
 
-            // This isn't represented as a string, but it will
-            // do the right thing even if nested somewhere deep in a `CAST(... AS JSON)`.
-            TrinoDataType::Date => Ok(false),
+            // This isn't represented as a string, but it will do the right
+            // thing even if nested somewhere deep in a `CAST(... AS JSON)`.
+            TrinoDataType::Date => Ok(self.clone()),
 
             // Types that are represented as strings in JSON, and so require
             // conversion.
             TrinoDataType::Timestamp { .. }
             | TrinoDataType::TimestampWithTimeZone { .. }
-            | TrinoDataType::Uuid => Ok(true),
+            | TrinoDataType::Uuid => Ok(TrinoDataType::varchar()),
 
             // This would naturally convert to a numeric value, I think, but we
             // want to force it to always be a string.
-            TrinoDataType::Decimal { .. } => Ok(true),
+            TrinoDataType::Decimal { .. } => Ok(TrinoDataType::varchar()),
 
             // Arrays need conversion if their elements need conversion.
-            TrinoDataType::Array(elem_ty) => elem_ty.exported_json_needs_conversion(),
+            TrinoDataType::Array(elem_ty) => Ok(TrinoDataType::Array(Box::new(
+                elem_ty.cast_exported_json_as()?,
+            ))),
 
             // Rows need conversion if any of their fields need conversion.
             TrinoDataType::Row(fields) => {
                 for field in fields {
-                    if field.name.is_none()
-                        || field.data_type.exported_json_needs_conversion()?
-                    {
-                        return Ok(true);
+                    if field.name.is_none() {
+                        return Err(format_err!(
+                            "cannot export {} because it has unnamed fields",
+                            self
+                        ));
                     }
                 }
-                Ok(false)
+                Ok(TrinoDataType::Row(
+                    fields
+                        .iter()
+                        .map(|field| {
+                            Ok(TrinoField {
+                                name: field.name.clone(),
+                                data_type: field.data_type.cast_exported_json_as()?,
+                            })
+                        })
+                        .collect::<Result<Vec<_>>>()?,
+                ))
             }
 
             // This is converted to inline JSON.
-            TrinoDataType::SphericalGeography => Ok(true),
+            TrinoDataType::SphericalGeography => Ok(TrinoDataType::Json),
 
             // Types that don't exist in our portable schema and that we can't
             // import.
@@ -583,6 +625,12 @@ impl TrinoDataType {
         }
     }
 
+    /// Does our exported JSON need conversion?
+    fn exported_json_needs_conversion(&self) -> Result<bool> {
+        let casted_ty = self.cast_exported_json_as()?;
+        Ok(self != &casted_ty)
+    }
+
     /// Generate SQL to export `value` as JSON, assuming it has type `self`.
     fn json_export_expr(&self, value: &Expr) -> Result<Expr> {
         match self {
@@ -591,6 +639,8 @@ impl TrinoDataType {
             | TrinoDataType::TinyInt
             | TrinoDataType::SmallInt
             | TrinoDataType::Int
+            // TODO: We may need to convert this to a string to prevent
+            // overflowing JSON numbers.
             | TrinoDataType::BigInt
             | TrinoDataType::Real
             | TrinoDataType::Double
@@ -641,7 +691,28 @@ impl TrinoDataType {
                 ))
             }
 
-            TrinoDataType::Row(_) => todo!("json_export_expr Row"),
+            TrinoDataType::Row(fields) => {
+                let row = ident("row");
+                let row_expr = Expr::Var(row.clone());
+                Ok(Expr::bind_var(
+                    row.clone(),
+                    value.to_owned(),
+                    Expr::row(
+                        self.cast_exported_json_as()?,
+                        fields
+                            .iter()
+                            .enumerate()
+                            .map(|(idx, field)| {
+                                // We need to use a 1-based index with Trino.
+                                let idx = i64::try_from(idx)? + 1;
+                                let field_value =
+                                    Expr::index(row_expr.clone(), Expr::int(idx));
+                                field.data_type.json_export_expr(&field_value)
+                            })
+                            .collect::<Result<Vec<_>>>()?,
+                    ),
+                ))
+            }
 
             // TODO: I _think_ this is how we want to handle this? Or should the
             // GeoJSON be stored as a string inside our larger JSON object?

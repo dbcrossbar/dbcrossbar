@@ -7,7 +7,7 @@ CREATE TABLE "example" (
     "f" ARRAY(VARCHAR),
     "g" ARRAY(INT),
     "h" SphericalGeography,
-    "i" SphericalGeography,
+    "i" JSON,
     "j" SMALLINT,
     "k" TIMESTAMP(3),
     "l" VARCHAR,

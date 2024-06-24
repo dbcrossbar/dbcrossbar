@@ -308,7 +308,7 @@ impl fmt::Display for TrinoCreateTable {
             if i > 0 {
                 write!(f, ",\n    ")?;
             }
-            write!(f, "{}", column)?;
+            write!(f, "{}", column.to_doc().nest(4).pretty(WIDTH))?;
         }
         write!(f, "\n)")?;
         self.write_with(f)?;
@@ -373,15 +373,20 @@ impl TrinoColumn {
             TrinoDataType::varchar(),
         ))
     }
-}
 
-impl fmt::Display for TrinoColumn {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} {}", self.name, self.data_type)?;
-        if !self.is_nullable {
-            write!(f, " NOT NULL")?;
-        }
-        Ok(())
+    /// Create an [`RcDoc`] for this column.
+    pub(super) fn to_doc(&self) -> RcDoc<'static, ()> {
+        RcDoc::concat(vec![
+            RcDoc::as_string(&self.name),
+            RcDoc::space(),
+            self.data_type.to_doc(),
+            if self.is_nullable {
+                RcDoc::nil()
+            } else {
+                RcDoc::space().append(RcDoc::as_string("NOT NULL"))
+            },
+        ])
+        .group()
     }
 }
 

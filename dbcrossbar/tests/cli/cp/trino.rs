@@ -19,14 +19,21 @@ fn cp_from_trino_to_exact_csv() {
     assert_cp_to_exact_csv("cp_from_trino_to_exact_csv", &table, TempType::S3.into());
 }
 
-#[test]
-#[ignore]
-fn cp_csv_to_trino_to_csv() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_trino_to_csv");
-    let src = testdir.src_path("fixtures/many_types.csv");
-    let schema = testdir.src_path("fixtures/many_types.sql");
-    let s3_temp_dir = s3_test_dir_url("cp_csv_to_trino_to_csv");
-    let trino_table = trino_test_table("cp_csv_to_trino_to_csv");
+/// Helper for copying a CSV file to Trino and back to CSV. We do not currently
+/// check the output, because we are working with types that may have
+/// non-deterministic representations. Although we could write a custom
+/// comparator if we wanted to put in the effort.
+fn cp_csv_to_trino_to_csv_helper(
+    test_name: &str,
+    csv_path: &str,
+    schema_scheme: &str,
+    schema_path: &str,
+) {
+    let testdir = TestDir::new("dbcrossbar", test_name);
+    let src = testdir.src_path(csv_path);
+    let schema = testdir.src_path(schema_path);
+    let s3_temp_dir = s3_test_dir_url(test_name);
+    let trino_table = trino_test_table(test_name);
 
     // CSV to Trino.
     testdir
@@ -35,7 +42,7 @@ fn cp_csv_to_trino_to_csv() {
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", s3_temp_dir),
-            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("--schema={}:{}", schema_scheme, schema.display()),
             &format!("csv:{}", src.display()),
             &trino_table,
         ])
@@ -49,19 +56,37 @@ fn cp_csv_to_trino_to_csv() {
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", s3_temp_dir),
-            // Including a portable schema currently helps with exporting
-            // GeoJSON columns, because Trino doesn't know the SRID, and so we
-            // can't necessarily choose a good portable column type.
-            &format!("--schema=postgres-sql:{}", schema.display()),
             &trino_table,
-            "csv:out/many_types.csv",
+            "csv:out/out.csv",
         ])
         .tee_output()
         .expect_success();
 
     // Print our output for manual inspection. Use `--nocapture` to see this.
-    let out_path = testdir.path("out/many_types.csv");
+    let out_path = testdir.path("out/out.csv");
     eprintln!("output:\n{}", std::fs::read_to_string(out_path).unwrap());
+}
+
+#[test]
+#[ignore]
+fn cp_csv_to_trino_to_csv() {
+    cp_csv_to_trino_to_csv_helper(
+        "cp_csv_to_trino_to_csv",
+        "fixtures/many_types.csv",
+        "postgres-sql",
+        "fixtures/many_types.sql",
+    );
+}
+
+#[test]
+#[ignore]
+fn cp_csv_to_trino_to_csv_complex() {
+    cp_csv_to_trino_to_csv_helper(
+        "cp_csv_to_trino_to_csv_complex",
+        "fixtures/trino/very_complex.csv",
+        "trino-sql",
+        "fixtures/trino/very_complex.sql",
+    );
 }
 
 // Create table using `schema conv` and dump the schema.
