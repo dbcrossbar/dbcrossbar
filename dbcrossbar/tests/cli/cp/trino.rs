@@ -54,10 +54,14 @@ fn cp_csv_to_trino_to_csv() {
             // can't necessarily choose a good portable column type.
             &format!("--schema=postgres-sql:{}", schema.display()),
             &trino_table,
-            "csv:out/",
+            "csv:out/many_types.csv",
         ])
         .tee_output()
         .expect_success();
+
+    // Print our output for manual inspection. Use `--nocapture` to see this.
+    let out_path = testdir.path("out/many_types.csv");
+    eprintln!("output:\n{}", std::fs::read_to_string(out_path).unwrap());
 }
 
 // Create table using `schema conv` and dump the schema.

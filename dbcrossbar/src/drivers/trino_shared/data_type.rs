@@ -245,7 +245,6 @@ impl TrinoDataType {
             | TrinoDataType::Double
             | TrinoDataType::Decimal { .. }
             | TrinoDataType::Date
-            | TrinoDataType::Time { .. }
             | TrinoDataType::Uuid => Ok(Expr::cast(value.to_owned(), self.clone())),
 
             // Parse JSON values.
@@ -297,6 +296,7 @@ impl TrinoDataType {
 
             // Types we can't import.
             TrinoDataType::Varbinary
+            | TrinoDataType::Time { .. }
             | TrinoDataType::TimeWithTimeZone { .. }
             | TrinoDataType::IntervalDayToSecond
             | TrinoDataType::IntervalYearToMonth
@@ -325,8 +325,6 @@ impl TrinoDataType {
             // type.
             TrinoDataType::Decimal { .. }
             | TrinoDataType::Date
-            | TrinoDataType::Time { .. }
-            | TrinoDataType::TimeWithTimeZone { .. }
             | TrinoDataType::Timestamp { .. }
             | TrinoDataType::TimestampWithTimeZone { .. }
             | TrinoDataType::Uuid => Ok(TrinoDataType::varchar()),
@@ -358,6 +356,8 @@ impl TrinoDataType {
 
             // Types we can't import.
             TrinoDataType::Varbinary
+            | TrinoDataType::Time { .. }
+            | TrinoDataType::TimeWithTimeZone { .. }
             | TrinoDataType::IntervalDayToSecond
             | TrinoDataType::IntervalYearToMonth
             | TrinoDataType::Map { .. } => {
@@ -392,8 +392,6 @@ impl TrinoDataType {
             // Types represented as strings in JSON.
             TrinoDataType::Decimal { .. }
             | TrinoDataType::Date
-            | TrinoDataType::Time { .. }
-            | TrinoDataType::TimeWithTimeZone { .. }
             | TrinoDataType::Timestamp { .. }
             | TrinoDataType::TimestampWithTimeZone { .. }
             | TrinoDataType::Uuid => self.string_import_expr(value),
@@ -428,6 +426,8 @@ impl TrinoDataType {
             // Types that don't exist in our portable schema and that we can't
             // import.
             TrinoDataType::Varbinary
+            | TrinoDataType::Time { .. }
+            | TrinoDataType::TimeWithTimeZone { .. }
             | TrinoDataType::IntervalDayToSecond
             | TrinoDataType::IntervalYearToMonth
             | TrinoDataType::Map { .. } => {
@@ -451,7 +451,6 @@ impl TrinoDataType {
             | TrinoDataType::Varchar { .. }
             | TrinoDataType::Char { .. }
             | TrinoDataType::Date
-            | TrinoDataType::Time { .. }
             | TrinoDataType::Uuid => Ok(value.to_owned()),
 
             // Use our canonical representation for boolean values.
@@ -511,6 +510,7 @@ impl TrinoDataType {
 
             // These types are not directly supported.
             TrinoDataType::Varbinary
+            | TrinoDataType::Time { .. }
             | TrinoDataType::TimeWithTimeZone { .. }
             | TrinoDataType::IntervalDayToSecond
             | TrinoDataType::IntervalYearToMonth
@@ -535,12 +535,13 @@ impl TrinoDataType {
             | TrinoDataType::Char { .. }
             | TrinoDataType::Json => Ok(false),
 
+            // This isn't represented as a string, but it will
+            // do the right thing even if nested somewhere deep in a `CAST(... AS JSON)`.
+            TrinoDataType::Date => Ok(false),
+
             // Types that are represented as strings in JSON, and so require
             // conversion.
-            TrinoDataType::Date
-            | TrinoDataType::Time { .. }
-            | TrinoDataType::TimeWithTimeZone { .. }
-            | TrinoDataType::Timestamp { .. }
+            TrinoDataType::Timestamp { .. }
             | TrinoDataType::TimestampWithTimeZone { .. }
             | TrinoDataType::Uuid => Ok(true),
 
@@ -569,6 +570,8 @@ impl TrinoDataType {
             // Types that don't exist in our portable schema and that we can't
             // import.
             TrinoDataType::Varbinary
+            | TrinoDataType::Time { .. }
+            | TrinoDataType::TimeWithTimeZone { .. }
             | TrinoDataType::IntervalDayToSecond
             | TrinoDataType::IntervalYearToMonth
             | TrinoDataType::Map { .. } => {
@@ -595,7 +598,6 @@ impl TrinoDataType {
             // Types that are represented as strings in JSON, and so require
             // conversion.
             TrinoDataType::Date
-            | TrinoDataType::Time { .. }
             | TrinoDataType::Timestamp { .. }
             | TrinoDataType::TimestampWithTimeZone { .. } => {
                 self.string_export_expr(value)
@@ -646,6 +648,7 @@ impl TrinoDataType {
             )),
 
             TrinoDataType::Varbinary
+            | TrinoDataType::Time { .. }
             | TrinoDataType::TimeWithTimeZone { .. }
             | TrinoDataType::IntervalDayToSecond
             | TrinoDataType::IntervalYearToMonth

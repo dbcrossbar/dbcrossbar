@@ -1,9 +1,14 @@
 //! A simple abstract syntax tree for small parts of Trino SQL. We use this to
 //! generate import and export queries for Trino.
 
-use std::fmt;
+use std::fmt::{self, Debug};
 
-use super::{TrinoDataType, TrinoIdent, TrinoStringLiteral};
+use pretty::RcDoc;
+
+use super::{
+    pretty::{comma_sep_list, parens, PrettyFmt, INDENT},
+    TrinoDataType, TrinoIdent, TrinoStringLiteral,
+};
 
 /// Construct a static identifier known at compile time. Must not be the empty
 /// string.
@@ -45,15 +50,6 @@ pub(super) enum Expr {
         expr: Box<Expr>,
         /// The type to cast to.
         ty: TrinoDataType,
-    },
-    /// An `IF` expression.
-    If {
-        /// The condition.
-        cond: Box<Expr>,
-        /// The value if the condition is true.
-        then: Box<Expr>,
-        /// The value if the condition is false.
-        r#else: Box<Expr>,
     },
     /// A `CASE` expression (match version).
     CaseMatch {
@@ -118,11 +114,7 @@ impl Expr {
 
     /// An `IF` expression.
     pub(super) fn r#if(cond: Expr, then: Expr, r#else: Expr) -> Expr {
-        Expr::If {
-            cond: Box::new(cond),
-            then: Box::new(then),
-            r#else: Box::new(r#else),
-        }
+        Expr::func("IF", vec![cond, then, r#else])
     }
 
     /// A `CASE` expression (match version).
@@ -157,38 +149,100 @@ impl Expr {
     }
 }
 
-impl fmt::Display for Expr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Expr {
+    /// Pretty-print this expression with the specified indentation.
+    pub(super) fn pretty(
+        &self,
+        indent: isize,
+        width: usize,
+    ) -> impl fmt::Display + 'static {
+        PrettyFmt::new(self.to_doc().nest(indent), width)
+    }
+
+    /// Return a pretty-printed version of `self``.
+    fn to_doc(&self) -> RcDoc<'static, ()> {
         match self {
-            Expr::Lit(lit) => write!(f, "{}", lit),
-            Expr::Var(ident) => write!(f, "{}", ident),
-            Expr::BinOp { lhs, op, rhs } => write!(f, "{} {} {}", lhs, op, rhs),
+            Expr::Lit(lit) => lit.to_doc(),
+            Expr::Var(ident) => RcDoc::as_string(ident),
+            Expr::BinOp { lhs, op, rhs } => RcDoc::concat(vec![
+                lhs.to_doc(),
+                RcDoc::line(),
+                op.to_doc(),
+                RcDoc::space(),
+                rhs.to_doc(),
+            ])
+            .group(),
             Expr::Func { name, args } => {
-                write!(f, "{}(", name)?;
-                for (i, arg) in args.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", arg)?;
-                }
-                write!(f, ")")
+                let args = args.iter().map(|a| a.to_doc().group());
+                RcDoc::concat(vec![
+                    RcDoc::as_string(name),
+                    parens(comma_sep_list(args)),
+                ])
+                .group()
             }
-            Expr::Cast { expr, ty } => write!(f, "CAST({} AS {})", expr, ty),
-            Expr::If { cond, then, r#else } => {
-                write!(f, "IF({}, {}, {})", cond, then, r#else)
-            }
+            Expr::Cast { expr, ty } => RcDoc::concat(vec![
+                RcDoc::as_string("CAST"),
+                parens(RcDoc::concat(vec![
+                    expr.to_doc(),
+                    RcDoc::line(),
+                    RcDoc::as_string("AS"),
+                    RcDoc::space(),
+                    RcDoc::as_string(ty),
+                ])),
+            ])
+            .group(),
             Expr::CaseMatch {
                 value,
                 when_clauses,
                 r#else,
-            } => {
-                write!(f, "CASE {} ", value)?;
-                for (when, then) in when_clauses {
-                    write!(f, "WHEN {} THEN {} ", when, then)?;
-                }
-                write!(f, "ELSE {} END", r#else)
-            }
-            Expr::Lambda { arg, body } => write!(f, "{} -> {}", arg, body),
+            } => RcDoc::concat(vec![
+                RcDoc::concat(vec![
+                    RcDoc::as_string("CASE"),
+                    RcDoc::space(),
+                    value.to_doc(),
+                ])
+                .group(),
+                RcDoc::line(),
+                RcDoc::concat(when_clauses.iter().map(|(w, t)| {
+                    RcDoc::concat(vec![
+                        RcDoc::concat(vec![
+                            RcDoc::concat(vec![
+                                RcDoc::as_string("WHEN"),
+                                RcDoc::space(),
+                                w.to_doc(),
+                            ])
+                            .group(),
+                            RcDoc::line(),
+                            RcDoc::concat(vec![
+                                RcDoc::as_string("THEN"),
+                                RcDoc::line(),
+                                t.to_doc().nest(INDENT),
+                            ])
+                            .group(),
+                        ])
+                        .group(),
+                        RcDoc::line(),
+                    ])
+                })),
+                RcDoc::concat(vec![
+                    RcDoc::as_string("ELSE"),
+                    RcDoc::line(),
+                    r#else.to_doc().nest(INDENT),
+                ])
+                .group(),
+                RcDoc::line(),
+                RcDoc::as_string("END"),
+            ])
+            .group(),
+            Expr::Lambda { arg, body } => RcDoc::concat(vec![
+                RcDoc::as_string(arg),
+                RcDoc::space(),
+                RcDoc::as_string("->"),
+                RcDoc::concat(vec![RcDoc::line(), body.to_doc()])
+                    .nest(INDENT)
+                    .group(),
+            ])
+            .group(),
         }
     }
 }
@@ -208,6 +262,13 @@ pub(super) enum Literal {
     Null,
 }
 
+impl Literal {
+    /// Return a pretty-printed version of `self``.
+    fn to_doc(&self) -> RcDoc<'static, ()> {
+        RcDoc::as_string(self)
+    }
+}
+
 impl fmt::Display for Literal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -222,10 +283,19 @@ impl fmt::Display for Literal {
 
 /// A binary operator in Trino SQL. We only include operators that we actually
 /// use.
+///
+/// TODO: Handle precedence when quoting, once it matters.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) enum BinOp {
     /// The `=` operator.
     Eq,
+}
+
+impl BinOp {
+    /// Return a pretty-printed version of `self``.
+    fn to_doc(&self) -> RcDoc<'static, ()> {
+        RcDoc::as_string(self)
+    }
 }
 
 impl fmt::Display for BinOp {

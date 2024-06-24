@@ -13,8 +13,8 @@ use crate::{
 };
 
 use super::{
-    ast::Expr, TrinoConnectorType, TrinoDataType, TrinoField, TrinoIdent,
-    TrinoStringLiteral, TrinoTableName,
+    ast::Expr, pretty::WIDTH, TrinoConnectorType, TrinoDataType, TrinoField,
+    TrinoIdent, TrinoStringLiteral, TrinoTableName,
 };
 
 /// A Trino-compatible `CREATE TABLE` statement.
@@ -213,7 +213,7 @@ impl TrinoCreateTable {
             if i > 0 {
                 write!(wtr, ",\n    ")?;
             }
-            write!(wtr, "{}", column.import_expr()?)?;
+            write!(wtr, "{}", column.import_expr()?.pretty(4, WIDTH))?;
         }
         write!(wtr, "\nFROM {}", wrapper_table)?;
         Ok(String::from_utf8(wtr).expect("expected valid UTF-8"))
@@ -278,7 +278,12 @@ impl TrinoCreateTable {
                 if i > 0 {
                     write!(wtr, ",\n    ")?;
                 }
-                write!(wtr, "{} AS {}", column.export_expr()?, column.name)?;
+                write!(
+                    wtr,
+                    "{} AS {}",
+                    column.export_expr()?.pretty(4, WIDTH),
+                    column.name
+                )?;
             }
             write!(wtr, "\nFROM {}", self.name)?;
         }

@@ -13,6 +13,7 @@ mod connector_type;
 mod create_table;
 mod data_type;
 mod driver_args;
+mod pretty;
 
 pub use connector_type::TrinoConnectorType;
 pub use create_table::{parse_data_type, TrinoColumn, TrinoCreateTable};
