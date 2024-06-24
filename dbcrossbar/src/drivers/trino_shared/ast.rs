@@ -187,7 +187,7 @@ impl Expr {
                     RcDoc::line(),
                     RcDoc::as_string("AS"),
                     RcDoc::space(),
-                    RcDoc::as_string(ty),
+                    ty.to_doc(),
                 ])),
             ])
             .group(),

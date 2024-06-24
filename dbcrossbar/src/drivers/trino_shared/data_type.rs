@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+use pretty::RcDoc;
+
 use crate::{
     common::*,
     schema::{DataType, StructField},
@@ -9,6 +11,7 @@ use crate::{
 
 use super::{
     ast::{ident, Expr},
+    pretty::{comma_sep_list, parens},
     TrinoIdent,
 };
 
@@ -657,6 +660,34 @@ impl TrinoDataType {
             }
         }
     }
+
+    /// Convert to a pretty-printable [`RcDoc`]. This is useful for complex type
+    /// arguments to `CAST` expressions in [`super::ast`].
+    pub(super) fn to_doc(&self) -> RcDoc<'static, ()> {
+        match self {
+            TrinoDataType::Array(elem_ty) => RcDoc::concat(vec![
+                RcDoc::as_string("ARRAY"),
+                parens(elem_ty.to_doc()),
+            ]),
+
+            TrinoDataType::Map {
+                key_type,
+                value_type,
+            } => RcDoc::concat(vec![
+                RcDoc::as_string("MAP"),
+                parens(comma_sep_list(vec![key_type.to_doc(), value_type.to_doc()])),
+            ]),
+
+            TrinoDataType::Row(fields) => RcDoc::concat(vec![
+                RcDoc::as_string("ROW"),
+                parens(comma_sep_list(fields.iter().map(|field| field.to_doc()))),
+            ]),
+
+            // Types which cannot contain other types will be printed without
+            // further wrapping.
+            _ => RcDoc::as_string(self),
+        }
+    }
 }
 
 impl fmt::Display for TrinoDataType {
@@ -767,6 +798,19 @@ impl TrinoField {
             // Unless shown otherwise, assume fields are nullable.
             is_nullable: true,
         })
+    }
+
+    /// Pretty-print this `TrinoField` as a [`RcDoc`].
+    pub(super) fn to_doc(&self) -> RcDoc<'static, ()> {
+        if let Some(name) = &self.name {
+            RcDoc::concat(vec![
+                RcDoc::as_string(name),
+                RcDoc::space(),
+                self.data_type.to_doc(),
+            ])
+        } else {
+            self.data_type.to_doc()
+        }
     }
 }
 
