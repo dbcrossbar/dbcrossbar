@@ -173,7 +173,7 @@ async fn write_trino_remote_data_helper(
     let sql = format!(
         "{}",
         create_s3_wrapper_table
-            .create_wrapper_table_to_doc(&create_table)?
+            .create_wrapper_table_doc(&create_table)?
             .pretty(PRETTY_WIDTH)
     );
     debug!(%sql, "export SQL");

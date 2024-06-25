@@ -194,7 +194,7 @@ impl TrinoCreateTable {
 
     /// Generate a `SELECT` expression that will fetch data for this table from
     /// a wrapper table, and convert it the appropriate data types.
-    fn select_from_wrapper_table_to_doc(
+    fn select_from_wrapper_table_doc(
         &self,
         wrapper_table: &TrinoTableName,
     ) -> Result<RcDoc<'static, ()>> {
@@ -209,7 +209,7 @@ impl TrinoCreateTable {
 
     // Generate an `INSERT INTO ... SELECT ...` statement that will copy data
     // from a wrapper table to this table.
-    pub(crate) fn insert_from_wrapper_table_to_doc(
+    pub(crate) fn insert_from_wrapper_table_doc(
         &self,
         create_s3_wrapper_table: &TrinoCreateTable,
     ) -> Result<RcDoc<'static, ()>> {
@@ -220,7 +220,7 @@ impl TrinoCreateTable {
                 RcDoc::space(),
                 parens(comma_sep_list(self.column_names().map(RcDoc::as_string))),
             ])),
-            self.select_from_wrapper_table_to_doc(&create_s3_wrapper_table.name)?,
+            self.select_from_wrapper_table_doc(&create_s3_wrapper_table.name)?,
         ]))
     }
 
@@ -228,7 +228,7 @@ impl TrinoCreateTable {
     /// the `CREATE TABLE` statement.
     ///
     /// Does not end with a space.
-    fn create_table_and_name_to_doc(&self) -> RcDoc<'static, ()> {
+    fn create_table_and_name_doc(&self) -> RcDoc<'static, ()> {
         RcDoc::concat(vec![
             RcDoc::text("CREATE"),
             if self.or_replace {
@@ -248,7 +248,7 @@ impl TrinoCreateTable {
     }
 
     /// Write the `WITH` block if it's not empty.
-    fn with_to_doc(&self) -> RcDoc<'static, ()> {
+    fn with_doc(&self) -> RcDoc<'static, ()> {
         if self.with.is_empty() {
             RcDoc::nil()
         } else {
@@ -274,11 +274,11 @@ impl TrinoCreateTable {
     ///   to store data as CSV, and
     /// - `select_as_named_varchar_values_to_doc` is called on the source table
     ///   from which we're copying data.
-    fn create_as_prologue_to_doc(&self) -> RcDoc<'static, ()> {
+    fn create_as_prologue_doc(&self) -> RcDoc<'static, ()> {
         RcDoc::concat(vec![
-            self.create_table_and_name_to_doc(),
+            self.create_table_and_name_doc(),
             RcDoc::line(),
-            self.with_to_doc(),
+            self.with_doc(),
             RcDoc::text("AS "),
         ])
     }
@@ -286,7 +286,7 @@ impl TrinoCreateTable {
     /// Write a `SELECT` statement that converts all columns to `VARCHAR` in
     /// `dbcrossbar` CSV interchange format, but preserves column names. This is
     /// normally used together with [`Self::create_as_prologue_to_doc`] above.
-    fn select_as_named_varchar_values_to_doc(&self) -> Result<RcDoc<'static, ()>> {
+    fn select_as_named_varchar_values_doc(&self) -> Result<RcDoc<'static, ()>> {
         Ok(select_from(
             self.columns
                 .iter()
@@ -304,13 +304,13 @@ impl TrinoCreateTable {
 
     /// Create a wrapper table by selecting from an existing table and exporting
     /// as VARCHAR in `dbcrossbar` CSV interchange format.
-    pub(crate) fn create_wrapper_table_to_doc(
+    pub(crate) fn create_wrapper_table_doc(
         &self,
         source_table: &TrinoCreateTable,
     ) -> Result<RcDoc<'static, ()>> {
-        let create_as_prologue_sql = self.create_as_prologue_to_doc();
+        let create_as_prologue_sql = self.create_as_prologue_doc();
         let select_as_varchar_sql =
-            source_table.select_as_named_varchar_values_to_doc()?;
+            source_table.select_as_named_varchar_values_doc()?;
         Ok(RcDoc::concat(vec![
             create_as_prologue_sql,
             select_as_varchar_sql,
@@ -328,13 +328,13 @@ impl fmt::Display for TrinoCreateTable {
             writeln!(f, "-- DROP TABLE IF EXISTS {};", self.name)?;
         }
         let doc = RcDoc::concat(vec![
-            self.create_table_and_name_to_doc(),
+            self.create_table_and_name_doc(),
             RcDoc::space(),
             parens(comma_sep_list(
                 self.columns.iter().map(|column| column.to_doc()),
             )),
             RcDoc::line(),
-            self.with_to_doc(),
+            self.with_doc(),
         ]);
         write!(f, "{}", doc.pretty(WIDTH))
     }

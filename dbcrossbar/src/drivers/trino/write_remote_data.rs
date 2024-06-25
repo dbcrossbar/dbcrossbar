@@ -76,7 +76,7 @@ pub(super) async fn write_remote_data_helper(
     let insert_sql = format!(
         "{}",
         create_table
-            .insert_from_wrapper_table_to_doc(&create_s3_wrapper_table)?
+            .insert_from_wrapper_table_doc(&create_s3_wrapper_table)?
             .pretty(PRETTY_WIDTH)
     );
     debug!(sql = %insert_sql, "inserting data");
