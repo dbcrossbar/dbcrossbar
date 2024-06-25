@@ -5,7 +5,7 @@ use crate::{
     common::*,
     drivers::{
         s3::S3Locator,
-        trino_shared::{TrinoCreateTable, TrinoDriverArguments},
+        trino_shared::{TrinoCreateTable, TrinoDriverArguments, PRETTY_WIDTH},
     },
 };
 
@@ -74,11 +74,10 @@ pub(super) async fn write_remote_data_helper(
 
     // Insert data from the S3 wrapper table into our destination table.
     let insert_sql = format!(
-        "INSERT INTO {dest} ({columns}) {select}",
-        dest = create_table.name,
-        columns = create_table.column_name_list()?,
-        select =
-            create_table.select_from_wrapper_table(&create_s3_wrapper_table.name)?,
+        "{}",
+        create_table
+            .insert_from_wrapper_table_to_doc(&create_s3_wrapper_table)?
+            .pretty(PRETTY_WIDTH)
     );
     debug!(sql = %insert_sql, "inserting data");
     client.execute(insert_sql).await?;

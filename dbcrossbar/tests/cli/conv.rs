@@ -1,6 +1,7 @@
 //! Tests for the `conv` subcommand.
 
 use cli_test_dir::*;
+use difference::assert_diff;
 use std::fs;
 
 /// An example Postgres SQL `CREATE TABLE` declaration.
@@ -217,7 +218,8 @@ fn conv_bigquery_schema_to_trino_sql() {
         ])
         .expect_success();
     let expected = fs::read_to_string(expected_sql).unwrap();
-    testdir.expect_file_contents("output.sql", expected);
+    let output = fs::read_to_string(testdir.path("output.sql")).unwrap();
+    assert_diff!(&expected, &output, "\n", 0);
 }
 
 #[test]
@@ -231,7 +233,8 @@ fn conv_postgres_schema_to_trino_sql() {
         .output_with_stdin(input_sql)
         .expect_success();
     let expected = fs::read_to_string(expected_sql).unwrap();
-    testdir.expect_file_contents("output.sql", expected);
+    let output = fs::read_to_string(testdir.path("output.sql")).unwrap();
+    assert_diff!(&expected, &output, "\n", 0);
 }
 
 #[test]
@@ -249,7 +252,8 @@ fn conv_dbcrossbar_schema_to_trino_sql() {
         ])
         .expect_success();
     let expected = fs::read_to_string(expected_sql).unwrap();
-    testdir.expect_file_contents("output.sql", expected);
+    let output = fs::read_to_string(testdir.path("output.sql")).unwrap();
+    assert_diff!(&expected, &output, "\n", 0);
 }
 
 #[test]

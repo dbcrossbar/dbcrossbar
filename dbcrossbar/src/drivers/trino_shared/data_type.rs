@@ -761,6 +761,9 @@ impl TrinoDataType {
     }
 }
 
+// We keep around a separate implementation of `fmt::Display` for
+// `TrinoDataType` mostly for use in error messages, where we don't need fancy
+// formatting.
 impl fmt::Display for TrinoDataType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -885,6 +888,7 @@ impl TrinoField {
     }
 }
 
+// We keep this around for `impl fmt::Display for TrinoDataType` to use.
 impl fmt::Display for TrinoField {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(name) = &self.name {

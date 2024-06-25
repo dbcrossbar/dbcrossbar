@@ -19,6 +19,7 @@ pub use connector_type::TrinoConnectorType;
 pub use create_table::{parse_data_type, TrinoColumn, TrinoCreateTable};
 pub use data_type::{TrinoDataType, TrinoField};
 pub use driver_args::TrinoDriverArguments;
+pub(crate) use pretty::WIDTH as PRETTY_WIDTH;
 
 /// A Trino string literal. Used for formatting only.
 pub(crate) struct TrinoStringLiteral<'a>(pub(crate) &'a str);

@@ -3,7 +3,9 @@
 use super::{prepare_as_destination_helper, S3Locator};
 use crate::common::*;
 use crate::drivers::trino::TrinoLocator;
-use crate::drivers::trino_shared::{TrinoCreateTable, TrinoDriverArguments};
+use crate::drivers::trino_shared::{
+    TrinoCreateTable, TrinoDriverArguments, PRETTY_WIDTH,
+};
 use crate::drivers::{
     postgres_shared::{connect, pg_quote, CheckCatalog, PgSchema},
     redshift::{RedshiftDriverArguments, RedshiftLocator},
@@ -168,9 +170,12 @@ async fn write_trino_remote_data_helper(
     // Figure out what it should look like.
     let create_s3_wrapper_table =
         create_table.hive_csv_wrapper_table(dest.as_url())?;
-    let create_as_prologue_sql = create_s3_wrapper_table.create_as_prologue_sql()?;
-    let select_as_varchar_sql = create_table.select_as_named_varchar_values_sql()?;
-    let sql = format!("{create_as_prologue_sql} {select_as_varchar_sql}",);
+    let sql = format!(
+        "{}",
+        create_s3_wrapper_table
+            .create_wrapper_table_to_doc(&create_table)?
+            .pretty(PRETTY_WIDTH)
+    );
     debug!(%sql, "export SQL");
     client.execute(sql).await?;
 

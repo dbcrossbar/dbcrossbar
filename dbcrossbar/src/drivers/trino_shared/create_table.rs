@@ -14,8 +14,9 @@ use crate::{
 };
 
 use super::{
-    ast::Expr, pretty::WIDTH, TrinoConnectorType, TrinoDataType, TrinoField,
-    TrinoIdent, TrinoStringLiteral, TrinoTableName,
+    ast::{Expr, Literal},
+    pretty::{comma_sep_list, indent, parens, select_from, sql_clause, WIDTH},
+    TrinoConnectorType, TrinoDataType, TrinoField, TrinoIdent, TrinoTableName,
 };
 
 /// A Trino-compatible `CREATE TABLE` statement.
@@ -26,7 +27,7 @@ pub struct TrinoCreateTable {
     if_not_exists: bool,
     pub(crate) name: TrinoTableName,
     columns: Vec<TrinoColumn>,
-    with: HashMap<TrinoIdent, TrinoLiteral>,
+    with: HashMap<TrinoIdent, Literal>,
 }
 
 impl TrinoCreateTable {
@@ -154,16 +155,14 @@ impl TrinoCreateTable {
     pub fn add_csv_external_location(&mut self, location: &Url) -> Result<()> {
         self.with.insert(
             TrinoIdent::new("format")?,
-            TrinoLiteral::String("csv".to_owned()),
+            Literal::String("csv".to_owned()),
         );
         self.with.insert(
             TrinoIdent::new("external_location")?,
-            TrinoLiteral::String(location.as_str().to_owned()),
+            Literal::String(location.as_str().to_owned()),
         );
-        self.with.insert(
-            TrinoIdent::new("skip_header_line_count")?,
-            TrinoLiteral::Integer(1),
-        );
+        self.with
+            .insert(TrinoIdent::new("skip_header_line_count")?, Literal::Int(1));
         Ok(())
     }
 
@@ -188,108 +187,134 @@ impl TrinoCreateTable {
         Ok(table)
     }
 
-    /// A list of column names, separated by commas. Used for `INSERT INTO` and
-    /// other places where we need to get columns in the right order.
-    pub fn column_name_list(&self) -> Result<String> {
-        let mut wtr = Vec::new();
-        for (i, column) in self.columns.iter().enumerate() {
-            if i > 0 {
-                write!(wtr, ", ")?;
-            }
-            write!(wtr, "{}", column.name)?;
-        }
-        Ok(String::from_utf8(wtr).expect("expected valid UTF-8"))
+    /// Our column names, as an iterator.
+    pub fn column_names(&self) -> impl Iterator<Item = &TrinoIdent> {
+        self.columns.iter().map(|column| &column.name)
     }
 
     /// Generate a `SELECT` expression that will fetch data for this table from
     /// a wrapper table, and convert it the appropriate data types.
-    pub(crate) fn select_from_wrapper_table(
+    fn select_from_wrapper_table_to_doc(
         &self,
         wrapper_table: &TrinoTableName,
-    ) -> Result<String> {
-        // Format using `std::fmt` and a buffer.
-        let mut wtr = Vec::new();
-        write!(wtr, "SELECT\n    ")?;
-        for (i, column) in self.columns.iter().enumerate() {
-            if i > 0 {
-                write!(wtr, ",\n    ")?;
-            }
-            write!(wtr, "{}", column.import_expr()?.pretty(4, WIDTH))?;
-        }
-        write!(wtr, "\nFROM {}", wrapper_table)?;
-        Ok(String::from_utf8(wtr).expect("expected valid UTF-8"))
+    ) -> Result<RcDoc<'static, ()>> {
+        Ok(select_from(
+            self.columns
+                .iter()
+                .map(|column| Ok(column.import_expr()?.to_doc()))
+                .collect::<Result<Vec<_>>>()?,
+            wrapper_table,
+        ))
+    }
+
+    // Generate an `INSERT INTO ... SELECT ...` statement that will copy data
+    // from a wrapper table to this table.
+    pub(crate) fn insert_from_wrapper_table_to_doc(
+        &self,
+        create_s3_wrapper_table: &TrinoCreateTable,
+    ) -> Result<RcDoc<'static, ()>> {
+        Ok(RcDoc::concat(vec![
+            sql_clause(RcDoc::concat(vec![
+                RcDoc::text("INSERT INTO "),
+                RcDoc::as_string(&self.name),
+                RcDoc::space(),
+                parens(comma_sep_list(self.column_names().map(RcDoc::as_string))),
+            ])),
+            self.select_from_wrapper_table_to_doc(&create_s3_wrapper_table.name)?,
+        ]))
     }
 
     /// Print the `CREATE [OR REPLACE] TABLE [IF NOT EXISTS] name` portion of
     /// the `CREATE TABLE` statement.
-    fn write_create_table_and_name(&self, f: &mut dyn fmt::Write) -> fmt::Result {
-        write!(f, "CREATE ")?;
-        if self.or_replace {
-            write!(f, "OR REPLACE ")?;
-        }
-        write!(f, "TABLE ")?;
-        if self.if_not_exists {
-            write!(f, "IF NOT EXISTS ")?;
-        }
-        write!(f, "{}", self.name)
+    ///
+    /// Does not end with a space.
+    fn create_table_and_name_to_doc(&self) -> RcDoc<'static, ()> {
+        RcDoc::concat(vec![
+            RcDoc::text("CREATE"),
+            if self.or_replace {
+                RcDoc::text(" OR REPLACE")
+            } else {
+                RcDoc::nil()
+            },
+            RcDoc::text(" TABLE"),
+            if self.if_not_exists {
+                RcDoc::text(" IF NOT EXISTS")
+            } else {
+                RcDoc::nil()
+            },
+            RcDoc::space(),
+            RcDoc::as_string(&self.name),
+        ])
     }
 
     /// Write the `WITH` block if it's not empty.
-    fn write_with(&self, f: &mut dyn fmt::Write) -> fmt::Result {
-        if !self.with.is_empty() {
-            write!(f, " WITH (\n    ")?;
-            for (i, (key, value)) in self.with.iter().enumerate() {
-                if i > 0 {
-                    write!(f, ",\n    ")?;
-                }
-                write!(f, "{} = {}", key, value)?;
-            }
-            write!(f, "\n)")?;
+    fn with_to_doc(&self) -> RcDoc<'static, ()> {
+        if self.with.is_empty() {
+            RcDoc::nil()
+        } else {
+            sql_clause(RcDoc::concat(vec![
+                RcDoc::text("WITH "),
+                parens(comma_sep_list(self.with.iter().map(|(key, value)| {
+                    RcDoc::concat(vec![
+                        RcDoc::as_string(key),
+                        RcDoc::text(" ="),
+                        indent(value.to_doc()),
+                    ])
+                    .group()
+                }))),
+            ]))
         }
-        Ok(())
     }
 
-    /// Write SQL including `CREATE TABLE ... [WITH ...] AS`. This is normally used together
-    /// with [`Self::select_as_named_varchar_values_sql`] below, _except_ that:
+    /// Write SQL including `CREATE TABLE ... [WITH ...] AS`. This is normally
+    /// used together with [`Self::select_as_named_varchar_values_to_doc`]
+    /// below, _except_ that:
     ///
-    /// - `create_as_prologue_sql` is called on a temporary table configured
+    /// - `create_as_prologue_to_doc` is called on a temporary table configured
     ///   to store data as CSV, and
-    /// - `select_as_named_varchar_values_sql` is called on the source table from
-    ///   which we're copying data.
-    pub(crate) fn create_as_prologue_sql(&self) -> Result<String> {
-        let mut wtr = String::new();
-        {
-            let wtr = &mut wtr as &mut dyn fmt::Write;
-            self.write_create_table_and_name(wtr)?;
-            self.write_with(wtr)?;
-            write!(wtr, " AS")?;
-        }
-        Ok(wtr)
+    /// - `select_as_named_varchar_values_to_doc` is called on the source table
+    ///   from which we're copying data.
+    fn create_as_prologue_to_doc(&self) -> RcDoc<'static, ()> {
+        RcDoc::concat(vec![
+            self.create_table_and_name_to_doc(),
+            RcDoc::line(),
+            self.with_to_doc(),
+            RcDoc::text("AS "),
+        ])
     }
 
     /// Write a `SELECT` statement that converts all columns to `VARCHAR` in
     /// `dbcrossbar` CSV interchange format, but preserves column names. This is
-    /// normally used together with [`Self::create_as_prologue_sql`] above.
-    pub(crate) fn select_as_named_varchar_values_sql(&self) -> Result<String> {
-        let mut wtr = String::new();
-        {
-            let wtr = &mut wtr as &mut dyn fmt::Write;
-            write!(wtr, "SELECT\n    ")?;
-            for (i, column) in self.columns.iter().enumerate() {
-                if i > 0 {
-                    write!(wtr, ",\n    ")?;
-                }
-                let doc = RcDoc::concat(vec![
-                    column.export_expr()?.to_doc(),
-                    RcDoc::as_string(" AS "),
-                    RcDoc::as_string(&column.name),
-                ])
-                .nest(4);
-                write!(wtr, "{}", doc.pretty(WIDTH))?;
-            }
-            write!(wtr, "\nFROM {}", self.name)?;
-        }
-        Ok(wtr)
+    /// normally used together with [`Self::create_as_prologue_to_doc`] above.
+    fn select_as_named_varchar_values_to_doc(&self) -> Result<RcDoc<'static, ()>> {
+        Ok(select_from(
+            self.columns
+                .iter()
+                .map(|column| {
+                    Ok(RcDoc::concat(vec![
+                        column.export_expr()?.to_doc(),
+                        RcDoc::text(" AS "),
+                        RcDoc::as_string(&column.name),
+                    ]))
+                })
+                .collect::<Result<Vec<_>>>()?,
+            &self.name,
+        ))
+    }
+
+    /// Create a wrapper table by selecting from an existing table and exporting
+    /// as VARCHAR in `dbcrossbar` CSV interchange format.
+    pub(crate) fn create_wrapper_table_to_doc(
+        &self,
+        source_table: &TrinoCreateTable,
+    ) -> Result<RcDoc<'static, ()>> {
+        let create_as_prologue_sql = self.create_as_prologue_to_doc();
+        let select_as_varchar_sql =
+            source_table.select_as_named_varchar_values_to_doc()?;
+        Ok(RcDoc::concat(vec![
+            create_as_prologue_sql,
+            select_as_varchar_sql,
+        ]))
     }
 }
 
@@ -302,17 +327,16 @@ impl fmt::Display for TrinoCreateTable {
         if self.separate_drop_if_exists {
             writeln!(f, "-- DROP TABLE IF EXISTS {};", self.name)?;
         }
-        self.write_create_table_and_name(f)?;
-        write!(f, " (\n    ")?;
-        for (i, column) in self.columns.iter().enumerate() {
-            if i > 0 {
-                write!(f, ",\n    ")?;
-            }
-            write!(f, "{}", column.to_doc().nest(4).pretty(WIDTH))?;
-        }
-        write!(f, "\n)")?;
-        self.write_with(f)?;
-        writeln!(f)
+        let doc = RcDoc::concat(vec![
+            self.create_table_and_name_to_doc(),
+            RcDoc::space(),
+            parens(comma_sep_list(
+                self.columns.iter().map(|column| column.to_doc()),
+            )),
+            RcDoc::line(),
+            self.with_to_doc(),
+        ]);
+        write!(f, "{}", doc.pretty(WIDTH))
     }
 }
 
@@ -387,27 +411,6 @@ impl TrinoColumn {
             },
         ])
         .group()
-    }
-}
-
-/// An SQL literal value, for use in `CREATE TABLE ... WITH` clauses.
-///
-/// We only include types that we need, at least for now.
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(test, derive(Arbitrary))]
-pub enum TrinoLiteral {
-    /// A string literal.
-    String(String),
-    /// An integer literal.
-    Integer(i64),
-}
-
-impl fmt::Display for TrinoLiteral {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TrinoLiteral::String(s) => write!(f, "{}", TrinoStringLiteral(s)),
-            TrinoLiteral::Integer(i) => write!(f, "{}", i),
-        }
     }
 }
 
@@ -676,20 +679,23 @@ peg::parser! {
             = _ "IF" _ "NOT" _ "EXISTS" { true }
             / { false }
 
-        rule with() -> HashMap<TrinoIdent, TrinoLiteral>
+        rule with() -> HashMap<TrinoIdent, Literal>
             = _? "WITH" _? "(" _? properties:(property() ** (_? "," _?)) _? ")" {
                 properties.into_iter().collect()
             }
             / { HashMap::new() }
 
-        rule property() -> (TrinoIdent, TrinoLiteral)
+        rule property() -> (TrinoIdent, Literal)
             = key:ident() _? "=" _? value:literal() {
                 (key, value)
             }
 
-        rule literal() -> TrinoLiteral
-            = s:string() { TrinoLiteral::String(s) }
-            / i:i64() { TrinoLiteral::Integer(i) }
+        rule literal() -> Literal
+            = s:string() { Literal::String(s) }
+            / i:i64() { Literal::Int(i) }
+            / k("true") { Literal::Bool(true) }
+            / k("false") { Literal::Bool(false) }
+            / k("null") { Literal::Null }
 
         rule column() -> TrinoColumn
             = name:ident() _ ty:ty() is_nullable:is_nullable() {
@@ -721,7 +727,7 @@ mod tests {
                 any::<TrinoTableName>(),
                 // Make sure we have at least one column.
                 collection::vec(any::<TrinoColumn>(), 1..3),
-                collection::hash_map(any::<TrinoIdent>(), any::<TrinoLiteral>(), 0..3),
+                collection::hash_map(any::<TrinoIdent>(), any::<Literal>(), 0..3),
             )
                 .prop_map(
                     |(
@@ -746,6 +752,21 @@ mod tests {
         }
     }
 
+    /// Normalize whitespace for tests. This is mostly so that we're testing
+    /// table names and column names, not the pretty-printer.
+    fn normalize_whitespace(s: &str) -> String {
+        lazy_static::lazy_static! {
+            static ref WHITESPACE: regex::Regex = regex::Regex::new(r"\s+").unwrap();
+            static ref OPEN_DELIM: regex::Regex = regex::Regex::new(r"([(\[])\s*").unwrap();
+            static ref CLOSE_DELIM: regex::Regex = regex::Regex::new(r"\s*([)\]])").unwrap();
+        }
+        let s = WHITESPACE.replace_all(s, " ");
+        let s = s.trim();
+        let s = OPEN_DELIM.replace_all(s, "$1");
+        let s = CLOSE_DELIM.replace_all(&s, "$1");
+        s.to_string()
+    }
+
     #[test]
     fn test_trino_create_table() {
         let create_table = TrinoCreateTable::parse(
@@ -754,8 +775,8 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            create_table.to_string(),
-            "CREATE TABLE \"foo\".\"bar\" (\n    \"id\" INT NOT NULL,\n    \"name\" VARCHAR(255)\n)\n",
+            normalize_whitespace(&create_table.to_string()),
+            normalize_whitespace("CREATE TABLE \"foo\".\"bar\" (\"id\" INT NOT NULL, \"name\" VARCHAR(255))"),
         );
     }
 

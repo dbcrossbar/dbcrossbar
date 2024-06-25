@@ -4,9 +4,11 @@
 use std::fmt::{self, Debug};
 
 use pretty::RcDoc;
+#[cfg(test)]
+use proptest_derive::Arbitrary;
 
 use super::{
-    pretty::{comma_sep_list, parens, square_brackets, PrettyFmt, INDENT},
+    pretty::{comma_sep_list, parens, square_brackets, INDENT},
     TrinoDataType, TrinoIdent, TrinoStringLiteral,
 };
 
@@ -67,9 +69,9 @@ pub(super) enum Expr {
         /// The body of the lambda.
         body: Box<Expr>,
     },
-    /// An `ARRAY` expression.
+    /// An `ARRAY[..]` expression.
     Array(Vec<Expr>),
-    /// An array or row element access.
+    /// An array or row element access (`expr[index]`).
     Index {
         /// The array or row.
         expr: Box<Expr>,
@@ -189,20 +191,12 @@ impl Expr {
 }
 
 impl Expr {
-    /// Pretty-print this expression with the specified indentation.
-    pub(super) fn pretty(
-        &self,
-        indent: isize,
-        width: usize,
-    ) -> impl fmt::Display + 'static {
-        PrettyFmt::new(self.to_doc().nest(indent), width)
-    }
-
     /// Return a pretty-printed version of `self``.
     pub(super) fn to_doc(&self) -> RcDoc<'static, ()> {
         match self {
             Expr::Lit(lit) => lit.to_doc(),
             Expr::Var(ident) => RcDoc::as_string(ident),
+            // Canonical multi-line format for a binop is "LHS\nOP RHS".
             Expr::BinOp { lhs, op, rhs } => RcDoc::concat(vec![
                 lhs.to_doc(),
                 RcDoc::line(),
@@ -298,9 +292,8 @@ impl Expr {
 }
 
 /// A Trino literal value.
-///
-/// TODO: Merge with literal type used for `WITH` expressions.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub(super) enum Literal {
     /// A string literal.
     String(String),
@@ -314,7 +307,7 @@ pub(super) enum Literal {
 
 impl Literal {
     /// Return a pretty-printed version of `self``.
-    fn to_doc(&self) -> RcDoc<'static, ()> {
+    pub(super) fn to_doc(&self) -> RcDoc<'static, ()> {
         RcDoc::as_string(self)
     }
 }

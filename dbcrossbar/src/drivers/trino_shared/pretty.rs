@@ -11,36 +11,17 @@
 //! works—there's a really nice and accessible paper somewhere, and without it,
 //! nothing makes sense.
 //!
-//! [wadler]: https://homepages.inf.ed.ac.uk/wadler/papers/prettier/prettier.pdf)
-
-use std::fmt;
+//! [wadler]: https://homepages.inf.ed.ac.uk/wadler/papers/prettier/prettier.pdf
 
 use pretty::RcDoc;
+
+use super::TrinoTableName;
 
 /// How many spaces should we indent?
 pub(super) const INDENT: isize = 2;
 
 /// What's our standard width for pretty-printing?
-pub(super) const WIDTH: usize = 79;
-
-/// Helper struct used to pretty-print a [`RcDoc`] using [`fmt::Display`].
-pub(super) struct PrettyFmt {
-    doc: RcDoc<'static, ()>,
-    width: usize,
-}
-
-impl PrettyFmt {
-    /// Create a new `PrettyFmt` with the specified width.
-    pub(super) fn new(doc: RcDoc<'static, ()>, width: usize) -> Self {
-        Self { doc, width }
-    }
-}
-
-impl fmt::Display for PrettyFmt {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.doc.pretty(self.width).fmt(f)
-    }
-}
+pub(crate) const WIDTH: usize = 79;
 
 /// Wrap an [`RcDoc`] in brackets. This is a bit fiddly if we want to get the
 /// indentation right, so do it only once. If we fit on one line, we want to
@@ -67,14 +48,14 @@ pub(super) fn brackets(
     close: &'static str,
 ) -> RcDoc<'static, ()> {
     RcDoc::concat(vec![
-        RcDoc::as_string(open),
+        RcDoc::text(open),
         // `nest` controls how many spaces we add after each newline,
         // and nothing else.
-        RcDoc::concat(vec![RcDoc::line_(), doc]).nest(INDENT),
+        RcDoc::line_().append(doc).nest(INDENT),
         // This newline goes _outside_ the `nest` block, so the closing bracket
         // isn't indented.
         RcDoc::line_(),
-        RcDoc::as_string(close),
+        RcDoc::text(close),
     ])
     .group()
 }
@@ -91,7 +72,7 @@ pub(super) fn square_brackets(doc: RcDoc<'static, ()>) -> RcDoc<'static, ()> {
 
 /// Comma separator.
 pub(super) fn comma_sep() -> RcDoc<'static, ()> {
-    RcDoc::concat(vec![RcDoc::as_string(","), RcDoc::line()])
+    RcDoc::text(",").append(RcDoc::line())
 }
 
 /// Comma separated list.
@@ -99,4 +80,38 @@ pub(super) fn comma_sep_list(
     docs: impl IntoIterator<Item = RcDoc<'static, ()>>,
 ) -> RcDoc<'static, ()> {
     RcDoc::intersperse(docs, comma_sep())
+}
+
+/// An indentable block (not surrounded by brackets). If you want some kind of
+/// brackets, see [`brackets`], [`parens`], etc.
+pub(super) fn indent(doc: RcDoc<'static, ()>) -> RcDoc<'static, ()> {
+    RcDoc::line().append(doc).nest(INDENT)
+}
+
+/// A clause in an SQL statement. A clause is:
+///
+/// - Typically starts with a keyword like `SELECT` or `FROM`.
+/// - Followed by a newline (or a space, if gets merged into a line with the
+///   next clause).
+/// - Wrapped in a `group` so that it can be merged into a single line if
+///   needed.
+pub(super) fn sql_clause(doc: RcDoc<'static, ()>) -> RcDoc<'static, ()> {
+    doc.group().append(RcDoc::line())
+}
+
+/// A `SELECT ... FROM ...` clause. This is common enough to be worth a helper.
+pub(super) fn select_from(
+    select_exprs: impl IntoIterator<Item = RcDoc<'static, ()>>,
+    from_table: &TrinoTableName,
+) -> RcDoc<'static, ()> {
+    RcDoc::concat(vec![
+        sql_clause(RcDoc::concat(vec![
+            RcDoc::text("SELECT"),
+            indent(comma_sep_list(select_exprs.into_iter())),
+        ])),
+        sql_clause(RcDoc::concat(vec![
+            RcDoc::text("FROM"),
+            indent(RcDoc::as_string(from_table)),
+        ])),
+    ])
 }
