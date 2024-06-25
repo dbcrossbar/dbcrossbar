@@ -69,3 +69,36 @@ fn count_postgres() {
 
     assert_eq!(output.stdout_str().trim(), "2");
 }
+
+#[test]
+#[ignore]
+fn count_trino() {
+    let testdir = TestDir::new("dbcrossbar", "count_trino");
+    let src = testdir.src_path("fixtures/posts.csv");
+    let schema = testdir.src_path("fixtures/posts.sql");
+    let s3_temp_dir = s3_test_dir_url("count_trino");
+    let trino_table = trino_test_table("count_trino");
+
+    // CSV to BigQuery.
+    testdir
+        .cmd()
+        .args([
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--temporary={}", s3_temp_dir),
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("csv:{}", src.display()),
+            &trino_table,
+        ])
+        .tee_output()
+        .expect_success();
+
+    // Count BigQuery.
+    let output = testdir
+        .cmd()
+        .args(["count", &trino_table])
+        .tee_output()
+        .expect_success();
+
+    assert_eq!(output.stdout_str().trim(), "2");
+}

@@ -3,14 +3,9 @@
 use cli_test_dir::*;
 use difference::assert_diff;
 
-use crate::cp::trino_test_url;
+use crate::cp::trino_test_table;
 
 use super::{assert_cp_to_exact_csv, s3_test_dir_url, TempType};
-
-/// Generate a locator for a test table in Trino.
-fn trino_test_table(table_name: &str) -> String {
-    format!("{}#{}", trino_test_url(), table_name)
-}
 
 #[test]
 #[ignore]

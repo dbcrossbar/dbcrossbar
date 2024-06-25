@@ -6,6 +6,7 @@ use prusto::Presto;
 
 use crate::{common::*, drivers::trino_shared::TrinoStringLiteral};
 
+use self::count::count_helper;
 use self::local_data::local_data_helper;
 use self::schema::schema_helper;
 use self::write_local_data::write_local_data_helper;
@@ -17,6 +18,7 @@ use super::{
     trino_shared::{TrinoConnectorType, TrinoTableName},
 };
 
+mod count;
 mod local_data;
 mod schema;
 mod write_local_data;
@@ -176,10 +178,10 @@ impl Locator for TrinoLocator {
     fn count(
         &self,
         _ctx: Context,
-        _shared_args: SharedArguments<Unverified>,
-        _source_args: SourceArguments<Unverified>,
+        shared_args: SharedArguments<Unverified>,
+        source_args: SourceArguments<Unverified>,
     ) -> BoxFuture<usize> {
-        todo!("TrinoLocator::count")
+        count_helper(self.to_owned(), shared_args, source_args).boxed()
     }
 
     fn local_data(

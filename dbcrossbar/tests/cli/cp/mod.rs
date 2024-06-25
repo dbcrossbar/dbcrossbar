@@ -101,6 +101,11 @@ pub(crate) fn trino_test_url() -> String {
         .unwrap_or_else(|_| "trino://admin@localhost:8080/memory/default".to_owned())
 }
 
+/// Generate a locator for a test table in Trino.
+pub(crate) fn trino_test_table(table_name: &str) -> String {
+    format!("{}#{}", trino_test_url(), table_name)
+}
+
 #[test]
 fn cp_help_flag() {
     let testdir = TestDir::new("dbcrossbar", "cp_help_flag");

@@ -99,9 +99,6 @@ async fn write_schema_helper(
     schema: Schema,
     if_exists: IfExists,
 ) -> Result<()> {
-    // TODO: We use the existing `table.name` here, but this might produce
-    // odd results if the input table comes from BigQuery or another
-    // database with a very different naming scheme.
     let table_name = sanitize_table_name(&schema.table.name)?;
     let create_table = TrinoCreateTable::from_schema_and_name(&schema, &table_name)?;
     let mut out = dest.path.create_async(if_exists).await?;
