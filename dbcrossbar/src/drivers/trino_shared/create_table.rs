@@ -286,7 +286,10 @@ impl TrinoCreateTable {
     /// Write a `SELECT` statement that converts all columns to `VARCHAR` in
     /// `dbcrossbar` CSV interchange format, but preserves column names. This is
     /// normally used together with [`Self::create_as_prologue_to_doc`] above.
-    fn select_as_named_varchar_values_doc(&self) -> Result<RcDoc<'static, ()>> {
+    fn select_as_named_varchar_values_doc(
+        &self,
+        source_args: &SourceArguments<Verified>,
+    ) -> Result<RcDoc<'static, ()>> {
         Ok(select_from(
             self.columns
                 .iter()
@@ -299,7 +302,17 @@ impl TrinoCreateTable {
                 })
                 .collect::<Result<Vec<_>>>()?,
             &self.name,
-        ))
+        )
+        .append(if let Some(where_clause) = source_args.where_clause() {
+            sql_clause(RcDoc::concat(vec![
+                RcDoc::text("WHERE"),
+                RcDoc::space(),
+                // The `--where` clause is always raw SQL.
+                parens(RcDoc::text(where_clause.to_owned())),
+            ]))
+        } else {
+            RcDoc::nil()
+        }))
     }
 
     /// Create a wrapper table by selecting from an existing table and exporting
@@ -307,10 +320,11 @@ impl TrinoCreateTable {
     pub(crate) fn create_wrapper_table_doc(
         &self,
         source_table: &TrinoCreateTable,
+        source_args: &SourceArguments<Verified>,
     ) -> Result<RcDoc<'static, ()>> {
         let create_as_prologue_sql = self.create_as_prologue_doc();
         let select_as_varchar_sql =
-            source_table.select_as_named_varchar_values_doc()?;
+            source_table.select_as_named_varchar_values_doc(source_args)?;
         Ok(RcDoc::concat(vec![
             create_as_prologue_sql,
             select_as_varchar_sql,

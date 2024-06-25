@@ -13,20 +13,28 @@ pub(crate) async fn count_helper(
     source_args: SourceArguments<Unverified>,
 ) -> Result<usize> {
     let _shared_args = shared_args.verify(TrinoLocator::features())?;
-    let _source_args = source_args.verify(TrinoLocator::features())?;
+    let source_args = source_args.verify(TrinoLocator::features())?;
 
     #[derive(Debug, Presto)]
     struct Row {
-        cnt: u64,
+        count: u64,
     }
 
     let client = locator.client()?;
-    let sql = format!("SELECT COUNT(*) AS cnt FROM {}", locator.table_name()?);
+    let sql = format!(
+        "SELECT COUNT(*) AS \"count\"\nFROM {}{}",
+        locator.table_name()?,
+        if let Some(where_clause) = source_args.where_clause() {
+            format!("\nWHERE ({})", where_clause)
+        } else {
+            "".to_string()
+        }
+    );
     let rows = client.get_all::<Row>(sql).await?;
     let row = rows
         .as_slice()
         .first()
         .ok_or_else(|| format_err!("no count returned for {}", locator))?;
 
-    usize::try_from(row.cnt).context("could not convert count to usize")
+    usize::try_from(row.count).context("could not convert count to usize")
 }

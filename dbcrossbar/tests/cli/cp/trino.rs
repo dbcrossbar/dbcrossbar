@@ -1,5 +1,7 @@
 //! Trino-related tests.
 
+use std::fs;
+
 use cli_test_dir::*;
 use difference::assert_diff;
 
@@ -59,7 +61,7 @@ fn cp_csv_to_trino_to_csv_helper(
 
     // Print our output for manual inspection. Use `--nocapture` to see this.
     let out_path = testdir.path("out/out.csv");
-    eprintln!("output:\n{}", std::fs::read_to_string(out_path).unwrap());
+    eprintln!("output:\n{}", fs::read_to_string(out_path).unwrap());
 }
 
 #[test]
@@ -82,6 +84,50 @@ fn cp_csv_to_trino_to_csv_complex() {
         "trino-sql",
         "fixtures/trino/very_complex.sql",
     );
+}
+
+#[test]
+#[ignore]
+fn cp_from_trino_with_where() {
+    let testdir = TestDir::new("dbcrossbar", "cp_from_trino_with_where");
+    let src = testdir.src_path("fixtures/posts.csv");
+    let filtered = testdir.src_path("fixtures/posts_where_author_id_1.csv");
+    let schema = testdir.src_path("fixtures/posts.sql");
+    let s3_temp_dir = s3_test_dir_url("cp_from_trino_with_where");
+    let trino_table = trino_test_table("cp_from_trino_with_where");
+
+    // CSV to BigQuery.
+    testdir
+        .cmd()
+        .args([
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--temporary={}", s3_temp_dir),
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            &format!("csv:{}", src.display()),
+            &trino_table,
+        ])
+        .tee_output()
+        .expect_success();
+
+    // BigQuery back to CSV using --where.
+    testdir
+        .cmd()
+        .args([
+            "cp",
+            &format!("--temporary={}", s3_temp_dir),
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            "--where",
+            "author_id = 1",
+            &trino_table,
+            "csv:out/out.csv",
+        ])
+        .tee_output()
+        .expect_success();
+
+    let expected = fs::read_to_string(filtered).unwrap();
+    let actual = fs::read_to_string(testdir.path("out/out.csv")).unwrap();
+    assert_diff!(&expected, &actual, ",", 0);
 }
 
 // Create table using `schema conv` and dump the schema.
