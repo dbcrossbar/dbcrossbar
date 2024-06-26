@@ -24,7 +24,8 @@ pub enum TrinoConnectorType {
     Iceberg,
     Memory,
     Postgresql,
-    /// Unknown type. Assume worst-case version of all features.
+    /// Unknown type. We assume a worst-case version of most features, except
+    /// for automatically downgrading data types.
     Other(String),
 }
 
@@ -47,8 +48,11 @@ impl TrinoConnectorType {
         }
     }
 
-    /// "Downgrade" a [`TrinoDataType`] as needed to work with a specific
-    /// backend.
+    /// Attempt to "downgrade" a [`TrinoDataType`] as needed to work with a
+    /// specific backend.
+    ///
+    /// Note that sometimes there's no good way to downgrade a type. In this
+    /// case, we will return it unchanged.and let it fail later.
     pub(super) fn downgrade_data_type(
         &self,
         data_type: &TrinoDataType,
@@ -81,9 +85,6 @@ impl TrinoConnectorType {
             // Iceberg only supports precision 6 for time types.
             (TrinoConnectorType::Iceberg, TrinoDataType::Time { .. }) => {
                 TrinoDataType::Time { precision: 6 }
-            }
-            (TrinoConnectorType::Iceberg, TrinoDataType::TimeWithTimeZone { .. }) => {
-                TrinoDataType::TimeWithTimeZone { precision: 6 }
             }
             (TrinoConnectorType::Iceberg, TrinoDataType::Timestamp { .. }) => {
                 TrinoDataType::Timestamp { precision: 6 }
