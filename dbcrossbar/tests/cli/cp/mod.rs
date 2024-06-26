@@ -98,12 +98,21 @@ pub(crate) fn redshift_test_table_url(table_name: &str) -> Option<String> {
 /// The URL of our Trino test database.
 pub(crate) fn trino_test_url() -> String {
     env::var("TRINO_TEST_URL")
-        .unwrap_or_else(|_| "trino://admin@localhost:8080/memory/default".to_owned())
+        .unwrap_or_else(|_| "trino://admin@localhost:8080/".to_owned())
+}
+
+/// Generate a locator for a test table in Trino.
+pub(crate) fn trino_test_catalog_schema_table(
+    catalog: &str,
+    schema: &str,
+    table_name: &str,
+) -> String {
+    format!("{}{}/{}#{}", trino_test_url(), catalog, schema, table_name)
 }
 
 /// Generate a locator for a test table in Trino.
 pub(crate) fn trino_test_table(table_name: &str) -> String {
-    format!("{}#{}", trino_test_url(), table_name)
+    trino_test_catalog_schema_table("memory", "default", table_name)
 }
 
 #[test]

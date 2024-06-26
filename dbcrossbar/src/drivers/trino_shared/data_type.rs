@@ -99,6 +99,15 @@ pub enum TrinoDataType {
     /// of Trino types, but it's mentioned in [their geospatial
     /// documentation](https://trino.io/docs/current/functions/geospatial.html).
     SphericalGeography,
+    // /// This is a type that exists in Trino's type system, but that doesn't
+    // /// exist for a particular [`super::TrinoConnectionType`].
+    // ///
+    // /// TODO: What about recusive types? Where do we put `Downgraded`? I _think_
+    // /// we only want to use this for "leaf" types.
+    // Downgraded {
+    //     original_type: Box<TrinoDataType>,
+    //     storage_type: Box<TrinoDataType>,
+    // },
     // Left out for now: IP address, HyperLogLog, digests, etc.
 }
 
@@ -826,9 +835,9 @@ impl fmt::Display for TrinoDataType {
 #[derive(Clone, Debug, PartialEq)]
 pub struct TrinoField {
     /// The name of the field.
-    name: Option<TrinoIdent>,
+    pub(super) name: Option<TrinoIdent>,
     /// The data type of the field.
-    data_type: TrinoDataType,
+    pub(super) data_type: TrinoDataType,
 }
 
 impl TrinoField {

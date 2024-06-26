@@ -125,9 +125,13 @@ impl TrinoCreateTable {
         &mut self,
         connector_type: &TrinoConnectorType,
     ) {
-        // Erase `NOT NULL` constraints if the connector doesn't support them.
-        if !connector_type.supports_not_null_constraint() {
-            for column in &mut self.columns {
+        // Update our columns.
+        for column in &mut self.columns {
+            // Downgrade the data type if needed.
+            column.data_type = connector_type.downgrade_data_type(&column.data_type);
+
+            // Erase `NOT NULL` constraints if the connector doesn't support them.
+            if !connector_type.supports_not_null_constraint() {
                 column.is_nullable = true;
             }
         }
@@ -827,4 +831,8 @@ mod tests {
             }
         }
     }
+
+    // TODO: Take a table which uses all the data types, etc., and then tries to
+    // run CREATE TABLE against memory, Hive, Iceberg, and all the other
+    // `TrinoConnectorType` values. This will test our downgrading.
 }

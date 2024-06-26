@@ -1,13 +1,15 @@
 //! Trino-related tests.
 
-use std::fs;
+use std::{fs, path::Path};
 
 use cli_test_dir::*;
 use difference::assert_diff;
 
 use crate::cp::trino_test_table;
 
-use super::{assert_cp_to_exact_csv, s3_test_dir_url, TempType};
+use super::{
+    assert_cp_to_exact_csv, s3_test_dir_url, trino_test_catalog_schema_table, TempType,
+};
 
 #[test]
 #[ignore]
@@ -163,4 +165,39 @@ fn schema_conv_on_trino_table() {
     let expected = std::fs::read_to_string(expected).unwrap();
     let output = std::fs::read_to_string(testdir.path("output.sql")).unwrap();
     assert_diff!(&expected, &output, "\n", 0);
+}
+
+// Create tables using multiple connector types.
+#[test]
+#[ignore]
+fn trino_connector_types_downgrade_as_needed() {
+    let testdir =
+        TestDir::new("dbcrossbar", "trino_connector_types_downgrade_as_needed");
+    let schema = testdir.src_path("fixtures/many_types.sql");
+
+    let tables = [
+        trino_test_catalog_schema_table("memory", "default", "memory_downgrade_table"),
+        trino_test_catalog_schema_table("hive", "default", "hive_downgrade_table"),
+        trino_test_catalog_schema_table(
+            "iceberg",
+            "default",
+            "iceberg_downgrade_table",
+        ),
+        // The PostgreSQL connector is missing array types, which we can't
+        // downgrade.
+    ];
+
+    for table in tables.iter() {
+        testdir
+            .cmd()
+            .args([
+                "schema",
+                "conv",
+                "--if-exists=overwrite",
+                &format!("postgres-sql:{}", schema.display()),
+                table,
+            ])
+            .tee_output()
+            .expect_success();
+    }
 }
