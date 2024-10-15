@@ -152,7 +152,7 @@ impl TrinoConnectorType {
                 element_transform: Box::new(self.storage_transform_for(elem_ty)),
             }
             .simplify_top_level(),
-            (_, original_type @ TrinoDataType::Row(fields)) => StorageTransform::Row {
+            (_, TrinoDataType::Row(fields)) => StorageTransform::Row {
                 name_anonymous_fields: !self.supports_anonymous_row_fields(),
                 field_transforms: fields
                     .iter()
@@ -165,7 +165,6 @@ impl TrinoConnectorType {
                         transform: self.storage_transform_for(&field.data_type),
                     })
                     .collect(),
-                original_type: original_type.clone(),
             }
             .simplify_top_level(),
 

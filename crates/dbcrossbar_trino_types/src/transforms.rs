@@ -36,7 +36,6 @@ pub enum StorageTransform {
         /// fields.)
         name_anonymous_fields: bool,
         field_transforms: Vec<FieldStorageTransform>,
-        original_type: TrinoDataType,
     },
 }
 
@@ -62,7 +61,6 @@ impl StorageTransform {
             StorageTransform::Row {
                 name_anonymous_fields,
                 field_transforms,
-                original_type: _,
             } if !name_anonymous_fields
                 && field_transforms.iter().all(|ft| ft.transform.is_identity()) =>
             {
@@ -226,7 +224,6 @@ impl StorageTransform {
             StorageTransform::Row {
                 name_anonymous_fields: _,
                 field_transforms,
-                original_type: _,
             } => {
                 // This is a bit of a trick. We only want to evaluate `expr`
                 // once, but we can't bind local variables. So we construct a
@@ -254,6 +251,7 @@ impl StorageTransform {
         &self,
         f: &mut dyn fmt::Write,
         expr: &dyn fmt::Display,
+        original_type: &TrinoDataType,
     ) -> std::fmt::Result {
         match self {
             StorageTransform::Identity => write!(f, "{}", expr),
@@ -266,8 +264,12 @@ impl StorageTransform {
             StorageTransform::SphericalGeographyAsVarchar => {
                 write!(f, "FROM_GEOJSON_GEOMETRY({})", expr)
             }
-            StorageTransform::SmallerIntAsInt => write!(f, "{}", expr),
-            StorageTransform::TimeAsVarchar => write!(f, "CAST({} AS TIME)", expr),
+            StorageTransform::SmallerIntAsInt => {
+                write!(f, "CAST({} AS {})", expr, original_type)
+            }
+            StorageTransform::TimeAsVarchar => {
+                write!(f, "CAST({} AS {})", expr, original_type)
+            }
             StorageTransform::TimestampWithTimeZoneAsTimezone { .. } => {
                 write!(f, "({} AT TIME ZONE '+00:00')", expr)
             }
@@ -282,24 +284,33 @@ impl StorageTransform {
             }
             StorageTransform::Array { element_transform } => {
                 // We need to use `TRANSFORM` to handle each array element.
+                let orig_elem_ty = match original_type {
+                    TrinoDataType::Array(elem_ty) => elem_ty,
+                    _ => panic!("expected Array"),
+                };
                 write!(
                     f,
                     "TRANSFORM({}, x -> {})",
                     expr,
-                    LoadTransformExpr(element_transform, &"x")
+                    LoadTransformExpr(element_transform, &"x", orig_elem_ty)
                 )
             }
             StorageTransform::Row {
                 name_anonymous_fields: _,
                 field_transforms,
-                original_type,
             } => {
                 // This is a bit of a trick. We only want to evaluate `expr`
                 // once, but we can't bind local variables. So we construct a
                 // one element array, map over it, and then take the first
                 // element.
                 write!(f, "CAST(TRANSFORM(ARRAY[{}], x -> ROW(", expr)?;
-                for (idx, ft) in field_transforms.iter().enumerate() {
+                let fields = match original_type {
+                    TrinoDataType::Row(fields) => fields,
+                    _ => panic!("expected Row"),
+                };
+                for (idx, (ft, field)) in
+                    field_transforms.iter().zip(fields).enumerate()
+                {
                     if idx > 0 {
                         write!(f, ", ")?;
                     }
@@ -307,7 +318,15 @@ impl StorageTransform {
                         FieldName::Named(ident) => format!("x.{}", ident),
                         FieldName::Indexed(idx) => format!("x[{}]", idx),
                     };
-                    write!(f, "{}", LoadTransformExpr(&ft.transform, &field_expr))?;
+                    write!(
+                        f,
+                        "{}",
+                        LoadTransformExpr(
+                            &ft.transform,
+                            &field_expr,
+                            &field.data_type
+                        )
+                    )?;
                 }
                 write!(f, "))[1] AS {})", original_type)
             }
@@ -338,23 +357,32 @@ impl<'a, D: fmt::Display> std::fmt::Display for StoreTransformExpr<'a, D> {
 }
 
 /// Format a load operation with any necessary transform.
-pub struct LoadTransformExpr<'a, D: fmt::Display>(&'a StorageTransform, &'a D);
+pub struct LoadTransformExpr<'a, D: fmt::Display>(
+    &'a StorageTransform,
+    &'a D,
+    &'a TrinoDataType,
+);
 
 impl<'a, D: fmt::Display> std::fmt::Display for LoadTransformExpr<'a, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.0.fmt_load_transform_expr(f, self.1)
+        self.0.fmt_load_transform_expr(f, self.1, self.2)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use chrono::{FixedOffset, NaiveDate, NaiveTime};
+    use geo_types::Geometry;
     use proptest::prelude::*;
+    use wkt::TryFromWkt as _;
 
     use super::*;
     use crate::{
         connectors::TrinoConnectorType,
-        test::{any_trino_value_with_type, ApproxEqToJson, Client, TrinoValue},
+        test::{
+            any_trino_value_with_type, client::Client, IsCloseEnoughTo as _,
+            TrinoValue,
+        },
     };
 
     async fn test_storage_transform_roundtrip_helper(
@@ -421,17 +449,17 @@ mod tests {
         // Read the value back out.
         let select_sql = format!(
             "SELECT {} FROM {}",
-            LoadTransformExpr(&storage_transform, &"x"),
+            LoadTransformExpr(&storage_transform, &"x", &trino_ty),
             table_name
         );
         eprintln!("select_sql: {}", select_sql);
         let loaded_value =
             client.get_one(&select_sql).await.expect("could not select");
-        eprintln!("loaded_value: {:?}", loaded_value);
+        eprintln!("loaded_value: {}", loaded_value);
 
-        if !value.approx_eq_to_json(&loaded_value) {
+        if !value.is_close_enough_to(&loaded_value) {
             panic!(
-                "Loaded value does not match (type = {}, value = {}, loaded = {})",
+                "Loaded value does not match (type = {}, expected = {}, loaded = {})",
                 trino_ty, value, loaded_value
             );
         }
@@ -514,10 +542,8 @@ mod tests {
             ),
             (
                 Tv::SphericalGeography(
-                    serde_json::from_str(
-                        r#"{"type": "Point", "coordinates": [1.0, 2.0]}"#,
-                    )
-                    .unwrap(),
+                    Geometry::<f64>::try_from_wkt_str("POINT(1.0 2.0)")
+                        .expect("could not parse WKT"),
                 ),
                 Ty::SphericalGeography,
             ),

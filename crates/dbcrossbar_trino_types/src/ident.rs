@@ -54,6 +54,18 @@ impl fmt::Display for TrinoIdent {
     }
 }
 
+// Deserialize a string an identifier.
+#[cfg(test)]
+impl<'de> serde::Deserialize<'de> for TrinoIdent {
+    fn deserialize<D>(deserializer: D) -> Result<TrinoIdent, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        TrinoIdent::new(&s).map_err(serde::de::Error::custom)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;

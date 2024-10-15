@@ -2,8 +2,10 @@
 
 use std::fmt;
 
+use geo_types::Geometry;
 use serde_json::Value;
 use uuid::Uuid;
+use wkt::ToWkt;
 
 use crate::TrinoDataType;
 
@@ -34,7 +36,7 @@ pub enum TrinoValue {
         lit_type: TrinoDataType,
     },
     Uuid(Uuid),
-    SphericalGeography(Value),
+    SphericalGeography(Geometry<f64>),
 }
 
 impl fmt::Display for TrinoValue {
@@ -119,8 +121,8 @@ impl fmt::Display for TrinoValue {
             TrinoValue::SphericalGeography(value) => {
                 write!(
                     f,
-                    "FROM_GEOJSON_GEOMETRY({})",
-                    QuotedString(&value.to_string())
+                    "to_spherical_geography(ST_GeometryFromText({}))",
+                    QuotedString(&value.wkt_string())
                 )
             }
         }

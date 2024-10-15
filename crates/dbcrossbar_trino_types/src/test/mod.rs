@@ -1,13 +1,11 @@
 //! Tools for testing code that works with Trino types. Exported when
 //! `#[cfg(test)]` is true.
 
-pub(crate) use self::approx_eq_to_json::ApproxEqToJson;
-pub use self::{
-    client::Client, strategies::any_trino_value_with_type, value::TrinoValue,
-};
+pub(crate) use self::is_close_enough_to::IsCloseEnoughTo;
+pub use self::{strategies::any_trino_value_with_type, value::TrinoValue};
 
-mod approx_eq_to_json;
-mod client;
+pub mod client;
+mod is_close_enough_to;
 mod strategies;
 mod time;
 mod value;

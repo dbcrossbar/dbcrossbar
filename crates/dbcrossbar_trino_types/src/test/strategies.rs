@@ -111,6 +111,7 @@ impl ArbValue for TrinoDataType {
     #[cfg(test)]
     fn arb_value(&self) -> BoxedStrategy<TrinoValue> {
         use chrono::NaiveTime;
+        use geo_types::Geometry;
         use proptest_arbitrary_interop::arb;
         use serde_json::Number;
         use uuid::Uuid;
@@ -196,7 +197,7 @@ impl ArbValue for TrinoDataType {
                             Value::Number(Number::from_f64(lat).unwrap()),
                         ]),
                     );
-                    TrinoValue::SphericalGeography(Value::Object(map))
+                    TrinoValue::SphericalGeography(Geometry::Point((lat, lon).into()))
                 })
                 .boxed(),
         }
