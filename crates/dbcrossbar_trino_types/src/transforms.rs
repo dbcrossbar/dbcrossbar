@@ -35,66 +35,38 @@ pub enum StorageTransform {
         /// Should we name anonymous fields? (Not all back ends support anonymous
         /// fields.)
         name_anonymous_fields: bool,
-        field_transforms: Vec<FieldTypeStorageTransform>,
+        field_transforms: Vec<FieldStorageTransform>,
         original_type: TrinoDataType,
     },
 }
 
 impl StorageTransform {
-    /// Simplify the storage transform by reducing anything that's just an
-    /// identity transform.
-    ///
-    /// TODO: Assume recursive simplification has already been done?
-    pub(crate) fn simplify(self) -> Self {
+    /// Is this the identity transform?
+    pub fn is_identity(&self) -> bool {
+        matches!(self, StorageTransform::Identity)
+    }
+
+    /// Simplify the storage transform by seeing if we can reduce the
+    /// top-level transform to `Identity`.
+    pub(crate) fn simplify_top_level(self) -> Self {
         match self {
             // We can simplify an `Array` if the element transform simplifies to
             // `Identity`.
-            StorageTransform::Array { element_transform } => {
-                match element_transform.simplify() {
-                    StorageTransform::Identity => StorageTransform::Identity,
-                    element_transform => StorageTransform::Array {
-                        element_transform: Box::new(element_transform),
-                    },
-                }
+            StorageTransform::Array { element_transform }
+                if element_transform.is_identity() =>
+            {
+                StorageTransform::Identity
             }
 
             // We can't simplify away a `Row` if we need to name fields.
             StorageTransform::Row {
-                name_anonymous_fields: true,
+                name_anonymous_fields,
                 field_transforms,
-                original_type,
-            } => StorageTransform::Row {
-                name_anonymous_fields: true,
-                field_transforms: field_transforms
-                    .into_iter()
-                    .map(|field_transform| field_transform.simplify())
-                    .collect(),
-                original_type,
-            },
-
-            // We can simplify away a `Row` if we don't need to name fields, and if
-            // all the field transforms simplify to `Identity`.
-            StorageTransform::Row {
-                name_anonymous_fields: false,
-                field_transforms,
-                original_type,
-            } => {
-                let simplified_field_transforms = field_transforms
-                    .into_iter()
-                    .map(|field_transform| field_transform.simplify())
-                    .collect::<Vec<_>>();
-                if simplified_field_transforms
-                    .iter()
-                    .all(|ft| matches!(ft.transform, StorageTransform::Identity))
-                {
-                    StorageTransform::Identity
-                } else {
-                    StorageTransform::Row {
-                        name_anonymous_fields: false,
-                        field_transforms: simplified_field_transforms,
-                        original_type,
-                    }
-                }
+                original_type: _,
+            } if !name_anonymous_fields
+                && field_transforms.iter().all(|ft| ft.transform.is_identity()) =>
+            {
+                StorageTransform::Identity
             }
 
             // Everything else is already simplified.
@@ -252,9 +224,9 @@ impl StorageTransform {
                 )
             }
             StorageTransform::Row {
+                name_anonymous_fields: _,
                 field_transforms,
-                original_type,
-                ..
+                original_type: _,
             } => {
                 // This is a bit of a trick. We only want to evaluate `expr`
                 // once, but we can't bind local variables. So we construct a
@@ -318,7 +290,7 @@ impl StorageTransform {
                 )
             }
             StorageTransform::Row {
-                name_anonymous_fields,
+                name_anonymous_fields: _,
                 field_transforms,
                 original_type,
             } => {
@@ -350,21 +322,10 @@ pub enum FieldName {
     Indexed(usize),
 }
 
-/// Transform a field for storage.
-pub struct FieldTypeStorageTransform {
+/// A storage transform for a field in a row.
+pub struct FieldStorageTransform {
     pub name: FieldName,
     pub transform: StorageTransform,
-}
-
-impl FieldTypeStorageTransform {
-    /// Simplify the storage transform by reducing anything that's just an
-    /// identity transform.
-    pub(crate) fn simplify(self) -> Self {
-        FieldTypeStorageTransform {
-            name: self.name,
-            transform: self.transform.simplify(),
-        }
-    }
 }
 
 /// Format a store operation with any necessary transform.
@@ -400,9 +361,15 @@ mod tests {
         connector: TrinoConnectorType,
         value: TrinoValue,
         trino_ty: TrinoDataType,
+        assume_identity_transform_passes: bool,
     ) {
         // How should we transform this type for storage using this connector?
         let storage_transform = connector.storage_transform_for(&trino_ty);
+
+        // Assume the identity transform passes if we're asked to do so.
+        if assume_identity_transform_passes && storage_transform.is_identity() {
+            return;
+        }
 
         // Create our client.
         let client = Client::default();
@@ -563,6 +530,7 @@ mod tests {
                     connector.to_owned(),
                     value.to_owned(),
                     trino_ty.to_owned(),
+                    false,
                 )
                 .await;
             }
@@ -577,6 +545,7 @@ mod tests {
                         lit_type: array_ty.clone(),
                     },
                     array_ty,
+                    false,
                 )
                 .await;
             }
@@ -594,6 +563,7 @@ mod tests {
                         lit_type: row_ty.clone(),
                     },
                     row_ty,
+                    false,
                 )
                 .await;
             }
@@ -611,6 +581,7 @@ mod tests {
                         lit_type: row_ty.clone(),
                     },
                     row_ty,
+                    false,
                 )
                 .await;
             }
@@ -625,7 +596,11 @@ mod tests {
         ) {
             // We can't use `proptest` with an async function, but we can create
             // a future and run it synchronously using Tokio.
-            let fut = test_storage_transform_roundtrip_helper(connector, value, trino_ty);
+            //
+            // We assume that any identity transform passes here, because we
+            // already test simple versions of those in
+            // `test_storage_transform_roundtrip_manual`.
+            let fut = test_storage_transform_roundtrip_helper(connector, value, trino_ty, true);
             tokio::runtime::Runtime::new().unwrap().block_on(fut);
         }
     }

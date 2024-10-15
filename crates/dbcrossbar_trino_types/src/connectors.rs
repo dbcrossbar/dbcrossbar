@@ -10,7 +10,7 @@ use proptest_derive::Arbitrary;
 
 use crate::{
     errors::ConnectorError,
-    transforms::{FieldName, FieldTypeStorageTransform, StorageTransform},
+    transforms::{FieldName, FieldStorageTransform, StorageTransform},
 };
 
 use super::TrinoDataType;
@@ -150,13 +150,14 @@ impl TrinoConnectorType {
             // Recursive types.
             (_, TrinoDataType::Array(elem_ty)) => StorageTransform::Array {
                 element_transform: Box::new(self.storage_transform_for(elem_ty)),
-            },
+            }
+            .simplify_top_level(),
             (_, original_type @ TrinoDataType::Row(fields)) => StorageTransform::Row {
                 name_anonymous_fields: !self.supports_anonymous_row_fields(),
                 field_transforms: fields
                     .iter()
                     .enumerate()
-                    .map(|(idx, field)| FieldTypeStorageTransform {
+                    .map(|(idx, field)| FieldStorageTransform {
                         name: match &field.name {
                             Some(name) => FieldName::Named(name.clone()),
                             None => FieldName::Indexed(idx + 1),
@@ -165,7 +166,8 @@ impl TrinoConnectorType {
                     })
                     .collect(),
                 original_type: original_type.clone(),
-            },
+            }
+            .simplify_top_level(),
 
             // Start with just the identity transform until we have more tests.
             _ => StorageTransform::Identity,
