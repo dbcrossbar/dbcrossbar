@@ -105,6 +105,7 @@ impl error::Error for QueryError {}
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
+#[allow(dead_code)]
 pub struct TrinoResponse {
     pub id: String,
     pub query_error: Option<QueryError>,

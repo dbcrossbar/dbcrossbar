@@ -5,8 +5,6 @@ pub use crate::{
     types::{TrinoDataType, TrinoField},
 };
 
-#[cfg(test)]
-pub mod client;
 mod connectors;
 mod errors;
 mod ident;

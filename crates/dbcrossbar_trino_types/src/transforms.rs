@@ -296,18 +296,16 @@ impl StorageTransform {
             }
             StorageTransform::SmallerIntAsInt => write!(f, "{}", expr),
             StorageTransform::TimeAsVarchar => write!(f, "CAST({} AS TIME)", expr),
-            StorageTransform::TimestampWithTimeZoneAsTimezone { stored_precision } => {
+            StorageTransform::TimestampWithTimeZoneAsTimezone { .. } => {
                 write!(f, "({} AT TIME ZONE '+00:00')", expr)
             }
-            StorageTransform::TimeWithPrecision { stored_precision } => {
+            StorageTransform::TimeWithPrecision { .. } => {
                 write!(f, "{}", expr)
             }
-            StorageTransform::TimestampWithPrecision { stored_precision } => {
+            StorageTransform::TimestampWithPrecision { .. } => {
                 write!(f, "{}", expr)
             }
-            StorageTransform::TimestampWithTimeZoneWithPrecision {
-                stored_precision,
-            } => {
+            StorageTransform::TimestampWithTimeZoneWithPrecision { .. } => {
                 write!(f, "{}", expr)
             }
             StorageTransform::Array { element_transform } => {
@@ -395,7 +393,7 @@ mod tests {
     use super::*;
     use crate::{
         connectors::TrinoConnectorType,
-        test::{any_trino_value_with_type, ApproxEqToJson, TrinoValue},
+        test::{any_trino_value_with_type, ApproxEqToJson, Client, TrinoValue},
     };
 
     async fn test_storage_transform_roundtrip_helper(
@@ -407,11 +405,12 @@ mod tests {
         let storage_transform = connector.storage_transform_for(&trino_ty);
 
         // Create our client.
-        let client = crate::client::Client::default();
+        let client = Client::default();
 
         // We need unique table names for each connector, becauae some
         // of them are actually implemented on top of others and share a
-        // table namespace.
+        // table namespace. For example, `hive.default.x` and `iceberg.default.x`
+        // would conflict.
         let table_name = format!(
             "{}.{}.test_storage_transform_roundtrip_{}",
             connector.test_catalog(),
