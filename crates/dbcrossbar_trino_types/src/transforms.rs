@@ -245,13 +245,41 @@ impl StorageTransform {
         }
     }
 
+    /// Does this transform require a cast on load? We leave these off when we
+    /// can, to make the generated code slightly easier to debug.
+    fn requires_cast_on_load(&self) -> bool {
+        match self {
+            StorageTransform::Identity => false,
+            StorageTransform::JsonAsVarchar => false,
+            StorageTransform::UuidAsVarchar => false,
+            StorageTransform::SphericalGeographyAsVarchar => false,
+            StorageTransform::SmallerIntAsInt => true,
+            StorageTransform::TimeAsVarchar => true,
+            StorageTransform::TimestampWithTimeZoneAsTimezone { .. } => true,
+            StorageTransform::TimeWithPrecision { .. } => true,
+            StorageTransform::TimestampWithPrecision { .. } => true,
+            StorageTransform::TimestampWithTimeZoneWithPrecision { .. } => true,
+            StorageTransform::Array { element_transform } => {
+                element_transform.requires_cast_on_load()
+            }
+            StorageTransform::Row {
+                name_anonymous_fields,
+                field_transforms,
+            } => {
+                *name_anonymous_fields
+                    || field_transforms
+                        .iter()
+                        .any(|ft| ft.transform.requires_cast_on_load())
+            }
+        }
+    }
+
     /// Write an expression that transforms the given expression from the storage
     /// type to the standard type.
     fn fmt_load_transform_expr(
         &self,
         f: &mut dyn fmt::Write,
         expr: &dyn fmt::Display,
-        original_type: &TrinoDataType,
     ) -> std::fmt::Result {
         match self {
             StorageTransform::Identity => write!(f, "{}", expr),
@@ -265,10 +293,10 @@ impl StorageTransform {
                 write!(f, "FROM_GEOJSON_GEOMETRY({})", expr)
             }
             StorageTransform::SmallerIntAsInt => {
-                write!(f, "CAST({} AS {})", expr, original_type)
+                write!(f, "{}", expr)
             }
             StorageTransform::TimeAsVarchar => {
-                write!(f, "CAST({} AS {})", expr, original_type)
+                write!(f, "{}", expr)
             }
             StorageTransform::TimestampWithTimeZoneAsTimezone { .. } => {
                 write!(f, "({} AT TIME ZONE '+00:00')", expr)
@@ -284,33 +312,27 @@ impl StorageTransform {
             }
             StorageTransform::Array { element_transform } => {
                 // We need to use `TRANSFORM` to handle each array element.
-                let orig_elem_ty = match original_type {
-                    TrinoDataType::Array(elem_ty) => elem_ty,
-                    _ => panic!("expected Array"),
-                };
-                write!(
-                    f,
-                    "TRANSFORM({}, x -> {})",
-                    expr,
-                    LoadTransformExpr(element_transform, &"x", orig_elem_ty)
-                )
+                write!(f, "TRANSFORM({}, x ->", expr,)?;
+                element_transform.fmt_load_transform_expr(f, &"x")?;
+                write!(f, ")")
             }
             StorageTransform::Row {
-                name_anonymous_fields: _,
+                name_anonymous_fields,
                 field_transforms,
             } => {
+                // If all fields are the identity transform, we don't need to do
+                // anything here, because our final CAST will handle it.
+                if field_transforms.iter().all(|ft| ft.transform.is_identity()) {
+                    debug_assert!(name_anonymous_fields);
+                    return write!(f, "{}", expr);
+                }
+
                 // This is a bit of a trick. We only want to evaluate `expr`
                 // once, but we can't bind local variables. So we construct a
                 // one element array, map over it, and then take the first
                 // element.
-                write!(f, "CAST(TRANSFORM(ARRAY[{}], x -> ROW(", expr)?;
-                let fields = match original_type {
-                    TrinoDataType::Row(fields) => fields,
-                    _ => panic!("expected Row"),
-                };
-                for (idx, (ft, field)) in
-                    field_transforms.iter().zip(fields).enumerate()
-                {
+                write!(f, "TRANSFORM(ARRAY[{}], x -> ROW(", expr)?;
+                for (idx, ft) in field_transforms.iter().enumerate() {
                     if idx > 0 {
                         write!(f, ", ")?;
                     }
@@ -318,17 +340,9 @@ impl StorageTransform {
                         FieldName::Named(ident) => format!("x.{}", ident),
                         FieldName::Indexed(idx) => format!("x[{}]", idx),
                     };
-                    write!(
-                        f,
-                        "{}",
-                        LoadTransformExpr(
-                            &ft.transform,
-                            &field_expr,
-                            &field.data_type
-                        )
-                    )?;
+                    ft.transform.fmt_load_transform_expr(f, &field_expr)?;
                 }
-                write!(f, "))[1] AS {})", original_type)
+                write!(f, "))[1]")
             }
         }
     }
@@ -365,7 +379,15 @@ pub struct LoadTransformExpr<'a, D: fmt::Display>(
 
 impl<'a, D: fmt::Display> std::fmt::Display for LoadTransformExpr<'a, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.0.fmt_load_transform_expr(f, self.1, self.2)
+        let needs_cast = self.0.requires_cast_on_load();
+        if needs_cast {
+            write!(f, "CAST(")?;
+        }
+        self.0.fmt_load_transform_expr(f, self.1)?;
+        if needs_cast {
+            write!(f, " AS {})", self.2)?;
+        }
+        Ok(())
     }
 }
 
@@ -386,6 +408,7 @@ mod tests {
     };
 
     async fn test_storage_transform_roundtrip_helper(
+        test_name: &str,
         connector: TrinoConnectorType,
         value: TrinoValue,
         trino_ty: TrinoDataType,
@@ -407,9 +430,10 @@ mod tests {
         // table namespace. For example, `hive.default.x` and `iceberg.default.x`
         // would conflict.
         let table_name = format!(
-            "{}.{}.test_storage_transform_roundtrip_{}",
+            "{}.{}.{}_{}",
             connector.test_catalog(),
             connector.test_schema(),
+            test_name,
             connector
         );
 
@@ -472,10 +496,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_storage_transform_roundtrip_manual() {
-        use TrinoConnectorType::*;
         use TrinoDataType as Ty;
         use TrinoValue as Tv;
-        let connectors = &[Hive, Iceberg, Memory];
         let examples = &[
             (Tv::Boolean(true), Ty::Boolean),
             (Tv::TinyInt(i8::MAX), Ty::TinyInt),
@@ -549,10 +571,11 @@ mod tests {
             ),
         ];
 
-        for connector in connectors {
+        for connector in TrinoConnectorType::all() {
             // Try base types.
             for (value, trino_ty) in examples {
                 test_storage_transform_roundtrip_helper(
+                    "test_storage_transform_roundtrip_manual",
                     connector.to_owned(),
                     value.to_owned(),
                     trino_ty.to_owned(),
@@ -565,6 +588,7 @@ mod tests {
             for (value, trino_ty) in examples {
                 let array_ty = Ty::Array(Box::new(trino_ty.to_owned()));
                 test_storage_transform_roundtrip_helper(
+                    "test_storage_transform_roundtrip_manual",
                     connector.to_owned(),
                     Tv::Array {
                         values: vec![value.to_owned()],
@@ -583,6 +607,7 @@ mod tests {
                     data_type: trino_ty.to_owned(),
                 }]);
                 test_storage_transform_roundtrip_helper(
+                    "test_storage_transform_roundtrip_manual",
                     connector.to_owned(),
                     Tv::Row {
                         values: vec![value.to_owned()],
@@ -601,6 +626,7 @@ mod tests {
                     data_type: trino_ty.to_owned(),
                 }]);
                 test_storage_transform_roundtrip_helper(
+                    "test_storage_transform_roundtrip_manual",
                     connector.to_owned(),
                     Tv::Row {
                         values: vec![value.to_owned()],
@@ -632,6 +658,7 @@ mod tests {
 
         for (connector, value, trino_ty) in regressions {
             test_storage_transform_roundtrip_helper(
+                "test_storage_transform_roundtrip_regressions",
                 connector.to_owned(),
                 value.to_owned(),
                 trino_ty.to_owned(),
@@ -653,10 +680,11 @@ mod tests {
             // We assume that any identity transform passes here, because we
             // already test simple versions of those in
             // `test_storage_transform_roundtrip_manual`.
-            let fut = test_storage_transform_roundtrip_helper(connector, value, trino_ty, true);
+            let fut = test_storage_transform_roundtrip_helper(
+                "test_storage_transform_roundtrip_generated",
+                connector, value, trino_ty, true
+            );
             tokio::runtime::Runtime::new().unwrap().block_on(fut);
         }
     }
 }
-// Agg<T>
-// ELEM = Stored<ARRAY<T>> -> Stored<T>

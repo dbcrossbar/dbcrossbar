@@ -27,6 +27,7 @@ use super::TrinoDataType;
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(test, derive(Arbitrary))]
 #[allow(missing_docs)]
+#[non_exhaustive]
 pub enum TrinoConnectorType {
     Hive,
     Iceberg,
@@ -34,6 +35,17 @@ pub enum TrinoConnectorType {
 }
 
 impl TrinoConnectorType {
+    /// All connector types.
+    #[cfg(test)]
+    pub fn all() -> impl Iterator<Item = TrinoConnectorType> {
+        [
+            TrinoConnectorType::Memory,
+            TrinoConnectorType::Hive,
+            TrinoConnectorType::Iceberg,
+        ]
+        .into_iter()
+    }
+
     /// What catalog name should we use for this connector type in test mode?
     #[cfg(test)]
     pub fn test_catalog(&self) -> &'static str {

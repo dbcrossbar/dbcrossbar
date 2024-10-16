@@ -67,16 +67,6 @@ pub enum TrinoDataType {
     /// of Trino types, but it's mentioned in [their geospatial
     /// documentation](https://trino.io/docs/current/functions/geospatial.html).
     SphericalGeography,
-    // /// This is a type that exists in Trino's type system, but that doesn't
-    // /// exist for a particular [`super::TrinoConnectionType`].
-    // ///
-    // /// TODO: What about recusive types? Where do we put `Downgraded`? I _think_
-    // /// we only want to use this for "leaf" types.
-    // Downgraded {
-    //     original_type: Box<TrinoDataType>,
-    //     storage_type: Box<TrinoDataType>,
-    // },
-    // Left out for now: IP address, HyperLogLog, digests, etc.
 }
 
 impl TrinoDataType {
@@ -97,6 +87,17 @@ impl TrinoDataType {
 
     pub fn timestamp_with_time_zone() -> Self {
         TrinoDataType::TimestampWithTimeZone { precision: 3 }
+    }
+
+    /// Is this a ROW type with any named fields?
+    #[cfg(test)]
+    pub(crate) fn is_row_with_named_fields(&self) -> bool {
+        match self {
+            TrinoDataType::Row(fields) => {
+                fields.iter().any(|field| field.name.is_some())
+            }
+            _ => false,
+        }
     }
 }
 

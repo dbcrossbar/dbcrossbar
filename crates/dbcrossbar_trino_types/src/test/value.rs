@@ -39,8 +39,43 @@ pub enum TrinoValue {
     SphericalGeography(Geometry<f64>),
 }
 
-impl fmt::Display for TrinoValue {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl TrinoValue {
+    /// Does a printed literal of this value require a cast?
+    ///
+    /// We go out of our way to only do this when necessry to make
+    /// it easier to read generated test code.
+    pub fn cast_required_by_literal(&self) -> Option<&TrinoDataType> {
+        match self {
+            TrinoValue::Array { values, lit_type } => {
+                if values.is_empty()
+                    || values
+                        .iter()
+                        .any(|v| v.cast_required_by_literal().is_some())
+                {
+                    Some(lit_type)
+                } else {
+                    None
+                }
+            }
+
+            TrinoValue::Row { values, lit_type } => {
+                if lit_type.is_row_with_named_fields()
+                    || values
+                        .iter()
+                        .any(|v| v.cast_required_by_literal().is_some())
+                {
+                    Some(lit_type)
+                } else {
+                    None
+                }
+            }
+
+            _ => None,
+        }
+    }
+
+    /// Recursive [`fmt::Display::fmt`] helper.
+    fn fmt_helper(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             TrinoValue::Boolean(b) => {
                 if *b {
@@ -93,29 +128,29 @@ impl fmt::Display for TrinoValue {
             }
             TrinoValue::Array {
                 values,
-                lit_type: original_type,
+                lit_type: _,
             } => {
-                write!(f, "CAST(ARRAY[")?;
+                write!(f, "ARRAY[")?;
                 for (idx, elem) in values.iter().enumerate() {
                     if idx > 0 {
                         write!(f, ", ")?;
                     }
                     write!(f, "{}", elem)?;
                 }
-                write!(f, "] AS {})", original_type)
+                write!(f, "]")
             }
             TrinoValue::Row {
                 values,
-                lit_type: original_type,
+                lit_type: _,
             } => {
-                write!(f, "CAST(ROW(")?;
+                write!(f, "ROW(")?;
                 for (idx, value) in values.iter().enumerate() {
                     if idx > 0 {
                         write!(f, ", ")?;
                     }
                     write!(f, "{}", value)?;
                 }
-                write!(f, ") AS {})", original_type)
+                write!(f, ")")
             }
             TrinoValue::Uuid(uuid) => write!(f, "UUID '{}'", uuid),
             TrinoValue::SphericalGeography(value) => {
@@ -126,6 +161,20 @@ impl fmt::Display for TrinoValue {
                 )
             }
         }
+    }
+}
+
+impl fmt::Display for TrinoValue {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let cast_to = self.cast_required_by_literal();
+        if cast_to.is_some() {
+            write!(f, "CAST(")?;
+        }
+        self.fmt_helper(f)?;
+        if let Some(data_type) = cast_to {
+            write!(f, " AS {})", data_type)?;
+        }
+        Ok(())
     }
 }
 
