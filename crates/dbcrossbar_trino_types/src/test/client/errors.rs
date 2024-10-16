@@ -93,6 +93,7 @@ pub struct QueryError {
     pub error_type: String,
 
     // Any other fields we don't handle yet.
+    #[serde(flatten)]
     _other: Map<String, Value>,
 }
 

@@ -113,7 +113,6 @@ impl ArbValue for TrinoDataType {
         use chrono::NaiveTime;
         use geo_types::Geometry;
         use proptest_arbitrary_interop::arb;
-        use serde_json::Number;
         use uuid::Uuid;
 
         match self {
@@ -188,16 +187,7 @@ impl ArbValue for TrinoDataType {
             // Just test points for now.
             TrinoDataType::SphericalGeography => (-180f64..=180f64, -90f64..=90f64)
                 .prop_map(|(lon, lat)| {
-                    let mut map = Map::new();
-                    map.insert("type".to_string(), Value::String("Point".to_string()));
-                    map.insert(
-                        "coordinates".to_string(),
-                        Value::Array(vec![
-                            Value::Number(Number::from_f64(lon).unwrap()),
-                            Value::Number(Number::from_f64(lat).unwrap()),
-                        ]),
-                    );
-                    TrinoValue::SphericalGeography(Geometry::Point((lat, lon).into()))
+                    TrinoValue::SphericalGeography(Geometry::Point((lon, lat).into()))
                 })
                 .boxed(),
         }

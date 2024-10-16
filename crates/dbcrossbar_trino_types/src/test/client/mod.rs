@@ -22,6 +22,7 @@
 
 use std::fmt;
 
+use reqwest::RequestBuilder;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -45,6 +46,9 @@ mod wire_types;
 #[allow(dead_code)]
 pub struct Response {
     pub id: String,
+    pub error: Option<QueryError>,
+    /// The docs claim that this exists, too, but I'm not sure what's going with
+    /// this.
     pub query_error: Option<QueryError>,
     pub next_uri: Option<String>,
     pub columns: Option<Vec<Column>>,
@@ -97,19 +101,22 @@ impl Client {
         format!("http://{}:{}/v1/statement", self.host, self.port)
     }
 
-    /// Execute a query.
-    async fn execute(&self, query: &str) -> Result<Response, ClientError> {
-        let url = self.statement_url();
+    async fn request(
+        &self,
+        mkreq: &dyn Fn() -> RequestBuilder,
+    ) -> Result<Response, ClientError> {
         loop {
-            let response = self
-                .client
-                .post(&url)
-                .basic_auth(&self.user, None::<&str>)
-                .body(query.to_owned())
-                .send()
-                .await?;
+            let response = mkreq().send().await?;
             if response.status().is_success() {
-                return Ok(response.json().await?);
+                let body: Response = response.json().await?;
+                //eprintln!("response: {:#?}", body);
+                if let Some(error) = body.error {
+                    return Err(ClientError::QueryError(error));
+                } else if let Some(error) = body.query_error {
+                    return Err(ClientError::QueryError(error));
+                } else {
+                    return Ok(body);
+                }
             } else if [429, 502, 503, 504]
                 .iter()
                 .any(|&s| response.status().as_u16() == s)
@@ -125,29 +132,33 @@ impl Client {
         }
     }
 
+    /// Execute a query.
+    async fn start_query(&self, query: &str) -> Result<Response, ClientError> {
+        let url = self.statement_url();
+        self.request(&|| {
+            self.client
+                .post(&url)
+                .basic_auth(&self.user, None::<&str>)
+                .body(query.to_owned())
+        })
+        .await
+    }
+
     /// Continue a query. You should only call this if `next_uri` is present.
     async fn continue_query(
         &self,
         query_response: &Response,
     ) -> Result<Response, ClientError> {
         let url = query_response.next_uri.as_ref().expect("missing next_uri");
-        Ok(self
-            .client
-            .get(url)
-            .basic_auth(&self.user, None::<&str>)
-            .send()
-            .await?
-            .json()
-            .await?)
+        self.request(&|| self.client.get(url).basic_auth(&self.user, None::<&str>))
+            .await
     }
 
     /// Run a statement, ignoring any results.
     pub async fn run_statement(&self, query: &str) -> Result<(), ClientError> {
-        let mut response = self.execute(query).await?;
+        let mut response = self.start_query(query).await?;
         loop {
-            if let Some(error) = response.query_error {
-                return Err(ClientError::QueryError(error));
-            } else if response.next_uri.is_some() {
+            if response.next_uri.is_some() {
                 // TODO: Wait?
                 response = self.continue_query(&response).await?;
             } else {
@@ -162,7 +173,7 @@ impl Client {
         &self,
         query: &str,
     ) -> Result<Vec<Vec<TrinoValue>>, ClientError> {
-        let mut response = self.execute(query).await?;
+        let mut response = self.start_query(query).await?;
         let mut results = Vec::new();
         let mut col_types: Option<Vec<TrinoDataType>> = None;
         loop {
@@ -188,9 +199,7 @@ impl Client {
                     return Err(ClientError::MissingColumnInfo);
                 }
             }
-            if let Some(error) = response.query_error {
-                return Err(ClientError::QueryError(error));
-            } else if response.next_uri.is_some() {
+            if response.next_uri.is_some() {
                 // TODO: Wait?
                 response = self.continue_query(&response).await?;
             } else {

@@ -372,7 +372,7 @@ impl<'a, D: fmt::Display> std::fmt::Display for LoadTransformExpr<'a, D> {
 #[cfg(test)]
 mod tests {
     use chrono::{FixedOffset, NaiveDate, NaiveTime};
-    use geo_types::Geometry;
+    use geo_types::{Coord, Geometry, Point};
     use proptest::prelude::*;
     use wkt::TryFromWkt as _;
 
@@ -611,6 +611,33 @@ mod tests {
                 )
                 .await;
             }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_storage_transform_roundtrip_regressions() {
+        use TrinoConnectorType::*;
+        use TrinoDataType as Ty;
+        use TrinoValue as Tv;
+
+        // Some regressions we've seen in the past.
+        let regressions = &[(
+            Hive,
+            Tv::SphericalGeography(Geometry::Point(Point(Coord {
+                x: 114.85827585275118,
+                y: 0.0,
+            }))),
+            Ty::SphericalGeography,
+        )];
+
+        for (connector, value, trino_ty) in regressions {
+            test_storage_transform_roundtrip_helper(
+                connector.to_owned(),
+                value.to_owned(),
+                trino_ty.to_owned(),
+                false,
+            )
+            .await;
         }
     }
 
