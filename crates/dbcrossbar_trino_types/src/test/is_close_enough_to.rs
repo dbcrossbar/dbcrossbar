@@ -37,7 +37,7 @@ impl IsCloseEnoughTo for TrinoValue {
             (TrinoValue::Double(a), TrinoValue::Double(b)) => a.is_close_enough_to(b),
             (TrinoValue::Decimal(a), TrinoValue::Decimal(b)) => {
                 // Parse both values as JSON numbers and compare them. We'll
-                // probably want to improve this
+                // probably want to improve this to use a Rust crate with real
                 let a_f64 = a.parse::<f64>().expect("could not parse decimal");
                 let b_f64 = b.parse::<f64>().expect("could not parse decimal");
                 a_f64.is_close_enough_to(&b_f64)
@@ -157,7 +157,7 @@ impl IsCloseEnoughTo for serde_json::Number {
         } else if let (Some(a), Some(b)) = (self.as_f64(), other.as_f64()) {
             a.is_close_enough_to(&b)
         } else {
-            false
+            unimplemented!("don't know how to compare {:?} and {:?}", self, other)
         }
     }
 }

@@ -3,7 +3,7 @@
 
 //! Trino connector types.
 
-use std::{fmt, str::FromStr};
+use std::{collections::HashMap, fmt, str::FromStr};
 
 #[cfg(test)]
 use proptest_derive::Arbitrary;
@@ -11,6 +11,7 @@ use proptest_derive::Arbitrary;
 use crate::{
     errors::ConnectorError,
     transforms::{FieldName, FieldStorageTransform, StorageTransform},
+    TableOptionValue, TableOptions, TrinoIdent,
 };
 
 use super::TrinoDataType;
@@ -66,24 +67,83 @@ impl TrinoConnectorType {
         }
     }
 
-    /// Do we know that this backend supports `NOT NULL`?
+    /// What table name should we use for a test?
+    #[cfg(test)]
+    pub fn test_table_name(&self, test_name: &str) -> String {
+        // We need unique table names for each connector, because some of them
+        // are actually implemented on top of others and share a table
+        // namespace. For example, `hive.default.x` and `iceberg.default.x`
+        // would conflict.
+        format!(
+            "{}.{}.{}_{}",
+            self.test_catalog(),
+            self.test_schema(),
+            test_name,
+            self
+        )
+    }
+
+    /// Does this backend supports `NOT NULL`?
     pub fn supports_not_null_constraint(&self) -> bool {
-        #[allow(clippy::match_single_binding)]
         match self {
-            // TODO: Add a test which verifies this.
-            //TrinoConnectorType::Memory => false,
-            _ => true,
+            TrinoConnectorType::Hive => false,
+            TrinoConnectorType::Iceberg => true,
+            TrinoConnectorType::Memory => false,
         }
     }
 
-    /// Do we know that this backend supports `OR REPLACE`?
+    /// Does this backend supports `OR REPLACE`?
     pub fn supports_replace_table(&self) -> bool {
-        #[allow(clippy::match_single_binding)]
         match self {
-            // TODO: Add a test which verifies this.
-            //TrinoConnectorType::Memory => false,
-            _ => true,
+            TrinoConnectorType::Hive => false,
+            TrinoConnectorType::Iceberg => true,
+            TrinoConnectorType::Memory => false,
         }
+    }
+
+    /// Does this backend support upserts using `MERGE`?
+    ///
+    /// Note that you will need to create the table with options specified
+    /// by [`Self::table_options_for_merge`] to make `MERGE` work.
+    ///
+    /// Note that it may be possible to use upserts by setting table-specific
+    /// options. Also note that upserts probably require rewriting the complete
+    /// stored table on disk. They tend to be proportional to the total stored
+    /// data size, not the size of the changed/inserted rows, unless the backend
+    /// supports indices (unlikely) or some kind of partitioning scheme (which
+    /// you should carefully verify manually).
+    pub fn supports_merge(&self) -> bool {
+        match self {
+            // Use `WITH(format = 'ORC', transactional=true)` to make `MERGE`
+            // work with Hive.
+            TrinoConnectorType::Hive => true,
+            TrinoConnectorType::Iceberg => true,
+            TrinoConnectorType::Memory => false,
+        }
+    }
+
+    /// What table options, if any, are needed to make `MERGE` work?
+    pub fn table_options_for_merge(&self) -> TableOptions {
+        let mut options = HashMap::new();
+        match self {
+            TrinoConnectorType::Hive => {
+                options.insert(
+                    TrinoIdent::new("format").expect("bad ident"),
+                    TableOptionValue::String("ORC".to_string()),
+                );
+                options.insert(
+                    TrinoIdent::new("transactional").expect("bad ident"),
+                    TableOptionValue::Boolean(true),
+                );
+            }
+            TrinoConnectorType::Iceberg => {
+                // No special options needed.
+            }
+            TrinoConnectorType::Memory => {
+                // Not supported anyway.
+            }
+        }
+        TableOptions(options)
     }
 
     /// Does this backend support anonymous `ROW` fields?
@@ -129,7 +189,7 @@ impl TrinoConnectorType {
                 StorageTransform::JsonAsVarchar
             }
             (TrinoConnectorType::Iceberg, TrinoDataType::SphericalGeography) => {
-                StorageTransform::SphericalGeographyAsVarchar
+                StorageTransform::SphericalGeographyAsWkt
             }
 
             // Hive.
@@ -146,7 +206,7 @@ impl TrinoConnectorType {
             (
                 TrinoConnectorType::Hive,
                 TrinoDataType::TimestampWithTimeZone { .. },
-            ) => StorageTransform::TimestampWithTimeZoneAsTimezone {
+            ) => StorageTransform::TimestampWithTimeZoneAsTimestamp {
                 stored_precision: 3,
             },
             (TrinoConnectorType::Hive, TrinoDataType::Json) => {
@@ -156,7 +216,7 @@ impl TrinoConnectorType {
                 StorageTransform::UuidAsVarchar
             }
             (TrinoConnectorType::Hive, TrinoDataType::SphericalGeography) => {
-                StorageTransform::SphericalGeographyAsVarchar
+                StorageTransform::SphericalGeographyAsWkt
             }
 
             // Recursive types.
@@ -210,6 +270,122 @@ impl fmt::Display for TrinoConnectorType {
             TrinoConnectorType::Hive => "hive".fmt(f),
             TrinoConnectorType::Iceberg => "iceberg".fmt(f),
             TrinoConnectorType::Memory => "memory".fmt(f),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test::client::Client;
+
+    use super::*;
+
+    /// Drop a table if it exists.
+    async fn drop_table_if_exists(client: &Client, table_name: &str) {
+        let drop_table_sql = format!("DROP TABLE IF EXISTS {}", table_name);
+        client
+            .run_statement(&drop_table_sql)
+            .await
+            .expect("could not drop table");
+    }
+
+    #[tokio::test]
+    async fn test_supports_not_null_constraint() {
+        let client = Client::default();
+        for connector in TrinoConnectorType::all() {
+            // If the connector doesn't support `NOT NULL`, we don't need
+            // to test it.
+            if !connector.supports_not_null_constraint() {
+                continue;
+            }
+
+            let table_name =
+                connector.test_table_name("test_supports_not_null_constraint");
+            drop_table_if_exists(&client, &table_name).await;
+
+            let create_table_sql =
+                format!("CREATE TABLE {} (x INT NOT NULL)", table_name);
+            eprintln!("create_table_sql: {}", create_table_sql);
+            client
+                .run_statement(&create_table_sql)
+                .await
+                .expect("could not create table");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_supports_replace_table() {
+        let client = Client::default();
+        for connector in TrinoConnectorType::all() {
+            // If the connector doesn't support `OR REPLACE`, we don't need
+            // to test it.
+            if !connector.supports_replace_table() {
+                continue;
+            }
+
+            let table_name = connector.test_table_name("test_supports_replace_table");
+            drop_table_if_exists(&client, &table_name).await;
+
+            let create_table_sql = format!("CREATE TABLE {} (x INT)", table_name);
+            eprintln!("create_table_sql: {}", create_table_sql);
+            client
+                .run_statement(&create_table_sql)
+                .await
+                .expect("could not create table");
+
+            let create_or_replace_table_sql =
+                format!("CREATE OR REPLACE TABLE {} (x INT)", table_name);
+            eprintln!(
+                "create_or_replace_table_sql: {}",
+                create_or_replace_table_sql
+            );
+            client
+                .run_statement(&create_or_replace_table_sql)
+                .await
+                .expect("could not create or replace table");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_supports_merge() {
+        let client = Client::default();
+        for connector in TrinoConnectorType::all() {
+            // If the connector doesn't support upserts, we don't need to test
+            // it.
+            if !connector.supports_merge() {
+                continue;
+            }
+
+            let table_name = connector.test_table_name("test_supports_merge");
+            drop_table_if_exists(&client, &table_name).await;
+
+            let table_options = connector.table_options_for_merge();
+
+            let create_table_sql = format!(
+                "CREATE TABLE {} (id INT, name VARCHAR){}",
+                table_name, table_options,
+            );
+            eprintln!("create_table_sql: {}", create_table_sql);
+            client
+                .run_statement(&create_table_sql)
+                .await
+                .expect("could not create table");
+
+            // Try a merge statement. We don't test the result of the merge
+            // yet, just that the connector claims to run it.
+            let merge_sql = format!(
+                "MERGE INTO {} AS target
+                    USING (SELECT 1 AS id, 'Alice' AS name) AS source
+                    ON target.id = source.id
+                    WHEN MATCHED THEN UPDATE SET name = source.name
+                    WHEN NOT MATCHED THEN INSERT (id, name) VALUES (source.id, source.name)",
+                table_name
+            );
+            eprintln!("merge_sql: {}", merge_sql);
+            client
+                .run_statement(&merge_sql)
+                .await
+                .expect("could not merge");
         }
     }
 }

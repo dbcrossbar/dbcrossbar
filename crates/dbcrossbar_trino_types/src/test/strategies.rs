@@ -39,9 +39,10 @@ fn any_decimal(precision: u32, scale: u32) -> BoxedStrategy<TrinoValue> {
 /// is narrower than the full range of [`NaiveDateTime`] in a number of ways:
 ///
 /// 1. Trino does not support leap seconds.
-/// 2. Athena and Hive seem to dislike timestamps before 1970.
-fn any_timestamp() -> impl Strategy<Value = NaiveDateTime> {
-    (1970i32..=3500, 1u32..=12).prop_flat_map(|(year, month)| {
+/// 2. Athena might dislike timestamps before 1970 in certain circumstances, but
+///    we don't work around that here.
+fn any_trino_compatible_timestamp() -> impl Strategy<Value = NaiveDateTime> {
+    (1900i32..=3500, 1u32..=12).prop_flat_map(|(year, month)| {
         let day = 1..=days_per_month(year, month);
         let hour = 0u32..=23;
         let minute = 0u32..=59;
@@ -65,12 +66,15 @@ fn any_timestamp() -> impl Strategy<Value = NaiveDateTime> {
 /// all the ways that [`arb_timestamp`] is, plus:
 ///
 /// 1. Time zone offsets seem to be limited to -14:00 to +14:00.
-fn any_timestamp_with_time_zone() -> impl Strategy<Value = DateTime<FixedOffset>> {
-    (any_timestamp(), -14 * 60..=14 * 60).prop_map(|(timestamp, offset_minutes)| {
-        let offset = FixedOffset::east_opt(offset_minutes * 60)
-            .expect("could not construct a valid time zone offset");
-        DateTime::from_naive_utc_and_offset(timestamp, offset)
-    })
+fn any_trino_compatible_timestamp_with_time_zone(
+) -> impl Strategy<Value = DateTime<FixedOffset>> {
+    (any_trino_compatible_timestamp(), -14 * 60..=14 * 60).prop_map(
+        |(timestamp, offset_minutes)| {
+            let offset = FixedOffset::east_opt(offset_minutes * 60)
+                .expect("could not construct a valid time zone offset");
+            DateTime::from_naive_utc_and_offset(timestamp, offset)
+        },
+    )
 }
 
 /// Generate an arbitrary [`serde_json::Value`]. There are crates that can
@@ -79,6 +83,7 @@ fn any_json() -> impl Strategy<Value = Value> {
     let leaf = prop_oneof![
         Just(Value::Null),
         any::<bool>().prop_map(Value::Bool),
+        any::<u64>().prop_map(Value::from),
         any::<i64>().prop_map(Value::from),
         any::<f64>().prop_map(Value::from),
         any::<String>().prop_map(Value::String),
@@ -152,11 +157,15 @@ impl ArbValue for TrinoDataType {
                 .prop_filter(LEAP_SECONDS_NOT_SUPPORTED, |t| !is_leap_second(t))
                 .prop_map(move |t| TrinoValue::Time(round_timelike(t, precision)))
                 .boxed(),
-            &TrinoDataType::Timestamp { precision } => any_timestamp()
-                .prop_map(move |t| TrinoValue::Timestamp(round_timelike(t, precision)))
-                .boxed(),
+            &TrinoDataType::Timestamp { precision } => {
+                any_trino_compatible_timestamp()
+                    .prop_map(move |t| {
+                        TrinoValue::Timestamp(round_timelike(t, precision))
+                    })
+                    .boxed()
+            }
             &TrinoDataType::TimestampWithTimeZone { precision } => {
-                any_timestamp_with_time_zone()
+                any_trino_compatible_timestamp_with_time_zone()
                     .prop_map(move |t| {
                         TrinoValue::TimestampWithTimeZone(round_timelike(t, precision))
                     })

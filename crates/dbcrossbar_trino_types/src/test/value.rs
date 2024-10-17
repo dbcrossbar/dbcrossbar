@@ -7,7 +7,7 @@ use serde_json::Value;
 use uuid::Uuid;
 use wkt::ToWkt;
 
-use crate::TrinoDataType;
+use crate::{QuotedString, TrinoDataType};
 
 /// A Trino value of one of our supported types.
 #[derive(Debug, Clone)]
@@ -58,6 +58,9 @@ impl TrinoValue {
                 }
             }
 
+            // I would expect `TrinoValue::Row` to be handled as follows, but
+            // there are very strange cases where Trino
+            //
             TrinoValue::Row { values, lit_type } => {
                 if lit_type.is_row_with_named_fields()
                     || values
@@ -70,6 +73,7 @@ impl TrinoValue {
                 }
             }
 
+            // TrinoValue::Row { lit_type, .. } => Some(lit_type),
             _ => None,
         }
     }
@@ -175,14 +179,5 @@ impl fmt::Display for TrinoValue {
             write!(f, " AS {})", data_type)?;
         }
         Ok(())
-    }
-}
-
-/// Formatting wrapper for quoted strings.
-struct QuotedString<'a>(&'a str);
-
-impl<'a> fmt::Display for QuotedString<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "'{}'", self.0.replace("'", "''"))
     }
 }

@@ -9,14 +9,16 @@ use crate::{TrinoDataType, TrinoField, TrinoIdent};
 ///
 /// This is necessary because Trino's storage backends are often much less
 /// capable than Trino itself.
+#[derive(Clone, Debug)]
+#[non_exhaustive]
 pub enum StorageTransform {
     Identity,
     JsonAsVarchar,
     UuidAsVarchar,
-    SphericalGeographyAsVarchar,
+    SphericalGeographyAsWkt,
     SmallerIntAsInt,
     TimeAsVarchar,
-    TimestampWithTimeZoneAsTimezone {
+    TimestampWithTimeZoneAsTimestamp {
         stored_precision: u32,
     },
     TimeWithPrecision {
@@ -84,7 +86,7 @@ impl StorageTransform {
                 assert!(matches!(*ty, TrinoDataType::Uuid));
                 TrinoDataType::varchar()
             }
-            StorageTransform::SphericalGeographyAsVarchar => {
+            StorageTransform::SphericalGeographyAsWkt => {
                 assert!(matches!(*ty, TrinoDataType::SphericalGeography));
                 TrinoDataType::varchar()
             }
@@ -99,16 +101,16 @@ impl StorageTransform {
                 assert!(matches!(*ty, TrinoDataType::Time { .. }));
                 TrinoDataType::varchar()
             }
-            StorageTransform::TimestampWithTimeZoneAsTimezone { stored_precision } => {
-                match ty {
-                    TrinoDataType::TimestampWithTimeZone { .. } => {
-                        TrinoDataType::Timestamp {
-                            precision: *stored_precision,
-                        }
+            StorageTransform::TimestampWithTimeZoneAsTimestamp {
+                stored_precision,
+            } => match ty {
+                TrinoDataType::TimestampWithTimeZone { .. } => {
+                    TrinoDataType::Timestamp {
+                        precision: *stored_precision,
                     }
-                    _ => panic!("expected TimestampWithTimeZone"),
                 }
-            }
+                _ => panic!("expected TimestampWithTimeZone"),
+            },
             StorageTransform::TimeWithPrecision { stored_precision } => {
                 assert!(matches!(*ty, TrinoDataType::Time { .. }));
                 TrinoDataType::Time {
@@ -183,14 +185,22 @@ impl StorageTransform {
                 write!(f, "JSON_FORMAT({})", expr)
             }
 
-            StorageTransform::SphericalGeographyAsVarchar => {
-                // TODO: GeoJSON or WKT?
-                write!(f, "TO_GEOJSON_GEOMETRY({})", expr)
+            StorageTransform::SphericalGeographyAsWkt => {
+                // After careful consideration and a poll, I've decided to use
+                // WKT here:
+                //
+                // 1. It's the format Trino uses output geography types,
+                //    including in error messages and on the wire.
+                // 2. Prior to compression, it seems to be about half the size
+                //    of GeoJSON.
+                write!(f, "ST_AsText(to_geometry({}))", expr)
             }
             StorageTransform::SmallerIntAsInt => {
                 write!(f, "CAST({} AS INT)", expr)
             }
-            StorageTransform::TimestampWithTimeZoneAsTimezone { stored_precision } => {
+            StorageTransform::TimestampWithTimeZoneAsTimestamp {
+                stored_precision,
+            } => {
                 write!(
                     f,
                     "CAST(({} AT TIME ZONE '+00:00') AS TIMESTAMP({}))",
@@ -214,12 +224,9 @@ impl StorageTransform {
             }
             StorageTransform::Array { element_transform } => {
                 // We need to use `TRANSFORM` to handle each array element.
-                write!(
-                    f,
-                    "TRANSFORM({}, x -> {})",
-                    expr,
-                    StoreTransformExpr(element_transform, &"x")
-                )
+                write!(f, "TRANSFORM({}, x -> ", expr)?;
+                element_transform.fmt_store_transform_expr(f, &"x")?;
+                write!(f, ")")
             }
             StorageTransform::Row {
                 name_anonymous_fields: _,
@@ -238,7 +245,7 @@ impl StorageTransform {
                         FieldName::Named(ident) => format!("x.{}", ident),
                         FieldName::Indexed(idx) => format!("x[{}]", idx),
                     };
-                    write!(f, "{}", StoreTransformExpr(&ft.transform, &field_expr))?;
+                    ft.transform.fmt_store_transform_expr(f, &field_expr)?;
                 }
                 write!(f, "))[1]")
             }
@@ -252,10 +259,10 @@ impl StorageTransform {
             StorageTransform::Identity => false,
             StorageTransform::JsonAsVarchar => false,
             StorageTransform::UuidAsVarchar => false,
-            StorageTransform::SphericalGeographyAsVarchar => false,
+            StorageTransform::SphericalGeographyAsWkt => false,
             StorageTransform::SmallerIntAsInt => true,
             StorageTransform::TimeAsVarchar => true,
-            StorageTransform::TimestampWithTimeZoneAsTimezone { .. } => true,
+            StorageTransform::TimestampWithTimeZoneAsTimestamp { .. } => true,
             StorageTransform::TimeWithPrecision { .. } => true,
             StorageTransform::TimestampWithPrecision { .. } => true,
             StorageTransform::TimestampWithTimeZoneWithPrecision { .. } => true,
@@ -289,8 +296,8 @@ impl StorageTransform {
             StorageTransform::UuidAsVarchar => {
                 write!(f, "CAST({} AS UUID)", expr)
             }
-            StorageTransform::SphericalGeographyAsVarchar => {
-                write!(f, "FROM_GEOJSON_GEOMETRY({})", expr)
+            StorageTransform::SphericalGeographyAsWkt => {
+                write!(f, "to_spherical_geography(ST_GeometryFromText({}))", expr)
             }
             StorageTransform::SmallerIntAsInt => {
                 write!(f, "{}", expr)
@@ -298,7 +305,7 @@ impl StorageTransform {
             StorageTransform::TimeAsVarchar => {
                 write!(f, "{}", expr)
             }
-            StorageTransform::TimestampWithTimeZoneAsTimezone { .. } => {
+            StorageTransform::TimestampWithTimeZoneAsTimestamp { .. } => {
                 write!(f, "({} AT TIME ZONE '+00:00')", expr)
             }
             StorageTransform::TimeWithPrecision { .. } => {
@@ -356,17 +363,36 @@ pub enum FieldName {
 }
 
 /// A storage transform for a field in a row.
+#[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct FieldStorageTransform {
     pub name: FieldName,
     pub transform: StorageTransform,
 }
 
 /// Format a store operation with any necessary transform.
-pub struct StoreTransformExpr<'a, D: fmt::Display>(&'a StorageTransform, &'a D);
+pub struct StoreTransformExpr<'a, D: fmt::Display>(
+    &'a StorageTransform,
+    &'a D,
+    &'a TrinoDataType,
+);
 
 impl<'a, D: fmt::Display> std::fmt::Display for StoreTransformExpr<'a, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.0.fmt_store_transform_expr(f, self.1)
+        let storage_type = self.0.storage_type_for(self.2);
+        if self.0.is_identity() {
+            write!(f, "{}", self.1)
+        } else {
+            // We need this cast because _Trino_ can deal with very slight type
+            // mismatches (such as storing as `INTEGER` in a `SMALLINT` column),
+            // but some of the connectors can only handle these mismatches
+            // _almost_ all the time, but then fail on very specific types like
+            // `ROW(VARCHAR(1), SMALLINT)` (while working fine for `ROW(VARCHAR,
+            // SMALLINT)`, `ROW(VARCHAR(1))` and `ROW(SMALLINT)`).
+            write!(f, "CAST(")?;
+            self.0.fmt_store_transform_expr(f, self.1)?;
+            write!(f, " AS {})", storage_type)
+        }
     }
 }
 
@@ -425,17 +451,8 @@ mod tests {
         // Create our client.
         let client = Client::default();
 
-        // We need unique table names for each connector, becauae some
-        // of them are actually implemented on top of others and share a
-        // table namespace. For example, `hive.default.x` and `iceberg.default.x`
-        // would conflict.
-        let table_name = format!(
-            "{}.{}.{}_{}",
-            connector.test_catalog(),
-            connector.test_schema(),
-            test_name,
-            connector
-        );
+        // Get a table name for this test.
+        let table_name = connector.test_table_name(test_name);
 
         // Drop our test table if it exists.
         client
@@ -457,12 +474,12 @@ mod tests {
             .await
             .expect("could not create table");
 
-        // Insert a value into the table. We use SELECT to hitting
+        // Insert a value into the table. We use SELECT to avoid hitting
         // https://github.com/trinodb/trino/discussions/16457.
         let insert_sql = format!(
             "INSERT INTO {} SELECT {} AS x",
             table_name,
-            StoreTransformExpr(&storage_transform, &value)
+            StoreTransformExpr(&storage_transform, &value, &trino_ty)
         );
         eprintln!("insert_sql: {}", insert_sql);
         client
@@ -647,14 +664,54 @@ mod tests {
         use TrinoValue as Tv;
 
         // Some regressions we've seen in the past.
-        let regressions = &[(
-            Hive,
-            Tv::SphericalGeography(Geometry::Point(Point(Coord {
-                x: 114.85827585275118,
-                y: 0.0,
-            }))),
-            Ty::SphericalGeography,
-        )];
+        let regressions = &[
+            (
+                Hive,
+                Tv::SphericalGeography(Geometry::Point(Point(Coord {
+                    x: 114.85827585275118,
+                    y: 0.0,
+                }))),
+                Ty::SphericalGeography,
+            ),
+            (
+                Hive,
+                Tv::Timestamp(
+                    NaiveDate::from_ymd_opt(1900, 1, 1)
+                        .unwrap()
+                        .and_hms_opt(1, 2, 3)
+                        .unwrap(),
+                ),
+                Ty::Timestamp { precision: 6 },
+            ),
+            {
+                // This is a super-weird failure. Almost every part of the code
+                // below was required to trigger it. Either field by itself
+                // won't. `VARCHAR` with no length constraint won't. `SMALLINT`
+                // can be replaced with `TINYINT`, and it will still trigger.
+                let lit_type = Ty::Row(vec![
+                    TrinoField {
+                        name: None,
+                        data_type: Ty::Varchar { length: Some(1) },
+                    },
+                    TrinoField {
+                        name: None,
+                        data_type: Ty::SmallInt,
+                    },
+                ]);
+                (
+                    Hive,
+                    Tv::Row {
+                        values: vec![
+                            // So weird.
+                            Tv::Varchar("".to_string()),
+                            Tv::SmallInt(0),
+                        ],
+                        lit_type: lit_type.clone(),
+                    },
+                    lit_type,
+                )
+            },
+        ];
 
         for (connector, value, trino_ty) in regressions {
             test_storage_transform_roundtrip_helper(
