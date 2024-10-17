@@ -1,0 +1,27 @@
+[package]
+name = "dbcrossbar_trino_types"
+version = "0.1.0"
+edition = "2021"
+
+[dev-dependencies]
+base64 = "0.22.1"
+chrono = { version = "0.4.38", features = ["arbitrary"] }
+float-cmp = "0.10.0"
+geojson = { version = "0.24.1", features = ["geo-types"] }
+geo-types = "0.7.13"
+proptest = "1.5.0"
+proptest-arbitrary-interop = "0.1.0"
+proptest-derive = "0.5.0"
+prusto = "0.5.1"
+reqwest = { version = "0.12.8", default-features = false, features = [
+    "http2",
+    "json",
+] }
+round = "0.1.2"
+serde = { version = "1.0.210", features = [] }
+serde_json = "1.0.128"
+tokio = { version = "1.16", features = ["time"] }
+uuid = { version = "1.10.0", features = ["arbitrary"] }
+wkt = "0.11.1"
+
+[dependencies]
