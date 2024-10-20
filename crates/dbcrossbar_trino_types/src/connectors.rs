@@ -10,7 +10,9 @@ use proptest_derive::Arbitrary;
 
 use crate::{
     errors::ConnectorError,
-    transforms::{FieldName, FieldStorageTransform, StorageTransform},
+    transforms::{
+        FieldName, FieldStorageTransform, StorageTransform, TypeStorageTransform,
+    },
     TableOptionValue, TableOptions, TrinoIdent,
 };
 
@@ -21,10 +23,6 @@ use super::TrinoDataType;
 /// backends that support, while leaving them out where they'd cause an error.
 /// `dbcrossbar`'s goal is always to produce the best representation it can, but
 /// there's no one perfect answer for all Trino connectors.
-///
-/// If you add a new connector type here, you should also update the integration
-/// test `trino_connector_types_downgrade_as_needed` to make sure we can
-/// actually copy data into it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(test, derive(Arbitrary))]
 #[allow(missing_docs)]
@@ -158,23 +156,29 @@ impl TrinoConnectorType {
 
     /// How should we transform a given data type for storage in this backend?
     pub fn storage_transform_for(&self, ty: &TrinoDataType) -> StorageTransform {
+        let type_storage_transform = self.type_storage_transform_for(ty);
+        StorageTransform::new(ty.clone(), type_storage_transform)
+    }
+
+    /// Internal recursive helper for [`Self::storage_transform_for`].
+    fn type_storage_transform_for(&self, ty: &TrinoDataType) -> TypeStorageTransform {
         match (self, ty) {
             // Iceberg.
             (
                 TrinoConnectorType::Iceberg,
                 TrinoDataType::TinyInt | TrinoDataType::SmallInt,
-            ) => StorageTransform::SmallerIntAsInt,
+            ) => TypeStorageTransform::SmallerIntAsInt,
             (TrinoConnectorType::Iceberg, TrinoDataType::Time { precision })
                 if *precision != 6 =>
             {
-                StorageTransform::TimeWithPrecision {
+                TypeStorageTransform::TimeWithPrecision {
                     stored_precision: 6,
                 }
             }
             (TrinoConnectorType::Iceberg, TrinoDataType::Timestamp { precision })
                 if *precision != 6 =>
             {
-                StorageTransform::TimestampWithPrecision {
+                TypeStorageTransform::TimestampWithPrecision {
                     stored_precision: 6,
                 }
             }
@@ -182,50 +186,50 @@ impl TrinoConnectorType {
                 TrinoConnectorType::Iceberg,
                 TrinoDataType::TimestampWithTimeZone { precision },
             ) if *precision != 6 => {
-                StorageTransform::TimestampWithTimeZoneWithPrecision {
+                TypeStorageTransform::TimestampWithTimeZoneWithPrecision {
                     stored_precision: 6,
                 }
             }
             (TrinoConnectorType::Iceberg, TrinoDataType::Json) => {
-                StorageTransform::JsonAsVarchar
+                TypeStorageTransform::JsonAsVarchar
             }
             (TrinoConnectorType::Iceberg, TrinoDataType::SphericalGeography) => {
-                StorageTransform::SphericalGeographyAsWkt
+                TypeStorageTransform::SphericalGeographyAsWkt
             }
 
             // Hive.
             (TrinoConnectorType::Hive, TrinoDataType::Time { .. }) => {
-                StorageTransform::TimeAsVarchar
+                TypeStorageTransform::TimeAsVarchar
             }
             (TrinoConnectorType::Hive, TrinoDataType::Timestamp { precision })
                 if *precision != 3 =>
             {
-                StorageTransform::TimestampWithPrecision {
+                TypeStorageTransform::TimestampWithPrecision {
                     stored_precision: 3,
                 }
             }
             (
                 TrinoConnectorType::Hive,
                 TrinoDataType::TimestampWithTimeZone { .. },
-            ) => StorageTransform::TimestampWithTimeZoneAsTimestamp {
+            ) => TypeStorageTransform::TimestampWithTimeZoneAsTimestamp {
                 stored_precision: 3,
             },
             (TrinoConnectorType::Hive, TrinoDataType::Json) => {
-                StorageTransform::JsonAsVarchar
+                TypeStorageTransform::JsonAsVarchar
             }
             (TrinoConnectorType::Hive, TrinoDataType::Uuid) => {
-                StorageTransform::UuidAsVarchar
+                TypeStorageTransform::UuidAsVarchar
             }
             (TrinoConnectorType::Hive, TrinoDataType::SphericalGeography) => {
-                StorageTransform::SphericalGeographyAsWkt
+                TypeStorageTransform::SphericalGeographyAsWkt
             }
 
             // Recursive types.
-            (_, TrinoDataType::Array(elem_ty)) => StorageTransform::Array {
-                element_transform: Box::new(self.storage_transform_for(elem_ty)),
+            (_, TrinoDataType::Array(elem_ty)) => TypeStorageTransform::Array {
+                element_transform: Box::new(self.type_storage_transform_for(elem_ty)),
             }
             .simplify_top_level(),
-            (_, TrinoDataType::Row(fields)) => StorageTransform::Row {
+            (_, TrinoDataType::Row(fields)) => TypeStorageTransform::Row {
                 name_anonymous_fields: !self.supports_anonymous_row_fields(),
                 field_transforms: fields
                     .iter()
@@ -235,20 +239,15 @@ impl TrinoConnectorType {
                             Some(name) => FieldName::Named(name.clone()),
                             None => FieldName::Indexed(idx + 1),
                         },
-                        transform: self.storage_transform_for(&field.data_type),
+                        transform: self.type_storage_transform_for(&field.data_type),
                     })
                     .collect(),
             }
             .simplify_top_level(),
 
             // Start with just the identity transform until we have more tests.
-            _ => StorageTransform::Identity,
+            _ => TypeStorageTransform::Identity,
         }
-    }
-
-    /// What type should we use to store the given type in this backend?
-    pub fn storage_type_for(&self, ty: &TrinoDataType) -> TrinoDataType {
-        self.storage_transform_for(ty).storage_type_for(ty)
     }
 }
 

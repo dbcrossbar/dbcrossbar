@@ -10,8 +10,51 @@ use crate::{TrinoDataType, TrinoField, TrinoIdent};
 /// This is necessary because Trino's storage backends are often much less
 /// capable than Trino itself.
 #[derive(Clone, Debug)]
+pub struct StorageTransform {
+    /// The original type.
+    original_type: TrinoDataType,
+
+    /// The storage type.
+    storage_type: TrinoDataType,
+
+    /// How to transform this type for storage.
+    transform: TypeStorageTransform,
+}
+
+impl StorageTransform {
+    /// Create a new storage transform.
+    pub(crate) fn new(
+        original_type: TrinoDataType,
+        transform: TypeStorageTransform,
+    ) -> Self {
+        let storage_type = transform.storage_type_for(&original_type);
+        Self {
+            original_type,
+            storage_type,
+            transform,
+        }
+    }
+
+    /// Is this the identity transform?
+    pub fn is_identity(&self) -> bool {
+        self.transform.is_identity()
+    }
+
+    /// The original type, before any transformation.
+    pub fn original_type(&self) -> &TrinoDataType {
+        &self.original_type
+    }
+
+    /// What storage type should we use for this type?
+    pub fn storage_type(&self) -> &TrinoDataType {
+        &self.storage_type
+    }
+}
+
+/// Internal helper for `StorageTransform`.
+#[derive(Clone, Debug)]
 #[non_exhaustive]
-pub enum StorageTransform {
+pub(crate) enum TypeStorageTransform {
     Identity,
     JsonAsVarchar,
     UuidAsVarchar,
@@ -31,7 +74,7 @@ pub enum StorageTransform {
         stored_precision: u32,
     },
     Array {
-        element_transform: Box<StorageTransform>,
+        element_transform: Box<TypeStorageTransform>,
     },
     Row {
         /// Should we name anonymous fields? (Not all back ends support anonymous
@@ -41,10 +84,10 @@ pub enum StorageTransform {
     },
 }
 
-impl StorageTransform {
+impl TypeStorageTransform {
     /// Is this the identity transform?
-    pub fn is_identity(&self) -> bool {
-        matches!(self, StorageTransform::Identity)
+    fn is_identity(&self) -> bool {
+        matches!(self, TypeStorageTransform::Identity)
     }
 
     /// Simplify the storage transform by seeing if we can reduce the
@@ -53,20 +96,20 @@ impl StorageTransform {
         match self {
             // We can simplify an `Array` if the element transform simplifies to
             // `Identity`.
-            StorageTransform::Array { element_transform }
+            TypeStorageTransform::Array { element_transform }
                 if element_transform.is_identity() =>
             {
-                StorageTransform::Identity
+                TypeStorageTransform::Identity
             }
 
             // We can't simplify away a `Row` if we need to name fields.
-            StorageTransform::Row {
+            TypeStorageTransform::Row {
                 name_anonymous_fields,
                 field_transforms,
             } if !name_anonymous_fields
                 && field_transforms.iter().all(|ft| ft.transform.is_identity()) =>
             {
-                StorageTransform::Identity
+                TypeStorageTransform::Identity
             }
 
             // Everything else is already simplified.
@@ -77,31 +120,31 @@ impl StorageTransform {
     /// Return the type used to store the given type.
     pub(crate) fn storage_type_for(&self, ty: &TrinoDataType) -> TrinoDataType {
         match self {
-            StorageTransform::Identity => ty.clone(),
-            StorageTransform::JsonAsVarchar => {
+            TypeStorageTransform::Identity => ty.clone(),
+            TypeStorageTransform::JsonAsVarchar => {
                 assert!(matches!(*ty, TrinoDataType::Json));
                 TrinoDataType::varchar()
             }
-            StorageTransform::UuidAsVarchar => {
+            TypeStorageTransform::UuidAsVarchar => {
                 assert!(matches!(*ty, TrinoDataType::Uuid));
                 TrinoDataType::varchar()
             }
-            StorageTransform::SphericalGeographyAsWkt => {
+            TypeStorageTransform::SphericalGeographyAsWkt => {
                 assert!(matches!(*ty, TrinoDataType::SphericalGeography));
                 TrinoDataType::varchar()
             }
-            StorageTransform::SmallerIntAsInt => {
+            TypeStorageTransform::SmallerIntAsInt => {
                 assert!(matches!(
                     *ty,
                     TrinoDataType::TinyInt | TrinoDataType::SmallInt
                 ));
                 TrinoDataType::Int
             }
-            StorageTransform::TimeAsVarchar => {
+            TypeStorageTransform::TimeAsVarchar => {
                 assert!(matches!(*ty, TrinoDataType::Time { .. }));
                 TrinoDataType::varchar()
             }
-            StorageTransform::TimestampWithTimeZoneAsTimestamp {
+            TypeStorageTransform::TimestampWithTimeZoneAsTimestamp {
                 stored_precision,
             } => match ty {
                 TrinoDataType::TimestampWithTimeZone { .. } => {
@@ -111,19 +154,19 @@ impl StorageTransform {
                 }
                 _ => panic!("expected TimestampWithTimeZone"),
             },
-            StorageTransform::TimeWithPrecision { stored_precision } => {
+            TypeStorageTransform::TimeWithPrecision { stored_precision } => {
                 assert!(matches!(*ty, TrinoDataType::Time { .. }));
                 TrinoDataType::Time {
                     precision: *stored_precision,
                 }
             }
-            StorageTransform::TimestampWithPrecision { stored_precision } => {
+            TypeStorageTransform::TimestampWithPrecision { stored_precision } => {
                 assert!(matches!(*ty, TrinoDataType::Timestamp { .. }));
                 TrinoDataType::Timestamp {
                     precision: *stored_precision,
                 }
             }
-            StorageTransform::TimestampWithTimeZoneWithPrecision {
+            TypeStorageTransform::TimestampWithTimeZoneWithPrecision {
                 stored_precision,
             } => {
                 assert!(matches!(*ty, TrinoDataType::TimestampWithTimeZone { .. }));
@@ -131,13 +174,13 @@ impl StorageTransform {
                     precision: *stored_precision,
                 }
             }
-            StorageTransform::Array { element_transform } => match ty {
+            TypeStorageTransform::Array { element_transform } => match ty {
                 TrinoDataType::Array(elem_ty) => TrinoDataType::Array(Box::new(
                     element_transform.storage_type_for(elem_ty),
                 )),
                 _ => panic!("expected Array"),
             },
-            StorageTransform::Row {
+            TypeStorageTransform::Row {
                 name_anonymous_fields: name_anoymous_fields,
                 field_transforms,
                 ..
@@ -171,17 +214,17 @@ impl StorageTransform {
     /// can, to make the generated code slightly easier to debug.
     fn requires_cast_on_store(&self) -> bool {
         match self {
-            StorageTransform::Identity => false,
-            StorageTransform::JsonAsVarchar => false,
-            StorageTransform::UuidAsVarchar => true,
-            StorageTransform::SphericalGeographyAsWkt => false,
-            StorageTransform::SmallerIntAsInt => true,
-            StorageTransform::TimeAsVarchar => true,
-            StorageTransform::TimestampWithTimeZoneAsTimestamp { .. } => false,
-            StorageTransform::TimeWithPrecision { .. } => true,
-            StorageTransform::TimestampWithPrecision { .. } => true,
-            StorageTransform::TimestampWithTimeZoneWithPrecision { .. } => true,
-            StorageTransform::Array { element_transform } => {
+            TypeStorageTransform::Identity => false,
+            TypeStorageTransform::JsonAsVarchar => false,
+            TypeStorageTransform::UuidAsVarchar => true,
+            TypeStorageTransform::SphericalGeographyAsWkt => false,
+            TypeStorageTransform::SmallerIntAsInt => true,
+            TypeStorageTransform::TimeAsVarchar => true,
+            TypeStorageTransform::TimestampWithTimeZoneAsTimestamp { .. } => false,
+            TypeStorageTransform::TimeWithPrecision { .. } => true,
+            TypeStorageTransform::TimestampWithPrecision { .. } => true,
+            TypeStorageTransform::TimestampWithTimeZoneWithPrecision { .. } => true,
+            TypeStorageTransform::Array { element_transform } => {
                 element_transform.requires_cast_on_store()
             }
             // Rows may require casting, even if none of the fields do. For
@@ -190,7 +233,7 @@ impl StorageTransform {
             // Memory backend. But if only one of those two columns is present,
             // the cast happens implicitly. So, for example, `ROW(VARCHAR,
             // SMALLINT)`, `ROW(VARCHAR(1))` and `ROW(SMALLINT)` all work fine.
-            StorageTransform::Row { .. } => true,
+            TypeStorageTransform::Row { .. } => true,
         }
     }
 
@@ -204,21 +247,21 @@ impl StorageTransform {
         match self {
             // These can either be stored as-is, or any conversion they need will
             // be taken care of by the outermost `CAST`.
-            StorageTransform::Identity
-            | StorageTransform::UuidAsVarchar
-            | StorageTransform::TimeAsVarchar
-            | StorageTransform::SmallerIntAsInt
-            | StorageTransform::TimeWithPrecision { .. }
-            | StorageTransform::TimestampWithPrecision { .. }
-            | StorageTransform::TimestampWithTimeZoneWithPrecision { .. } => {
+            TypeStorageTransform::Identity
+            | TypeStorageTransform::UuidAsVarchar
+            | TypeStorageTransform::TimeAsVarchar
+            | TypeStorageTransform::SmallerIntAsInt
+            | TypeStorageTransform::TimeWithPrecision { .. }
+            | TypeStorageTransform::TimestampWithPrecision { .. }
+            | TypeStorageTransform::TimestampWithTimeZoneWithPrecision { .. } => {
                 write!(f, "{}", expr)
             }
 
-            StorageTransform::JsonAsVarchar => {
+            TypeStorageTransform::JsonAsVarchar => {
                 write!(f, "JSON_FORMAT({})", expr)
             }
 
-            StorageTransform::SphericalGeographyAsWkt => {
+            TypeStorageTransform::SphericalGeographyAsWkt => {
                 // After careful consideration and a poll, I've decided to use
                 // WKT here:
                 //
@@ -228,7 +271,7 @@ impl StorageTransform {
                 //    of GeoJSON.
                 write!(f, "ST_AsText(to_geometry({}))", expr)
             }
-            StorageTransform::TimestampWithTimeZoneAsTimestamp {
+            TypeStorageTransform::TimestampWithTimeZoneAsTimestamp {
                 stored_precision,
             } => {
                 write!(
@@ -237,13 +280,13 @@ impl StorageTransform {
                     expr, stored_precision
                 )
             }
-            StorageTransform::Array { element_transform } => {
+            TypeStorageTransform::Array { element_transform } => {
                 // We need to use `TRANSFORM` to handle each array element.
                 write!(f, "TRANSFORM({}, x -> ", expr)?;
                 element_transform.fmt_store_transform_expr(f, &"x")?;
                 write!(f, ")")
             }
-            StorageTransform::Row {
+            TypeStorageTransform::Row {
                 name_anonymous_fields: _,
                 field_transforms,
             } => {
@@ -271,20 +314,20 @@ impl StorageTransform {
     /// can, to make the generated code slightly easier to debug.
     fn requires_cast_on_load(&self) -> bool {
         match self {
-            StorageTransform::Identity => false,
-            StorageTransform::JsonAsVarchar => false,
-            StorageTransform::UuidAsVarchar => false,
-            StorageTransform::SphericalGeographyAsWkt => false,
-            StorageTransform::SmallerIntAsInt => true,
-            StorageTransform::TimeAsVarchar => true,
-            StorageTransform::TimestampWithTimeZoneAsTimestamp { .. } => true,
-            StorageTransform::TimeWithPrecision { .. } => true,
-            StorageTransform::TimestampWithPrecision { .. } => true,
-            StorageTransform::TimestampWithTimeZoneWithPrecision { .. } => true,
-            StorageTransform::Array { element_transform } => {
+            TypeStorageTransform::Identity => false,
+            TypeStorageTransform::JsonAsVarchar => false,
+            TypeStorageTransform::UuidAsVarchar => false,
+            TypeStorageTransform::SphericalGeographyAsWkt => false,
+            TypeStorageTransform::SmallerIntAsInt => true,
+            TypeStorageTransform::TimeAsVarchar => true,
+            TypeStorageTransform::TimestampWithTimeZoneAsTimestamp { .. } => true,
+            TypeStorageTransform::TimeWithPrecision { .. } => true,
+            TypeStorageTransform::TimestampWithPrecision { .. } => true,
+            TypeStorageTransform::TimestampWithTimeZoneWithPrecision { .. } => true,
+            TypeStorageTransform::Array { element_transform } => {
                 element_transform.requires_cast_on_load()
             }
-            StorageTransform::Row {
+            TypeStorageTransform::Row {
                 name_anonymous_fields,
                 field_transforms,
             } => {
@@ -304,41 +347,41 @@ impl StorageTransform {
         expr: &dyn fmt::Display,
     ) -> std::fmt::Result {
         match self {
-            StorageTransform::Identity => write!(f, "{}", expr),
-            StorageTransform::JsonAsVarchar => {
+            TypeStorageTransform::Identity => write!(f, "{}", expr),
+            TypeStorageTransform::JsonAsVarchar => {
                 write!(f, "JSON_PARSE({})", expr)
             }
-            StorageTransform::UuidAsVarchar => {
+            TypeStorageTransform::UuidAsVarchar => {
                 write!(f, "CAST({} AS UUID)", expr)
             }
-            StorageTransform::SphericalGeographyAsWkt => {
+            TypeStorageTransform::SphericalGeographyAsWkt => {
                 write!(f, "to_spherical_geography(ST_GeometryFromText({}))", expr)
             }
-            StorageTransform::SmallerIntAsInt => {
+            TypeStorageTransform::SmallerIntAsInt => {
                 write!(f, "{}", expr)
             }
-            StorageTransform::TimeAsVarchar => {
+            TypeStorageTransform::TimeAsVarchar => {
                 write!(f, "{}", expr)
             }
-            StorageTransform::TimestampWithTimeZoneAsTimestamp { .. } => {
+            TypeStorageTransform::TimestampWithTimeZoneAsTimestamp { .. } => {
                 write!(f, "({} AT TIME ZONE '+00:00')", expr)
             }
-            StorageTransform::TimeWithPrecision { .. } => {
+            TypeStorageTransform::TimeWithPrecision { .. } => {
                 write!(f, "{}", expr)
             }
-            StorageTransform::TimestampWithPrecision { .. } => {
+            TypeStorageTransform::TimestampWithPrecision { .. } => {
                 write!(f, "{}", expr)
             }
-            StorageTransform::TimestampWithTimeZoneWithPrecision { .. } => {
+            TypeStorageTransform::TimestampWithTimeZoneWithPrecision { .. } => {
                 write!(f, "{}", expr)
             }
-            StorageTransform::Array { element_transform } => {
+            TypeStorageTransform::Array { element_transform } => {
                 // We need to use `TRANSFORM` to handle each array element.
                 write!(f, "TRANSFORM({}, x ->", expr,)?;
                 element_transform.fmt_load_transform_expr(f, &"x")?;
                 write!(f, ")")
             }
-            StorageTransform::Row {
+            TypeStorageTransform::Row {
                 name_anonymous_fields,
                 field_transforms,
             } => {
@@ -382,46 +425,38 @@ pub enum FieldName {
 #[non_exhaustive]
 pub struct FieldStorageTransform {
     pub name: FieldName,
-    pub transform: StorageTransform,
+    pub transform: TypeStorageTransform,
 }
 
 /// Format a store operation with any necessary transform.
-pub struct StoreTransformExpr<'a, D: fmt::Display>(
-    &'a StorageTransform,
-    &'a D,
-    &'a TrinoDataType,
-);
+pub struct StoreTransformExpr<'a>(&'a StorageTransform, &'a dyn fmt::Display);
 
-impl<'a, D: fmt::Display> std::fmt::Display for StoreTransformExpr<'a, D> {
+impl<'a> std::fmt::Display for StoreTransformExpr<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let needs_cast = self.0.requires_cast_on_store();
+        let needs_cast = self.0.transform.requires_cast_on_store();
         if needs_cast {
             write!(f, "CAST(")?;
         }
-        self.0.fmt_store_transform_expr(f, self.1)?;
+        self.0.transform.fmt_store_transform_expr(f, self.1)?;
         if needs_cast {
-            write!(f, " AS {})", self.0.storage_type_for(self.2))?;
+            write!(f, " AS {})", self.0.storage_type())?;
         }
         Ok(())
     }
 }
 
 /// Format a load operation with any necessary transform.
-pub struct LoadTransformExpr<'a, D: fmt::Display>(
-    &'a StorageTransform,
-    &'a D,
-    &'a TrinoDataType,
-);
+pub struct LoadTransformExpr<'a>(&'a StorageTransform, &'a dyn fmt::Display);
 
-impl<'a, D: fmt::Display> std::fmt::Display for LoadTransformExpr<'a, D> {
+impl<'a> std::fmt::Display for LoadTransformExpr<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let needs_cast = self.0.requires_cast_on_load();
+        let needs_cast = self.0.transform.requires_cast_on_load();
         if needs_cast {
             write!(f, "CAST(")?;
         }
-        self.0.fmt_load_transform_expr(f, self.1)?;
+        self.0.transform.fmt_load_transform_expr(f, self.1)?;
         if needs_cast {
-            write!(f, " AS {})", self.2)?;
+            write!(f, " AS {})", self.0.original_type())?;
         }
         Ok(())
     }
@@ -475,7 +510,7 @@ mod tests {
             // TODO: This may require things like `WITH (format = 'ORC')`.
             "CREATE TABLE {} (x {})",
             table_name,
-            storage_transform.storage_type_for(&trino_ty),
+            storage_transform.storage_type(),
         );
         eprintln!();
         eprintln!("create_table_sql: {}", create_table_sql);
@@ -489,7 +524,7 @@ mod tests {
         let insert_sql = format!(
             "INSERT INTO {} SELECT {} AS x",
             table_name,
-            StoreTransformExpr(&storage_transform, &value, &trino_ty)
+            StoreTransformExpr(&storage_transform, &value)
         );
         eprintln!("insert_sql: {}", insert_sql);
         client
@@ -500,7 +535,7 @@ mod tests {
         // Read the value back out.
         let select_sql = format!(
             "SELECT {} FROM {}",
-            LoadTransformExpr(&storage_transform, &"x", &trino_ty),
+            LoadTransformExpr(&storage_transform, &"x"),
             table_name
         );
         eprintln!("select_sql: {}", select_sql);
