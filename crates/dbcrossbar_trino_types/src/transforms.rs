@@ -167,6 +167,33 @@ impl StorageTransform {
         }
     }
 
+    /// Does this transform require a cast on store? We leave these off when we
+    /// can, to make the generated code slightly easier to debug.
+    fn requires_cast_on_store(&self) -> bool {
+        match self {
+            StorageTransform::Identity => false,
+            StorageTransform::JsonAsVarchar => false,
+            StorageTransform::UuidAsVarchar => true,
+            StorageTransform::SphericalGeographyAsWkt => false,
+            StorageTransform::SmallerIntAsInt => true,
+            StorageTransform::TimeAsVarchar => true,
+            StorageTransform::TimestampWithTimeZoneAsTimestamp { .. } => false,
+            StorageTransform::TimeWithPrecision { .. } => true,
+            StorageTransform::TimestampWithPrecision { .. } => true,
+            StorageTransform::TimestampWithTimeZoneWithPrecision { .. } => true,
+            StorageTransform::Array { element_transform } => {
+                element_transform.requires_cast_on_store()
+            }
+            // Rows may require casting, even if none of the fields do. For
+            // example, if we store a `ROW('', 0)` in a `ROW(VARCHAR(1),
+            // SMALLINT)` column, we need to cast the entire row for Hive or the
+            // Memory backend. But if only one of those two columns is present,
+            // the cast happens implicitly. So, for example, `ROW(VARCHAR,
+            // SMALLINT)`, `ROW(VARCHAR(1))` and `ROW(SMALLINT)` all work fine.
+            StorageTransform::Row { .. } => true,
+        }
+    }
+
     /// Write an expression that transforms the given expression to the storage
     /// type.
     fn fmt_store_transform_expr(
@@ -175,10 +202,16 @@ impl StorageTransform {
         expr: &dyn fmt::Display,
     ) -> std::fmt::Result {
         match self {
-            StorageTransform::Identity => write!(f, "{}", expr),
-
-            StorageTransform::UuidAsVarchar | StorageTransform::TimeAsVarchar => {
-                write!(f, "CAST({} AS VARCHAR)", expr)
+            // These can either be stored as-is, or any conversion they need will
+            // be taken care of by the outermost `CAST`.
+            StorageTransform::Identity
+            | StorageTransform::UuidAsVarchar
+            | StorageTransform::TimeAsVarchar
+            | StorageTransform::SmallerIntAsInt
+            | StorageTransform::TimeWithPrecision { .. }
+            | StorageTransform::TimestampWithPrecision { .. }
+            | StorageTransform::TimestampWithTimeZoneWithPrecision { .. } => {
+                write!(f, "{}", expr)
             }
 
             StorageTransform::JsonAsVarchar => {
@@ -195,30 +228,12 @@ impl StorageTransform {
                 //    of GeoJSON.
                 write!(f, "ST_AsText(to_geometry({}))", expr)
             }
-            StorageTransform::SmallerIntAsInt => {
-                write!(f, "CAST({} AS INT)", expr)
-            }
             StorageTransform::TimestampWithTimeZoneAsTimestamp {
                 stored_precision,
             } => {
                 write!(
                     f,
                     "CAST(({} AT TIME ZONE '+00:00') AS TIMESTAMP({}))",
-                    expr, stored_precision
-                )
-            }
-            StorageTransform::TimeWithPrecision { stored_precision } => {
-                write!(f, "CAST({} AS TIME({}))", expr, stored_precision)
-            }
-            StorageTransform::TimestampWithPrecision { stored_precision } => {
-                write!(f, "CAST({} AS TIMESTAMP({}))", expr, stored_precision)
-            }
-            StorageTransform::TimestampWithTimeZoneWithPrecision {
-                stored_precision,
-            } => {
-                write!(
-                    f,
-                    "CAST({} AS TIMESTAMP({}) WITH TIME ZONE)",
                     expr, stored_precision
                 )
             }
@@ -379,20 +394,15 @@ pub struct StoreTransformExpr<'a, D: fmt::Display>(
 
 impl<'a, D: fmt::Display> std::fmt::Display for StoreTransformExpr<'a, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let storage_type = self.0.storage_type_for(self.2);
-        if self.0.is_identity() {
-            write!(f, "{}", self.1)
-        } else {
-            // We need this cast because _Trino_ can deal with very slight type
-            // mismatches (such as storing as `INTEGER` in a `SMALLINT` column),
-            // but some of the connectors can only handle these mismatches
-            // _almost_ all the time, but then fail on very specific types like
-            // `ROW(VARCHAR(1), SMALLINT)` (while working fine for `ROW(VARCHAR,
-            // SMALLINT)`, `ROW(VARCHAR(1))` and `ROW(SMALLINT)`).
+        let needs_cast = self.0.requires_cast_on_store();
+        if needs_cast {
             write!(f, "CAST(")?;
-            self.0.fmt_store_transform_expr(f, self.1)?;
-            write!(f, " AS {})", storage_type)
         }
+        self.0.fmt_store_transform_expr(f, self.1)?;
+        if needs_cast {
+            write!(f, " AS {})", self.0.storage_type_for(self.2))?;
+        }
+        Ok(())
     }
 }
 

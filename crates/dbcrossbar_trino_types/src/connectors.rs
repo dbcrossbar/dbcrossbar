@@ -30,6 +30,7 @@ use super::TrinoDataType;
 #[allow(missing_docs)]
 #[non_exhaustive]
 pub enum TrinoConnectorType {
+    // (Athena3's default connector may need a separate value here.)
     Hive,
     Iceberg,
     Memory,

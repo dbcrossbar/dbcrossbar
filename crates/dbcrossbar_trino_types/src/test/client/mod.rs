@@ -121,7 +121,11 @@ impl Client {
                 .iter()
                 .any(|&s| response.status().as_u16() == s)
             {
-                // Wait briefly and try again.
+                // Wait briefly and try again. 50-100 milliseconds is
+                // recommended by the Trino docs, but 50 seems a little
+                // aggressively fast.
+                //
+                // TODO: Time out eventually?
                 tokio::time::sleep(std::time::Duration::from_millis(100)).await;
                 continue;
             } else {
@@ -209,7 +213,8 @@ impl Client {
         Ok(results)
     }
 
-    /// Get a the first column of the first row of a query.
+    /// Get a the first column of the first row of a query. Raise an error if
+    /// there is any other data returned, or if no data is returned.
     pub async fn get_one(&self, query: &str) -> Result<TrinoValue, ClientError> {
         let mut response = self.get_all(query).await?;
         if response.len() != 1 || response[0].len() != 1 {
