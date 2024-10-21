@@ -26,11 +26,8 @@ use reqwest::RequestBuilder;
 use serde::Deserialize;
 use serde_json::Value;
 
-pub use self::{
-    deserialize_value::deserialize_value,
-    errors::{ClientError, QueryError},
-    wire_types::{Argument, FieldName, NamedType, RawType, TypeSignature},
-};
+pub use self::errors::{ClientError, QueryError};
+use self::{deserialize_value::deserialize_value, wire_types::TypeSignature};
 use crate::{TrinoDataType, TrinoIdent};
 
 use super::TrinoValue;
@@ -44,31 +41,38 @@ mod wire_types;
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 #[allow(dead_code)]
-pub struct Response {
-    pub id: String,
-    pub error: Option<QueryError>,
+pub(crate) struct Response {
+    pub(crate) id: String,
+    pub(crate) error: Option<QueryError>,
     /// The docs claim that this exists, too, but I'm not sure what's going with
     /// this.
-    pub query_error: Option<QueryError>,
-    pub next_uri: Option<String>,
-    pub columns: Option<Vec<Column>>,
-    pub data: Option<Vec<Vec<Value>>>,
-    pub update_type: Option<String>,
+    pub(crate) query_error: Option<QueryError>,
+    pub(crate) next_uri: Option<String>,
+    pub(crate) columns: Option<Vec<Column>>,
+    pub(crate) data: Option<Vec<Vec<Value>>>,
+    pub(crate) update_type: Option<String>,
 
     // Any other fields we don't handle yet.
     #[serde(flatten)]
     _other: serde_json::Map<String, Value>,
 }
 
+impl Response {
+    /// Get any error from the response.
+    pub fn error(&self) -> Option<&QueryError> {
+        self.error.as_ref().or(self.query_error.as_ref())
+    }
+}
+
 /// A column description in a Trino response.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
-pub struct Column {
-    pub name: TrinoIdent,
+pub(crate) struct Column {
+    pub(crate) name: TrinoIdent,
     #[serde(rename = "type")]
     type_string: String,
-    pub type_signature: TypeSignature,
+    pub(crate) type_signature: TypeSignature,
 }
 
 impl fmt::Display for Column {
@@ -110,10 +114,8 @@ impl Client {
             if response.status().is_success() {
                 let body: Response = response.json().await?;
                 //eprintln!("response: {:#?}", body);
-                if let Some(error) = body.error {
-                    return Err(ClientError::QueryError(error));
-                } else if let Some(error) = body.query_error {
-                    return Err(ClientError::QueryError(error));
+                if let Some(error) = body.error() {
+                    return Err(ClientError::QueryError(error.to_owned()));
                 } else {
                     return Ok(body);
                 }

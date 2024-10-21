@@ -16,7 +16,7 @@ use super::ClientError;
 
 /// Deserialize a Trino JSON value into a [`TrinoValue`] of type
 /// [`TrinoDataType`].
-pub fn deserialize_value(
+pub(crate) fn deserialize_value(
     data_type: &TrinoDataType,
     value: &Value,
 ) -> Result<TrinoValue, ClientError> {

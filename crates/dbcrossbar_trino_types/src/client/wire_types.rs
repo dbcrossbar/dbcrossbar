@@ -10,39 +10,45 @@ use super::ClientError;
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
-pub struct TypeSignature {
-    pub raw_type: RawType,
-    pub arguments: Vec<Argument>,
+pub(crate) struct TypeSignature {
+    pub(crate) raw_type: RawType,
+    pub(crate) arguments: Vec<Argument>,
 }
 
 impl TypeSignature {
     /// Get the element type of an array type.
-    pub fn array_element_type(&self) -> Result<&TypeSignature, ClientError> {
+    pub(crate) fn array_element_type(&self) -> Result<&TypeSignature, ClientError> {
         match (&self.raw_type, self.arguments.as_slice()) {
             (RawType::Array, [Argument::Type { value }]) => Ok(value),
             _ => Err(ClientError::UnsupportedTypeSignature {
-                type_signature: self.clone(),
+                type_signature: Box::new(self.clone()),
             }),
         }
     }
 
-    /// Get a named type argument.
-    pub fn named_type_argument(&self, n: usize) -> Result<&NamedType, ClientError> {
-        match self.arguments.get(n) {
-            Some(Argument::NamedType { value }) => Ok(value),
-            _ => Err(ClientError::UnsupportedTypeSignature {
-                type_signature: self.clone(),
-            }),
-        }
-    }
+    // /// Get a named type argument.
+    // pub(crate) fn named_type_argument(
+    //     &self,
+    //     n: usize,
+    // ) -> Result<&NamedType, ClientError> {
+    //     match self.arguments.get(n) {
+    //         Some(Argument::NamedType { value }) => Ok(value),
+    //         _ => Err(ClientError::UnsupportedTypeSignature {
+    //             type_signature: Box::new(self.clone()),
+    //         }),
+    //     }
+    // }
 
     /// Get a numeric argument.
-    pub fn numeric_argument(&self, n: usize) -> Result<Option<i64>, ClientError> {
+    pub(crate) fn numeric_argument(
+        &self,
+        n: usize,
+    ) -> Result<Option<i64>, ClientError> {
         match self.arguments.get(n) {
             None => Ok(None),
             Some(Argument::Long { value }) => Ok(Some(*value)),
             _ => Err(ClientError::UnsupportedTypeSignature {
-                type_signature: self.clone(),
+                type_signature: Box::new(self.clone()),
             }),
         }
     }
@@ -53,7 +59,7 @@ impl TypeSignature {
             None => Ok(None),
             Some(v) => Ok(Some(v.try_into().map_err(|_| {
                 ClientError::UnsupportedTypeSignature {
-                    type_signature: self.clone(),
+                    type_signature: Box::new(self.clone()),
                 }
             })?)),
         }
@@ -75,7 +81,7 @@ impl TryFrom<&'_ TypeSignature> for TrinoDataType {
             RawType::Decimal => Ok(TrinoDataType::Decimal {
                 precision: value.numeric_argument_u32(0)?.ok_or_else(|| {
                     ClientError::UnsupportedTypeSignature {
-                        type_signature: value.clone(),
+                        type_signature: Box::new(value.clone()),
                     }
                 })?,
                 scale: value.numeric_argument_u32(1)?.unwrap_or(0),
@@ -100,7 +106,7 @@ impl TryFrom<&'_ TypeSignature> for TrinoDataType {
                             })
                         }
                         _ => Err(ClientError::UnsupportedTypeSignature {
-                            type_signature: value.clone(),
+                            type_signature: Box::new(value.clone()),
                         }),
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -134,7 +140,7 @@ impl TryFrom<&'_ TypeSignature> for TrinoDataType {
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
-pub enum RawType {
+pub(crate) enum RawType {
     Array,
     BigInt,
     Boolean,
@@ -162,7 +168,7 @@ pub enum RawType {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "kind")]
 #[non_exhaustive]
-pub enum Argument {
+pub(crate) enum Argument {
     #[serde(rename = "LONG")]
     Long { value: i64 },
 
@@ -177,7 +183,7 @@ pub enum Argument {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
-pub struct NamedType {
+pub(crate) struct NamedType {
     pub field_name: Option<FieldName>,
     pub type_signature: TypeSignature,
 }
@@ -186,6 +192,6 @@ pub struct NamedType {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
-pub struct FieldName {
+pub(crate) struct FieldName {
     pub name: TrinoIdent,
 }

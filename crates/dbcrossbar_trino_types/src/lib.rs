@@ -3,13 +3,19 @@
 //!
 //! ## Features
 //!
+//! These may be selected at compile-time, using `features = ["feature-name"]`
+//! in your `Cargo.toml`. If you don't specify any features, this library is
+//! extremely lightweight.
+//!
 //! - `values`: Provides a `TrinoValue` enum that can represent a subset of
-//!   Trino's values. This pulls in libraries for lots of things, including
+//!   Trino's values. This pulls in dependencies for lots of things, including
 //!   geodata, decimals, JSON and UUIDs.
 //! - `proptest`: Support for testing using the [`proptest`][proptest] crate.
+//!   This pulls in `proptest` and related libraries.
 //! - `client`: A basic Trino REST client. This is mostly intended for testing,
 //!   and does not currently attempt to be a production-quality client. It
-//!   currently has no HTTPS or password support.
+//!   currently has no HTTPS or password support. This pulls in a full-fledged
+//!   async HTTP stack.
 //!
 //! ## What this library provides
 //!

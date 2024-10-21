@@ -7,8 +7,6 @@ use serde_json::{Map, Value};
 
 use crate::TrinoDataType;
 
-use super::TypeSignature;
-
 /// An error returned by our Trino client.
 #[derive(Debug)]
 #[non_exhaustive]
@@ -29,7 +27,7 @@ pub enum ClientError {
     /// An unsupported type signature.
     UnsupportedTypeSignature {
         /// The type signature that was unsupported.
-        type_signature: TypeSignature,
+        type_signature: Box<dyn std::fmt::Debug>,
     },
     /// Expected a single row with a single column, but got something else.
     WrongResultSize {
@@ -83,7 +81,7 @@ impl From<reqwest::Error> for ClientError {
 }
 
 /// An error returned from a Trino query.
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct QueryError {

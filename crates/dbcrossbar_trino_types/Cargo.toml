@@ -10,7 +10,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["proptest", "client"]
+default = []
 values = [
     "dep:base64",
     "dep:chrono",
