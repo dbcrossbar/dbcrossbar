@@ -657,7 +657,7 @@ mod tests {
                     connector.to_owned(),
                     Tv::Array {
                         values: vec![value.to_owned()],
-                        lit_type: array_ty.clone(),
+                        literal_type: array_ty.clone(),
                     },
                     array_ty,
                     false,
@@ -676,7 +676,7 @@ mod tests {
                     connector.to_owned(),
                     Tv::Row {
                         values: vec![value.to_owned()],
-                        lit_type: row_ty.clone(),
+                        literal_type: row_ty.clone(),
                     },
                     row_ty,
                     false,
@@ -695,7 +695,7 @@ mod tests {
                     connector.to_owned(),
                     Tv::Row {
                         values: vec![value.to_owned()],
-                        lit_type: row_ty.clone(),
+                        literal_type: row_ty.clone(),
                     },
                     row_ty,
                     false,
@@ -755,7 +755,7 @@ mod tests {
                             Tv::Varchar("".to_string()),
                             Tv::SmallInt(0),
                         ],
-                        lit_type: lit_type.clone(),
+                        literal_type: lit_type.clone(),
                     },
                     lit_type,
                 )

@@ -230,7 +230,7 @@ fn arb_value_of_type(ty: &TrinoDataType) -> BoxedStrategy<TrinoValue> {
             prop::collection::vec(arb_value_of_type(elem_ty), 0..3)
                 .prop_map(move |values| TrinoValue::Array {
                     values,
-                    lit_type: original_type.clone(),
+                    literal_type: original_type.clone(),
                 })
                 .boxed()
         }
@@ -242,7 +242,7 @@ fn arb_value_of_type(ty: &TrinoDataType) -> BoxedStrategy<TrinoValue> {
                 .collect::<Vec<_>>()
                 .prop_map(move |values| TrinoValue::Row {
                     values,
-                    lit_type: original_type.clone(),
+                    literal_type: original_type.clone(),
                 })
                 .boxed()
         }

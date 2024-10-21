@@ -101,7 +101,7 @@ pub fn deserialize_value(
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(TrinoValue::Array {
                 values,
-                lit_type: data_type.clone(),
+                literal_type: data_type.clone(),
             })
         }
         (TrinoDataType::Row(fields), Value::Array(values)) => {
@@ -112,7 +112,7 @@ pub fn deserialize_value(
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(TrinoValue::Row {
                 values,
-                lit_type: data_type.clone(),
+                literal_type: data_type.clone(),
             })
         }
         (TrinoDataType::Uuid, Value::String(s)) => {

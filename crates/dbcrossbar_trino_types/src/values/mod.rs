@@ -40,15 +40,15 @@ pub enum TrinoValue {
     Array {
         /// The values in the array.
         values: Vec<TrinoValue>,
-        /// TODO: The type of this array. Needed to help print empty arrays.
-        lit_type: TrinoDataType,
+        /// The type of this array. Needed to help print empty arrays.
+        literal_type: TrinoDataType,
     },
     Row {
         /// The values in the row.
         values: Vec<TrinoValue>,
-        /// TODO: The field types of this row. Needed to specify the field names
-        /// of a literal array.
-        lit_type: TrinoDataType,
+        /// The field types of this row. Needed to specify the field names
+        /// of a literal array value.
+        literal_type: TrinoDataType,
     },
     Uuid(Uuid),
     SphericalGeography(Geometry<f64>),
@@ -61,34 +61,36 @@ impl TrinoValue {
     /// it easier to read generated test code.
     fn cast_required_by_literal(&self) -> Option<&TrinoDataType> {
         match self {
-            TrinoValue::Array { values, lit_type } => {
+            TrinoValue::Array {
+                values,
+                literal_type,
+            } => {
                 if values.is_empty()
                     || values
                         .iter()
                         .any(|v| v.cast_required_by_literal().is_some())
                 {
-                    Some(lit_type)
+                    Some(literal_type)
                 } else {
                     None
                 }
             }
 
-            // I would expect `TrinoValue::Row` to be handled as follows, but
-            // there are very strange cases where Trino
-            //
-            TrinoValue::Row { values, lit_type } => {
-                if lit_type.is_row_with_named_fields()
+            TrinoValue::Row {
+                values,
+                literal_type,
+            } => {
+                if literal_type.is_row_with_named_fields()
                     || values
                         .iter()
                         .any(|v| v.cast_required_by_literal().is_some())
                 {
-                    Some(lit_type)
+                    Some(literal_type)
                 } else {
                     None
                 }
             }
 
-            // TrinoValue::Row { lit_type, .. } => Some(lit_type),
             _ => None,
         }
     }
@@ -147,7 +149,7 @@ impl TrinoValue {
             }
             TrinoValue::Array {
                 values,
-                lit_type: _,
+                literal_type: _,
             } => {
                 write!(f, "ARRAY[")?;
                 for (idx, elem) in values.iter().enumerate() {
@@ -160,7 +162,7 @@ impl TrinoValue {
             }
             TrinoValue::Row {
                 values,
-                lit_type: _,
+                literal_type: _,
             } => {
                 write!(f, "ROW(")?;
                 for (idx, value) in values.iter().enumerate() {
