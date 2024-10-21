@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/dbcrossbar_trino_types",
+    "crates/dbcrossbar_trino",
     "crates/opinionated_telemetry",
     "dbcrossbar",
 ]

@@ -821,7 +821,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "dbcrossbar_trino_types"
+name = "dbcrossbar_trino"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",

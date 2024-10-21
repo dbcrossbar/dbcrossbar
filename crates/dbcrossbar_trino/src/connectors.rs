@@ -5,7 +5,7 @@
 
 use std::{collections::HashMap, fmt, str::FromStr};
 
-#[cfg(test)]
+#[cfg(feature = "proptest")]
 use proptest_derive::Arbitrary;
 
 use crate::{
@@ -23,7 +23,7 @@ use super::TrinoDataType;
 /// ### Usage
 ///
 /// ```
-/// use dbcrossbar_trino_types::{
+/// use dbcrossbar_trino::{
 ///     TableOptions, TrinoConnectorType, TrinoDataType,
 /// };
 ///
@@ -80,7 +80,7 @@ use super::TrinoDataType;
 /// );
 /// ```
 #[derive(Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(test, derive(Arbitrary))]
+#[cfg_attr(feature = "proptest", derive(Arbitrary))]
 #[allow(missing_docs)]
 #[non_exhaustive]
 pub enum TrinoConnectorType {
