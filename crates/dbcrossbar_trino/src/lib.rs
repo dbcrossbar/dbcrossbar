@@ -7,7 +7,7 @@
 //! in your `Cargo.toml`. If you don't specify any features, this library is
 //! extremely lightweight.
 //!
-//! - `values`: Provides a [`TrinoValue`] enum that can represent a subset of
+//! - `values`: Provides a [`Value`] enum that can represent a subset of
 //!   Trino's values. This pulls in dependencies for lots of things, including
 //!   geodata, decimals, JSON and UUIDs.
 //! - `proptest`: Support for testing using the [`proptest`][proptest] crate.
@@ -51,7 +51,7 @@
 //!
 //! ### Values (requires the `values` feature)
 //!
-//! - [`TrinoValue`] represents a subset of Trino's values.
+//! - [`Value`] represents a subset of Trino's values.
 //! - [`IsCloseEnoughTo`] is a trait for comparing values that knows about the
 //!   limitations of Trino's connectors.
 //!
@@ -71,7 +71,7 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 #[cfg(feature = "values")]
-pub use crate::values::{IsCloseEnoughTo, TrinoValue};
+pub use crate::values::{IsCloseEnoughTo, Value};
 pub use crate::{
     connectors::ConnectorType,
     errors::IdentifierError,

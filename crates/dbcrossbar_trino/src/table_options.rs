@@ -33,7 +33,7 @@ impl fmt::Display for TableOptions {
 
 /// A table option value.
 ///
-/// This could be replaced with [`crate::TrinoValue`], but that pulls in a lot
+/// This could be replaced with [`crate::Value`], but that pulls in a lot
 /// of dependencies we don't otherwise need.
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]

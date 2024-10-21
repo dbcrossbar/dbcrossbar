@@ -7,7 +7,7 @@ use float_cmp::approx_eq;
 use geo_types::{Geometry, Point};
 use serde_json::Value as JsonValue;
 
-use super::TrinoValue;
+use super::Value;
 
 /// Interface for testing whether a value is "close enough" to another value.
 /// This is necessary because:
@@ -23,23 +23,23 @@ pub trait IsCloseEnoughTo: fmt::Debug {
     fn is_close_enough_to(&self, other: &Self) -> bool;
 }
 
-impl IsCloseEnoughTo for TrinoValue {
-    fn is_close_enough_to(&self, other: &TrinoValue) -> bool {
+impl IsCloseEnoughTo for Value {
+    fn is_close_enough_to(&self, other: &Value) -> bool {
         // Recursive.
         match (self, other) {
-            (TrinoValue::Boolean(a), TrinoValue::Boolean(b)) => *a == *b,
-            (TrinoValue::TinyInt(a), TrinoValue::TinyInt(b)) => *a == *b,
-            (TrinoValue::SmallInt(a), TrinoValue::SmallInt(b)) => *a == *b,
-            (TrinoValue::Int(a), TrinoValue::Int(b)) => *a == *b,
-            (TrinoValue::BigInt(a), TrinoValue::BigInt(b)) => *a == *b,
-            (TrinoValue::Real(a), TrinoValue::Real(b)) => a.is_close_enough_to(b),
-            (TrinoValue::Double(a), TrinoValue::Double(b)) => a.is_close_enough_to(b),
-            (TrinoValue::Decimal(a), TrinoValue::Decimal(b)) => a == b,
-            (TrinoValue::Varchar(a), TrinoValue::Varchar(b)) => a == b,
-            (TrinoValue::Varbinary(a), TrinoValue::Varbinary(b)) => a == b,
-            (TrinoValue::Json(a), TrinoValue::Json(b)) => a.is_close_enough_to(b),
-            (TrinoValue::Date(a), TrinoValue::Date(b)) => a == b,
-            (TrinoValue::Time(a), TrinoValue::Time(b)) => {
+            (Value::Boolean(a), Value::Boolean(b)) => *a == *b,
+            (Value::TinyInt(a), Value::TinyInt(b)) => *a == *b,
+            (Value::SmallInt(a), Value::SmallInt(b)) => *a == *b,
+            (Value::Int(a), Value::Int(b)) => *a == *b,
+            (Value::BigInt(a), Value::BigInt(b)) => *a == *b,
+            (Value::Real(a), Value::Real(b)) => a.is_close_enough_to(b),
+            (Value::Double(a), Value::Double(b)) => a.is_close_enough_to(b),
+            (Value::Decimal(a), Value::Decimal(b)) => a == b,
+            (Value::Varchar(a), Value::Varchar(b)) => a == b,
+            (Value::Varbinary(a), Value::Varbinary(b)) => a == b,
+            (Value::Json(a), Value::Json(b)) => a.is_close_enough_to(b),
+            (Value::Date(a), Value::Date(b)) => a == b,
+            (Value::Time(a), Value::Time(b)) => {
                 approx_eq!(
                     f64,
                     a.to_f64_seconds(),
@@ -47,7 +47,7 @@ impl IsCloseEnoughTo for TrinoValue {
                     epsilon = 0.002
                 )
             }
-            (TrinoValue::Timestamp(a), TrinoValue::Timestamp(b)) => {
+            (Value::Timestamp(a), Value::Timestamp(b)) => {
                 approx_eq!(
                     f64,
                     a.to_f64_seconds(),
@@ -55,10 +55,7 @@ impl IsCloseEnoughTo for TrinoValue {
                     epsilon = 0.002
                 )
             }
-            (
-                TrinoValue::TimestampWithTimeZone(a),
-                TrinoValue::TimestampWithTimeZone(b),
-            ) => {
+            (Value::TimestampWithTimeZone(a), Value::TimestampWithTimeZone(b)) => {
                 approx_eq!(
                     f64,
                     a.to_f64_seconds(),
@@ -66,19 +63,16 @@ impl IsCloseEnoughTo for TrinoValue {
                     epsilon = 0.002
                 )
             }
-            (
-                TrinoValue::Array { values: a, .. },
-                TrinoValue::Array { values: b, .. },
-            ) => {
+            (Value::Array { values: a, .. }, Value::Array { values: b, .. }) => {
                 a.len() == b.len()
                     && a.iter().zip(b.iter()).all(|(a, b)| a.is_close_enough_to(b))
             }
-            (TrinoValue::Row { values: a, .. }, TrinoValue::Row { values: b, .. }) => {
+            (Value::Row { values: a, .. }, Value::Row { values: b, .. }) => {
                 a.len() == b.len()
                     && a.iter().zip(b.iter()).all(|(a, b)| a.is_close_enough_to(b))
             }
-            (TrinoValue::Uuid(a), TrinoValue::Uuid(b)) => a == b,
-            (TrinoValue::SphericalGeography(a), TrinoValue::SphericalGeography(b)) => {
+            (Value::Uuid(a), Value::Uuid(b)) => a == b,
+            (Value::SphericalGeography(a), Value::SphericalGeography(b)) => {
                 a.is_close_enough_to(b)
             }
             _ => false,

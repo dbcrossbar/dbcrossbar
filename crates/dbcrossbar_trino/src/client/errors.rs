@@ -11,7 +11,7 @@ use crate::DataType;
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ClientError {
-    /// Could not deserialize a JSON value as a [`crate::TrinoValue`].
+    /// Could not deserialize a JSON value as a [`crate::Value`].
     CouldNotDeserializeValue {
         /// The JSON value that could not be deserialized.
         value: JsonValue,

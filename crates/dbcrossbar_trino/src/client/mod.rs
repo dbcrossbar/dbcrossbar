@@ -27,10 +27,10 @@ use serde::Deserialize;
 use serde_json::Value as JsonValue;
 
 pub use self::errors::{ClientError, QueryError};
-use self::{deserialize_value::deserialize_value, wire_types::TypeSignature};
+use self::{deserialize_value::deserialize_json_value, wire_types::TypeSignature};
 use crate::{DataType, Ident};
 
-use super::TrinoValue;
+use super::Value;
 
 mod deserialize_value;
 mod errors;
@@ -175,10 +175,7 @@ impl Client {
     }
 
     /// Collect all the results of a query.
-    pub async fn get_all(
-        &self,
-        query: &str,
-    ) -> Result<Vec<Vec<TrinoValue>>, ClientError> {
+    pub async fn get_all(&self, query: &str) -> Result<Vec<Vec<Value>>, ClientError> {
         let mut response = self.start_query(query).await?;
         let mut results = Vec::new();
         let mut col_types: Option<Vec<DataType>> = None;
@@ -197,7 +194,7 @@ impl Client {
                     for row in data.iter() {
                         let mut deserialized_row = Vec::new();
                         for (ty, val) in col_types.iter().zip(row.iter()) {
-                            deserialized_row.push(deserialize_value(ty, val)?);
+                            deserialized_row.push(deserialize_json_value(ty, val)?);
                         }
                         results.push(deserialized_row);
                     }
@@ -217,7 +214,7 @@ impl Client {
 
     /// Get a the first column of the first row of a query. Raise an error if
     /// there is any other data returned, or if no data is returned.
-    pub async fn get_one(&self, query: &str) -> Result<TrinoValue, ClientError> {
+    pub async fn get_one(&self, query: &str) -> Result<Value, ClientError> {
         let mut response = self.get_all(query).await?;
         if response.len() != 1 || response[0].len() != 1 {
             return Err(ClientError::WrongResultSize {

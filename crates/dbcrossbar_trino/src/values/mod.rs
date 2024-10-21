@@ -17,7 +17,7 @@ mod is_close_enough_to;
 
 /// A Trino value of one of our supported types.
 #[derive(Debug, Clone)]
-pub enum TrinoValue {
+pub enum Value {
     Boolean(bool),
     TinyInt(i8),
     SmallInt(i16),
@@ -39,13 +39,13 @@ pub enum TrinoValue {
     TimestampWithTimeZone(DateTime<FixedOffset>),
     Array {
         /// The values in the array.
-        values: Vec<TrinoValue>,
+        values: Vec<Value>,
         /// The type of this array. Needed to help print empty arrays.
         literal_type: DataType,
     },
     Row {
         /// The values in the row.
-        values: Vec<TrinoValue>,
+        values: Vec<Value>,
         /// The type of this row. Needed to specify the field names of a literal
         /// array value.
         literal_type: DataType,
@@ -54,14 +54,14 @@ pub enum TrinoValue {
     SphericalGeography(Geometry<f64>),
 }
 
-impl TrinoValue {
+impl Value {
     /// Does a printed literal of this value require a cast?
     ///
     /// We go out of our way to only do this when necessry to make
     /// it easier to read generated test code.
     fn cast_required_by_literal(&self) -> Option<&DataType> {
         match self {
-            TrinoValue::Array {
+            Value::Array {
                 values,
                 literal_type,
             } => {
@@ -76,7 +76,7 @@ impl TrinoValue {
                 }
             }
 
-            TrinoValue::Row {
+            Value::Row {
                 values,
                 literal_type,
             } => {
@@ -98,56 +98,56 @@ impl TrinoValue {
     /// Recursive [`fmt::Display::fmt`] helper.
     fn fmt_helper(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            TrinoValue::Boolean(b) => {
+            Value::Boolean(b) => {
                 if *b {
                     write!(f, "TRUE")
                 } else {
                     write!(f, "FALSE")
                 }
             }
-            TrinoValue::TinyInt(i) => write!(f, "{}", i),
-            TrinoValue::SmallInt(i) => write!(f, "{}", i),
-            TrinoValue::Int(i) => write!(f, "{}", i),
-            TrinoValue::BigInt(i) => write!(f, "{}", i),
+            Value::TinyInt(i) => write!(f, "{}", i),
+            Value::SmallInt(i) => write!(f, "{}", i),
+            Value::Int(i) => write!(f, "{}", i),
+            Value::BigInt(i) => write!(f, "{}", i),
             // Use scientific notation to prevent giant decimal literals that
             // Trino can't parse.
-            TrinoValue::Real(fl) => write!(f, "REAL '{:e}'", fl),
-            TrinoValue::Double(fl) => write!(f, "{:e}", fl),
-            TrinoValue::Decimal(d) => write!(f, "DECIMAL '{}'", d),
-            TrinoValue::Varchar(s) => write!(f, "{}", QuotedString(s)),
-            TrinoValue::Varbinary(vec) => {
+            Value::Real(fl) => write!(f, "REAL '{:e}'", fl),
+            Value::Double(fl) => write!(f, "{:e}", fl),
+            Value::Decimal(d) => write!(f, "DECIMAL '{}'", d),
+            Value::Varchar(s) => write!(f, "{}", QuotedString(s)),
+            Value::Varbinary(vec) => {
                 write!(f, "X'")?;
                 for byte in vec {
                     write!(f, "{:02x}", byte)?;
                 }
                 write!(f, "'")
             }
-            TrinoValue::Json(value) => {
+            Value::Json(value) => {
                 let json_str =
                     serde_json::to_string(value).expect("could not serialize JSON");
                 write!(f, "JSON {}", QuotedString(&json_str))
             }
-            TrinoValue::Date(naive_date) => {
+            Value::Date(naive_date) => {
                 write!(f, "DATE '{}'", naive_date.format("%Y-%m-%d"))
             }
-            TrinoValue::Time(naive_time) => {
+            Value::Time(naive_time) => {
                 write!(f, "TIME '{}'", naive_time.format("%H:%M:%S%.6f"))
             }
-            TrinoValue::Timestamp(naive_date_time) => {
+            Value::Timestamp(naive_date_time) => {
                 write!(
                     f,
                     "TIMESTAMP '{}'",
                     naive_date_time.format("%Y-%m-%d %H:%M:%S%.6f")
                 )
             }
-            TrinoValue::TimestampWithTimeZone(date_time) => {
+            Value::TimestampWithTimeZone(date_time) => {
                 write!(
                     f,
                     "TIMESTAMP '{}'",
                     date_time.format("%Y-%m-%d %H:%M:%S%.6f %:z")
                 )
             }
-            TrinoValue::Array {
+            Value::Array {
                 values,
                 literal_type: _,
             } => {
@@ -160,7 +160,7 @@ impl TrinoValue {
                 }
                 write!(f, "]")
             }
-            TrinoValue::Row {
+            Value::Row {
                 values,
                 literal_type: _,
             } => {
@@ -173,8 +173,8 @@ impl TrinoValue {
                 }
                 write!(f, ")")
             }
-            TrinoValue::Uuid(uuid) => write!(f, "UUID '{}'", uuid),
-            TrinoValue::SphericalGeography(value) => {
+            Value::Uuid(uuid) => write!(f, "UUID '{}'", uuid),
+            Value::SphericalGeography(value) => {
                 write!(
                     f,
                     "to_spherical_geography(ST_GeometryFromText({}))",
@@ -185,7 +185,7 @@ impl TrinoValue {
     }
 }
 
-impl fmt::Display for TrinoValue {
+impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let cast_to = self.cast_required_by_literal();
         if cast_to.is_some() {

@@ -23,9 +23,7 @@ use super::DataType;
 /// ### Usage
 ///
 /// ```
-/// use dbcrossbar_trino::{
-///     TableOptions, ConnectorType, DataType,
-/// };
+/// use dbcrossbar_trino::{ConnectorType, DataType, TableOptions};
 ///
 /// // Choose our connector type.
 /// let connector = ConnectorType::Hive;

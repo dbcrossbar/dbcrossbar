@@ -6,9 +6,9 @@ use std::{cmp::min, str::FromStr as _};
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, Timelike};
 use proptest::prelude::*;
 use rust_decimal::Decimal;
-use serde_json::{Map, Value};
+use serde_json::{Map, Value as JsonValue};
 
-use crate::{DataType, Field, Ident, TrinoValue};
+use crate::{DataType, Field, Ident, Value};
 
 impl Arbitrary for Ident {
     type Parameters = ();
@@ -83,7 +83,7 @@ impl Arbitrary for DataType {
 }
 
 /// Generate a decimal value with a given precision and scale.
-fn any_decimal(precision: u32, scale: u32) -> BoxedStrategy<TrinoValue> {
+fn any_decimal(precision: u32, scale: u32) -> BoxedStrategy<Value> {
     // We can't generate a decimal with more than 28 digits of precision because
     // it may not fit in a `Decimal`. Ideally we would support up to 38 digits
     // of precision, which is what BigQuery supports.
@@ -102,7 +102,7 @@ fn any_decimal(precision: u32, scale: u32) -> BoxedStrategy<TrinoValue> {
             if s.is_empty() || s.starts_with('.') {
                 s = format!("0{}", s);
             }
-            TrinoValue::Decimal(Decimal::from_str(&s).unwrap_or_else(|err| {
+            Value::Decimal(Decimal::from_str(&s).unwrap_or_else(|err| {
                 panic!("could not parse decimal {:?} from string: {}", s, err)
             }))
         })
@@ -153,78 +153,78 @@ fn any_trino_compatible_timestamp_with_time_zone(
 
 /// Generate an arbitrary [`serde_json::Value`]. There are crates that can
 /// do this, but they're not worth the dependency for this one use.
-fn any_json() -> impl Strategy<Value = Value> {
+fn any_json() -> impl Strategy<Value = JsonValue> {
     let leaf = prop_oneof![
-        Just(Value::Null),
-        any::<bool>().prop_map(Value::Bool),
-        any::<u64>().prop_map(Value::from),
-        any::<i64>().prop_map(Value::from),
-        any::<f64>().prop_map(Value::from),
-        any::<String>().prop_map(Value::String),
+        Just(JsonValue::Null),
+        any::<bool>().prop_map(JsonValue::Bool),
+        any::<u64>().prop_map(JsonValue::from),
+        any::<i64>().prop_map(JsonValue::from),
+        any::<f64>().prop_map(JsonValue::from),
+        any::<String>().prop_map(JsonValue::String),
     ];
     leaf.prop_recursive(3, 10, 3, |inner| {
         prop_oneof![
-            prop::collection::vec(inner.clone(), 1..=3).prop_map(Value::Array),
+            prop::collection::vec(inner.clone(), 1..=3).prop_map(JsonValue::Array),
             prop::collection::hash_map(any::<String>(), inner, 1..=3)
-                .prop_map(|map| Value::Object(Map::from_iter(map.into_iter()))),
+                .prop_map(|map| JsonValue::Object(Map::from_iter(map.into_iter()))),
         ]
     })
 }
 
 /// Generate a Trino value and its type.
-pub fn any_trino_value_with_type() -> impl Strategy<Value = (TrinoValue, DataType)> {
+pub fn any_trino_value_with_type() -> impl Strategy<Value = (Value, DataType)> {
     any::<DataType>().prop_flat_map(|ty| {
         arb_value_of_type(&ty).prop_map(move |val| (val, ty.clone()))
     })
 }
 
-fn arb_value_of_type(ty: &DataType) -> BoxedStrategy<TrinoValue> {
+fn arb_value_of_type(ty: &DataType) -> BoxedStrategy<Value> {
     use chrono::NaiveTime;
     use geo_types::Geometry;
     use proptest_arbitrary_interop::arb;
     use uuid::Uuid;
 
     match ty {
-        DataType::Boolean => any::<bool>().prop_map(TrinoValue::Boolean).boxed(),
-        DataType::TinyInt => any::<i8>().prop_map(TrinoValue::TinyInt).boxed(),
-        DataType::SmallInt => any::<i16>().prop_map(TrinoValue::SmallInt).boxed(),
-        DataType::Int => any::<i32>().prop_map(TrinoValue::Int).boxed(),
-        DataType::BigInt => any::<i64>().prop_map(TrinoValue::BigInt).boxed(),
-        DataType::Real => any::<f32>().prop_map(TrinoValue::Real).boxed(),
-        DataType::Double => any::<f64>().prop_map(TrinoValue::Double).boxed(),
+        DataType::Boolean => any::<bool>().prop_map(Value::Boolean).boxed(),
+        DataType::TinyInt => any::<i8>().prop_map(Value::TinyInt).boxed(),
+        DataType::SmallInt => any::<i16>().prop_map(Value::SmallInt).boxed(),
+        DataType::Int => any::<i32>().prop_map(Value::Int).boxed(),
+        DataType::BigInt => any::<i64>().prop_map(Value::BigInt).boxed(),
+        DataType::Real => any::<f32>().prop_map(Value::Real).boxed(),
+        DataType::Double => any::<f64>().prop_map(Value::Double).boxed(),
         DataType::Decimal { precision, scale } => any_decimal(*precision, *scale),
         DataType::Varchar { length: None } => {
-            any::<String>().prop_map(TrinoValue::Varchar).boxed()
+            any::<String>().prop_map(Value::Varchar).boxed()
         }
         DataType::Varchar {
             length: Some(length),
         } => prop::collection::vec(any::<char>(), 0..*length as usize)
             .prop_map(|chars| chars.into_iter().collect())
-            .prop_map(TrinoValue::Varchar)
+            .prop_map(Value::Varchar)
             .boxed(),
         DataType::Varbinary => prop::collection::vec(any::<u8>(), 0..100)
-            .prop_map(TrinoValue::Varbinary)
+            .prop_map(Value::Varbinary)
             .boxed(),
-        DataType::Json => any_json().prop_map(TrinoValue::Json).boxed(),
-        DataType::Date => arb::<NaiveDate>().prop_map(TrinoValue::Date).boxed(),
+        DataType::Json => any_json().prop_map(Value::Json).boxed(),
+        DataType::Date => arb::<NaiveDate>().prop_map(Value::Date).boxed(),
         &DataType::Time { precision } => arb::<NaiveTime>()
             .prop_filter(LEAP_SECONDS_NOT_SUPPORTED, |t| !is_leap_second(t))
-            .prop_map(move |t| TrinoValue::Time(round_timelike(t, precision)))
+            .prop_map(move |t| Value::Time(round_timelike(t, precision)))
             .boxed(),
         &DataType::Timestamp { precision } => any_trino_compatible_timestamp()
-            .prop_map(move |t| TrinoValue::Timestamp(round_timelike(t, precision)))
+            .prop_map(move |t| Value::Timestamp(round_timelike(t, precision)))
             .boxed(),
         &DataType::TimestampWithTimeZone { precision } => {
             any_trino_compatible_timestamp_with_time_zone()
                 .prop_map(move |t| {
-                    TrinoValue::TimestampWithTimeZone(round_timelike(t, precision))
+                    Value::TimestampWithTimeZone(round_timelike(t, precision))
                 })
                 .boxed()
         }
         DataType::Array(elem_ty) => {
             let original_type = ty.clone();
             prop::collection::vec(arb_value_of_type(elem_ty), 0..3)
-                .prop_map(move |values| TrinoValue::Array {
+                .prop_map(move |values| Value::Array {
                     values,
                     literal_type: original_type.clone(),
                 })
@@ -236,17 +236,17 @@ fn arb_value_of_type(ty: &DataType) -> BoxedStrategy<TrinoValue> {
                 .iter()
                 .map(|field| arb_value_of_type(&field.data_type))
                 .collect::<Vec<_>>()
-                .prop_map(move |values| TrinoValue::Row {
+                .prop_map(move |values| Value::Row {
                     values,
                     literal_type: original_type.clone(),
                 })
                 .boxed()
         }
-        DataType::Uuid => arb::<Uuid>().prop_map(TrinoValue::Uuid).boxed(),
+        DataType::Uuid => arb::<Uuid>().prop_map(Value::Uuid).boxed(),
         // Just test points for now.
         DataType::SphericalGeography => (-180f64..=180f64, -90f64..=90f64)
             .prop_map(|(lon, lat)| {
-                TrinoValue::SphericalGeography(Geometry::Point((lon, lat).into()))
+                Value::SphericalGeography(Geometry::Point((lon, lat).into()))
             })
             .boxed(),
     }

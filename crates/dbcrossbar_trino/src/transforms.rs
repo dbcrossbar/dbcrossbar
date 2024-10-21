@@ -508,13 +508,13 @@ mod tests {
     use crate::{
         client::Client,
         connectors::ConnectorType,
-        values::{IsCloseEnoughTo as _, TrinoValue},
+        values::{IsCloseEnoughTo as _, Value},
     };
 
     async fn test_storage_transform_roundtrip_helper(
         test_name: &str,
         connector: ConnectorType,
-        value: TrinoValue,
+        value: Value,
         trino_ty: DataType,
         assume_identity_transform_passes: bool,
     ) {
@@ -593,7 +593,7 @@ mod tests {
     #[ignore]
     async fn test_storage_transform_roundtrip_manual() {
         use DataType as Ty;
-        use TrinoValue as Tv;
+        use Value as Tv;
         let examples = &[
             (Tv::Boolean(true), Ty::Boolean),
             (Tv::TinyInt(i8::MAX), Ty::TinyInt),
@@ -741,7 +741,7 @@ mod tests {
     async fn test_storage_transform_roundtrip_regressions() {
         use ConnectorType::*;
         use DataType as Ty;
-        use TrinoValue as Tv;
+        use Value as Tv;
 
         // Some regressions we've seen in the past.
         let regressions = &[
