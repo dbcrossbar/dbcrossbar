@@ -46,8 +46,8 @@ pub enum TrinoValue {
     Row {
         /// The values in the row.
         values: Vec<TrinoValue>,
-        /// The field types of this row. Needed to specify the field names
-        /// of a literal array value.
+        /// The type of this row. Needed to specify the field names of a literal
+        /// array value.
         literal_type: TrinoDataType,
     },
     Uuid(Uuid),
