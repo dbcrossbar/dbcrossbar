@@ -1,8 +1,11 @@
 //! Generate values for testing using
 //! [`proptest`](https://proptest-rs.github.io/proptest/intro.html).
 
+use std::{cmp::min, str::FromStr as _};
+
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, Timelike};
 use proptest::prelude::*;
+use rust_decimal::Decimal;
 use serde_json::{Map, Value};
 
 use crate::{TrinoDataType, TrinoField, TrinoIdent, TrinoValue};
@@ -84,7 +87,10 @@ impl Arbitrary for TrinoDataType {
 
 /// Generate a decimal value with a given precision and scale.
 fn any_decimal(precision: u32, scale: u32) -> BoxedStrategy<TrinoValue> {
-    prop::collection::vec(0..=9u8, precision as usize)
+    // We can't generate a decimal with more than 28 digits of precision because
+    // it may not fit in a `Decimal`. Ideally we would support up to 38 digits
+    // of precision, which is what BigQuery supports.
+    prop::collection::vec(0..=9u8, min(precision, 28) as usize)
         .prop_map(move |digits| {
             let mut s = String::new();
             for (idx, digit) in digits.into_iter().enumerate() {
@@ -99,7 +105,9 @@ fn any_decimal(precision: u32, scale: u32) -> BoxedStrategy<TrinoValue> {
             if s.is_empty() || s.starts_with('.') {
                 s = format!("0{}", s);
             }
-            TrinoValue::Decimal(s)
+            TrinoValue::Decimal(Decimal::from_str(&s).unwrap_or_else(|err| {
+                panic!("could not parse decimal {:?} from string: {}", s, err)
+            }))
         })
         .boxed()
 }

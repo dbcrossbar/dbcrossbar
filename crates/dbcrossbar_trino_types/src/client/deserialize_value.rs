@@ -1,8 +1,11 @@
 //! Deserialize a Trino JSON value into a [`TrinoValue`].
 
+use std::str::FromStr as _;
+
 use base64::{prelude::BASE64_STANDARD, Engine as _};
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use geo_types::Geometry;
+use rust_decimal::Decimal;
 use serde_json::Value;
 use uuid::Uuid;
 use wkt::TryFromWkt as _;
@@ -50,9 +53,9 @@ pub fn deserialize_value(
         (TrinoDataType::Double, Value::Number(n)) => {
             Ok(TrinoValue::Double(n.as_f64().ok_or_else(failed)?))
         }
-        (TrinoDataType::Decimal { .. }, Value::String(s)) => {
-            Ok(TrinoValue::Decimal(s.clone()))
-        }
+        (TrinoDataType::Decimal { .. }, Value::String(s)) => Ok(TrinoValue::Decimal(
+            Decimal::from_str(s).map_err(|_| failed())?,
+        )),
         (TrinoDataType::Varchar { .. }, Value::String(s)) => {
             Ok(TrinoValue::Varchar(s.clone()))
         }

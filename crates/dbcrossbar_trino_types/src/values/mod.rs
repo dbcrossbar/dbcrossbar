@@ -2,7 +2,9 @@
 
 use std::fmt;
 
+use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use geo_types::Geometry;
+use rust_decimal::Decimal;
 use serde_json::Value;
 use uuid::Uuid;
 use wkt::ToWkt;
@@ -23,14 +25,18 @@ pub enum TrinoValue {
     BigInt(i64),
     Real(f32),
     Double(f64),
-    Decimal(String),
+    /// A precise, fixed-point decimal value. Typically used to represent
+    /// monetary values. Note that this only holds 96 bits of precision, and
+    /// several popular databases have more, so this may not able to actually
+    /// represent all possible values supported by Trino.
+    Decimal(Decimal),
     Varchar(String),
     Varbinary(Vec<u8>),
     Json(Value),
-    Date(chrono::NaiveDate),
-    Time(chrono::NaiveTime),
-    Timestamp(chrono::NaiveDateTime),
-    TimestampWithTimeZone(chrono::DateTime<chrono::FixedOffset>),
+    Date(NaiveDate),
+    Time(NaiveTime),
+    Timestamp(NaiveDateTime),
+    TimestampWithTimeZone(DateTime<FixedOffset>),
     Array {
         /// The values in the array.
         values: Vec<TrinoValue>,
@@ -105,7 +111,7 @@ impl TrinoValue {
             // Trino can't parse.
             TrinoValue::Real(fl) => write!(f, "REAL '{:e}'", fl),
             TrinoValue::Double(fl) => write!(f, "{:e}", fl),
-            TrinoValue::Decimal(s) => write!(f, "DECIMAL {}", QuotedString(s)),
+            TrinoValue::Decimal(d) => write!(f, "DECIMAL '{}'", d),
             TrinoValue::Varchar(s) => write!(f, "{}", QuotedString(s)),
             TrinoValue::Varbinary(vec) => {
                 write!(f, "X'")?;

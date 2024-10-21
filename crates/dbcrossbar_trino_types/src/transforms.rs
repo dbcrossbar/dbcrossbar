@@ -462,10 +462,13 @@ impl<'a> std::fmt::Display for LoadTransformExpr<'a> {
 
 #[cfg(all(test, feature = "client"))]
 mod tests {
+    use std::str::FromStr as _;
+
     use chrono::{FixedOffset, NaiveDate, NaiveTime};
     use geo_types::{Coord, Geometry, Point};
     #[cfg(feature = "proptest")]
     use proptest::prelude::*;
+    use rust_decimal::Decimal;
     use wkt::TryFromWkt as _;
 
     use super::*;
@@ -569,7 +572,7 @@ mod tests {
             (Tv::Real(1.0), Ty::Real),
             (Tv::Double(1.0), Ty::Double),
             (
-                Tv::Decimal("1.3".to_string()),
+                Tv::Decimal(Decimal::from_str("1.3").unwrap()),
                 Ty::Decimal {
                     precision: 6,
                     scale: 2,
