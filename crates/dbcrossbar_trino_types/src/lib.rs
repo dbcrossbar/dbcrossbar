@@ -82,7 +82,7 @@ pub use crate::{
     ident::TrinoIdent,
     quoted_string::QuotedString,
     table_options::{TableOptionValue, TableOptions},
-    transforms::{LoadTransformExpr, StorageTransform, StoreTransformExpr},
+    transforms::{LoadExpr, StorageTransform, StoreExpr},
     types::{TrinoDataType, TrinoField},
 };
 

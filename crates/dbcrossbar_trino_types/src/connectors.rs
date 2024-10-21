@@ -24,8 +24,7 @@ use super::TrinoDataType;
 ///
 /// ```
 /// use dbcrossbar_trino_types::{
-///     LoadTransformExpr, StoreTransformExpr, TableOptions, TrinoConnectorType,
-///     TrinoDataType,
+///     TableOptions, TrinoConnectorType, TrinoDataType,
 /// };
 ///
 /// // Choose our connector type.
@@ -71,13 +70,13 @@ use super::TrinoDataType;
 /// /// SQL to insert a row.
 /// let insert_sql = format!(
 ///   "INSERT INTO {table_name} (x) VALUES ({});",
-///   StoreTransformExpr(&storage_transform, &"JSON '[1, 2, 3]'"),
+///   storage_transform.store_expr(&"JSON '[1, 2, 3]'"),
 /// );
 ///
 /// /// SQL to select a row.
 /// let select_sql = format!(
 ///   "SELECT {} AS x FROM {table_name};",
-///   LoadTransformExpr(&storage_transform, &"x"),
+///   storage_transform.load_expr(&"x"),
 /// );
 /// ```
 #[derive(Clone, Debug, Eq, PartialEq)]

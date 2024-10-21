@@ -49,6 +49,32 @@ impl StorageTransform {
     pub fn storage_type(&self) -> &TrinoDataType {
         &self.storage_type
     }
+
+    /// Format an SQL fragment, wrapping it code that converts the value to the
+    /// storage type. Returns an opaque value that supports
+    /// [`std::fmt::Display`].
+    pub fn store_expr<'a>(
+        &'a self,
+        wrapped_expr: &'a dyn fmt::Display,
+    ) -> StoreExpr<'a> {
+        StoreExpr {
+            transform: self,
+            wrapped_expr,
+        }
+    }
+
+    /// Format an SQL fragment, wrapping it code that converts the value from
+    /// the storage type. Returns an opaque value that supports
+    /// [`std::fmt::Display`].
+    pub fn load_expr<'a>(
+        &'a self,
+        wrapped_expr: &'a dyn fmt::Display,
+    ) -> LoadExpr<'a> {
+        LoadExpr {
+            transform: self,
+            wrapped_expr,
+        }
+    }
 }
 
 /// Internal helper for `StorageTransform`.
@@ -427,34 +453,44 @@ pub(crate) struct FieldStorageTransform {
 }
 
 /// Format a store operation with any necessary transform.
-pub struct StoreTransformExpr<'a>(pub &'a StorageTransform, pub &'a dyn fmt::Display);
+pub struct StoreExpr<'a> {
+    transform: &'a StorageTransform,
+    wrapped_expr: &'a dyn fmt::Display,
+}
 
-impl<'a> std::fmt::Display for StoreTransformExpr<'a> {
+impl<'a> std::fmt::Display for StoreExpr<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let needs_cast = self.0.transform.requires_cast_on_store();
+        let needs_cast = self.transform.transform.requires_cast_on_store();
         if needs_cast {
             write!(f, "CAST(")?;
         }
-        self.0.transform.fmt_store_transform_expr(f, self.1)?;
+        self.transform
+            .transform
+            .fmt_store_transform_expr(f, self.wrapped_expr)?;
         if needs_cast {
-            write!(f, " AS {})", self.0.storage_type())?;
+            write!(f, " AS {})", self.transform.storage_type())?;
         }
         Ok(())
     }
 }
 
 /// Format a load operation with any necessary transform.
-pub struct LoadTransformExpr<'a>(pub &'a StorageTransform, pub &'a dyn fmt::Display);
+pub struct LoadExpr<'a> {
+    transform: &'a StorageTransform,
+    wrapped_expr: &'a dyn fmt::Display,
+}
 
-impl<'a> std::fmt::Display for LoadTransformExpr<'a> {
+impl<'a> std::fmt::Display for LoadExpr<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let needs_cast = self.0.transform.requires_cast_on_load();
+        let needs_cast = self.transform.transform.requires_cast_on_load();
         if needs_cast {
             write!(f, "CAST(")?;
         }
-        self.0.transform.fmt_load_transform_expr(f, self.1)?;
+        self.transform
+            .transform
+            .fmt_load_transform_expr(f, self.wrapped_expr)?;
         if needs_cast {
-            write!(f, " AS {})", self.0.original_type())?;
+            write!(f, " AS {})", self.transform.original_type())?;
         }
         Ok(())
     }
@@ -526,7 +562,7 @@ mod tests {
         let insert_sql = format!(
             "INSERT INTO {} SELECT {} AS x",
             table_name,
-            StoreTransformExpr(&storage_transform, &value)
+            storage_transform.store_expr(&value),
         );
         eprintln!("insert_sql: {}", insert_sql);
         client
@@ -537,7 +573,7 @@ mod tests {
         // Read the value back out.
         let select_sql = format!(
             "SELECT {} FROM {}",
-            LoadTransformExpr(&storage_transform, &"x"),
+            storage_transform.load_expr(&"x"),
             table_name
         );
         eprintln!("select_sql: {}", select_sql);
