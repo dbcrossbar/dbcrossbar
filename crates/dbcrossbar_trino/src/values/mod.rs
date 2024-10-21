@@ -9,7 +9,7 @@ use serde_json::Value;
 use uuid::Uuid;
 use wkt::ToWkt;
 
-use crate::{QuotedString, TrinoDataType};
+use crate::{DataType, QuotedString};
 
 pub use self::is_close_enough_to::IsCloseEnoughTo;
 
@@ -41,14 +41,14 @@ pub enum TrinoValue {
         /// The values in the array.
         values: Vec<TrinoValue>,
         /// The type of this array. Needed to help print empty arrays.
-        literal_type: TrinoDataType,
+        literal_type: DataType,
     },
     Row {
         /// The values in the row.
         values: Vec<TrinoValue>,
         /// The type of this row. Needed to specify the field names of a literal
         /// array value.
-        literal_type: TrinoDataType,
+        literal_type: DataType,
     },
     Uuid(Uuid),
     SphericalGeography(Geometry<f64>),
@@ -59,7 +59,7 @@ impl TrinoValue {
     ///
     /// We go out of our way to only do this when necessry to make
     /// it easier to read generated test code.
-    fn cast_required_by_literal(&self) -> Option<&TrinoDataType> {
+    fn cast_required_by_literal(&self) -> Option<&DataType> {
         match self {
             TrinoValue::Array {
                 values,

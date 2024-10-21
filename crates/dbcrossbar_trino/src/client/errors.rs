@@ -5,7 +5,7 @@ use std::{error, fmt};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
-use crate::TrinoDataType;
+use crate::DataType;
 
 /// An error returned by our Trino client.
 #[derive(Debug)]
@@ -16,7 +16,7 @@ pub enum ClientError {
         /// The JSON value that could not be deserialized.
         value: Value,
         /// The type signature that was expected.
-        data_type: TrinoDataType,
+        data_type: DataType,
     },
     /// No column information was returned by the server.
     MissingColumnInfo,

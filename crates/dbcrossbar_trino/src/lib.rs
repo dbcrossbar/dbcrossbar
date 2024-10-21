@@ -7,7 +7,7 @@
 //! in your `Cargo.toml`. If you don't specify any features, this library is
 //! extremely lightweight.
 //!
-//! - `values`: Provides a `TrinoValue` enum that can represent a subset of
+//! - `values`: Provides a [`TrinoValue`] enum that can represent a subset of
 //!   Trino's values. This pulls in dependencies for lots of things, including
 //!   geodata, decimals, JSON and UUIDs.
 //! - `proptest`: Support for testing using the [`proptest`][proptest] crate.
@@ -31,24 +31,20 @@
 //! or don't support transactions. The following types help generate code that
 //! works around these limitations:
 //!
-//! - [`TrinoConnectorType`] is the main entry point to this part of the
+//! - [`ConnectorType`] is the main entry point to this part of the
 //!   library, providing an API to describe a connector's limitations. See this
 //!   section for example code!
 //! - [`StorageTransform`] describes how to transform data when storing it using
 //!   a specific connector, and when reading it back.
-//! - [`StoreTransformExpr`] and [`LoadTransformExpr`] are formatting wrappers
-//!   that work with [`StorageTransform`] to generate SQL expressions. These
-//!   should be callable by any SQL generator that supports
-//!   [`std::fmt::Display`].
 //!
 //! ### Basic utility types
 //!
 //! These are included mostly because they're needed by other parts of the
 //! library.
 //!
-//! - [`TrinoDataType`] and [`TrinoField`], which describe a subset of available
+//! - [`DataType`] and [`Field`], which describe a subset of available
 //!   data types in Trino.
-//! - [`TrinoIdent`], which represents and prints a simple Trino identifier.
+//! - [`Ident`], which represents and prints a simple Trino identifier.
 //! - [`QuotedString`], which formats a quoted and escaped string.
 //! - [`TableOptions`], which represents the `WITH` clause of a `CREATE TABLE`
 //!   statement.
@@ -77,13 +73,13 @@
 #[cfg(feature = "values")]
 pub use crate::values::{IsCloseEnoughTo, TrinoValue};
 pub use crate::{
-    connectors::TrinoConnectorType,
+    connectors::ConnectorType,
     errors::IdentifierError,
-    ident::TrinoIdent,
+    ident::Ident,
     quoted_string::QuotedString,
     table_options::{TableOptionValue, TableOptions},
     transforms::{LoadExpr, StorageTransform, StoreExpr},
-    types::{TrinoDataType, TrinoField},
+    types::{DataType, Field},
 };
 
 #[cfg(feature = "client")]

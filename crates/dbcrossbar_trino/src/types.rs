@@ -2,11 +2,11 @@
 
 use std::fmt;
 
-use crate::ident::TrinoIdent;
+use crate::ident::Ident;
 
 /// A Trino data type.
 #[derive(Clone, Debug, PartialEq)]
-pub enum TrinoDataType {
+pub enum DataType {
     /// A boolean value.
     Boolean,
     /// An 8-bit signed integer value.
@@ -55,9 +55,9 @@ pub enum TrinoDataType {
         precision: u32,
     },
     /// An array of values.
-    Array(Box<TrinoDataType>),
+    Array(Box<DataType>),
     /// A row of fields.
-    Row(Vec<TrinoField>),
+    Row(Vec<Field>),
     /// A UUID.
     Uuid,
     /// A spherical geographic value. This isn't documented in the official list
@@ -66,70 +66,67 @@ pub enum TrinoDataType {
     SphericalGeography,
 }
 
-impl TrinoDataType {
+impl DataType {
     pub fn bigquery_sized_decimal() -> Self {
-        TrinoDataType::Decimal {
+        DataType::Decimal {
             precision: 38,
             scale: 9,
         }
     }
 
     pub fn varchar() -> Self {
-        TrinoDataType::Varchar { length: None }
+        DataType::Varchar { length: None }
     }
 
     pub fn timestamp() -> Self {
-        TrinoDataType::Timestamp { precision: 3 }
+        DataType::Timestamp { precision: 3 }
     }
 
     pub fn timestamp_with_time_zone() -> Self {
-        TrinoDataType::TimestampWithTimeZone { precision: 3 }
+        DataType::TimestampWithTimeZone { precision: 3 }
     }
 
     /// Is this a ROW type with any named fields?
     #[cfg(feature = "values")]
     pub(crate) fn is_row_with_named_fields(&self) -> bool {
         match self {
-            TrinoDataType::Row(fields) => {
-                fields.iter().any(|field| field.name.is_some())
-            }
+            DataType::Row(fields) => fields.iter().any(|field| field.name.is_some()),
             _ => false,
         }
     }
 }
 
-// We keep around a separate implementation of `fmt::Display` for
-// `TrinoDataType` mostly for use in error messages, where we don't need fancy
-// formatting.
-impl fmt::Display for TrinoDataType {
+// We keep around an implementation of `fmt::Display` for [`DataType`] mostly
+// for use in error messages, where we don't need fancy formatting.
+impl fmt::Display for DataType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TrinoDataType::Boolean => write!(f, "BOOLEAN"),
-            TrinoDataType::TinyInt => write!(f, "TINYINT"),
-            TrinoDataType::SmallInt => write!(f, "SMALLINT"),
-            TrinoDataType::Int => write!(f, "INT"),
-            TrinoDataType::BigInt => write!(f, "BIGINT"),
-            TrinoDataType::Real => write!(f, "REAL"),
-            TrinoDataType::Double => write!(f, "DOUBLE"),
-            TrinoDataType::Decimal { precision, scale } => {
+            DataType::Boolean => write!(f, "BOOLEAN"),
+            DataType::TinyInt => write!(f, "TINYINT"),
+            DataType::SmallInt => write!(f, "SMALLINT"),
+            DataType::Int => write!(f, "INT"),
+            DataType::BigInt => write!(f, "BIGINT"),
+            DataType::Real => write!(f, "REAL"),
+            DataType::Double => write!(f, "DOUBLE"),
+            DataType::Decimal { precision, scale } => {
                 write!(f, "DECIMAL({}, {})", precision, scale)
             }
-            TrinoDataType::Varchar { length: None } => write!(f, "VARCHAR"),
-            TrinoDataType::Varchar {
+            DataType::Varchar { length: None } => write!(f, "VARCHAR"),
+            DataType::Varchar {
                 length: Some(length),
             } => write!(f, "VARCHAR({})", length),
-            TrinoDataType::Varbinary => write!(f, "VARBINARY"),
-            TrinoDataType::Json => write!(f, "JSON"),
-            TrinoDataType::Date => write!(f, "DATE"),
-            TrinoDataType::Time { precision } => write!(f, "TIME({})", precision),
-            TrinoDataType::Timestamp { precision } => {
+            DataType::Varbinary => write!(f, "VARBINARY"),
+            DataType::Json => write!(f, "JSON"),
+            DataType::Date => write!(f, "DATE"),
+            DataType::Time { precision } => write!(f, "TIME({})", precision),
+            DataType::Timestamp { precision } => {
                 write!(f, "TIMESTAMP({})", precision)
             }
-            TrinoDataType::TimestampWithTimeZone { precision } => {
+            DataType::TimestampWithTimeZone { precision } => {
                 write!(f, "TIMESTAMP({}) WITH TIME ZONE", precision)
             }
-            TrinoDataType::Array(elem_ty) => write!(f, "ARRAY({})", elem_ty),
-            TrinoDataType::Row(fields) => {
+            DataType::Array(elem_ty) => write!(f, "ARRAY({})", elem_ty),
+            DataType::Row(fields) => {
                 write!(f, "ROW(")?;
                 for (idx, field) in fields.iter().enumerate() {
                     if idx > 0 {
@@ -139,42 +136,41 @@ impl fmt::Display for TrinoDataType {
                 }
                 write!(f, ")")
             }
-            TrinoDataType::Uuid => write!(f, "UUID"),
+            DataType::Uuid => write!(f, "UUID"),
             // This is capitalized differently in Trino's output.
-            TrinoDataType::SphericalGeography => write!(f, "SphericalGeography"),
+            DataType::SphericalGeography => write!(f, "SphericalGeography"),
         }
     }
 }
 
-/// A field in a [`TrinoDataType::Row`] data type.
+/// A field in a [`DataType::Row`] data type.
 #[derive(Clone, Debug, PartialEq)]
-pub struct TrinoField {
+pub struct Field {
     /// The name of the field.
-    pub(super) name: Option<TrinoIdent>,
+    pub(super) name: Option<Ident>,
     /// The data type of the field.
-    pub(super) data_type: TrinoDataType,
+    pub(super) data_type: DataType,
 }
 
-impl TrinoField {
-    /// Create an anonymous `TrinoField` with a data type.
-    pub fn anonymous(data_type: TrinoDataType) -> Self {
-        TrinoField {
+impl Field {
+    /// Create an anonymous [`Field`] with a data type.
+    pub fn anonymous(data_type: DataType) -> Self {
+        Field {
             name: None,
             data_type,
         }
     }
 
-    /// Create a named `TrinoField` with a data type.
-    pub fn named(name: TrinoIdent, data_type: TrinoDataType) -> Self {
-        TrinoField {
+    /// Create a named [`Field`] with a data type.
+    pub fn named(name: Ident, data_type: DataType) -> Self {
+        Field {
             name: Some(name),
             data_type,
         }
     }
 }
 
-// We keep this around for `impl fmt::Display for TrinoDataType` to use.
-impl fmt::Display for TrinoField {
+impl fmt::Display for Field {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(name) = &self.name {
             write!(f, "{} ", name)?;
@@ -191,7 +187,7 @@ mod test {
 
     proptest! {
         #[test]
-        fn test_printable(data_type: TrinoDataType) {
+        fn test_printable(data_type: DataType) {
             // Make sure we can print the data type without panicking.
             format!("{}", data_type);
         }

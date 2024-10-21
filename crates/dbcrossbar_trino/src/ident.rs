@@ -18,10 +18,10 @@ use crate::errors::IdentifierError;
 ///
 /// [idents]: https://trino.io/docs/current/language/reserved.html#language-identifiers
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct TrinoIdent(String);
+pub struct Ident(String);
 
-impl TrinoIdent {
-    /// Create a new `TrinoIdent`.
+impl Ident {
+    /// Create a new [`Ident`].
     pub fn new(ident: &str) -> Result<Self, IdentifierError> {
         if ident.is_empty() {
             Err(IdentifierError::EmptyIdentifier)
@@ -42,7 +42,7 @@ impl TrinoIdent {
     }
 }
 
-impl fmt::Display for TrinoIdent {
+impl fmt::Display for Ident {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // We always quote identifiers, because that way we don't need a list of
         // reserved words.
@@ -57,18 +57,18 @@ impl fmt::Display for TrinoIdent {
 }
 
 // Deserialize a string as an identifier.
-impl<'de> serde::Deserialize<'de> for TrinoIdent {
-    fn deserialize<D>(deserializer: D) -> Result<TrinoIdent, D::Error>
+impl<'de> serde::Deserialize<'de> for Ident {
+    fn deserialize<D>(deserializer: D) -> Result<Ident, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        TrinoIdent::new(&s).map_err(serde::de::Error::custom)
+        Ident::new(&s).map_err(serde::de::Error::custom)
     }
 }
 
 // Serialize an identifier as a string.
-impl serde::Serialize for TrinoIdent {
+impl serde::Serialize for Ident {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -85,9 +85,9 @@ mod tests {
 
     proptest! {
         #[test]
-        fn test_ident_round_trip(ident: TrinoIdent) {
+        fn test_ident_round_trip(ident: Ident) {
             let s = ident.as_unquoted_str();
-            let ident2 = TrinoIdent::new(s).unwrap();
+            let ident2 = Ident::new(s).unwrap();
             prop_assert_eq!(ident, ident2);
         }
     }

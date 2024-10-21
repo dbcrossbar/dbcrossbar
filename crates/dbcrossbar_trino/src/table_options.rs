@@ -2,14 +2,14 @@
 
 use std::{collections::HashMap, fmt};
 
-use crate::{QuotedString, TrinoIdent};
+use crate::{QuotedString, Ident};
 
 /// The `WITH (...)` clause of a `CREATE TABLE` statement.
 ///
 /// The internal representation is public, because this is mostly just a
 /// formatting wrapper, and users may want to add their own options.
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct TableOptions(pub HashMap<TrinoIdent, TableOptionValue>);
+pub struct TableOptions(pub HashMap<Ident, TableOptionValue>);
 
 impl fmt::Display for TableOptions {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

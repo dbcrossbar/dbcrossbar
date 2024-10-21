@@ -2,7 +2,7 @@
 
 use serde::Deserialize;
 
-use crate::{TrinoDataType, TrinoField, TrinoIdent};
+use crate::{DataType, Field, Ident};
 
 use super::ClientError;
 
@@ -66,19 +66,19 @@ impl TypeSignature {
     }
 }
 
-impl TryFrom<&'_ TypeSignature> for TrinoDataType {
+impl TryFrom<&'_ TypeSignature> for DataType {
     type Error = ClientError;
 
     fn try_from(value: &TypeSignature) -> Result<Self, Self::Error> {
         match value.raw_type {
             RawType::Array => {
                 let element_type = value.array_element_type()?;
-                Ok(TrinoDataType::Array(Box::new(element_type.try_into()?)))
+                Ok(DataType::Array(Box::new(element_type.try_into()?)))
             }
-            RawType::BigInt => Ok(TrinoDataType::BigInt),
-            RawType::Boolean => Ok(TrinoDataType::Boolean),
-            RawType::Date => Ok(TrinoDataType::Date),
-            RawType::Decimal => Ok(TrinoDataType::Decimal {
+            RawType::BigInt => Ok(DataType::BigInt),
+            RawType::Boolean => Ok(DataType::Boolean),
+            RawType::Date => Ok(DataType::Date),
+            RawType::Decimal => Ok(DataType::Decimal {
                 precision: value.numeric_argument_u32(0)?.ok_or_else(|| {
                     ClientError::UnsupportedTypeSignature {
                         type_signature: Box::new(value.clone()),
@@ -86,10 +86,10 @@ impl TryFrom<&'_ TypeSignature> for TrinoDataType {
                 })?,
                 scale: value.numeric_argument_u32(1)?.unwrap_or(0),
             }),
-            RawType::Double => Ok(TrinoDataType::Double),
-            RawType::Integer => Ok(TrinoDataType::Int),
-            RawType::Json => Ok(TrinoDataType::Json),
-            RawType::Real => Ok(TrinoDataType::Real),
+            RawType::Double => Ok(DataType::Double),
+            RawType::Integer => Ok(DataType::Int),
+            RawType::Json => Ok(DataType::Json),
+            RawType::Real => Ok(DataType::Real),
             RawType::Row => {
                 let fields = value
                     .arguments
@@ -97,7 +97,7 @@ impl TryFrom<&'_ TypeSignature> for TrinoDataType {
                     .map(|arg| match arg {
                         Argument::NamedType { value } => {
                             let data_type = (&value.type_signature).try_into()?;
-                            Ok(TrinoField {
+                            Ok(Field {
                                 name: value
                                     .field_name
                                     .as_ref()
@@ -110,25 +110,23 @@ impl TryFrom<&'_ TypeSignature> for TrinoDataType {
                         }),
                     })
                     .collect::<Result<Vec<_>, _>>()?;
-                Ok(TrinoDataType::Row(fields))
+                Ok(DataType::Row(fields))
             }
-            RawType::SmallInt => Ok(TrinoDataType::SmallInt),
-            RawType::SphericalGeography => Ok(TrinoDataType::SphericalGeography),
-            RawType::TinyInt => Ok(TrinoDataType::TinyInt),
-            RawType::Time => Ok(TrinoDataType::Time {
+            RawType::SmallInt => Ok(DataType::SmallInt),
+            RawType::SphericalGeography => Ok(DataType::SphericalGeography),
+            RawType::TinyInt => Ok(DataType::TinyInt),
+            RawType::Time => Ok(DataType::Time {
                 precision: value.numeric_argument_u32(0)?.unwrap_or(3),
             }),
-            RawType::Timestamp => Ok(TrinoDataType::Timestamp {
+            RawType::Timestamp => Ok(DataType::Timestamp {
                 precision: value.numeric_argument_u32(0)?.unwrap_or(3),
             }),
-            RawType::TimestampWithTimeZone => {
-                Ok(TrinoDataType::TimestampWithTimeZone {
-                    precision: value.numeric_argument_u32(0)?.unwrap_or(3),
-                })
-            }
-            RawType::Uuid => Ok(TrinoDataType::Uuid),
-            RawType::Varbinary => Ok(TrinoDataType::Varbinary),
-            RawType::Varchar => Ok(TrinoDataType::Varchar {
+            RawType::TimestampWithTimeZone => Ok(DataType::TimestampWithTimeZone {
+                precision: value.numeric_argument_u32(0)?.unwrap_or(3),
+            }),
+            RawType::Uuid => Ok(DataType::Uuid),
+            RawType::Varbinary => Ok(DataType::Varbinary),
+            RawType::Varchar => Ok(DataType::Varchar {
                 // Ignore length on load because we don't need it right now.
                 length: None,
             }),
@@ -193,5 +191,5 @@ pub(crate) struct NamedType {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub(crate) struct FieldName {
-    pub name: TrinoIdent,
+    pub name: Ident,
 }

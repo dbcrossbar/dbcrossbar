@@ -28,7 +28,7 @@ use serde_json::Value;
 
 pub use self::errors::{ClientError, QueryError};
 use self::{deserialize_value::deserialize_value, wire_types::TypeSignature};
-use crate::{TrinoDataType, TrinoIdent};
+use crate::{DataType, Ident};
 
 use super::TrinoValue;
 
@@ -69,7 +69,7 @@ impl Response {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub(crate) struct Column {
-    pub(crate) name: TrinoIdent,
+    pub(crate) name: Ident,
     #[serde(rename = "type")]
     type_string: String,
     pub(crate) type_signature: TypeSignature,
@@ -181,7 +181,7 @@ impl Client {
     ) -> Result<Vec<Vec<TrinoValue>>, ClientError> {
         let mut response = self.start_query(query).await?;
         let mut results = Vec::new();
-        let mut col_types: Option<Vec<TrinoDataType>> = None;
+        let mut col_types: Option<Vec<DataType>> = None;
         loop {
             if let Some(cols) = &response.columns {
                 if col_types.is_none() {

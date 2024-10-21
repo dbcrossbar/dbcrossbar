@@ -10,14 +10,14 @@ use serde_json::Value;
 use uuid::Uuid;
 use wkt::TryFromWkt as _;
 
-use crate::{values::TrinoValue, TrinoDataType};
+use crate::{values::TrinoValue, DataType};
 
 use super::ClientError;
 
 /// Deserialize a Trino JSON value into a [`TrinoValue`] of type
-/// [`TrinoDataType`].
+/// [`DataType`].
 pub(crate) fn deserialize_value(
-    data_type: &TrinoDataType,
+    data_type: &DataType,
     value: &Value,
 ) -> Result<TrinoValue, ClientError> {
     let failed = || ClientError::CouldNotDeserializeValue {
@@ -25,60 +25,58 @@ pub(crate) fn deserialize_value(
         data_type: data_type.clone(),
     };
     match (data_type, value) {
-        (TrinoDataType::Boolean, Value::Bool(b)) => Ok(TrinoValue::Boolean(*b)),
-        (TrinoDataType::TinyInt, Value::Number(n)) => Ok(TrinoValue::TinyInt(
+        (DataType::Boolean, Value::Bool(b)) => Ok(TrinoValue::Boolean(*b)),
+        (DataType::TinyInt, Value::Number(n)) => Ok(TrinoValue::TinyInt(
             n.as_i64()
                 .ok_or_else(failed)?
                 .try_into()
                 .map_err(|_| failed())?,
         )),
-        (TrinoDataType::SmallInt, Value::Number(n)) => Ok(TrinoValue::SmallInt(
+        (DataType::SmallInt, Value::Number(n)) => Ok(TrinoValue::SmallInt(
             n.as_i64()
                 .ok_or_else(failed)?
                 .try_into()
                 .map_err(|_| failed())?,
         )),
-        (TrinoDataType::Int, Value::Number(n)) => Ok(TrinoValue::Int(
+        (DataType::Int, Value::Number(n)) => Ok(TrinoValue::Int(
             n.as_i64()
                 .ok_or_else(failed)?
                 .try_into()
                 .map_err(|_| failed())?,
         )),
-        (TrinoDataType::BigInt, Value::Number(n)) => {
+        (DataType::BigInt, Value::Number(n)) => {
             Ok(TrinoValue::BigInt(n.as_i64().ok_or_else(failed)?))
         }
-        (TrinoDataType::Real, Value::Number(n)) => {
+        (DataType::Real, Value::Number(n)) => {
             Ok(TrinoValue::Real(n.as_f64().ok_or_else(failed)? as f32))
         }
-        (TrinoDataType::Double, Value::Number(n)) => {
+        (DataType::Double, Value::Number(n)) => {
             Ok(TrinoValue::Double(n.as_f64().ok_or_else(failed)?))
         }
-        (TrinoDataType::Decimal { .. }, Value::String(s)) => Ok(TrinoValue::Decimal(
+        (DataType::Decimal { .. }, Value::String(s)) => Ok(TrinoValue::Decimal(
             Decimal::from_str(s).map_err(|_| failed())?,
         )),
-        (TrinoDataType::Varchar { .. }, Value::String(s)) => {
+        (DataType::Varchar { .. }, Value::String(s)) => {
             Ok(TrinoValue::Varchar(s.clone()))
         }
-        (TrinoDataType::Varbinary, Value::String(s)) => Ok(TrinoValue::Varbinary(
+        (DataType::Varbinary, Value::String(s)) => Ok(TrinoValue::Varbinary(
             BASE64_STANDARD.decode(s.as_bytes()).map_err(|_| failed())?,
         )),
-        (TrinoDataType::Json, Value::String(s)) => {
+        (DataType::Json, Value::String(s)) => {
             let json = serde_json::from_str(s).map_err(|_| failed())?;
             Ok(TrinoValue::Json(json))
         }
-        (TrinoDataType::Date, Value::String(s)) => Ok(TrinoValue::Date(
+        (DataType::Date, Value::String(s)) => Ok(TrinoValue::Date(
             NaiveDate::parse_from_str(s, "%Y-%m-%d").map_err(|_| failed())?,
         )),
-        (TrinoDataType::Time { .. }, Value::String(s)) => Ok(TrinoValue::Time(
+        (DataType::Time { .. }, Value::String(s)) => Ok(TrinoValue::Time(
             NaiveTime::parse_from_str(s, "%H:%M:%S%.f").map_err(|_| failed())?,
         )),
-        (TrinoDataType::Timestamp { .. }, Value::String(s)) => {
-            Ok(TrinoValue::Timestamp(
-                NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.6f")
-                    .map_err(|_| failed())?,
-            ))
-        }
-        (TrinoDataType::TimestampWithTimeZone { .. }, Value::String(s)) => {
+        (DataType::Timestamp { .. }, Value::String(s)) => Ok(TrinoValue::Timestamp(
+            NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.6f")
+                .map_err(|_| failed())?,
+        )),
+        (DataType::TimestampWithTimeZone { .. }, Value::String(s)) => {
             let parsed = if s.ends_with(" UTC") {
                 NaiveDateTime::parse_from_str(
                     s.trim_end_matches(" UTC"),
@@ -94,7 +92,7 @@ pub(crate) fn deserialize_value(
             };
             Ok(TrinoValue::TimestampWithTimeZone(parsed))
         }
-        (TrinoDataType::Array(elem_ty), Value::Array(values)) => {
+        (DataType::Array(elem_ty), Value::Array(values)) => {
             let values = values
                 .iter()
                 .map(|v| deserialize_value(elem_ty, v))
@@ -104,7 +102,7 @@ pub(crate) fn deserialize_value(
                 literal_type: data_type.clone(),
             })
         }
-        (TrinoDataType::Row(fields), Value::Array(values)) => {
+        (DataType::Row(fields), Value::Array(values)) => {
             let values = fields
                 .iter()
                 .zip(values)
@@ -115,10 +113,10 @@ pub(crate) fn deserialize_value(
                 literal_type: data_type.clone(),
             })
         }
-        (TrinoDataType::Uuid, Value::String(s)) => {
+        (DataType::Uuid, Value::String(s)) => {
             Ok(TrinoValue::Uuid(Uuid::parse_str(s).map_err(|_| failed())?))
         }
-        (TrinoDataType::SphericalGeography, Value::String(wkt_str)) => {
+        (DataType::SphericalGeography, Value::String(wkt_str)) => {
             let geom =
                 Geometry::<f64>::try_from_wkt_str(wkt_str).map_err(|_| failed())?;
             Ok(TrinoValue::SphericalGeography(geom))

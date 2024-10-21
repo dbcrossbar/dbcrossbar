@@ -13,10 +13,10 @@ use crate::{
     transforms::{
         FieldName, FieldStorageTransform, StorageTransform, TypeStorageTransform,
     },
-    TableOptionValue, TableOptions, TrinoIdent,
+    Ident, TableOptionValue, TableOptions,
 };
 
-use super::TrinoDataType;
+use super::DataType;
 
 /// Compatibility information about each supported Trino connector type.
 ///
@@ -24,11 +24,11 @@ use super::TrinoDataType;
 ///
 /// ```
 /// use dbcrossbar_trino::{
-///     TableOptions, TrinoConnectorType, TrinoDataType,
+///     TableOptions, ConnectorType, DataType,
 /// };
 ///
 /// // Choose our connector type.
-/// let connector = TrinoConnectorType::Hive;
+/// let connector = ConnectorType::Hive;
 /// let table_name = "hive.default.my_table";
 ///
 /// /// Get some SQL fragments we'll need to create a table.
@@ -54,7 +54,7 @@ use super::TrinoDataType;
 /// };
 ///
 /// /// Define a column type.
-/// let col_ty = TrinoDataType::Array(Box::new(TrinoDataType::Json));
+/// let col_ty = DataType::Json;
 ///
 /// /// Get a storage transform for a specific data type.
 /// let storage_transform = connector.storage_transform_for(&col_ty);
@@ -83,7 +83,7 @@ use super::TrinoDataType;
 #[cfg_attr(feature = "proptest", derive(Arbitrary))]
 #[allow(missing_docs)]
 #[non_exhaustive]
-pub enum TrinoConnectorType {
+pub enum ConnectorType {
     /// The [Hive](https://trino.io/docs/current/connector/hive.html) connector.
     /// This is the "default" connector used in most Trino installations.
     Hive,
@@ -101,14 +101,14 @@ pub enum TrinoConnectorType {
     // (Athena3's default connector may need a separate value here.)
 }
 
-impl TrinoConnectorType {
+impl ConnectorType {
     /// All connector types.
     #[cfg(test)]
-    pub fn all() -> impl Iterator<Item = TrinoConnectorType> {
+    pub fn all() -> impl Iterator<Item = ConnectorType> {
         [
-            TrinoConnectorType::Memory,
-            TrinoConnectorType::Hive,
-            TrinoConnectorType::Iceberg,
+            ConnectorType::Memory,
+            ConnectorType::Hive,
+            ConnectorType::Iceberg,
         ]
         .into_iter()
     }
@@ -117,9 +117,9 @@ impl TrinoConnectorType {
     #[cfg(test)]
     pub fn test_catalog(&self) -> &'static str {
         match self {
-            TrinoConnectorType::Hive => "hive",
-            TrinoConnectorType::Iceberg => "iceberg",
-            TrinoConnectorType::Memory => "memory",
+            ConnectorType::Hive => "hive",
+            ConnectorType::Iceberg => "iceberg",
+            ConnectorType::Memory => "memory",
         }
     }
 
@@ -127,9 +127,9 @@ impl TrinoConnectorType {
     #[cfg(test)]
     pub fn test_schema(&self) -> &'static str {
         match self {
-            TrinoConnectorType::Hive => "default",
-            TrinoConnectorType::Iceberg => "default",
-            TrinoConnectorType::Memory => "default",
+            ConnectorType::Hive => "default",
+            ConnectorType::Iceberg => "default",
+            ConnectorType::Memory => "default",
         }
     }
 
@@ -152,18 +152,18 @@ impl TrinoConnectorType {
     /// Does this backend supports `NOT NULL`?
     pub fn supports_not_null_constraint(&self) -> bool {
         match self {
-            TrinoConnectorType::Hive => false,
-            TrinoConnectorType::Iceberg => true,
-            TrinoConnectorType::Memory => false,
+            ConnectorType::Hive => false,
+            ConnectorType::Iceberg => true,
+            ConnectorType::Memory => false,
         }
     }
 
     /// Does this backend supports `OR REPLACE`?
     pub fn supports_replace_table(&self) -> bool {
         match self {
-            TrinoConnectorType::Hive => false,
-            TrinoConnectorType::Iceberg => true,
-            TrinoConnectorType::Memory => false,
+            ConnectorType::Hive => false,
+            ConnectorType::Iceberg => true,
+            ConnectorType::Memory => false,
         }
     }
 
@@ -182,9 +182,9 @@ impl TrinoConnectorType {
         match self {
             // Use `WITH(format = 'ORC', transactional=true)` to make `MERGE`
             // work with Hive.
-            TrinoConnectorType::Hive => true,
-            TrinoConnectorType::Iceberg => true,
-            TrinoConnectorType::Memory => false,
+            ConnectorType::Hive => true,
+            ConnectorType::Iceberg => true,
+            ConnectorType::Memory => false,
         }
     }
 
@@ -192,20 +192,20 @@ impl TrinoConnectorType {
     pub fn table_options_for_merge(&self) -> TableOptions {
         let mut options = HashMap::new();
         match self {
-            TrinoConnectorType::Hive => {
+            ConnectorType::Hive => {
                 options.insert(
-                    TrinoIdent::new("format").expect("bad ident"),
+                    Ident::new("format").expect("bad ident"),
                     TableOptionValue::String("ORC".to_string()),
                 );
                 options.insert(
-                    TrinoIdent::new("transactional").expect("bad ident"),
+                    Ident::new("transactional").expect("bad ident"),
                     TableOptionValue::Boolean(true),
                 );
             }
-            TrinoConnectorType::Iceberg => {
+            ConnectorType::Iceberg => {
                 // No special options needed.
             }
-            TrinoConnectorType::Memory => {
+            ConnectorType::Memory => {
                 // Not supported anyway.
             }
         }
@@ -215,34 +215,33 @@ impl TrinoConnectorType {
     /// Does this backend support anonymous `ROW` fields?
     pub fn supports_anonymous_row_fields(&self) -> bool {
         match self {
-            TrinoConnectorType::Hive => false,
-            TrinoConnectorType::Iceberg => false,
-            TrinoConnectorType::Memory => true,
+            ConnectorType::Hive => false,
+            ConnectorType::Iceberg => false,
+            ConnectorType::Memory => true,
         }
     }
 
     /// How should we transform a given data type for storage in this backend?
-    pub fn storage_transform_for(&self, ty: &TrinoDataType) -> StorageTransform {
+    pub fn storage_transform_for(&self, ty: &DataType) -> StorageTransform {
         let type_storage_transform = self.type_storage_transform_for(ty);
         StorageTransform::new(ty.clone(), type_storage_transform)
     }
 
     /// Internal recursive helper for [`Self::storage_transform_for`].
-    fn type_storage_transform_for(&self, ty: &TrinoDataType) -> TypeStorageTransform {
+    fn type_storage_transform_for(&self, ty: &DataType) -> TypeStorageTransform {
         match (self, ty) {
             // Iceberg.
-            (
-                TrinoConnectorType::Iceberg,
-                TrinoDataType::TinyInt | TrinoDataType::SmallInt,
-            ) => TypeStorageTransform::SmallerIntAsInt,
-            (TrinoConnectorType::Iceberg, TrinoDataType::Time { precision })
+            (ConnectorType::Iceberg, DataType::TinyInt | DataType::SmallInt) => {
+                TypeStorageTransform::SmallerIntAsInt
+            }
+            (ConnectorType::Iceberg, DataType::Time { precision })
                 if *precision != 6 =>
             {
                 TypeStorageTransform::TimeWithPrecision {
                     stored_precision: 6,
                 }
             }
-            (TrinoConnectorType::Iceberg, TrinoDataType::Timestamp { precision })
+            (ConnectorType::Iceberg, DataType::Timestamp { precision })
                 if *precision != 6 =>
             {
                 TypeStorageTransform::TimestampWithPrecision {
@@ -250,53 +249,52 @@ impl TrinoConnectorType {
                 }
             }
             (
-                TrinoConnectorType::Iceberg,
-                TrinoDataType::TimestampWithTimeZone { precision },
+                ConnectorType::Iceberg,
+                DataType::TimestampWithTimeZone { precision },
             ) if *precision != 6 => {
                 TypeStorageTransform::TimestampWithTimeZoneWithPrecision {
                     stored_precision: 6,
                 }
             }
-            (TrinoConnectorType::Iceberg, TrinoDataType::Json) => {
+            (ConnectorType::Iceberg, DataType::Json) => {
                 TypeStorageTransform::JsonAsVarchar
             }
-            (TrinoConnectorType::Iceberg, TrinoDataType::SphericalGeography) => {
+            (ConnectorType::Iceberg, DataType::SphericalGeography) => {
                 TypeStorageTransform::SphericalGeographyAsWkt
             }
 
             // Hive.
-            (TrinoConnectorType::Hive, TrinoDataType::Time { .. }) => {
+            (ConnectorType::Hive, DataType::Time { .. }) => {
                 TypeStorageTransform::TimeAsVarchar
             }
-            (TrinoConnectorType::Hive, TrinoDataType::Timestamp { precision })
+            (ConnectorType::Hive, DataType::Timestamp { precision })
                 if *precision != 3 =>
             {
                 TypeStorageTransform::TimestampWithPrecision {
                     stored_precision: 3,
                 }
             }
-            (
-                TrinoConnectorType::Hive,
-                TrinoDataType::TimestampWithTimeZone { .. },
-            ) => TypeStorageTransform::TimestampWithTimeZoneAsTimestamp {
-                stored_precision: 3,
-            },
-            (TrinoConnectorType::Hive, TrinoDataType::Json) => {
+            (ConnectorType::Hive, DataType::TimestampWithTimeZone { .. }) => {
+                TypeStorageTransform::TimestampWithTimeZoneAsTimestamp {
+                    stored_precision: 3,
+                }
+            }
+            (ConnectorType::Hive, DataType::Json) => {
                 TypeStorageTransform::JsonAsVarchar
             }
-            (TrinoConnectorType::Hive, TrinoDataType::Uuid) => {
+            (ConnectorType::Hive, DataType::Uuid) => {
                 TypeStorageTransform::UuidAsVarchar
             }
-            (TrinoConnectorType::Hive, TrinoDataType::SphericalGeography) => {
+            (ConnectorType::Hive, DataType::SphericalGeography) => {
                 TypeStorageTransform::SphericalGeographyAsWkt
             }
 
             // Recursive types.
-            (_, TrinoDataType::Array(elem_ty)) => TypeStorageTransform::Array {
+            (_, DataType::Array(elem_ty)) => TypeStorageTransform::Array {
                 element_transform: Box::new(self.type_storage_transform_for(elem_ty)),
             }
             .simplify_top_level(),
-            (_, TrinoDataType::Row(fields)) => TypeStorageTransform::Row {
+            (_, DataType::Row(fields)) => TypeStorageTransform::Row {
                 name_anonymous_fields: !self.supports_anonymous_row_fields(),
                 field_transforms: fields
                     .iter()
@@ -318,25 +316,25 @@ impl TrinoConnectorType {
     }
 }
 
-impl FromStr for TrinoConnectorType {
+impl FromStr for ConnectorType {
     type Err = ConnectorError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
-            "hive" => TrinoConnectorType::Hive,
-            "iceberg" => TrinoConnectorType::Iceberg,
-            "memory" => TrinoConnectorType::Memory,
+            "hive" => ConnectorType::Hive,
+            "iceberg" => ConnectorType::Iceberg,
+            "memory" => ConnectorType::Memory,
             _ => return Err(ConnectorError::UnsupportedType(s.to_string())),
         })
     }
 }
 
-impl fmt::Display for TrinoConnectorType {
+impl fmt::Display for ConnectorType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            TrinoConnectorType::Hive => "hive".fmt(f),
-            TrinoConnectorType::Iceberg => "iceberg".fmt(f),
-            TrinoConnectorType::Memory => "memory".fmt(f),
+            ConnectorType::Hive => "hive".fmt(f),
+            ConnectorType::Iceberg => "iceberg".fmt(f),
+            ConnectorType::Memory => "memory".fmt(f),
         }
     }
 }
@@ -360,7 +358,7 @@ mod tests {
     #[ignore]
     async fn test_supports_not_null_constraint() {
         let client = Client::default();
-        for connector in TrinoConnectorType::all() {
+        for connector in ConnectorType::all() {
             // If the connector doesn't support `NOT NULL`, we don't need
             // to test it.
             if !connector.supports_not_null_constraint() {
@@ -385,7 +383,7 @@ mod tests {
     #[ignore]
     async fn test_supports_replace_table() {
         let client = Client::default();
-        for connector in TrinoConnectorType::all() {
+        for connector in ConnectorType::all() {
             // If the connector doesn't support `OR REPLACE`, we don't need
             // to test it.
             if !connector.supports_replace_table() {
@@ -419,7 +417,7 @@ mod tests {
     #[ignore]
     async fn test_supports_merge() {
         let client = Client::default();
-        for connector in TrinoConnectorType::all() {
+        for connector in ConnectorType::all() {
             // If the connector doesn't support upserts, we don't need to test
             // it.
             if !connector.supports_merge() {

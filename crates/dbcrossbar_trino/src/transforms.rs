@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::{TrinoDataType, TrinoField, TrinoIdent};
+use crate::{DataType, Field, Ident};
 
 /// Downgrades from stanard Trino types (used when running SQL) to "simpler"
 /// types that are supported by particular storage backends.
@@ -12,10 +12,10 @@ use crate::{TrinoDataType, TrinoField, TrinoIdent};
 #[derive(Clone, Debug)]
 pub struct StorageTransform {
     /// The original type.
-    original_type: TrinoDataType,
+    original_type: DataType,
 
     /// The storage type.
-    storage_type: TrinoDataType,
+    storage_type: DataType,
 
     /// How to transform this type for storage.
     transform: TypeStorageTransform,
@@ -24,7 +24,7 @@ pub struct StorageTransform {
 impl StorageTransform {
     /// Create a new storage transform.
     pub(crate) fn new(
-        original_type: TrinoDataType,
+        original_type: DataType,
         transform: TypeStorageTransform,
     ) -> Self {
         let storage_type = transform.storage_type_for(&original_type);
@@ -41,12 +41,12 @@ impl StorageTransform {
     }
 
     /// The original type, before any transformation.
-    pub fn original_type(&self) -> &TrinoDataType {
+    pub fn original_type(&self) -> &DataType {
         &self.original_type
     }
 
     /// What storage type should we use for this type?
-    pub fn storage_type(&self) -> &TrinoDataType {
+    pub fn storage_type(&self) -> &DataType {
         &self.storage_type
     }
 
@@ -143,64 +143,59 @@ impl TypeStorageTransform {
     }
 
     /// Return the type used to store the given type.
-    pub(crate) fn storage_type_for(&self, ty: &TrinoDataType) -> TrinoDataType {
+    pub(crate) fn storage_type_for(&self, ty: &DataType) -> DataType {
         match self {
             TypeStorageTransform::Identity => ty.clone(),
             TypeStorageTransform::JsonAsVarchar => {
-                assert!(matches!(*ty, TrinoDataType::Json));
-                TrinoDataType::varchar()
+                assert!(matches!(*ty, DataType::Json));
+                DataType::varchar()
             }
             TypeStorageTransform::UuidAsVarchar => {
-                assert!(matches!(*ty, TrinoDataType::Uuid));
-                TrinoDataType::varchar()
+                assert!(matches!(*ty, DataType::Uuid));
+                DataType::varchar()
             }
             TypeStorageTransform::SphericalGeographyAsWkt => {
-                assert!(matches!(*ty, TrinoDataType::SphericalGeography));
-                TrinoDataType::varchar()
+                assert!(matches!(*ty, DataType::SphericalGeography));
+                DataType::varchar()
             }
             TypeStorageTransform::SmallerIntAsInt => {
-                assert!(matches!(
-                    *ty,
-                    TrinoDataType::TinyInt | TrinoDataType::SmallInt
-                ));
-                TrinoDataType::Int
+                assert!(matches!(*ty, DataType::TinyInt | DataType::SmallInt));
+                DataType::Int
             }
             TypeStorageTransform::TimeAsVarchar => {
-                assert!(matches!(*ty, TrinoDataType::Time { .. }));
-                TrinoDataType::varchar()
+                assert!(matches!(*ty, DataType::Time { .. }));
+                DataType::varchar()
             }
             TypeStorageTransform::TimestampWithTimeZoneAsTimestamp {
                 stored_precision,
             } => match ty {
-                TrinoDataType::TimestampWithTimeZone { .. } => {
-                    TrinoDataType::Timestamp {
-                        precision: *stored_precision,
-                    }
-                }
+                DataType::TimestampWithTimeZone { .. } => DataType::Timestamp {
+                    precision: *stored_precision,
+                },
                 _ => panic!("expected TimestampWithTimeZone"),
             },
             TypeStorageTransform::TimeWithPrecision { stored_precision } => {
-                assert!(matches!(*ty, TrinoDataType::Time { .. }));
-                TrinoDataType::Time {
+                assert!(matches!(*ty, DataType::Time { .. }));
+                DataType::Time {
                     precision: *stored_precision,
                 }
             }
             TypeStorageTransform::TimestampWithPrecision { stored_precision } => {
-                assert!(matches!(*ty, TrinoDataType::Timestamp { .. }));
-                TrinoDataType::Timestamp {
+                assert!(matches!(*ty, DataType::Timestamp { .. }));
+                DataType::Timestamp {
                     precision: *stored_precision,
                 }
             }
             TypeStorageTransform::TimestampWithTimeZoneWithPrecision {
                 stored_precision,
             } => {
-                assert!(matches!(*ty, TrinoDataType::TimestampWithTimeZone { .. }));
-                TrinoDataType::TimestampWithTimeZone {
+                assert!(matches!(*ty, DataType::TimestampWithTimeZone { .. }));
+                DataType::TimestampWithTimeZone {
                     precision: *stored_precision,
                 }
             }
             TypeStorageTransform::Array { element_transform } => match ty {
-                TrinoDataType::Array(elem_ty) => TrinoDataType::Array(Box::new(
+                DataType::Array(elem_ty) => DataType::Array(Box::new(
                     element_transform.storage_type_for(elem_ty),
                 )),
                 _ => panic!("expected Array"),
@@ -210,15 +205,15 @@ impl TypeStorageTransform {
                 field_transforms,
                 ..
             } => match ty {
-                TrinoDataType::Row(fields) => TrinoDataType::Row(
+                DataType::Row(fields) => DataType::Row(
                     fields
                         .iter()
                         .zip(field_transforms)
                         .enumerate()
-                        .map(|(idx, (field, field_transform))| TrinoField {
+                        .map(|(idx, (field, field_transform))| Field {
                             name: if *name_anoymous_fields {
                                 Some(field.name.as_ref().map_or_else(
-                                    || TrinoIdent::placeholder(idx + 1),
+                                    || Ident::placeholder(idx + 1),
                                     |ident| ident.to_owned(),
                                 ))
                             } else {
@@ -441,7 +436,7 @@ impl TypeStorageTransform {
 /// A field name in a row.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum FieldName {
-    Named(TrinoIdent),
+    Named(Ident),
     Indexed(usize),
 }
 
@@ -512,15 +507,15 @@ mod tests {
     use crate::proptest::any_trino_value_with_type;
     use crate::{
         client::Client,
-        connectors::TrinoConnectorType,
+        connectors::ConnectorType,
         values::{IsCloseEnoughTo as _, TrinoValue},
     };
 
     async fn test_storage_transform_roundtrip_helper(
         test_name: &str,
-        connector: TrinoConnectorType,
+        connector: ConnectorType,
         value: TrinoValue,
-        trino_ty: TrinoDataType,
+        trino_ty: DataType,
         assume_identity_transform_passes: bool,
     ) {
         // How should we transform this type for storage using this connector?
@@ -597,7 +592,7 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_storage_transform_roundtrip_manual() {
-        use TrinoDataType as Ty;
+        use DataType as Ty;
         use TrinoValue as Tv;
         let examples = &[
             (Tv::Boolean(true), Ty::Boolean),
@@ -672,7 +667,7 @@ mod tests {
             ),
         ];
 
-        for connector in TrinoConnectorType::all() {
+        for connector in ConnectorType::all() {
             // Try base types.
             for (value, trino_ty) in examples {
                 test_storage_transform_roundtrip_helper(
@@ -703,7 +698,7 @@ mod tests {
 
             // Try anonymous single-field rows.
             for (value, trino_ty) in examples {
-                let row_ty = Ty::Row(vec![TrinoField {
+                let row_ty = Ty::Row(vec![Field {
                     name: None,
                     data_type: trino_ty.to_owned(),
                 }]);
@@ -722,8 +717,8 @@ mod tests {
 
             // Try named single-field rows.
             for (value, trino_ty) in examples {
-                let row_ty = Ty::Row(vec![TrinoField {
-                    name: Some(TrinoIdent::new("f").unwrap()),
+                let row_ty = Ty::Row(vec![Field {
+                    name: Some(Ident::new("f").unwrap()),
                     data_type: trino_ty.to_owned(),
                 }]);
                 test_storage_transform_roundtrip_helper(
@@ -744,8 +739,8 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_storage_transform_roundtrip_regressions() {
-        use TrinoConnectorType::*;
-        use TrinoDataType as Ty;
+        use ConnectorType::*;
+        use DataType as Ty;
         use TrinoValue as Tv;
 
         // Some regressions we've seen in the past.
@@ -774,11 +769,11 @@ mod tests {
                 // won't. `VARCHAR` with no length constraint won't. `SMALLINT`
                 // can be replaced with `TINYINT`, and it will still trigger.
                 let lit_type = Ty::Row(vec![
-                    TrinoField {
+                    Field {
                         name: None,
                         data_type: Ty::Varchar { length: Some(1) },
                     },
-                    TrinoField {
+                    Field {
                         name: None,
                         data_type: Ty::SmallInt,
                     },
@@ -815,7 +810,7 @@ mod tests {
         #[test]
         #[ignore]
         fn test_storage_transform_roundtrip_generated(
-            connector in any::<TrinoConnectorType>(),
+            connector in any::<ConnectorType>(),
             (value, trino_ty) in any_trino_value_with_type(),
         ) {
             // We can't use `proptest` with an async function, but we can create

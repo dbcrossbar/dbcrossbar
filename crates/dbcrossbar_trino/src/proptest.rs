@@ -8,9 +8,9 @@ use proptest::prelude::*;
 use rust_decimal::Decimal;
 use serde_json::{Map, Value};
 
-use crate::{TrinoDataType, TrinoField, TrinoIdent, TrinoValue};
+use crate::{DataType, Field, Ident, TrinoValue};
 
-impl Arbitrary for TrinoIdent {
+impl Arbitrary for Ident {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
 
@@ -22,60 +22,57 @@ impl Arbitrary for TrinoIdent {
             // TODO: This breaks on "`" in some backends.
             // "[ -~]+",
         ]
-        .prop_map(|s| TrinoIdent::new(&s).unwrap())
+        .prop_map(|s| Ident::new(&s).unwrap())
         .boxed()
     }
 }
 
-impl Arbitrary for TrinoDataType {
+impl Arbitrary for DataType {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
 
     fn arbitrary_with(_args: ()) -> Self::Strategy {
         let leaf = prop_oneof![
-            Just(TrinoDataType::Boolean),
-            Just(TrinoDataType::TinyInt),
-            Just(TrinoDataType::SmallInt),
-            Just(TrinoDataType::Int),
-            Just(TrinoDataType::BigInt),
-            Just(TrinoDataType::Real),
-            Just(TrinoDataType::Double),
+            Just(DataType::Boolean),
+            Just(DataType::TinyInt),
+            Just(DataType::SmallInt),
+            Just(DataType::Int),
+            Just(DataType::BigInt),
+            Just(DataType::Real),
+            Just(DataType::Double),
             // Make sure we keep at least one digit before the decimal
             // point, for simplicity. Feel free to look at the support for
             // other precision/scale values in Trino and the storage drivers
             // and generalize this as needed.
             (3..=38u32, 0..=2u32).prop_map(|(precision, scale)| {
-                TrinoDataType::Decimal { precision, scale }
+                DataType::Decimal { precision, scale }
             }),
-            Just(TrinoDataType::Varchar { length: None }),
-            (1..=255u32).prop_map(|length| TrinoDataType::Varchar {
+            Just(DataType::Varchar { length: None }),
+            (1..=255u32).prop_map(|length| DataType::Varchar {
                 length: Some(length)
             }),
-            Just(TrinoDataType::Varbinary),
-            Just(TrinoDataType::Json),
-            Just(TrinoDataType::Date),
-            (1..=6u32).prop_map(|precision| TrinoDataType::Time { precision }),
-            (1..=6u32).prop_map(|precision| TrinoDataType::Timestamp { precision }),
+            Just(DataType::Varbinary),
+            Just(DataType::Json),
+            Just(DataType::Date),
+            (1..=6u32).prop_map(|precision| DataType::Time { precision }),
+            (1..=6u32).prop_map(|precision| DataType::Timestamp { precision }),
             (1..=6u32).prop_map(|precision| {
-                TrinoDataType::TimestampWithTimeZone { precision }
+                DataType::TimestampWithTimeZone { precision }
             }),
-            Just(TrinoDataType::Uuid),
-            Just(TrinoDataType::SphericalGeography),
+            Just(DataType::Uuid),
+            Just(DataType::SphericalGeography),
         ];
         leaf.prop_recursive(3, 10, 3, |inner| {
             prop_oneof![
                 inner
                     .clone()
-                    .prop_map(|elem_ty| TrinoDataType::Array(Box::new(elem_ty))),
-                prop::collection::vec((any::<Option<TrinoIdent>>(), inner), 1..=3)
+                    .prop_map(|elem_ty| DataType::Array(Box::new(elem_ty))),
+                prop::collection::vec((any::<Option<Ident>>(), inner), 1..=3)
                     .prop_map(|fields| {
-                        TrinoDataType::Row(
+                        DataType::Row(
                             fields
                                 .into_iter()
-                                .map(|(name, data_type)| TrinoField {
-                                    name,
-                                    data_type,
-                                })
+                                .map(|(name, data_type)| Field { name, data_type })
                                 .collect(),
                         )
                     }),
@@ -175,57 +172,56 @@ fn any_json() -> impl Strategy<Value = Value> {
 }
 
 /// Generate a Trino value and its type.
-pub fn any_trino_value_with_type() -> impl Strategy<Value = (TrinoValue, TrinoDataType)>
-{
-    any::<TrinoDataType>().prop_flat_map(|ty| {
+pub fn any_trino_value_with_type() -> impl Strategy<Value = (TrinoValue, DataType)> {
+    any::<DataType>().prop_flat_map(|ty| {
         arb_value_of_type(&ty).prop_map(move |val| (val, ty.clone()))
     })
 }
 
-fn arb_value_of_type(ty: &TrinoDataType) -> BoxedStrategy<TrinoValue> {
+fn arb_value_of_type(ty: &DataType) -> BoxedStrategy<TrinoValue> {
     use chrono::NaiveTime;
     use geo_types::Geometry;
     use proptest_arbitrary_interop::arb;
     use uuid::Uuid;
 
     match ty {
-        TrinoDataType::Boolean => any::<bool>().prop_map(TrinoValue::Boolean).boxed(),
-        TrinoDataType::TinyInt => any::<i8>().prop_map(TrinoValue::TinyInt).boxed(),
-        TrinoDataType::SmallInt => any::<i16>().prop_map(TrinoValue::SmallInt).boxed(),
-        TrinoDataType::Int => any::<i32>().prop_map(TrinoValue::Int).boxed(),
-        TrinoDataType::BigInt => any::<i64>().prop_map(TrinoValue::BigInt).boxed(),
-        TrinoDataType::Real => any::<f32>().prop_map(TrinoValue::Real).boxed(),
-        TrinoDataType::Double => any::<f64>().prop_map(TrinoValue::Double).boxed(),
-        TrinoDataType::Decimal { precision, scale } => any_decimal(*precision, *scale),
-        TrinoDataType::Varchar { length: None } => {
+        DataType::Boolean => any::<bool>().prop_map(TrinoValue::Boolean).boxed(),
+        DataType::TinyInt => any::<i8>().prop_map(TrinoValue::TinyInt).boxed(),
+        DataType::SmallInt => any::<i16>().prop_map(TrinoValue::SmallInt).boxed(),
+        DataType::Int => any::<i32>().prop_map(TrinoValue::Int).boxed(),
+        DataType::BigInt => any::<i64>().prop_map(TrinoValue::BigInt).boxed(),
+        DataType::Real => any::<f32>().prop_map(TrinoValue::Real).boxed(),
+        DataType::Double => any::<f64>().prop_map(TrinoValue::Double).boxed(),
+        DataType::Decimal { precision, scale } => any_decimal(*precision, *scale),
+        DataType::Varchar { length: None } => {
             any::<String>().prop_map(TrinoValue::Varchar).boxed()
         }
-        TrinoDataType::Varchar {
+        DataType::Varchar {
             length: Some(length),
         } => prop::collection::vec(any::<char>(), 0..*length as usize)
             .prop_map(|chars| chars.into_iter().collect())
             .prop_map(TrinoValue::Varchar)
             .boxed(),
-        TrinoDataType::Varbinary => prop::collection::vec(any::<u8>(), 0..100)
+        DataType::Varbinary => prop::collection::vec(any::<u8>(), 0..100)
             .prop_map(TrinoValue::Varbinary)
             .boxed(),
-        TrinoDataType::Json => any_json().prop_map(TrinoValue::Json).boxed(),
-        TrinoDataType::Date => arb::<NaiveDate>().prop_map(TrinoValue::Date).boxed(),
-        &TrinoDataType::Time { precision } => arb::<NaiveTime>()
+        DataType::Json => any_json().prop_map(TrinoValue::Json).boxed(),
+        DataType::Date => arb::<NaiveDate>().prop_map(TrinoValue::Date).boxed(),
+        &DataType::Time { precision } => arb::<NaiveTime>()
             .prop_filter(LEAP_SECONDS_NOT_SUPPORTED, |t| !is_leap_second(t))
             .prop_map(move |t| TrinoValue::Time(round_timelike(t, precision)))
             .boxed(),
-        &TrinoDataType::Timestamp { precision } => any_trino_compatible_timestamp()
+        &DataType::Timestamp { precision } => any_trino_compatible_timestamp()
             .prop_map(move |t| TrinoValue::Timestamp(round_timelike(t, precision)))
             .boxed(),
-        &TrinoDataType::TimestampWithTimeZone { precision } => {
+        &DataType::TimestampWithTimeZone { precision } => {
             any_trino_compatible_timestamp_with_time_zone()
                 .prop_map(move |t| {
                     TrinoValue::TimestampWithTimeZone(round_timelike(t, precision))
                 })
                 .boxed()
         }
-        TrinoDataType::Array(elem_ty) => {
+        DataType::Array(elem_ty) => {
             let original_type = ty.clone();
             prop::collection::vec(arb_value_of_type(elem_ty), 0..3)
                 .prop_map(move |values| TrinoValue::Array {
@@ -234,7 +230,7 @@ fn arb_value_of_type(ty: &TrinoDataType) -> BoxedStrategy<TrinoValue> {
                 })
                 .boxed()
         }
-        TrinoDataType::Row(fields) => {
+        DataType::Row(fields) => {
             let original_type = ty.clone();
             fields
                 .iter()
@@ -246,9 +242,9 @@ fn arb_value_of_type(ty: &TrinoDataType) -> BoxedStrategy<TrinoValue> {
                 })
                 .boxed()
         }
-        TrinoDataType::Uuid => arb::<Uuid>().prop_map(TrinoValue::Uuid).boxed(),
+        DataType::Uuid => arb::<Uuid>().prop_map(TrinoValue::Uuid).boxed(),
         // Just test points for now.
-        TrinoDataType::SphericalGeography => (-180f64..=180f64, -90f64..=90f64)
+        DataType::SphericalGeography => (-180f64..=180f64, -90f64..=90f64)
             .prop_map(|(lon, lat)| {
                 TrinoValue::SphericalGeography(Geometry::Point((lon, lat).into()))
             })
@@ -290,7 +286,7 @@ fn round_timelike<TL: Timelike>(tl: TL, precision: u32) -> TL {
 
 proptest! {
     #[test]
-    fn test_arb_value_of_type(ty in any::<TrinoDataType>()) {
+    fn test_arb_value_of_type(ty in any::<DataType>()) {
         let _ = arb_value_of_type(&ty);
     }
 }
