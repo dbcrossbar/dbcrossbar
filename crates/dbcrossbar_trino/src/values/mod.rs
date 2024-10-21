@@ -17,6 +17,7 @@ mod is_close_enough_to;
 
 /// A Trino value of one of our supported types.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub enum Value {
     Boolean(bool),
     TinyInt(i8),

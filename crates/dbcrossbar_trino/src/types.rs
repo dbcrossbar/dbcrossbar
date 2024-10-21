@@ -147,9 +147,9 @@ impl fmt::Display for DataType {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Field {
     /// The name of the field.
-    pub(super) name: Option<Ident>,
+    pub name: Option<Ident>,
     /// The data type of the field.
-    pub(super) data_type: DataType,
+    pub data_type: DataType,
 }
 
 impl Field {
