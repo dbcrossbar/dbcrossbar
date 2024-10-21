@@ -7,7 +7,7 @@ use serde_json::Value;
 use uuid::Uuid;
 use wkt::TryFromWkt as _;
 
-use crate::{test::TrinoValue, TrinoDataType};
+use crate::{values::TrinoValue, TrinoDataType};
 
 use super::ClientError;
 

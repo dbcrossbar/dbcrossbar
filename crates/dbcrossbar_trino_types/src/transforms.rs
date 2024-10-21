@@ -53,7 +53,6 @@ impl StorageTransform {
 
 /// Internal helper for `StorageTransform`.
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub(crate) enum TypeStorageTransform {
     Identity,
     JsonAsVarchar,
@@ -415,21 +414,20 @@ impl TypeStorageTransform {
 
 /// A field name in a row.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum FieldName {
+pub(crate) enum FieldName {
     Named(TrinoIdent),
     Indexed(usize),
 }
 
 /// A storage transform for a field in a row.
 #[derive(Clone, Debug)]
-#[non_exhaustive]
-pub struct FieldStorageTransform {
-    pub name: FieldName,
-    pub transform: TypeStorageTransform,
+pub(crate) struct FieldStorageTransform {
+    pub(crate) name: FieldName,
+    pub(crate) transform: TypeStorageTransform,
 }
 
 /// Format a store operation with any necessary transform.
-pub struct StoreTransformExpr<'a>(&'a StorageTransform, &'a dyn fmt::Display);
+pub struct StoreTransformExpr<'a>(pub &'a StorageTransform, pub &'a dyn fmt::Display);
 
 impl<'a> std::fmt::Display for StoreTransformExpr<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -446,7 +444,7 @@ impl<'a> std::fmt::Display for StoreTransformExpr<'a> {
 }
 
 /// Format a load operation with any necessary transform.
-pub struct LoadTransformExpr<'a>(&'a StorageTransform, &'a dyn fmt::Display);
+pub struct LoadTransformExpr<'a>(pub &'a StorageTransform, pub &'a dyn fmt::Display);
 
 impl<'a> std::fmt::Display for LoadTransformExpr<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -462,20 +460,21 @@ impl<'a> std::fmt::Display for LoadTransformExpr<'a> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "client"))]
 mod tests {
     use chrono::{FixedOffset, NaiveDate, NaiveTime};
     use geo_types::{Coord, Geometry, Point};
+    #[cfg(feature = "proptest")]
     use proptest::prelude::*;
     use wkt::TryFromWkt as _;
 
     use super::*;
+    #[cfg(feature = "proptest")]
+    use crate::proptest::any_trino_value_with_type;
     use crate::{
+        client::Client,
         connectors::TrinoConnectorType,
-        test::{
-            any_trino_value_with_type, client::Client, IsCloseEnoughTo as _,
-            TrinoValue,
-        },
+        values::{IsCloseEnoughTo as _, TrinoValue},
     };
 
     async fn test_storage_transform_roundtrip_helper(
@@ -557,6 +556,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_storage_transform_roundtrip_manual() {
         use TrinoDataType as Ty;
         use TrinoValue as Tv;
@@ -703,6 +703,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_storage_transform_roundtrip_regressions() {
         use TrinoConnectorType::*;
         use TrinoDataType as Ty;
@@ -770,8 +771,10 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "proptest")]
     proptest! {
-       #[test]
+        #[test]
+        #[ignore]
         fn test_storage_transform_roundtrip_generated(
             connector in any::<TrinoConnectorType>(),
             (value, trino_ty) in any_trino_value_with_type(),

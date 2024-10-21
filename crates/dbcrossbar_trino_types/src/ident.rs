@@ -44,6 +44,8 @@ impl TrinoIdent {
 
 impl fmt::Display for TrinoIdent {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // We always quote identifiers, because that way we don't need a list of
+        // reserved words.
         if self.0.contains('"') {
             // Double any double quotes in the identifier.
             let escaped = self.0.replace('"', r#""""#);
@@ -54,8 +56,7 @@ impl fmt::Display for TrinoIdent {
     }
 }
 
-// Deserialize a string an identifier.
-#[cfg(test)]
+// Deserialize a string as an identifier.
 impl<'de> serde::Deserialize<'de> for TrinoIdent {
     fn deserialize<D>(deserializer: D) -> Result<TrinoIdent, D::Error>
     where
@@ -66,28 +67,21 @@ impl<'de> serde::Deserialize<'de> for TrinoIdent {
     }
 }
 
-#[cfg(test)]
+// Serialize an identifier as a string.
+impl serde::Serialize for TrinoIdent {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.0.serialize(serializer)
+    }
+}
+
+#[cfg(all(test, feature = "proptest"))]
 mod tests {
     use proptest::prelude::*;
 
     use super::*;
-
-    impl Arbitrary for TrinoIdent {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-
-        fn arbitrary_with(_args: ()) -> Self::Strategy {
-            prop_oneof![
-                // C-style identifiers.
-                "[a-zA-Z_][a-zA-Z0-9_]*",
-                // Non-empty ASCII strings.
-                // TODO: This breaks on "`" in some backends.
-                // "[ -~]+",
-            ]
-            .prop_map(|s| TrinoIdent::new(&s).unwrap())
-            .boxed()
-        }
-    }
 
     proptest! {
         #[test]

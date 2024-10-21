@@ -9,6 +9,10 @@ use wkt::ToWkt;
 
 use crate::{QuotedString, TrinoDataType};
 
+pub use self::is_close_enough_to::IsCloseEnoughTo;
+
+mod is_close_enough_to;
+
 /// A Trino value of one of our supported types.
 #[derive(Debug, Clone)]
 pub enum TrinoValue {
@@ -28,11 +32,16 @@ pub enum TrinoValue {
     Timestamp(chrono::NaiveDateTime),
     TimestampWithTimeZone(chrono::DateTime<chrono::FixedOffset>),
     Array {
+        /// The values in the array.
         values: Vec<TrinoValue>,
+        /// TODO: The type of this array. Needed to help print empty arrays.
         lit_type: TrinoDataType,
     },
     Row {
+        /// The values in the row.
         values: Vec<TrinoValue>,
+        /// TODO: The field types of this row. Needed to specify the field names
+        /// of a literal array.
         lit_type: TrinoDataType,
     },
     Uuid(Uuid),
@@ -44,7 +53,7 @@ impl TrinoValue {
     ///
     /// We go out of our way to only do this when necessry to make
     /// it easier to read generated test code.
-    pub fn cast_required_by_literal(&self) -> Option<&TrinoDataType> {
+    fn cast_required_by_literal(&self) -> Option<&TrinoDataType> {
         match self {
             TrinoValue::Array { values, lit_type } => {
                 if values.is_empty()

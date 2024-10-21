@@ -2,11 +2,10 @@
 
 use std::{collections::HashSet, fmt};
 
+use chrono::{DateTime, FixedOffset, NaiveDateTime, NaiveTime, Timelike as _, Utc};
 use float_cmp::approx_eq;
 use geo_types::{Geometry, Point};
 use serde_json::Value;
-
-use crate::test::time::ToF64Seconds;
 
 use super::TrinoValue;
 
@@ -19,8 +18,8 @@ use super::TrinoValue;
 ///
 /// So our strategy is to define "close enough", or an acceptable precision for
 /// storing a value and loading it back.
-pub(crate) trait IsCloseEnoughTo: fmt::Debug {
-    /// Is this value approximately equal to the supplied JSON value?
+pub trait IsCloseEnoughTo: fmt::Debug {
+    /// Is this value approximately equal to the supplied value?
     fn is_close_enough_to(&self, other: &Self) -> bool;
 }
 
@@ -159,5 +158,32 @@ impl IsCloseEnoughTo for serde_json::Number {
         } else {
             unimplemented!("don't know how to compare {:?} and {:?}", self, other)
         }
+    }
+}
+
+/// Convert a [`Timelike`] value to a f64 for comparison purposes.
+trait ToF64Seconds {
+    /// Convert a [`Timelike`] value to a f64 for comparison purposes.
+    fn to_f64_seconds(&self) -> f64;
+}
+
+impl ToF64Seconds for NaiveTime {
+    fn to_f64_seconds(&self) -> f64 {
+        self.num_seconds_from_midnight() as f64
+            + self.nanosecond() as f64 / 1_000_000_000.0
+    }
+}
+
+impl ToF64Seconds for NaiveDateTime {
+    fn to_f64_seconds(&self) -> f64 {
+        let utc = self.and_utc();
+        utc.timestamp() as f64 + utc.timestamp_subsec_nanos() as f64 / 1_000_000_000.0
+    }
+}
+
+impl ToF64Seconds for DateTime<FixedOffset> {
+    fn to_f64_seconds(&self) -> f64 {
+        let utc = self.with_timezone(&Utc);
+        utc.timestamp() as f64 + utc.timestamp_subsec_nanos() as f64 / 1_000_000_000.0
     }
 }

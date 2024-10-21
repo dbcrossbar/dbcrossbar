@@ -4,8 +4,11 @@ use std::{collections::HashMap, fmt};
 
 use crate::{QuotedString, TrinoIdent};
 
-/// Table options.
-#[derive(Debug, Clone, PartialEq)]
+/// The `WITH (...)` clause of a `CREATE TABLE` statement.
+///
+/// The internal representation is public, because this is mostly just a
+/// formatting wrapper, and users may want to add their own options.
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct TableOptions(pub HashMap<TrinoIdent, TableOptionValue>);
 
 impl fmt::Display for TableOptions {
@@ -30,8 +33,8 @@ impl fmt::Display for TableOptions {
 
 /// A table option value.
 ///
-/// This could be replaced with [`crate::test::TrinoValue`], but that pulls in
-/// a lot of dependencies we don't otherwise need.
+/// This could be replaced with [`crate::TrinoValue`], but that pulls in a lot
+/// of dependencies we don't otherwise need.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TableOptionValue {
     /// A string value.

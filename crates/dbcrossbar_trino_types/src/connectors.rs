@@ -18,20 +18,88 @@ use crate::{
 
 use super::TrinoDataType;
 
-/// What type of Trino data storage connector are we working with? We need to
-/// know this so that we can generate `NOT NULL` and similar SQL features for
-/// backends that support, while leaving them out where they'd cause an error.
-/// `dbcrossbar`'s goal is always to produce the best representation it can, but
-/// there's no one perfect answer for all Trino connectors.
+/// Compatibility information about each supported Trino connector type.
+///
+/// ### Usage
+///
+/// ```
+/// use dbcrossbar_trino_types::{
+///     LoadTransformExpr, StoreTransformExpr, TableOptions, TrinoConnectorType,
+///     TrinoDataType,
+/// };
+///
+/// // Choose our connector type.
+/// let connector = TrinoConnectorType::Hive;
+/// let table_name = "hive.default.my_table";
+///
+/// /// Get some SQL fragments we'll need to create a table.
+/// let not_null_sql = if connector.supports_not_null_constraint() {
+///    " NOT NULL"
+/// } else {
+///   // This connector cannot enforce `NOT NULL` constraints.
+///   ""
+/// };
+/// let or_replace_sql = if connector.supports_replace_table() {
+///   " OR REPLACE"
+/// } else {
+///   // You will need a separate `DROP TABLE` statement in this case.
+///   ""
+/// };
+///
+/// /// Get options to support `MERGE`, if it's available.
+/// let table_options = if connector.supports_merge() {
+///    connector.table_options_for_merge()
+/// } else {
+///   // You won't be able to use `MERGE` with this connector.
+///   TableOptions::default()
+/// };
+///
+/// /// Define a column type.
+/// let col_ty = TrinoDataType::Array(Box::new(TrinoDataType::Json));
+///
+/// /// Get a storage transform for a specific data type.
+/// let storage_transform = connector.storage_transform_for(&col_ty);
+/// let storage_type = storage_transform.storage_type();
+///
+/// /// SQL to create our table.
+/// let create_table_sql = format!(
+///    "CREATE TABLE {table_name} (
+///       x {storage_type} {not_null_sql}
+///   ){table_options}"
+/// );
+///
+/// /// SQL to insert a row.
+/// let insert_sql = format!(
+///   "INSERT INTO {table_name} (x) VALUES ({});",
+///   StoreTransformExpr(&storage_transform, &"JSON '[1, 2, 3]'"),
+/// );
+///
+/// /// SQL to select a row.
+/// let select_sql = format!(
+///   "SELECT {} AS x FROM {table_name};",
+///   LoadTransformExpr(&storage_transform, &"x"),
+/// );
+/// ```
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(test, derive(Arbitrary))]
 #[allow(missing_docs)]
 #[non_exhaustive]
 pub enum TrinoConnectorType {
-    // (Athena3's default connector may need a separate value here.)
+    /// The [Hive](https://trino.io/docs/current/connector/hive.html) connector.
+    /// This is the "default" connector used in most Trino installations.
     Hive,
+    /// The [Iceberg](https://trino.io/docs/current/connector/iceberg.html)
+    /// connector. This is a newer format for large data sets, maintained by the
+    /// Apache project. It runs on top of Hive, using the same underlying
+    /// storage and namespaces.
     Iceberg,
+    /// The built-in
+    /// [memory](https://trino.io/docs/current/connector/memory.html) connector,
+    /// most useful for tests. This supports an unusually high number of data
+    /// types. So don't assume that just because something works with this
+    /// connector, that it will work with "real" connectors.
     Memory,
+    // (Athena3's default connector may need a separate value here.)
 }
 
 impl TrinoConnectorType {
@@ -274,9 +342,9 @@ impl fmt::Display for TrinoConnectorType {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "client"))]
 mod tests {
-    use crate::test::client::Client;
+    use crate::client::Client;
 
     use super::*;
 
@@ -290,6 +358,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_supports_not_null_constraint() {
         let client = Client::default();
         for connector in TrinoConnectorType::all() {
@@ -314,6 +383,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_supports_replace_table() {
         let client = Client::default();
         for connector in TrinoConnectorType::all() {
@@ -347,6 +417,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_supports_merge() {
         let client = Client::default();
         for connector in TrinoConnectorType::all() {

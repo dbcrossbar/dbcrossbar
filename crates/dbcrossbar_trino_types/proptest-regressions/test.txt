@@ -1,7 +1,0 @@
-# Seeds for failure cases proptest has generated in the past. It is
-# automatically read and these particular cases re-run before any
-# novel cases are generated.
-#
-# It is recommended to check this file in to source control so that
-# everyone who runs the test benefits from these saved cases.
-cc 04b2e88138382f8d747d6d3ef22da9172d84f13549400d118d07adba2caa0d91 # shrinks to ty = Row([TrinoField { name: None, data_type: Boolean }])

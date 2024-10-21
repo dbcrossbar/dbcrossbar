@@ -238,6 +238,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    #[ignore]
     async fn test_execute() {
         let client = Client::default();
         let rows = client

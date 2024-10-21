@@ -1,3 +1,75 @@
+//! This is an interface for working with the [Trino][] database, written for
+//! use by [`dbcrossbar`][dbcrossbar] and related tools.
+//!
+//! ## Features
+//!
+//! - `values`: Provides a `TrinoValue` enum that can represent a subset of
+//!   Trino's values. This pulls in libraries for lots of things, including
+//!   geodata, decimals, JSON and UUIDs.
+//! - `proptest`: Support for testing using the [`proptest`][proptest] crate.
+//! - `client`: A basic Trino REST client. This is mostly intended for testing,
+//!   and does not currently attempt to be a production-quality client. It
+//!   currently has no HTTPS or password support.
+//!
+//! ## What this library provides
+//!
+//! This is a bit of a grab-bag of types and utilities, driven by the common
+//! needs of several related tools.
+//!
+//! ### Storage transforms
+//!
+//! This is the heart of the library. This library exists because Trino doesn't
+//! store any data itself. Instead, it _delegates_ storage to connectors. And
+//! these connectors expose nearly all the limitations of the underlying storage
+//! system. They're often missing key data types, or don't support `NOT NULL`,
+//! or don't support transactions. The following types help generate code that
+//! works around these limitations:
+//!
+//! - [`TrinoConnectorType`] is the main entry point to this part of the
+//!   library, providing an API to describe a connector's limitations. See this
+//!   section for example code!
+//! - [`StorageTransform`] describes how to transform data when storing it using
+//!   a specific connector, and when reading it back.
+//! - [`StoreTransformExpr`] and [`LoadTransformExpr`] are formatting wrappers
+//!   that work with [`StorageTransform`] to generate SQL expressions. These
+//!   should be callable by any SQL generator that supports
+//!   [`std::fmt::Display`].
+//!
+//! ### Basic utility types
+//!
+//! These are included mostly because they're needed by other parts of the
+//! library.
+//!
+//! - [`TrinoDataType`] and [`TrinoField`], which describe a subset of available
+//!   data types in Trino.
+//! - [`TrinoIdent`], which represents and prints a simple Trino identifier.
+//! - [`QuotedString`], which formats a quoted and escaped string.
+//! - [`TableOptions`], which represents the `WITH` clause of a `CREATE TABLE`
+//!   statement.
+//!
+//! ### Values (requires the `values` feature)
+//!
+//! - [`TrinoValue`] represents a subset of Trino's values.
+//! - [`IsCloseEnoughTo`] is a trait for comparing values that knows about the
+//!   limitations of Trino's connectors.
+//!
+//! ### Other features
+//!
+//! - [`crate::proptest`] (requires the `proptest` feature) provides tools for
+//!   generating random values for testing.
+//! - [`crate::client`] (requires the `client` feature) provides a basic Trino
+//!   client.
+//!
+//! [Trino]: https://trino.io/
+//! [dbcrossbar]: https://www.dbcrossbar.org/
+//! [proptest]: https://proptest-rs.github.io/proptest/intro.html
+
+// Enable `doc_auto_cfg` on docs.rs. This will enable all features, and include
+// information about which features are required for API.
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
+#[cfg(feature = "values")]
+pub use crate::values::{IsCloseEnoughTo, TrinoValue};
 pub use crate::{
     connectors::TrinoConnectorType,
     errors::IdentifierError,
@@ -8,12 +80,16 @@ pub use crate::{
     types::{TrinoDataType, TrinoField},
 };
 
+#[cfg(feature = "client")]
+pub mod client;
 mod connectors;
 mod errors;
 mod ident;
+#[cfg(feature = "proptest")]
+pub mod proptest;
 mod quoted_string;
 mod table_options;
-#[cfg(test)]
-pub mod test;
 mod transforms;
 mod types;
+#[cfg(feature = "values")]
+mod values;

@@ -5,9 +5,6 @@ use std::fmt;
 use crate::ident::TrinoIdent;
 
 /// A Trino data type.
-///
-/// If you add new types here, be sure to also add them to our
-/// [`proptest::Arbitrary`] implementation.
 #[derive(Clone, Debug, PartialEq)]
 pub enum TrinoDataType {
     /// A boolean value.
@@ -90,7 +87,7 @@ impl TrinoDataType {
     }
 
     /// Is this a ROW type with any named fields?
-    #[cfg(test)]
+    #[cfg(feature = "values")]
     pub(crate) fn is_row_with_named_fields(&self) -> bool {
         match self {
             TrinoDataType::Row(fields) => {
@@ -186,70 +183,11 @@ impl fmt::Display for TrinoField {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "proptest"))]
 mod test {
     use proptest::prelude::*;
 
     use super::*;
-
-    impl Arbitrary for TrinoDataType {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-
-        fn arbitrary_with(_args: ()) -> Self::Strategy {
-            let leaf = prop_oneof![
-                Just(TrinoDataType::Boolean),
-                Just(TrinoDataType::TinyInt),
-                Just(TrinoDataType::SmallInt),
-                Just(TrinoDataType::Int),
-                Just(TrinoDataType::BigInt),
-                Just(TrinoDataType::Real),
-                Just(TrinoDataType::Double),
-                // Make sure we keep at least one digit before the decimal
-                // point, for simplicity. Feel free to look at the support for
-                // other precision/scale values in Trino and the storage drivers
-                // and generalize this as needed.
-                (3..=38u32, 0..=2u32).prop_map(|(precision, scale)| {
-                    TrinoDataType::Decimal { precision, scale }
-                }),
-                Just(TrinoDataType::Varchar { length: None }),
-                (1..=255u32).prop_map(|length| TrinoDataType::Varchar {
-                    length: Some(length)
-                }),
-                Just(TrinoDataType::Varbinary),
-                Just(TrinoDataType::Json),
-                Just(TrinoDataType::Date),
-                (1..=6u32).prop_map(|precision| TrinoDataType::Time { precision }),
-                (1..=6u32)
-                    .prop_map(|precision| TrinoDataType::Timestamp { precision }),
-                (1..=6u32).prop_map(|precision| {
-                    TrinoDataType::TimestampWithTimeZone { precision }
-                }),
-                Just(TrinoDataType::Uuid),
-                Just(TrinoDataType::SphericalGeography),
-            ];
-            leaf.prop_recursive(3, 10, 3, |inner| {
-                prop_oneof![
-                    inner
-                        .clone()
-                        .prop_map(|elem_ty| TrinoDataType::Array(Box::new(elem_ty))),
-                    prop::collection::vec((any::<Option<TrinoIdent>>(), inner), 1..=3)
-                        .prop_map(|fields| {
-                            TrinoDataType::Row(
-                                fields
-                                    .into_iter()
-                                    .map(|(name, data_type)| TrinoField {
-                                        name,
-                                        data_type,
-                                    })
-                                    .collect(),
-                            )
-                        }),
-                ]
-            })
-            .boxed()
-        }
-    }
 
     proptest! {
         #[test]
