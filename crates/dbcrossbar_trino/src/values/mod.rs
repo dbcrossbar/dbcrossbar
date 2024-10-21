@@ -5,7 +5,7 @@ use std::fmt;
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use geo_types::Geometry;
 use rust_decimal::Decimal;
-use serde_json::Value;
+use serde_json::Value as JsonValue;
 use uuid::Uuid;
 use wkt::ToWkt;
 
@@ -32,7 +32,7 @@ pub enum TrinoValue {
     Decimal(Decimal),
     Varchar(String),
     Varbinary(Vec<u8>),
-    Json(Value),
+    Json(JsonValue),
     Date(NaiveDate),
     Time(NaiveTime),
     Timestamp(NaiveDateTime),

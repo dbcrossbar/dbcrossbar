@@ -3,7 +3,7 @@
 use std::{error, fmt};
 
 use serde::Deserialize;
-use serde_json::{Map, Value};
+use serde_json::{Map, Value as JsonValue};
 
 use crate::DataType;
 
@@ -14,7 +14,7 @@ pub enum ClientError {
     /// Could not deserialize a JSON value as a [`crate::TrinoValue`].
     CouldNotDeserializeValue {
         /// The JSON value that could not be deserialized.
-        value: Value,
+        value: JsonValue,
         /// The type signature that was expected.
         data_type: DataType,
     },
@@ -92,7 +92,7 @@ pub struct QueryError {
 
     // Any other fields we don't handle yet.
     #[serde(flatten)]
-    _other: Map<String, Value>,
+    _other: Map<String, JsonValue>,
 }
 
 impl fmt::Display for QueryError {

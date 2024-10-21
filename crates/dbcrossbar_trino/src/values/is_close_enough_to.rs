@@ -5,7 +5,7 @@ use std::{collections::HashSet, fmt};
 use chrono::{DateTime, FixedOffset, NaiveDateTime, NaiveTime, Timelike as _, Utc};
 use float_cmp::approx_eq;
 use geo_types::{Geometry, Point};
-use serde_json::Value;
+use serde_json::Value as JsonValue;
 
 use super::TrinoValue;
 
@@ -114,18 +114,18 @@ impl IsCloseEnoughTo for Point<f64> {
     }
 }
 
-impl IsCloseEnoughTo for Value {
-    fn is_close_enough_to(&self, other: &Value) -> bool {
+impl IsCloseEnoughTo for JsonValue {
+    fn is_close_enough_to(&self, other: &JsonValue) -> bool {
         match (self, other) {
-            (Value::Null, Value::Null) => true,
-            (Value::Bool(a), Value::Bool(b)) => a == b,
-            (Value::Number(a), Value::Number(b)) => a.is_close_enough_to(b),
-            (Value::String(a), Value::String(b)) => a == b,
-            (Value::Array(a), Value::Array(b)) => {
+            (JsonValue::Null, JsonValue::Null) => true,
+            (JsonValue::Bool(a), JsonValue::Bool(b)) => a == b,
+            (JsonValue::Number(a), JsonValue::Number(b)) => a.is_close_enough_to(b),
+            (JsonValue::String(a), JsonValue::String(b)) => a == b,
+            (JsonValue::Array(a), JsonValue::Array(b)) => {
                 a.len() == b.len()
                     && a.iter().zip(b).all(|(a, b)| a.is_close_enough_to(b))
             }
-            (Value::Object(a), Value::Object(b)) => {
+            (JsonValue::Object(a), JsonValue::Object(b)) => {
                 let a_keys: HashSet<&String> = HashSet::from_iter(a.keys());
                 let b_keys: HashSet<&String> = HashSet::from_iter(b.keys());
                 if a_keys != b_keys {

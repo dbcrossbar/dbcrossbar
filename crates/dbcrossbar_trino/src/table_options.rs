@@ -2,7 +2,7 @@
 
 use std::{collections::HashMap, fmt};
 
-use crate::{QuotedString, Ident};
+use crate::{Ident, QuotedString};
 
 /// The `WITH (...)` clause of a `CREATE TABLE` statement.
 ///
@@ -36,6 +36,7 @@ impl fmt::Display for TableOptions {
 /// This could be replaced with [`crate::TrinoValue`], but that pulls in a lot
 /// of dependencies we don't otherwise need.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum TableOptionValue {
     /// A string value.
     String(String),

@@ -24,7 +24,7 @@ use std::fmt;
 
 use reqwest::RequestBuilder;
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::Value as JsonValue;
 
 pub use self::errors::{ClientError, QueryError};
 use self::{deserialize_value::deserialize_value, wire_types::TypeSignature};
@@ -49,12 +49,12 @@ pub(crate) struct Response {
     pub(crate) query_error: Option<QueryError>,
     pub(crate) next_uri: Option<String>,
     pub(crate) columns: Option<Vec<Column>>,
-    pub(crate) data: Option<Vec<Vec<Value>>>,
+    pub(crate) data: Option<Vec<Vec<JsonValue>>>,
     pub(crate) update_type: Option<String>,
 
     // Any other fields we don't handle yet.
     #[serde(flatten)]
-    _other: serde_json::Map<String, Value>,
+    _other: serde_json::Map<String, JsonValue>,
 }
 
 impl Response {
