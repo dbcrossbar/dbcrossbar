@@ -1,0 +1,13 @@
+# Test combinators of --features flags.
+test-features:
+    cargo test --no-default-features -- --include-ignored
+    cargo test --no-default-features --features values -- --include-ignored
+    cargo test --no-default-features --features client -- --include-ignored
+    cargo test --no-default-features --features proptest -- --include-ignored
+
+    cargo test -- --include-ignored
+    cargo test --all-features -- --include-ignored
+
+# Render docs with feature annotations.
+fancy-docs:
+    RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features

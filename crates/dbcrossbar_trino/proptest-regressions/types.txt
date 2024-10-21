@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc d2fa9bcabcdc496906853ee3d279daae9a25646a986dc3fa29fe352dbb03e3c6 # shrinks to data_type = Row([TrinoField { name: None, data_type: Row([TrinoField { name: None, data_type: Boolean }, TrinoField { name: None, data_type: Boolean }]) }])
