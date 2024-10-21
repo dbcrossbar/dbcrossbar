@@ -1,2 +1,7 @@
 [workspace]
-members = ["crates/opinionated_telemetry", "dbcrossbar"]
+members = [
+    "crates/dbcrossbar_trino",
+    "crates/opinionated_telemetry",
+    "dbcrossbar",
+]
+resolver = "2"
