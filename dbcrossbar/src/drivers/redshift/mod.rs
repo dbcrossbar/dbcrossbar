@@ -192,13 +192,16 @@ impl RedshiftDriverArguments {
     /// Given a `DriverArgs` structure, convert it into Redshift credentials SQL.
     pub(crate) fn credentials_sql(&self) -> Result<String> {
         let mut out = vec![];
-        for (k, v) in &self.credentials {
+        for (idx, (k, v)) in self.credentials.iter().enumerate() {
             lazy_static! {
                 static ref KEY_RE: Regex = Regex::new("^[_A-Za-z0-9]+$")
                     .expect("invalid regex in source code");
             }
             if !KEY_RE.is_match(k) {
                 return Err(format_err!("cannot pass {:?} as Redshift credential", k));
+            }
+            if idx > 0 {
+                writeln!(&mut out, "\n")?;
             }
             writeln!(&mut out, "{} {}", k, pg_quote(v))?;
         }
