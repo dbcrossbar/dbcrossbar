@@ -12,7 +12,7 @@ ignore = [
     # https://github.com/chronotope/chrono/issues/602 has been addressed.
     # "RUSTSEC-2020-0159",
     # Also `localtime_r`.
-    "RUSTSEC-2020-0071",
+    #"RUSTSEC-2020-0071",
     # CPU denial of service when validating certificate chains. To fix this,
     # we need to update `yup-oauth2`, which breaks Google Cloud auth.
     "RUSTSEC-2023-0052",
@@ -20,18 +20,27 @@ ignore = [
 
 [licenses]
 # Don't allow code with an unclear license.
-unlicensed = "deny"
+# unlicensed = "deny"
 
 # Don't allow "copylefted" licenses unless they're listed below.
-copyleft = "deny"
+# copyleft = "deny"
 
 # Allow common non-restrictive licenses. ISC is used for various DNS and crypto
 # things, and it's a minimally restrictive open source license.
-allow = ["MIT", "Apache-2.0", "BSD-3-Clause", "CC0-1.0", "ISC", "OpenSSL", "Unicode-DFS-2016", "Zlib"]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "CC0-1.0",
+    "ISC",
+    "OpenSSL",
+    "Unicode-DFS-2016",
+    "Zlib",
+]
 
 # Many organizations ban AGPL-licensed code
 # https://opensource.google/docs/using/agpl-policy/
-deny = ["AGPL-3.0"]
+# deny = ["AGPL-3.0"]
 
 # See https://github.com/dirs-dev/dirs-rs/issues/51
 [[licenses.exceptions]]
@@ -42,16 +51,12 @@ name = "option-ext"
 # Ring has a messy license.
 name = "ring"
 expression = "ISC AND OpenSSL AND MIT"
-license-files = [
-    { path = "LICENSE", hash = 3171872035 },
-]
+license-files = [{ path = "LICENSE", hash = 3171872035 }]
 
 [[licenses.clarify]]
 name = "encoding_rs"
 expression = "(MIT OR Apache-2.0) AND BSD-3-Clause AND CC0-1.0"
-license-files = [
-    { path = "COPYRIGHT", hash = 972598577 },
-]
+license-files = [{ path = "COPYRIGHT", hash = 972598577 }]
 
 
 [bans]
@@ -79,5 +84,3 @@ skip-tree = [
     # These need updates.
     { name = "rustls-native-certs" },
 ]
-
-
