@@ -4,19 +4,21 @@
 
 [advisories]
 ignore = [
-    # Ignore a nasty `localtime_r` and `setenv` race condition which can
-    # segfault if we try to read the localtime while someone is setting an env
-    # var.
-    #
-    # This can probably be fixed once
-    # https://github.com/chronotope/chrono/issues/602 has been addressed.
-    # "RUSTSEC-2020-0159",
-    # Also `localtime_r`.
-    #"RUSTSEC-2020-0071",
     # CPU denial of service when validating certificate chains. To fix this,
     # we need to update `yup-oauth2`, which breaks Google Cloud auth.
     "RUSTSEC-2023-0052",
+
+    # This is a real denial-of-service vulnerability in RusTLS, but it only
+    # affects servers, and we're not a server. Unfortunately, we can't update
+    # RusTLS without sorting out `yup-oauth2`, which breaks Google Cloud last I
+    # checked.
+    "RUSTSEC-2024-0336",
+
+    # `difference` is unmaintained, but it works fine, and we only use it in
+    # test code. I'm not convinced this is a good use of RUSTSEC advisories.
+    "RUSTSEC-2020-0095",
 ]
+
 
 [licenses]
 # Don't allow code with an unclear license.
