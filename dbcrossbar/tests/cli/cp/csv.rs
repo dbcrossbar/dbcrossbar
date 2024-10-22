@@ -15,7 +15,7 @@ fn cp_csv_to_csvs() {
     testdir
         .cmd()
         .arg("cp")
-        .arg(&format!("csv:{}", src.display()))
+        .arg(format!("csv:{}", src.display()))
         .arg("csv:out/")
         .expect_success();
     let expected = fs::read_to_string(&src).unwrap();
@@ -31,8 +31,8 @@ fn cp_csvs_to_csv() {
     testdir
         .cmd()
         .arg("cp")
-        .arg(&format!("--schema=postgres-sql:{}", schema.display()))
-        .arg(&format!("csv:{}", concat_in.display()))
+        .arg(format!("--schema=postgres-sql:{}", schema.display()))
+        .arg(format!("csv:{}", concat_in.display()))
         .arg("csv:out.csv")
         .expect_success();
     let expected = fs::read_to_string(concat_out).unwrap();

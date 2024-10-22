@@ -97,7 +97,7 @@ pub(crate) async fn write_local_data_helper(
                     ));
                 }
 
-                Span::current().record("s3_object", &field::display(&locator));
+                Span::current().record("s3_object", field::display(&locator));
                 debug!("creating BigML source from S3 object");
 
                 // Sign the S3 URL.
@@ -124,7 +124,7 @@ pub(crate) async fn write_local_data_helper(
                 let client = bigml::Client::new_from_env()?;
                 let source = client.create(&args).await?;
 
-                Span::current().record("bigml_source", &field::display(source.id()));
+                Span::current().record("bigml_source", field::display(source.id()));
                 debug!("created source from S3 object");
                 Ok(source)
             }
@@ -152,7 +152,7 @@ pub(crate) async fn write_local_data_helper(
         let bigml_dest_args = bigml_dest_args.clone();
         let fut = async move {
             let mut source = ctx_source_fut.await?;
-            Span::current().record("bigml_source", &field::display(source.id()));
+            Span::current().record("bigml_source", field::display(source.id()));
 
             // Wait for our `source` to finish being created.
             trace!("waiting for source to be ready");
