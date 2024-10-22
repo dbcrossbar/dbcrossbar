@@ -4,6 +4,7 @@ use itertools::Itertools;
 
 use super::{RedshiftDriverArguments, RedshiftLocator};
 use crate::common::*;
+use crate::drivers::postgres_shared::{PgColumn, PgDataType, PgScalarDataType};
 use crate::drivers::{
     postgres::{columns_to_update_for_upsert, create_temp_table_for, prepare_table},
     postgres_shared::{
@@ -57,7 +58,7 @@ pub(crate) async fn write_remote_data_helper(
     // Try to look up our table schema in the database.
     schema.verify_redshift_can_import_from_csv()?;
     let table_name = dest.table_name();
-    let pg_schema = PgSchema::from_pg_catalog_or_default(
+    let mut pg_schema = PgSchema::from_pg_catalog_or_default(
         &ctx,
         CheckCatalog::from(&if_exists),
         dest.url(),
@@ -65,6 +66,9 @@ pub(crate) async fn write_remote_data_helper(
         schema,
     )
     .await?;
+
+    // Fix any types that need special handling.
+    pg_schema.use_redshift_specific_types()?;
 
     // Connect to Redshift and prepare our table.
     let mut client = connect(&ctx, dest.url()).await?;
@@ -178,8 +182,8 @@ fn upsert_sql(
     Ok(vec![
         format!(
             r"-- Update matching rows in dest table using source table.
-UPDATE {dest_table} 
-SET {value_updates} 
+UPDATE {dest_table}
+SET {value_updates}
 FROM {temp_table}
 WHERE {keys_match}",
             dest_table = dest_table_name,
@@ -215,6 +219,89 @@ INSERT INTO {dest_table} ({all_columns}) (
         ),
         format!(r"DROP TABLE {temp_table}", temp_table = temp_table_name),
     ])
+}
+
+/// Convert specific types to use their RedShift-specific versions instead.
+trait UseRedshiftSpecificTypes {
+    /// Convert this type to use its RedShift-specific version.
+    fn use_redshift_specific_types(&mut self) -> Result<()>;
+}
+
+impl UseRedshiftSpecificTypes for PgSchema {
+    fn use_redshift_specific_types(&mut self) -> Result<()> {
+        for table in &mut self.tables {
+            table.use_redshift_specific_types()?;
+        }
+        Ok(())
+    }
+}
+
+impl UseRedshiftSpecificTypes for PgCreateTable {
+    fn use_redshift_specific_types(&mut self) -> Result<()> {
+        for col in &mut self.columns {
+            col.use_redshift_specific_types()?;
+        }
+        Ok(())
+    }
+}
+
+impl UseRedshiftSpecificTypes for PgColumn {
+    fn use_redshift_specific_types(&mut self) -> Result<()> {
+        self.data_type.use_redshift_specific_types()
+    }
+}
+
+impl UseRedshiftSpecificTypes for PgDataType {
+    fn use_redshift_specific_types(&mut self) -> Result<()> {
+        match self {
+            PgDataType::Array { .. } => Err(format_err!(
+                "Redshift driver does not support data type {:?}",
+                self
+            )),
+            PgDataType::Scalar(pg_scalar_data_type) => {
+                pg_scalar_data_type.use_redshift_specific_types()
+            }
+        }
+    }
+}
+
+impl UseRedshiftSpecificTypes for PgScalarDataType {
+    fn use_redshift_specific_types(&mut self) -> Result<()> {
+        // We only worry about (1) types we need to change, and (2) types that
+        // could hide other types, all of which are unsupported, anyways.
+        match self {
+            // These may or may not be supported, but we don't need to transform
+            // them.
+            PgScalarDataType::Boolean
+            | PgScalarDataType::Date
+            | PgScalarDataType::Numeric
+            | PgScalarDataType::Real
+            | PgScalarDataType::DoublePrecision
+            | PgScalarDataType::Geometry(_)
+            | PgScalarDataType::Smallint
+            | PgScalarDataType::Int
+            | PgScalarDataType::Bigint
+            | PgScalarDataType::Json
+            | PgScalarDataType::Jsonb
+            | PgScalarDataType::RedShiftVarcharMax
+            | PgScalarDataType::TimestampWithoutTimeZone
+            | PgScalarDataType::TimestampWithTimeZone
+            | PgScalarDataType::Uuid => Ok(()),
+
+            // This is the only type we need to transform.
+            PgScalarDataType::Text => {
+                *self = PgScalarDataType::RedShiftVarcharMax;
+                Ok(())
+            }
+
+            // This isn't supported, but if it were, it might need special
+            // handling.
+            PgScalarDataType::Named(_) => Err(format_err!(
+                "Redshift driver does not support data type {:?}",
+                self
+            )),
+        }
+    }
 }
 
 /// Extension trait for verifying Redshift compatibility.
