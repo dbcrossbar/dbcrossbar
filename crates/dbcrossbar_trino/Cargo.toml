@@ -1,7 +1,17 @@
 [package]
 name = "dbcrossbar_trino"
 version = "0.1.0"
+authors = ["Eric Kidd <git@randomhacks.net>"]
 edition = "2021"
+
+description = "Lightweight Trino interface for dbcrossbar and related tools"
+categories = ["database"]
+keywords = ["trino", "client"]
+license = "Apache-2.0 OR MIT"
+readme = "README.md"
+homepage = "https://github.com/dbcrossbar/dbcrossbar/tree/main/crates/dbcrossbar_trino"
+repository = "https://github.com/dbcrossbar/dbcrossbar"
+documentation = "https://docs.rs/dbcrossbar_trino"
 
 # Configuration for docs.rs to enable all features and annotate APIs with the
 # feature they are defined in.
