@@ -989,28 +989,41 @@ interface OrderItem {
 <p>All notable changes to this project will be documented in this file.</p>
 <p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>, and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased"><a class="header" href="#unreleased">[Unreleased]</a></h2>
-<h2 id="057---2024-01-26"><a class="header" href="#057---2024-01-26">[0.5.7] - 2024-01-26</a></h2>
+<h2 id="058-pre1---2024-02-01"><a class="header" href="#058-pre1---2024-02-01">[0.5.8-pre.1] - 2024-02-01</a></h2>
 <h3 id="added"><a class="header" href="#added">Added</a></h3>
+<ul>
+<li>Honor <code>AWS_ENDPOINT</code> even if <code>awscli</code> does not support it. This is needed for use with some S3 replacements.</li>
+</ul>
+<h3 id="changed"><a class="header" href="#changed">Changed</a></h3>
+<ul>
+<li>redshift: Text columns are now represented as <code>VARCHAR(MAX)</code>, which has unlimited size, instead of <code>TEXT</code>, which is apparently limited to 255 bytes. This <em>may</em> be a breaking change for some use cases, but RedShift is our least supported driver and we have minimal test infrastructure.</li>
+</ul>
+<h3 id="security"><a class="header" href="#security">Security</a></h3>
+<ul>
+<li>Library updates for several advisories.</li>
+</ul>
+<h2 id="057---2024-01-26"><a class="header" href="#057---2024-01-26">[0.5.7] - 2024-01-26</a></h2>
+<h3 id="added-1"><a class="header" href="#added-1">Added</a></h3>
 <ul>
 <li>gcloud: Allow passing <code>extra_scopes</code> to Google OAuth2.</li>
 </ul>
-<h3 id="security"><a class="header" href="#security">Security</a></h3>
+<h3 id="security-1"><a class="header" href="#security-1">Security</a></h3>
 <ul>
 <li>Fix <a href="https://rustsec.org/advisories/RUSTSEC-2024-0003">RUSTSEC-2024-0003</a>, a Denial of Service vulnerability which could apparently cause a hostile HTTP server to cause out-of-memory errors
 in a client. Since <code>dbcrossbar</code> is unlikely to connect to many hostile HTTP servers, this is probably a low-priority fix for almost all users.</li>
 </ul>
 <h2 id="056---2024-01-08"><a class="header" href="#056---2024-01-08">[0.5.6] - 2024-01-08</a></h2>
-<h3 id="added-1"><a class="header" href="#added-1">Added</a></h3>
+<h3 id="added-2"><a class="header" href="#added-2">Added</a></h3>
 <ul>
 <li>bigquery: Users can now specify an alternate job project, for example for billing purposes. See docs for details.</li>
 </ul>
 <h2 id="055---2023-09-14"><a class="header" href="#055---2023-09-14">[0.5.5] - 2023-09-14</a></h2>
-<h3 id="added-2"><a class="header" href="#added-2">Added</a></h3>
+<h3 id="added-3"><a class="header" href="#added-3">Added</a></h3>
 <ul>
 <li>Update to latest <code>opinionated_telemetry</code>. This should not affect users.</li>
 </ul>
 <h2 id="054---2023-09-08"><a class="header" href="#054---2023-09-08">[0.5.4] - 2023-09-08</a></h2>
-<h3 id="added-3"><a class="header" href="#added-3">Added</a></h3>
+<h3 id="added-4"><a class="header" href="#added-4">Added</a></h3>
 <ul>
 <li>Output in JSON Lines format.</li>
 <li>Experimental new support for Prometheus and Google Cloud Trace via <a href="https://github.com/dbcrossbar/dbcrossbar/blob/main/crates/opinionated_telemetry/README.md"><code>opinionated_telemetry</code></a>.</li>
@@ -1020,7 +1033,7 @@ in a client. Since <code>dbcrossbar</code> is unlikely to connect to many hostil
 <li><code>dbcrossbarlib</code> is not longer provided separately. As before, we recommend calling out to <code>dbcrossbar</code> using the CLI, rather than trying to link against its relatively complex dependencies.</li>
 </ul>
 <h2 id="053---2023-08-01"><a class="header" href="#053---2023-08-01">[0.5.3] - 2023-08-01</a></h2>
-<h3 id="changed"><a class="header" href="#changed">Changed</a></h3>
+<h3 id="changed-1"><a class="header" href="#changed-1">Changed</a></h3>
 <ul>
 <li>The <code>csv:</code> driver has been superceded by a more generic <code>file:</code> driver. The old CSV driver <strong>will continue to work, perhaps indefinitely,</strong> but it may be increasingly hidden. By default, the <code>file:</code> driver determines the file format using the <code>--from-format</code> command line argument, or the file extension, falling back to CSV format as a last resort. I <em>think</em> this should be fully backwards-compatible. But if you encounter breaking changes, try adding <code>--from-format=csv</code> to your command line.</li>
 </ul>
@@ -1042,7 +1055,7 @@ in a client. Since <code>dbcrossbar</code> is unlikely to connect to many hostil
 <li>bigquery-test-fixture: Allow larger outputs before switching to fallback mode. Thanks again to Dave Shirley!</li>
 </ul>
 <h2 id="050---2022-10-22"><a class="header" href="#050---2022-10-22">[0.5.0] - 2022-10-22</a></h2>
-<h3 id="added-4"><a class="header" href="#added-4">Added</a></h3>
+<h3 id="added-5"><a class="header" href="#added-5">Added</a></h3>
 <ul>
 <li>New <code>bigquery-test-fixture:</code> schema creates small, read-only &quot;tables&quot; very quickly. Many thanks to Dave Shirley for the proof of concept and for pairing on the final implementation.</li>
 </ul>
@@ -1061,7 +1074,7 @@ in a client. Since <code>dbcrossbar</code> is unlikely to connect to many hostil
 <li>bigquery: Retry <code>extract</code> operations after <code>accessDenied</code> errors. These errors sometimes occur even when BigQuery <em>should</em> have the necessary access permissions. This may be caused by a permissions race condition somewhere in Google Cloud?</li>
 </ul>
 <h2 id="050-beta2---2021-12-19"><a class="header" href="#050-beta2---2021-12-19">[0.5.0-beta.2] - 2021-12-19</a></h2>
-<h3 id="changed-1"><a class="header" href="#changed-1">Changed</a></h3>
+<h3 id="changed-2"><a class="header" href="#changed-2">Changed</a></h3>
 <ul>
 <li>The format for printing backtraces has changed. We now use the standard <code>anyhow</code> format.</li>
 <li>Our logging format has changed considerably, thanks to switch from <code>slog</code> to the much more popular <code>tracing</code>. Some logging of complex async streams may be less well-organized, but there's <em>more</em> of it, especially at <code>RUST_LOG=dbcrossbarlib=trace,dbcrossbar=trace,warn</code> level.</li>
@@ -1075,11 +1088,11 @@ in a client. Since <code>dbcrossbar</code> is unlikely to connect to many hostil
 <li>The <code>--log-format</code> and <code>--log-extra</code> commands have been removed.</li>
 </ul>
 <h2 id="050-beta1---2021-12-15"><a class="header" href="#050-beta1---2021-12-15">[0.5.0-beta.1] - 2021-12-15</a></h2>
-<h3 id="added-5"><a class="header" href="#added-5">Added</a></h3>
+<h3 id="added-6"><a class="header" href="#added-6">Added</a></h3>
 <ul>
 <li>We provide MacOS X binaries for the new M1 processors. These are unsigned, like our existing Apple Intel binaries. So you'll need to continue to use <code>xattr -d com.apple.quarantine dbcrossbar</code> or a similar technique to run them. Or you could build your own binaries.</li>
 </ul>
-<h3 id="changed-2"><a class="header" href="#changed-2">Changed</a></h3>
+<h3 id="changed-3"><a class="header" href="#changed-3">Changed</a></h3>
 <ul>
 <li>Our downloadable <code>*.zip</code> files follow a new naming convention, allowing us to distinguish between Intel and M1 Macs.</li>
 <li>OpenSSL has been completely removed from <code>dbcrossbar</code>, allowing us to support more platforms. This will also allow us to eventually centralize TLS configuration across all <code>dbcrossbar</code> drivers.</li>
@@ -1089,11 +1102,11 @@ in a client. Since <code>dbcrossbar</code> is unlikely to connect to many hostil
 <li>We no longer support hosted Citus from Citus Data, because their TLS certificates do not include <code>subjectAltName</code>, which is <a href="https://github.com/briansmith/webpki/issues/11">required by the <code>rustls</code> library</a>. Citus Data will be shutting down shortly, so we recommend keeping around an older <code>dbcrossbar</code> for a few more weeks if you need to talk to them.</li>
 </ul>
 <h2 id="050-alpha3---2021-12-14"><a class="header" href="#050-alpha3---2021-12-14">[0.5.0-alpha.3] - 2021-12-14</a></h2>
-<h3 id="added-6"><a class="header" href="#added-6">Added</a></h3>
+<h3 id="added-7"><a class="header" href="#added-7">Added</a></h3>
 <ul>
 <li>gs: Allow single-file CSV output. This involves copying out of Google Cloud Storage, concatenating, and copying back. But it's handy when you need it.</li>
 </ul>
-<h3 id="changed-3"><a class="header" href="#changed-3">Changed</a></h3>
+<h3 id="changed-4"><a class="header" href="#changed-4">Changed</a></h3>
 <ul>
 <li>gs: Copying to a <code>gs://bucket/dir/</code> URL with <code>--if-exists=overwrite --display-output-locators</code> will print out a list of files in the destination bucket directory when we're done. Before, it just printed out the destination locator, which was technically allowed, but useless.</li>
 </ul>
@@ -1108,7 +1121,7 @@ in a client. Since <code>dbcrossbar</code> is unlikely to connect to many hostil
 </ul>
 <h2 id="050-alpha1---2021-03-04"><a class="header" href="#050-alpha1---2021-03-04">[0.5.0-alpha.1] - 2021-03-04</a></h2>
 <p>This release contains a breaking change to the <code>dbcrossbar-schema</code> output format to enable supporting named types and enumeration types. See below.</p>
-<h3 id="added-7"><a class="header" href="#added-7">Added</a></h3>
+<h3 id="added-8"><a class="header" href="#added-8">Added</a></h3>
 <ul>
 <li>
 <p>(EXPERIMENTAL) postgres: The <code>postgres-sql</code> and <code>postgres</code> drivers now <code>CREATE TYPE</code> statements (but only in the <code>&quot;public&quot;</code> schema). These can be used as follows:</p>
@@ -1129,7 +1142,7 @@ CREATE TABLE &quot;images&quot; (
 <p>(EXPERIMENTAL) The native <code>dbcrossbar-schema</code> format also supports string enumeration types using a <code>{ &quot;one_of&quot;: [&quot;red&quot;, &quot;green&quot;, &quot;blue&quot;] }</code> syntax.</p>
 </li>
 </ul>
-<h3 id="changed-4"><a class="header" href="#changed-4">Changed</a></h3>
+<h3 id="changed-5"><a class="header" href="#changed-5">Changed</a></h3>
 <ul>
 <li>BREAKING: The <code>dbcrossbar-schema</code> output format has changed! It now has top level <code>named_types</code> and <code>tables</code> members, and the old top-level table definition is now available as <code>.tables[0]</code>. See <a href="https://www.dbcrossbar.org/schema.html">the manual</a> for more details. However, <code>dbcrossbar</code> can still read the old input format with no problems, so this only affects other programs that parse native <code>dbcrossbar</code> schema.</li>
 </ul>
@@ -1148,7 +1161,7 @@ CREATE TABLE &quot;images&quot; (
 <li>Build fixes for recently-added clippy warnings.</li>
 </ul>
 <h2 id="042-beta9---2021-01-14"><a class="header" href="#042-beta9---2021-01-14">0.4.2-beta.9 - 2021-01-14</a></h2>
-<h3 id="changed-5"><a class="header" href="#changed-5">Changed</a></h3>
+<h3 id="changed-6"><a class="header" href="#changed-6">Changed</a></h3>
 <ul>
 <li>Update many dependencies, including <code>tokio</code> and our many network-related libraries. Tests pass, but this affects almost everything, in one fashion or another.</li>
 </ul>
@@ -1158,7 +1171,7 @@ CREATE TABLE &quot;images&quot; (
 <li>Linux: Fix Linux binary builds by updating to latest <code>rust-musl-builder</code> release, which has the new <code>cargo-deny</code>.</li>
 </ul>
 <h2 id="042-beta7---2020-10-14"><a class="header" href="#042-beta7---2020-10-14">0.4.2-beta.7 - 2020-10-14</a></h2>
-<h3 id="added-8"><a class="header" href="#added-8">Added</a></h3>
+<h3 id="added-9"><a class="header" href="#added-9">Added</a></h3>
 <ul>
 <li>shopify: Added a &quot;partner&quot; argument which can be used to include a &quot;-- partner:&quot; comment in all generated RedShift SQL for use by RedShift partners.</li>
 </ul>
@@ -1174,12 +1187,12 @@ CREATE TABLE &quot;images&quot; (
 <li>gcloud: We now retry Google Cloud GET requests automatically a few times if it looks like it might help. We'd also love to retry POST requests, but that will require the ability to try to restart streams.</li>
 </ul>
 <h2 id="042-beta4---2020-07-07"><a class="header" href="#042-beta4---2020-07-07">0.4.2-beta.4 - 2020-07-07</a></h2>
-<h3 id="changed-6"><a class="header" href="#changed-6">Changed</a></h3>
+<h3 id="changed-7"><a class="header" href="#changed-7">Changed</a></h3>
 <ul>
 <li>Update dependencies. The latest <code>bigml</code> release contains tweaks to error retry behavior.</li>
 </ul>
 <h2 id="042-beta3---2020-07-07"><a class="header" href="#042-beta3---2020-07-07">0.4.2-beta.3 - 2020-07-07</a></h2>
-<h3 id="changed-7"><a class="header" href="#changed-7">Changed</a></h3>
+<h3 id="changed-8"><a class="header" href="#changed-8">Changed</a></h3>
 <ul>
 <li>postgres: Our last <code>diesel</code> code has been removed, and replaced with <code>tokio-postgres</code> (which we use elsewhere).</li>
 </ul>
@@ -1192,12 +1205,12 @@ CREATE TABLE &quot;images&quot; (
 <li>The experimental <code>citus</code>-related APIs have been removed from <code>dbcrossbarlib</code>, because they used <code>diesel</code>. This is technically a breaking change for <code>dbcrosslib</code>, but we don't claim to honor semver for <code>dbcrossbarlib</code> 0.x.y releases.</li>
 </ul>
 <h2 id="042-beta2---2020-06-28"><a class="header" href="#042-beta2---2020-06-28">0.4.2-beta.2 - 2020-06-28</a></h2>
-<h3 id="added-9"><a class="header" href="#added-9">Added</a></h3>
+<h3 id="added-10"><a class="header" href="#added-10">Added</a></h3>
 <ul>
 <li>redshift: Support <code>--if-exists=upsert-on:key1,key2</code>.</li>
 <li>redshift: Enable <code>--if-exists=error</code>.</li>
 </ul>
-<h3 id="changed-8"><a class="header" href="#changed-8">Changed</a></h3>
+<h3 id="changed-9"><a class="header" href="#changed-9">Changed</a></h3>
 <ul>
 <li>postgres: Temporary tables now use the same schema (i.e. namespace) as the tables they're linked to. This shouldn't be a breaking change unless you've set up your database permissions to forbid it.</li>
 </ul>
@@ -1207,7 +1220,7 @@ CREATE TABLE &quot;images&quot; (
 <li>postgres: Verify that upsert columns are NOT NULL to prevent possible incorrect upserts. This may be a breaking change, but it also prevents a possible bug.</li>
 </ul>
 <h2 id="042-beta1---2020-06-23"><a class="header" href="#042-beta1---2020-06-23">0.4.2-beta.1 - 2020-06-23</a></h2>
-<h3 id="changed-9"><a class="header" href="#changed-9">Changed</a></h3>
+<h3 id="changed-10"><a class="header" href="#changed-10">Changed</a></h3>
 <ul>
 <li>Mac: Move configuration directory from <code>~/Library/Preferences/dbcrossbar</code> to <code>~/Library/Application Support/dbcrossbar</code>. If we detect a config directory in the old location, we should print a deprecation warning and use it.</li>
 <li>Many dependencies have been updated.</li>
@@ -1218,7 +1231,7 @@ CREATE TABLE &quot;images&quot; (
 </ul>
 <h2 id="041---2020-06-16"><a class="header" href="#041---2020-06-16">0.4.1 - 2020-06-16</a></h2>
 <p>A bug fix to <code>gs</code>, and other minor improvements.</p>
-<h3 id="changed-10"><a class="header" href="#changed-10">Changed</a></h3>
+<h3 id="changed-11"><a class="header" href="#changed-11">Changed</a></h3>
 <ul>
 <li>Replace deprecated <code>tempdir</code> with <code>tempfile</code>.</li>
 </ul>
@@ -1229,7 +1242,7 @@ CREATE TABLE &quot;images&quot; (
 </ul>
 <h2 id="040---2020-06-02"><a class="header" href="#040---2020-06-02">0.4.0 - 2020-06-02</a></h2>
 <p>This is a summary of all the major changes since the 0.3.3 release. For more details and minor changes, see the individual CHANGELOG entries for the 0.4.0 preleases.</p>
-<h3 id="added-10"><a class="header" href="#added-10">Added</a></h3>
+<h3 id="added-11"><a class="header" href="#added-11">Added</a></h3>
 <ul>
 <li><code>dbcrossbar</code> now supports &quot;struct&quot; types, which have a fixed set of named fields. These will be automatically translated to BigQuery STRUCT types or to JSON columns, depending on the destination database.</li>
 <li>We now support a CLI-editable config file using commands like <code>dbcrossbar config add temporary s3://example/temp/</code>.</li>
@@ -1243,7 +1256,7 @@ CREATE TABLE &quot;images&quot; (
 </ul>
 </li>
 </ul>
-<h3 id="changed-11"><a class="header" href="#changed-11">Changed</a></h3>
+<h3 id="changed-12"><a class="header" href="#changed-12">Changed</a></h3>
 <ul>
 <li><code>dbcrossbar conv</code> is now <code>dbcrossbar schema conv</code>.</li>
 <li>Because of the new STRUCT support, some corner cases involving struct types and JSON may have changed subtly.</li>
@@ -1260,19 +1273,19 @@ CREATE TABLE &quot;images&quot; (
 <li>bigquery: We now export <code>ARRAY&lt;STRUCT&lt;...&gt;&gt;</code> as <code>{ &quot;array&quot;: { &quot;struct&quot;: ... } }</code>, instead of exporting it as as single <code>&quot;json&quot;</code> value.</li>
 </ul>
 <h2 id="040-rc2---2020-06-01"><a class="header" href="#040-rc2---2020-06-01">0.4.0-rc.2 - 2020-06-01</a></h2>
-<h3 id="changed-12"><a class="header" href="#changed-12">Changed</a></h3>
+<h3 id="changed-13"><a class="header" href="#changed-13">Changed</a></h3>
 <ul>
 <li>postgres: We now transform the portable types <code>{ &quot;array&quot;: &quot;json&quot; }</code> and <code>{ &quot;array&quot;: { &quot;struct&quot;: fields } }</code> into <code>jsonb[]</code>, instead of automatically changing it to plain <code>jsonb</code> in an effort to help our users.</li>
 </ul>
 <h2 id="040-rc1---2020-05-31"><a class="header" href="#040-rc1---2020-05-31">0.4.0-rc.1 - 2020-05-31</a></h2>
 <p>This is a release candidate for v0.4.0. If no issues are discovered, this will be published as 0.4.0.</p>
 <p>This release contains a last few breaking changes that we want to include before we publicize <code>dbcrossbar</code> more widely. When migrating, particular attention to the <code>conv</code> subcommand and <code>AWS_DEFAULT_REGION</code> below, which have significant breaking changes.</p>
-<h3 id="changed-13"><a class="header" href="#changed-13">Changed</a></h3>
+<h3 id="changed-14"><a class="header" href="#changed-14">Changed</a></h3>
 <ul>
 <li>Rename <code>dbcrossbar conv</code> to <code>dbcrossbar schema conv</code>.</li>
 <li>s3: Require <code>AWS_DEFAULT_REGION</code> instead of optionally using <code>AWS_REGION</code>. This is more compatiable with the <code>aws</code> CLI command, and it doesn't rely on undocumented region defaults or <code>aws</code> configuration files.</li>
 </ul>
-<h3 id="added-11"><a class="header" href="#added-11">Added</a></h3>
+<h3 id="added-12"><a class="header" href="#added-12">Added</a></h3>
 <ul>
 <li>Document our portable schema format.</li>
 <li>Document schema-only drivers.</li>
@@ -1284,20 +1297,20 @@ CREATE TABLE &quot;images&quot; (
 </ul>
 <h2 id="040-beta1---2020-05-28"><a class="header" href="#040-beta1---2020-05-28">0.4.0-beta.1 - 2020-05-28</a></h2>
 <p>We're finally ready to start preparing for an 0.4.0 release! This beta will be deployed to several production systems to help verify that there are no surprising regressions.</p>
-<h3 id="changed-14"><a class="header" href="#changed-14">Changed</a></h3>
+<h3 id="changed-15"><a class="header" href="#changed-15">Changed</a></h3>
 <ul>
 <li>gs: We now verify CRC32C checksums when uploading.</li>
 <li>gs: We specify <code>isGenerationMatch</code> on many operations to make sure that nothing has been created or overridden that we didn't expect.</li>
 </ul>
 <h2 id="040-alpha7---2020-05-26"><a class="header" href="#040-alpha7---2020-05-26">0.4.0-alpha.7 - 2020-05-26</a></h2>
 <p>This release adds support for labeling BigQuery jobs.</p>
-<h3 id="added-12"><a class="header" href="#added-12">Added</a></h3>
+<h3 id="added-13"><a class="header" href="#added-13">Added</a></h3>
 <ul>
 <li>bigquery: Optionally specify billing labels for jobs. See the manual for details.</li>
 <li>Allow driver argument names to be specified as either <code>x.y</code> or <code>x[y]</code>, interchangeably. This makes <code>job_labels</code> look nicer.</li>
 <li>Hide URL passwords from (most) logs using a dedicated wrapper type.</li>
 </ul>
-<h3 id="changed-15"><a class="header" href="#changed-15">Changed</a></h3>
+<h3 id="changed-16"><a class="header" href="#changed-16">Changed</a></h3>
 <ul>
 <li>We now have test cases that make sure we catch duplicate driver arguments and raise an error.</li>
 <li>redshift: Authentication argument names may no longer include <code>-</code> characters. I'm not even sure whether these are valid, but they won't work with the new scheme for parsing driver arguments.</li>
@@ -1305,7 +1318,7 @@ CREATE TABLE &quot;images&quot; (
 </ul>
 <h2 id="040-alpha6---2020-05-22"><a class="header" href="#040-alpha6---2020-05-22">0.4.0-alpha.6 - 2020-05-22</a></h2>
 <p>This release improves the example <code>shopify.ts</code> schema, and adds new features to <code>dbcrossbar-ts</code> to parse it.</p>
-<h3 id="added-13"><a class="header" href="#added-13">Added</a></h3>
+<h3 id="added-14"><a class="header" href="#added-14">Added</a></h3>
 <ul>
 <li>dbcrossbar-ts:
 <ul>
@@ -1321,17 +1334,17 @@ CREATE TABLE &quot;images&quot; (
 <li>shopify: The example <code>shopify.ts</code> schema has been updated to use <code>Date</code> and <code>int64</code> in many places. <code>Address</code> and <code>CustomerAddress</code> are now distinct types, and several other minor issues have been fixed.</li>
 </ul>
 <h2 id="040-alpha5---2020-05-21"><a class="header" href="#040-alpha5---2020-05-21">0.4.0-alpha.5 - 2020-05-21</a></h2>
-<h3 id="added-14"><a class="header" href="#added-14">Added</a></h3>
+<h3 id="added-15"><a class="header" href="#added-15">Added</a></h3>
 <ul>
 <li>BigQuery: Support <code>--if-exists=error</code>.</li>
 </ul>
-<h3 id="changed-16"><a class="header" href="#changed-16">Changed</a></h3>
+<h3 id="changed-17"><a class="header" href="#changed-17">Changed</a></h3>
 <ul>
 <li>Require <code>--enable-unstable</code> to use <code>dbcrossbar-ts</code> or <code>shopify</code> locators, which are unstable.</li>
 <li>AWS credentials must now always be passed via <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>, <code>AWS_SESSION_TOKEN</code> (optional) and <code>AWS_REGION</code> (optional). This lays the groundwork for replacing the <code>aws</code> CLI tool with native Rust code, so that we will someday be able to remove our last CLI dependency.</li>
 </ul>
 <h2 id="040-alpha4---2020-05-19"><a class="header" href="#040-alpha4---2020-05-19">0.4.0-alpha.4 - 2020-05-19</a></h2>
-<h3 id="added-15"><a class="header" href="#added-15">Added</a></h3>
+<h3 id="added-16"><a class="header" href="#added-16">Added</a></h3>
 <ul>
 <li>BigQuery now imports and exports decimal (aka NUMERIC) values everywhere.</li>
 <li>The <code>dbcrossbar-ts</code> driver now supports magic type aliases that will convert to the corresponding <code>dbcrossbar</code> types:
@@ -1343,7 +1356,7 @@ CREATE TABLE &quot;images&quot; (
 </ul>
 </li>
 </ul>
-<h3 id="changed-17"><a class="header" href="#changed-17">Changed</a></h3>
+<h3 id="changed-18"><a class="header" href="#changed-18">Changed</a></h3>
 <ul>
 <li>The sample <code>shopify.ts</code> schema now uses <code>decimal</code> instead of <code>string</code> when appropriate. It does not attempt to use <code>int64</code> yet.</li>
 </ul>
@@ -1351,7 +1364,7 @@ CREATE TABLE &quot;images&quot; (
 <p>This release was yanked because it was missing several things it should have included.</p>
 <h2 id="040-alpha2---2020-05-19"><a class="header" href="#040-alpha2---2020-05-19">0.4.0-alpha.2 - 2020-05-19</a></h2>
 <p>This is a significant release, with support for &quot;struct&quot; types.</p>
-<h3 id="added-16"><a class="header" href="#added-16">Added</a></h3>
+<h3 id="added-17"><a class="header" href="#added-17">Added</a></h3>
 <ul>
 <li>The portable schema now supports a <code>DataType::Struct(fields)</code> type that can be used to represent BigQuery STRUCT values (as long as they have unique, named fields) and JSON objects with known keys.</li>
 <li>The BigQuery driver now supports importing and exporting <code>STRUCT</code> fields using the new <code>DataType::Struct(fields)</code> type.</li>
@@ -1360,7 +1373,7 @@ CREATE TABLE &quot;images&quot; (
 <li>We now have support for fancy parser error messages, which we use with the <code>dbcrossbar-ts</code> parser.</li>
 <li>We now support a CLI-editable config file using commands like <code>dbcrossbar config add temporary s3://example/temp/</code>.</li>
 </ul>
-<h3 id="changed-18"><a class="header" href="#changed-18">Changed</a></h3>
+<h3 id="changed-19"><a class="header" href="#changed-19">Changed</a></h3>
 <ul>
 <li>BREAKING: Some corner cases involving struct types and JSON may have changed subtly.</li>
 <li>We've upgraded to the latest <code>rust-peg</code> parser syntax everywhere.</li>
@@ -1373,7 +1386,7 @@ CREATE TABLE &quot;images&quot; (
 <li>Various obsolete casting libraries have been removed.</li>
 </ul>
 <h2 id="040-alpha1---2020-04-07"><a class="header" href="#040-alpha1---2020-04-07">0.4.0-alpha.1 - 2020-04-07</a></h2>
-<h3 id="changed-19"><a class="header" href="#changed-19">Changed</a></h3>
+<h3 id="changed-20"><a class="header" href="#changed-20">Changed</a></h3>
 <ul>
 <li>Replace <code>gcloud auth</code>, <code>gsutil</code> and <code>bq</code> with native Rust. This changes how we authenticate to Google Cloud. In particular, we now support <code>GCLOUD_CLIENT_SECRET</code>, <code>~/.config/dbcrossbar/gcloud_client_secret.json</code>, <code>GCLOUD_SERVICE_ACCOUNT_KEY</code> or <code>~/.config/dbcrossbar/gcloud_service_account_key.json</code>, as <a href="https://www.dbcrossbar.org/gs.html#configuration--authentication">explained in the manual</a>. We no longer use <code>gcloud auth</code>, and the Google Cloud SDK tools are no longer required. In the current alpha version, uploads and deletions are probably slower than before.</li>
 </ul>
@@ -1384,7 +1397,7 @@ CREATE TABLE &quot;images&quot; (
 <li>bigquery: Detect &quot;`&quot; quotes in the CLI form of table names, and report an error.</li>
 </ul>
 <h2 id="033---2020-03-30"><a class="header" href="#033---2020-03-30">0.3.3 - 2020-03-30</a></h2>
-<h3 id="added-17"><a class="header" href="#added-17">Added</a></h3>
+<h3 id="added-18"><a class="header" href="#added-18">Added</a></h3>
 <ul>
 <li>BigML: Honor BIGML_DOMAIN, allowing the user to point the BigML driver to a custom VPC instance of BigML.</li>
 </ul>
@@ -1395,11 +1408,11 @@ CREATE TABLE &quot;images&quot; (
 <li>Fix an error that caused <code>bigquery_upsert</code> test to fail.</li>
 </ul>
 <h2 id="031---2020-03-29"><a class="header" href="#031---2020-03-29">0.3.1 - 2020-03-29</a></h2>
-<h3 id="added-18"><a class="header" href="#added-18">Added</a></h3>
+<h3 id="added-19"><a class="header" href="#added-19">Added</a></h3>
 <ul>
 <li>Write a new <a href="https://www.dbcrossbar.org/">manual</a>!</li>
 </ul>
-<h3 id="changed-20"><a class="header" href="#changed-20">Changed</a></h3>
+<h3 id="changed-21"><a class="header" href="#changed-21">Changed</a></h3>
 <ul>
 <li>Encapsulate all calls to <code>bq</code> and <code>gsutil</code></li>
 <li>Improve performance of <code>--stream-size</code></li>
@@ -1409,12 +1422,12 @@ CREATE TABLE &quot;images&quot; (
 <li>BigQuery: Honor NOT NULL on import (fixes #45)</li>
 </ul>
 <h2 id="030---2020-03-26"><a class="header" href="#030---2020-03-26">0.3.0 - 2020-03-26</a></h2>
-<h3 id="added-19"><a class="header" href="#added-19">Added</a></h3>
+<h3 id="added-20"><a class="header" href="#added-20">Added</a></h3>
 <ul>
 <li>Use <code>cargo deny</code> to enforce license and duplicate dependency policies</li>
 <li>Add notes about license and contribution policies</li>
 </ul>
-<h3 id="changed-21"><a class="header" href="#changed-21">Changed</a></h3>
+<h3 id="changed-22"><a class="header" href="#changed-22">Changed</a></h3>
 <ul>
 <li>Update to tokio 0.2 and the latest stable Rust</li>
 <li>Replace <code>wkb</code> with <code>postgis</code> for licensing reasons</li>
