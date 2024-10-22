@@ -28,8 +28,12 @@ fn cp_csv_to_redshift_to_csv() {
                 return;
             }
         };
-    let iam_role =
-        env::var("REDSHIFT_TEST_IAM_ROLE").expect("Please set REDSHIFT_TEST_IAM_ROLE");
+    // let iam_role =
+    //     env::var("REDSHIFT_TEST_IAM_ROLE").expect("Please set REDSHIFT_TEST_IAM_ROLE");
+    let aws_access_key_id =
+        env::var("AWS_ACCESS_KEY_ID").expect("Please set AWS_ACCESS_KEY_ID");
+    let aws_secret_access_key =
+        env::var("AWS_SECRET_ACCESS_KEY").expect("Please set AWS_SECRET_ACCESS_KEY");
     let region =
         env::var("REDSHIFT_TEST_REGION").expect("Please set REDSHIFT_TEST_REGION");
 
@@ -43,7 +47,11 @@ fn cp_csv_to_redshift_to_csv() {
             &format!("--schema=postgres-sql:{}", schema.display()),
             // --to-arg values will be converted into Redshift "credentials"
             // arguments to COPY and UNLOAD, directly.
-            &format!("--to-arg=iam_role={}", iam_role),
+            // &format!("--to-arg=iam_role={}", iam_role),
+            &format!(
+                "--to-arg=credentials=aws_access_key_id={};aws_secret_access_key={}",
+                aws_access_key_id, aws_secret_access_key
+            ),
             &format!("--to-arg=region={}", region),
             &format!("csv:{}", src.display()),
             &redshift_table,
@@ -59,7 +67,11 @@ fn cp_csv_to_redshift_to_csv() {
             "--if-exists=overwrite",
             &format!("--temporary={}", s3_dir),
             &format!("--schema=postgres-sql:{}", schema.display()),
-            &format!("--from-arg=iam_role={}", iam_role),
+            // &format!("--from-arg=iam_role={}", iam_role),
+            &format!(
+                "--from-arg=credentials=aws_access_key_id={};aws_secret_access_key={}",
+                aws_access_key_id, aws_secret_access_key
+            ),
             &format!("--from-arg=region={}", region),
             &redshift_table,
             // Output as a single file to avoid weird naming conventions.
@@ -94,8 +106,12 @@ fn redshift_upsert() {
             return;
         }
     };
-    let iam_role =
-        env::var("REDSHIFT_TEST_IAM_ROLE").expect("Please set REDSHIFT_TEST_IAM_ROLE");
+    // let iam_role =
+    //     env::var("REDSHIFT_TEST_IAM_ROLE").expect("Please set REDSHIFT_TEST_IAM_ROLE");
+    let aws_access_key_id =
+        env::var("AWS_ACCESS_KEY_ID").expect("Please set AWS_ACCESS_KEY_ID");
+    let aws_secret_access_key =
+        env::var("AWS_SECRET_ACCESS_KEY").expect("Please set AWS_SECRET_ACCESS_KEY");
     let region =
         env::var("REDSHIFT_TEST_REGION").expect("Please set REDSHIFT_TEST_REGION");
 
@@ -119,7 +135,8 @@ fn redshift_upsert() {
                     "--to-arg=partner=dbcrossbar test v",
                     env!("CARGO_PKG_VERSION")
                 ),
-                &format!("--to-arg=iam_role={}", iam_role),
+                //&format!("--to-arg=iam_role={}", iam_role),
+                &format!("--to-arg=credentials=aws_access_key_id={};aws_secret_access_key={}", aws_access_key_id, aws_secret_access_key),
                 &format!("--to-arg=region={}", region),
                 &format!("csv:{}", src.display()),
                 &redshift_table,
@@ -135,7 +152,11 @@ fn redshift_upsert() {
             "cp",
             "--if-exists=overwrite",
             &format!("--temporary={}", s3_dir),
-            &format!("--from-arg=iam_role={}", iam_role),
+            //&format!("--from-arg=iam_role={}", iam_role),
+            &format!(
+                "--from-arg=credentials=aws_access_key_id={};aws_secret_access_key={}",
+                aws_access_key_id, aws_secret_access_key
+            ),
             &format!("--from-arg=region={}", region),
             concat!(
                 "--from-arg=partner=dbcrossbar test v",
