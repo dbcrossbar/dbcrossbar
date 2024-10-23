@@ -115,8 +115,8 @@ pub(crate) async fn run(
 
     // Fill in our span fields.
     let span = Span::current();
-    span.record("from", &field::display(&from_locator));
-    span.record("to", &field::display(&to_locator));
+    span.record("from", field::display(&from_locator));
+    span.record("to", field::display(&to_locator));
 
     // Build our source arguments.
     let from_args = DriverArguments::from_cli_args(&opt.from_args)?;

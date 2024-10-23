@@ -4,34 +4,45 @@
 
 [advisories]
 ignore = [
-    # Ignore a nasty `localtime_r` and `setenv` race condition which can
-    # segfault if we try to read the localtime while someone is setting an env
-    # var.
-    #
-    # This can probably be fixed once
-    # https://github.com/chronotope/chrono/issues/602 has been addressed.
-    # "RUSTSEC-2020-0159",
-    # Also `localtime_r`.
-    "RUSTSEC-2020-0071",
     # CPU denial of service when validating certificate chains. To fix this,
     # we need to update `yup-oauth2`, which breaks Google Cloud auth.
     "RUSTSEC-2023-0052",
+
+    # This is a real denial-of-service vulnerability in RusTLS, but it only
+    # affects servers, and we're not a server. Unfortunately, we can't update
+    # RusTLS without sorting out `yup-oauth2`, which breaks Google Cloud last I
+    # checked.
+    "RUSTSEC-2024-0336",
+
+    # `difference` is unmaintained, but it works fine, and we only use it in
+    # test code. I'm not convinced this is a good use of RUSTSEC advisories.
+    "RUSTSEC-2020-0095",
 ]
+
 
 [licenses]
 # Don't allow code with an unclear license.
-unlicensed = "deny"
+# unlicensed = "deny"
 
 # Don't allow "copylefted" licenses unless they're listed below.
-copyleft = "deny"
+# copyleft = "deny"
 
 # Allow common non-restrictive licenses. ISC is used for various DNS and crypto
 # things, and it's a minimally restrictive open source license.
-allow = ["MIT", "Apache-2.0", "BSD-3-Clause", "CC0-1.0", "ISC", "OpenSSL", "Unicode-DFS-2016", "Zlib"]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "CC0-1.0",
+    "ISC",
+    "OpenSSL",
+    "Unicode-DFS-2016",
+    "Zlib",
+]
 
 # Many organizations ban AGPL-licensed code
 # https://opensource.google/docs/using/agpl-policy/
-deny = ["AGPL-3.0"]
+# deny = ["AGPL-3.0"]
 
 # See https://github.com/dirs-dev/dirs-rs/issues/51
 [[licenses.exceptions]]
@@ -42,16 +53,12 @@ name = "option-ext"
 # Ring has a messy license.
 name = "ring"
 expression = "ISC AND OpenSSL AND MIT"
-license-files = [
-    { path = "LICENSE", hash = 3171872035 },
-]
+license-files = [{ path = "LICENSE", hash = 3171872035 }]
 
 [[licenses.clarify]]
 name = "encoding_rs"
 expression = "(MIT OR Apache-2.0) AND BSD-3-Clause AND CC0-1.0"
-license-files = [
-    { path = "COPYRIGHT", hash = 972598577 },
-]
+license-files = [{ path = "COPYRIGHT", hash = 972598577 }]
 
 
 [bans]
@@ -79,5 +86,3 @@ skip-tree = [
     # These need updates.
     { name = "rustls-native-certs" },
 ]
-
-

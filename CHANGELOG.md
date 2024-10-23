@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.5.8-pre.1] - 2024-02-01
+
+### Added
+
+- Honor `AWS_ENDPOINT` even if `awscli` does not support it. This is needed for use with some S3 replacements.
+
+### Changed
+
+- redshift: Text columns are now represented as `VARCHAR(MAX)`, which has unlimited size, instead of `TEXT`, which is apparently limited to 255 bytes. This _may_ be a breaking change for some use cases, but RedShift is our least supported driver and we have minimal test infrastructure.
+
+### Security
+
+- Library updates for several advisories.
+
 ## [0.5.7] - 2024-01-26
 
 ### Added

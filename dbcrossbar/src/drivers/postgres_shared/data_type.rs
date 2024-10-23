@@ -133,6 +133,14 @@ pub(crate) enum PgScalarDataType {
     Jsonb,
     /// Named `ENUM` or other custom data type.
     Named(PgName),
+    /// RedShift only! RedShift treats `TEXT` as `VARCHAR(256)`, which is
+    /// bizarre but we need to deal with it. Instead we need to use
+    /// `VARCHAR(MAX)`, where `MAX` is a RedShift keyword.
+    ///
+    /// We add this here because RedShift shares the common PostgreSQL
+    /// infrastructure and doesn't get enough attention to have an independent
+    /// copy of the relevant code.
+    RedShiftVarcharMax,
     Text,
     TimestampWithoutTimeZone,
     TimestampWithTimeZone,
@@ -209,7 +217,9 @@ impl PgScalarDataType {
             PgScalarDataType::Named(name) => {
                 Ok(DataType::Named(name.to_portable_name()?))
             }
-            PgScalarDataType::Text => Ok(DataType::Text),
+            PgScalarDataType::RedShiftVarcharMax | PgScalarDataType::Text => {
+                Ok(DataType::Text)
+            }
             PgScalarDataType::TimestampWithoutTimeZone => {
                 Ok(DataType::TimestampWithoutTimeZone)
             }
@@ -242,6 +252,11 @@ impl PgScalarDataType {
                 "don't know the PostgreSQL OID for type {}",
                 name.quoted(),
             )),
+            // We shouldn't ever need to know this, because RedShift doesn't use
+            // the BINARY protocol for data ingestion.
+            PgScalarDataType::RedShiftVarcharMax => Err(format_err!(
+                "don't know the PostgreSQL OID for type `varchar(max)`"
+            )),
             PgScalarDataType::Text => Ok(25),
             PgScalarDataType::TimestampWithoutTimeZone => Ok(1114),
             PgScalarDataType::TimestampWithTimeZone => Ok(1184),
@@ -267,6 +282,7 @@ impl fmt::Display for PgScalarDataType {
             PgScalarDataType::Json => write!(f, "json")?,
             PgScalarDataType::Jsonb => write!(f, "jsonb")?,
             PgScalarDataType::Named(name) => write!(f, "{}", name.quoted())?,
+            PgScalarDataType::RedShiftVarcharMax => write!(f, "varchar(max)")?,
             PgScalarDataType::Text => write!(f, "text")?,
             PgScalarDataType::TimestampWithoutTimeZone => {
                 write!(f, "timestamp without time zone")?

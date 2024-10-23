@@ -104,7 +104,7 @@ jobs:
           cargo clippy -- -D warnings
       - name: Check policy
         run: |
-          version=0.11.0
+          version=0.16.1
           basename=cargo-deny-$version-${{ matrix.host }}
           curl -fLO https://github.com/EmbarkStudios/cargo-deny/releases/download/$version/$basename.tar.gz
           tar xf $basename.tar.gz

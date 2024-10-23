@@ -236,6 +236,9 @@ fn json_to_binary<W: Write>(
                 _ => Err(format_err!("expected JSON string, found {}", json)),
             }
         }
+        PgScalarDataType::RedShiftVarcharMax => Err(format_err!(
+            "cannot use Redshift-specific VARCHAR(MAX) with PostgreSQL BINARY",
+        )),
         PgScalarDataType::Text => match json {
             Value::String(s) => s.as_str().write_binary(wtr),
             _ => Err(format_err!("expected JSON string, found {}", json)),
@@ -316,6 +319,9 @@ fn scalar_to_binary(
             // string. We may need to fix this someday.
             cell.write_binary(wtr)
         }
+        PgScalarDataType::RedShiftVarcharMax => Err(format_err!(
+            "cannot use Redshift-specific VARCHAR(MAX) with PostgreSQL BINARY",
+        )),
         PgScalarDataType::Text => cell.write_binary(wtr),
         PgScalarDataType::TimestampWithoutTimeZone => {
             write_cell_as_binary::<NaiveDateTime>(wtr, cell)

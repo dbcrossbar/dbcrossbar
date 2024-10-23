@@ -243,7 +243,7 @@ async fn path_to_data_stream(
     let name =
         csv_stream_name(&base_path.to_string_lossy(), &file_path.to_string_lossy())?
             .to_owned();
-    Span::current().record("stream.name", &field::display(&name));
+    Span::current().record("stream.name", field::display(&name));
 
     // Open our file.
     let f = fs::File::open(file_path.clone())
@@ -310,7 +310,7 @@ async fn write_local_data_helper(
                         // a particularly safe fashion.
                         let ext = format.extension();
                         let csv_path = path.join(format!("{}.{}", stream.name, ext));
-                        Span::current().record("path", &field::display(csv_path.display()));
+                        Span::current().record("path", field::display(csv_path.display()));
                         let data_stream =
                             DataStream::from_csv_stream(&ctx, format, &schema, stream).await?;
                         write_stream_to_file(
