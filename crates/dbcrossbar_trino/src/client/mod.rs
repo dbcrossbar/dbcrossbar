@@ -81,30 +81,59 @@ impl fmt::Display for Column {
     }
 }
 
+/// Build a client.
+pub struct Builder {
+    user: String,
+    host: String,
+    port: u16,
+    password: Option<String>,
+}
+
+impl Builder {
+    /// Create a new builder.
+    pub fn new(user: String, host: String, port: u16) -> Self {
+        Self {
+            user,
+            host,
+            port,
+            password: None,
+        }
+    }
+
+    /// Set the password.
+    pub fn password(mut self, password: String) -> Self {
+        self.password = Some(password);
+        self
+    }
+
+    /// Build the client.
+    pub fn build(self) -> Client {
+        Client {
+            user: self.user,
+            host: self.host,
+            port: self.port,
+            password: self.password,
+            client: reqwest::Client::new(),
+        }
+    }
+}
+
 /// A basic Trino REST API client, useful for testing.
 pub struct Client {
     user: String,
     host: String,
     port: u16,
+    password: Option<String>,
     client: reqwest::Client,
 }
 
 impl Client {
-    /// Create a new client.
-    pub fn new(user: &str, host: &str, port: u16) -> Self {
-        Self {
-            user: user.to_string(),
-            host: host.to_string(),
-            port,
-            client: reqwest::Client::new(),
-        }
-    }
-
     /// Build a statement URL.
     fn statement_url(&self) -> String {
         format!("http://{}:{}/v1/statement", self.host, self.port)
     }
 
+    /// Make a request created by `mkreq`, handling retries and errors.
     async fn request(
         &self,
         mkreq: &dyn Fn() -> RequestBuilder,
@@ -144,7 +173,7 @@ impl Client {
         self.request(&|| {
             self.client
                 .post(&url)
-                .basic_auth(&self.user, None::<&str>)
+                .basic_auth(&self.user, self.password.as_ref())
                 .body(query.to_owned())
         })
         .await
@@ -156,8 +185,12 @@ impl Client {
         query_response: &Response,
     ) -> Result<Response, ClientError> {
         let url = query_response.next_uri.as_ref().expect("missing next_uri");
-        self.request(&|| self.client.get(url).basic_auth(&self.user, None::<&str>))
-            .await
+        self.request(&|| {
+            self.client
+                .get(url)
+                .basic_auth(&self.user, self.password.as_ref())
+        })
+        .await
     }
 
     /// Run a statement, ignoring any results.
@@ -228,7 +261,7 @@ impl Client {
 
 impl Default for Client {
     fn default() -> Self {
-        Self::new("admin", "localhost", 8080)
+        Builder::new("admin".to_owned(), "localhost".to_owned(), 8080).build()
     }
 }
 

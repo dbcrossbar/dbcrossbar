@@ -189,7 +189,7 @@ mod test {
         #[test]
         fn test_printable(data_type: DataType) {
             // Make sure we can print the data type without panicking.
-            format!("{}", data_type);
+            let _ = format!("{}", data_type);
         }
     }
 }

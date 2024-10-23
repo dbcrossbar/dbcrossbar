@@ -39,6 +39,7 @@ proptest = [
     "dep:proptest-derive",
 ]
 client = ["values", "dep:reqwest", "dep:tokio"]
+rustls-tls = ["reqwest/rustls-tls"]
 
 [dev-dependencies]
 proptest = { version = "1.5.0" }
