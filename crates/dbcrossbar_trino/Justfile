@@ -1,13 +1,29 @@
-# Test combinators of --features flags.
-test-features:
-    cargo test --no-default-features -- --include-ignored
-    cargo test --no-default-features --features values -- --include-ignored
-    cargo test --no-default-features --features client -- --include-ignored
-    cargo test --no-default-features --features proptest -- --include-ignored
+# This file contains common bits of automation for developing this crate. To use
+# it, install `just` with `cargo install just`, and then run `just --list` to
+# see available commands.
 
-    cargo test -- --include-ignored
+# Do all our pre-release checks.
+check: check-features
+    cargo clippy -- -D warnings
+    cargo fmt -- --check
+
+# Test combinators of --features flags.
+check-features:
+    # Make sure different feature combinations compile.
+    cargo check
+    cargo check --no-default-features
+    cargo check --no-default-features --features values
+    cargo check --no-default-features --features client
+    cargo check --no-default-features --features proptest
+    cargo check --no-default-features --features values,macros
+
+    # Fully test default config, and with everything enabled.
     cargo test --all-features -- --include-ignored
 
-# Render docs with feature annotations.
+# Watch for changes and run tests.
+watch:
+    cargo watch -s "just check"
+
+# Render docs with feature annotations for docs.rs, like Tokio does.
 fancy-docs:
     RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features

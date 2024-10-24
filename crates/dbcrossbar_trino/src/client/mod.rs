@@ -28,7 +28,10 @@ use serde_json::Value as JsonValue;
 
 pub use self::errors::{ClientError, QueryError};
 use self::{deserialize_value::deserialize_json_value, wire_types::TypeSignature};
-use crate::{DataType, Ident};
+use crate::{
+    values::{ConversionError, ExpectedDataType},
+    DataType, Field, Ident,
+};
 
 use super::Value;
 
@@ -81,33 +84,85 @@ impl fmt::Display for Column {
     }
 }
 
+// Convert a `Column` into a ROW `Field`.
+impl TryInto<Field> for &'_ Column {
+    type Error = ClientError;
+
+    fn try_into(self) -> Result<Field, ClientError> {
+        Ok(Field::named(
+            self.name.to_owned(),
+            DataType::try_from(&self.type_signature)?,
+        ))
+    }
+}
+
+/// Build a client.
+pub struct ClientBuilder {
+    user: String,
+    host: String,
+    port: u16,
+    password: Option<String>,
+    use_https: bool,
+}
+
+impl ClientBuilder {
+    /// Create a new builder.
+    pub fn new(user: String, host: String, port: u16) -> Self {
+        Self {
+            user,
+            host,
+            port,
+            use_https: false,
+            password: None,
+        }
+    }
+
+    /// Set the password.
+    pub fn password(mut self, password: String) -> Self {
+        self.password = Some(password);
+        self
+    }
+
+    /// Enable HTTPS.
+    pub fn use_https(mut self) -> Self {
+        self.use_https = true;
+        self
+    }
+
+    /// Build the client.
+    pub fn build(self) -> Client {
+        Client {
+            user: self.user,
+            host: self.host,
+            port: self.port,
+            use_https: self.use_https,
+            password: self.password,
+            client: reqwest::Client::new(),
+        }
+    }
+}
+
 /// A basic Trino REST API client, useful for testing.
 pub struct Client {
     user: String,
     host: String,
     port: u16,
+    use_https: bool,
+    password: Option<String>,
     client: reqwest::Client,
 }
 
 impl Client {
-    /// Create a new client.
-    pub fn new(user: &str, host: &str, port: u16) -> Self {
-        Self {
-            user: user.to_string(),
-            host: host.to_string(),
-            port,
-            client: reqwest::Client::new(),
-        }
-    }
-
     /// Build a statement URL.
     fn statement_url(&self) -> String {
-        format!("http://{}:{}/v1/statement", self.host, self.port)
+        let scheme = if self.use_https { "https" } else { "http" };
+        format!("{}://{}:{}/v1/statement", scheme, self.host, self.port)
     }
 
+    /// Make a request created by `mkreq`, handling retries and errors.
     async fn request(
         &self,
-        mkreq: &dyn Fn() -> RequestBuilder,
+        mkreq: &(dyn Fn() -> RequestBuilder + Send + Sync),
     ) -> Result<Response, ClientError> {
         loop {
             let response = mkreq().send().await?;
@@ -144,7 +199,7 @@ impl Client {
         self.request(&|| {
             self.client
                 .post(&url)
-                .basic_auth(&self.user, None::<&str>)
+                .basic_auth(&self.user, self.password.as_ref())
                 .body(query.to_owned())
         })
         .await
@@ -156,8 +211,12 @@ impl Client {
         query_response: &Response,
     ) -> Result<Response, ClientError> {
         let url = query_response.next_uri.as_ref().expect("missing next_uri");
-        self.request(&|| self.client.get(url).basic_auth(&self.user, None::<&str>))
-            .await
+        self.request(&|| {
+            self.client
+                .get(url)
+                .basic_auth(&self.user, self.password.as_ref())
+        })
+        .await
     }
 
     /// Run a statement, ignoring any results.
@@ -175,28 +234,42 @@ impl Client {
     }
 
     /// Collect all the results of a query.
-    pub async fn get_all(&self, query: &str) -> Result<Vec<Vec<Value>>, ClientError> {
+    pub async fn get_all<T>(&self, query: &str) -> Result<Vec<T>, ClientError>
+    where
+        T: TryFrom<Value>,
+        ConversionError: From<<T as TryFrom<Value>>::Error>,
+    {
         let mut response = self.start_query(query).await?;
         let mut results = Vec::new();
-        let mut col_types: Option<Vec<DataType>> = None;
+        let mut fields: Option<Vec<Field>> = None;
         loop {
             if let Some(cols) = &response.columns {
-                if col_types.is_none() {
-                    col_types = Some(
+                if fields.is_none() {
+                    fields = Some(
                         cols.iter()
-                            .map(|c| (&c.type_signature).try_into())
+                            .map(|c| c.try_into())
                             .collect::<Result<_, _>>()?,
                     );
                 }
             }
             if let Some(data) = &response.data {
-                if let Some(col_types) = &col_types {
+                if let Some(fields) = &fields {
                     for row in data.iter() {
                         let mut deserialized_row = Vec::new();
-                        for (ty, val) in col_types.iter().zip(row.iter()) {
-                            deserialized_row.push(deserialize_json_value(ty, val)?);
+                        for (field, val) in fields.iter().zip(row.iter()) {
+                            deserialized_row
+                                .push(deserialize_json_value(&field.data_type, val)?);
                         }
-                        results.push(deserialized_row);
+                        results.push(
+                            Value::Row {
+                                values: deserialized_row,
+                                literal_type: DataType::Row(fields.clone()),
+                            }
+                            .try_into()
+                            .map_err(|e| {
+                                ClientError::Conversion(ConversionError::from(e))
+                            })?,
+                        );
                     }
                 } else {
                     return Err(ClientError::MissingColumnInfo);
@@ -212,23 +285,42 @@ impl Client {
         Ok(results)
     }
 
-    /// Get a the first column of the first row of a query. Raise an error if
-    /// there is any other data returned, or if no data is returned.
-    pub async fn get_one(&self, query: &str) -> Result<Value, ClientError> {
-        let mut response = self.get_all(query).await?;
-        if response.len() != 1 || response[0].len() != 1 {
-            return Err(ClientError::WrongResultSize {
+    /// Get the first row of a query. Raise an error if we do not get exactly
+    /// one row.
+    pub async fn get_one_row<T>(&self, query: &str) -> Result<T, ClientError>
+    where
+        T: TryFrom<Value>,
+        ConversionError: From<<T as TryFrom<Value>>::Error>,
+    {
+        let mut response = self.get_all::<T>(query).await?;
+        if response.len() != 1 {
+            return Err(ClientError::TooManyRows {
                 rows: response.len(),
-                columns: response.first().map_or(0, |r| r.len()),
             });
         }
-        Ok(response.remove(0).remove(0))
+        Ok(response.remove(0))
+    }
+
+    /// Get a the first column of the first row of a query. Raise an error if
+    /// there is any other data returned, or if no data is returned.
+    pub async fn get_one_value<T>(&self, query: &str) -> Result<T, ClientError>
+    where
+        T: TryFrom<Value> + ExpectedDataType,
+        ConversionError: From<<T as TryFrom<Value>>::Error>,
+    {
+        let mut response = self.get_one_row::<Vec<T>>(query).await?;
+        if response.len() != 1 {
+            return Err(ClientError::TooManyColumns {
+                columns: response.len(),
+            });
+        }
+        Ok(response.remove(0))
     }
 }
 
 impl Default for Client {
     fn default() -> Self {
-        Self::new("admin", "localhost", 8080)
+        ClientBuilder::new("admin".to_owned(), "localhost".to_owned(), 8080).build()
     }
 }
 
@@ -241,7 +333,7 @@ mod tests {
     async fn test_execute() {
         let client = Client::default();
         let rows = client
-            .get_all("SELECT JSON_PARSE('[1, 2, 3]')")
+            .get_one_value::<JsonValue>("SELECT JSON_PARSE('[1, 2, 3]')")
             .await
             .unwrap();
         eprintln!("rows: {:?}", rows);
