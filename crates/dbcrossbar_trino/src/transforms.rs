@@ -572,8 +572,10 @@ mod tests {
             table_name
         );
         eprintln!("select_sql: {}", select_sql);
-        let loaded_value =
-            client.get_one(&select_sql).await.expect("could not select");
+        let loaded_value = client
+            .get_one_value::<Value>(&select_sql)
+            .await
+            .expect("could not select");
         eprintln!("loaded_value: {}", loaded_value);
 
         if !value.is_close_enough_to(&loaded_value) {

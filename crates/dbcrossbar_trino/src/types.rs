@@ -67,6 +67,9 @@ pub enum DataType {
 }
 
 impl DataType {
+    /// Create a decimal data type with precision and scale matching BigQuery.
+    /// Trino's `DECIMAL` type has no default precision, so this is as good
+    /// as any other choice.
     pub fn bigquery_sized_decimal() -> Self {
         DataType::Decimal {
             precision: 38,
@@ -74,14 +77,23 @@ impl DataType {
         }
     }
 
+    /// Create a `VARCHAR` data type with no length, which is Trino's default.
     pub fn varchar() -> Self {
         DataType::Varchar { length: None }
     }
 
+    /// Create a `TIME` data type with Trino's default precision.
+    pub fn time() -> Self {
+        DataType::Time { precision: 3 }
+    }
+
+    /// Create a `TIMESTAMP` data type with Trino's default precision.
     pub fn timestamp() -> Self {
         DataType::Timestamp { precision: 3 }
     }
 
+    /// Create a `TIMESTAMP WITH TIME ZONE` data type with Trino's default
+    /// precision.
     pub fn timestamp_with_time_zone() -> Self {
         DataType::TimestampWithTimeZone { precision: 3 }
     }

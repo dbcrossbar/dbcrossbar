@@ -16,6 +16,13 @@ documentation = "https://www.dbcrossbar.org/"
 [dev-dependencies]
 cli_test_dir = "0.1.5"
 csv = "1.0.5"
+dbcrossbar_trino = { version = "0.1.0", path = "../crates/dbcrossbar_trino", features = [
+    "client",
+    "values",
+    "proptest",
+    "rustls-tls",
+    "macros",
+] }
 difference = "2.0"
 opinionated_telemetry = { version = "0.2.0", path = "../crates/opinionated_telemetry", features = [
     "sync",
@@ -40,6 +47,12 @@ clap = { version = "4.3.11", features = ["wrap_help", "derive"] }
 codespan-reporting = "0.11.0"
 crc32c = "0.6.0"
 csv = "1.0.5"
+dbcrossbar_trino = { version = "0.1.0", path = "../crates/dbcrossbar_trino", features = [
+    "client",
+    "values",
+    "rustls-tls",
+    "macros",
+] }
 dirs = "5.0"
 futures = "0.3.1"
 geo-types = "0.7.2"
@@ -64,7 +77,6 @@ peg = "0.8"
 percent-encoding = "2.1.0"
 postgis = "0.9.0"
 pretty = "0.12.3"
-prusto = "0.5.1"
 rand = "0.8.1"
 regex = "1.5.4"
 reqwest = { version = "0.11.0", default-features = false, features = [

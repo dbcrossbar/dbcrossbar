@@ -73,7 +73,7 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 #[cfg(feature = "values")]
-pub use crate::values::{IsCloseEnoughTo, Value};
+pub use crate::values::Value;
 pub use crate::{
     connectors::ConnectorType,
     errors::IdentifierError,
@@ -83,6 +83,8 @@ pub use crate::{
     transforms::{LoadExpr, StorageTransform, StoreExpr},
     types::{DataType, Field},
 };
+#[cfg(feature = "macros")]
+pub use dbcrossbar_trino_macros::TrinoRow;
 
 #[cfg(feature = "client")]
 pub mod client;
@@ -96,4 +98,4 @@ mod table_options;
 mod transforms;
 mod types;
 #[cfg(feature = "values")]
-mod values;
+pub mod values;
