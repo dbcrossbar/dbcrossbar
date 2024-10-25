@@ -223,7 +223,9 @@ impl Client {
     }
 
     /// Make an HTTP POST request and return the response.
-    async fn post_helper(&self, url: &Url, body: Body) -> Result<Output, ClientError> {
+    async fn post_helper<Body>(&self, url: &Url, body: &Body) -> Result<reqwest::Response, ClientError> 
+    where 
+        Body: fmt::Debug + Serialize + std::marker::Sync,{
         trace!("POST {}", url);
         let token = self.token().await?;
         let wait_options = WaitOptions::default()
@@ -234,13 +236,12 @@ impl Client {
             .allowed_errors(3);
         wait(&wait_options, move || {
             let token = token.clone();
-            let body = body.clone();
             async move {
                 let resp_result = self
                     .client
                     .post(url.as_str())
                     .bearer_auth(token.as_str())
-                    .json(&body)
+                    .json(body)
                     .send()
                     .await;
                 match resp_result {
@@ -290,13 +291,12 @@ impl Client {
         Output: fmt::Debug + DeserializeOwned,
         U: IntoUrl + fmt::Debug,
         Query: fmt::Debug + Serialize,
-        Body: fmt::Debug + Serialize,
+        Body: fmt::Debug + Serialize + std::marker::Sync,
     {
         let url = build_url(url, query)?;
         trace!("POST {} {:?}", url, body);
         trace!("serialied {}", serde_json::to_string(&body)?);
-        let token = self.token().await?;
-        let http_resp = self.post_helper(&url, body).await?;
+        let http_resp = self.post_helper(&url, &body).await?;
         self.handle_response("POST", &url, http_resp).await
     }
 
