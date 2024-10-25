@@ -222,13 +222,8 @@ impl Client {
         }
     }
 
-
     /// Make an HTTP POST request and return the response.
-    async fn post_helper(
-        &self,
-        url: &Url,
-        body: Body,
-    ) -> Result<Output, ClientError> {
+    async fn post_helper(&self, url: &Url, body: Body) -> Result<Output, ClientError> {
         trace!("POST {}", url);
         let token = self.token().await?;
         let wait_options = WaitOptions::default()
@@ -256,7 +251,8 @@ impl Client {
                         // things we should probably retry. But this is based on
                         // guesswork not experience.
                         // In general, it is not safe to retry POST requests, however for BigQuery 503 errors, we can retry.
-                        let temporary = err.is_status() && err.status() == Some(StatusCode::SERVICE_UNAVAILABLE);
+                        let temporary = err.is_status() 
+                            && err.status() == Some(StatusCode::SERVICE_UNAVAILABLE);
                         let err: Error = err.into();
                         let err: ClientError =
                             err.context(format!("could not POST {}", url)).into();
