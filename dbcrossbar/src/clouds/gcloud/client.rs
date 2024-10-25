@@ -222,6 +222,66 @@ impl Client {
         }
     }
 
+
+    /// Make an HTTP POST request and return the response.
+    async fn post_helper(
+        &self,
+        url: &Url,
+        body: Body,
+    ) -> Result<Output, ClientError> {
+        trace!("POST {}", url);
+        let token = self.token().await?;
+        let wait_options = WaitOptions::default()
+            .backoff_type(BackoffType::Exponential)
+            .retry_interval(Duration::from_secs(10))
+            // Don't retry too much because we're probably classifying some
+            // permanent errors as temporary.
+            .allowed_errors(3);
+        wait(&wait_options, move || {
+            let token = token.clone();
+            let body = body.clone();
+            async move {
+                let resp_result = self
+                    .client
+                    .post(url.as_str())
+                    .bearer_auth(token.as_str())
+                    .json(&body)
+                    .send()
+                    .await;
+                match resp_result {
+                    // The HTTP request failed outright, because of something
+                    // like a DNS error or whatever.
+                    Err(err) => {
+                        // Request and timeout errors look like the kind of
+                        // things we should probably retry. But this is based on
+                        // guesswork not experience.
+                        // In general, it is not safe to retry POST requests, however for BigQuery 503 errors, we can retry.
+                        let temporary = err.is_status() && err.status() == Some(StatusCode::SERVICE_UNAVAILABLE);
+                        let err: Error = err.into();
+                        let err: ClientError =
+                            err.context(format!("could not POST {}", url)).into();
+                        if temporary {
+                            WaitStatus::FailedTemporarily(err)
+                        } else {
+                            WaitStatus::FailedPermanently(err)
+                        }
+                    }
+                    // We talked to the server and it returned a server-side
+                    // error (50-599). There's a chance that things might work
+                    // next time, we hope.
+                    Ok(resp) if resp.status().is_server_error() => {
+                        WaitStatus::FailedTemporarily(
+                            self.handle_error("POST", url, resp).await,
+                        )
+                    }
+                    Ok(resp) => WaitStatus::Finished(resp),
+                }
+            }
+            .boxed()
+        })
+        .await
+    }
+
     /// Make an HTTP POST request with the specified URL and body.
     #[instrument(level = "trace", skip(self, body))]
     pub(crate) async fn post<Output, U, Query, Body>(
@@ -240,14 +300,7 @@ impl Client {
         trace!("POST {} {:?}", url, body);
         trace!("serialied {}", serde_json::to_string(&body)?);
         let token = self.token().await?;
-        let http_resp = self
-            .client
-            .post(url.as_str())
-            .bearer_auth(token.as_str())
-            .json(&body)
-            .send()
-            .await
-            .with_context(|| format!("could not POST {}", url))?;
+        let http_resp = self.post_helper(&url, body).await?;
         self.handle_response("POST", &url, http_resp).await
     }
 
