@@ -223,9 +223,14 @@ impl Client {
     }
 
     /// Make an HTTP POST request and return the response.
-    async fn post_helper<Body>(&self, url: &Url, body: &Body) -> Result<reqwest::Response, ClientError> 
-    where 
-        Body: fmt::Debug + Serialize + std::marker::Sync,{
+    async fn post_helper<Body>(
+        &self,
+        url: &Url,
+        body: &Body,
+    ) -> Result<reqwest::Response, ClientError>
+    where
+        Body: fmt::Debug + Serialize + std::marker::Sync,
+    {
         trace!("POST {}", url);
         let token = self.token().await?;
         let wait_options = WaitOptions::default()
