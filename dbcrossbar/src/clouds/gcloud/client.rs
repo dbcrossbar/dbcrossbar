@@ -251,7 +251,7 @@ impl Client {
                         // things we should probably retry. But this is based on
                         // guesswork not experience.
                         // In general, it is not safe to retry POST requests, however for BigQuery 503 errors, we can retry.
-                        let temporary = err.is_status() 
+                        let temporary = err.is_status()
                             && err.status() == Some(StatusCode::SERVICE_UNAVAILABLE);
                         let err: Error = err.into();
                         let err: ClientError =
