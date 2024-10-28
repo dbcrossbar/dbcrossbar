@@ -223,22 +223,28 @@ impl Client {
     }
 
     /// Make an HTTP POST request and return the response.
-    async fn post_helper<Body>(
+    ///
+    /// This may POST the request multiple times, which may cause an action to be
+    /// performed multiple times. The caller is responsible for ensuring that the action
+    /// is idempotent (perhaps by using `IF NOT EXISTS` for an SQL operation), and
+    /// being ready to handle the case where the underlying action succeeds, but the
+    /// server still returns an error.
+    async fn post_with_retry_helper<Body>(
         &self,
         url: &Url,
         body: &Body,
     ) -> Result<reqwest::Response, ClientError>
     where
-        Body: fmt::Debug + Serialize + std::marker::Sync,
+        Body: fmt::Debug + Serialize + Sync + Send,
     {
         trace!("POST {}", url);
         let token = self.token().await?;
         let wait_options = WaitOptions::default()
             .backoff_type(BackoffType::Exponential)
-            .retry_interval(Duration::from_secs(10))
+            .retry_interval(Duration::from_secs(1))
             // Don't retry too much because we're probably classifying some
             // permanent errors as temporary.
-            .allowed_errors(3);
+            .allowed_errors(5);
         wait(&wait_options, move || {
             let token = token.clone();
             async move {
@@ -256,9 +262,7 @@ impl Client {
                         // Request and timeout errors look like the kind of
                         // things we should probably retry. But this is based on
                         // guesswork not experience.
-                        // In general, it is not safe to retry POST requests, however for BigQuery 503 errors, we can retry.
-                        let temporary = err.is_status()
-                            && err.status() == Some(StatusCode::SERVICE_UNAVAILABLE);
+                        let temporary = err.is_request() || err.is_timeout();
                         let err: Error = err.into();
                         let err: ClientError =
                             err.context(format!("could not POST {}", url)).into();
@@ -269,10 +273,27 @@ impl Client {
                         }
                     }
                     // We talked to the server and it returned a server-side
-                    // error (50-599). There's a chance that things might work
-                    // next time, we hope.
-                    Ok(resp) if resp.status().is_server_error() => {
+                    // 503 error.  We know that BigQuery can return 503 errors
+                    // when it is overloaded, so we can retry.
+                    // 429, 502 and 504 may also be worth retrying.
+                    Ok(resp)
+                        if [
+                            StatusCode::SERVICE_UNAVAILABLE, //503
+                            StatusCode::TOO_MANY_REQUESTS,   //429
+                            StatusCode::BAD_GATEWAY,         //502
+                            StatusCode::GATEWAY_TIMEOUT,     //504
+                        ]
+                        .contains(&resp.status()) =>
+                    {
                         WaitStatus::FailedTemporarily(
+                            self.handle_error("POST", url, resp).await,
+                        )
+                    }
+                    // We talked to the server and it returned a server-side
+                    // error (50-599). There's a chance that things might work
+                    // next time, but we're not sure so we'll just fail.
+                    Ok(resp) if resp.status().is_server_error() => {
+                        WaitStatus::FailedPermanently(
                             self.handle_error("POST", url, resp).await,
                         )
                     }
@@ -296,12 +317,12 @@ impl Client {
         Output: fmt::Debug + DeserializeOwned,
         U: IntoUrl + fmt::Debug,
         Query: fmt::Debug + Serialize,
-        Body: fmt::Debug + Serialize + std::marker::Sync,
+        Body: fmt::Debug + Serialize + Sync + Send,
     {
         let url = build_url(url, query)?;
         trace!("POST {} {:?}", url, body);
         trace!("serialied {}", serde_json::to_string(&body)?);
-        let http_resp = self.post_helper(&url, &body).await?;
+        let http_resp = self.post_with_retry_helper(&url, &body).await?;
         self.handle_response("POST", &url, http_resp).await
     }
 
