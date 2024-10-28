@@ -273,9 +273,7 @@ impl Client {
                         }
                     }
                     // We talked to the server and it returned a server-side
-                    // 503 error.  We know that BigQuery can return 503 errors
-                    // when it is overloaded, so we can retry.
-                    // 429, 502 and 504 may also be worth retrying.
+                    // error that we expect to be transient so should retry.
                     Ok(resp)
                         if [
                             StatusCode::SERVICE_UNAVAILABLE, //503
