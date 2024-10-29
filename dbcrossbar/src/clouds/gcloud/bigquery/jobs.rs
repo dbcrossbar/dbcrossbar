@@ -10,8 +10,8 @@ use super::{
     super::{Client, NoQuery},
     BigQueryError, TableSchema,
 };
-use crate::common::*;
 use crate::drivers::bigquery_shared::TableName;
+use crate::{clouds::gcloud::Idempotency, common::*};
 
 /// Key/value pairs. See [JobConfiguration][config].
 ///
@@ -305,7 +305,7 @@ pub(crate) async fn run_job(
         project_id,
     );
     job = client
-        .post::<Job, _, _, _>(&insert_url, NoQuery, job)
+        .post::<Job, _, _, _>(&insert_url, Idempotency::UnsafeToRetry, NoQuery, job)
         .await?;
 
     // Get the URL for polling the job.

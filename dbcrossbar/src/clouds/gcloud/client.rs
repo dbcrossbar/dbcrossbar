@@ -89,6 +89,14 @@ impl From<bigml::Error> for ClientError {
     }
 }
 
+/// Is it safe to retry a request? This should always be true for GET requests,
+/// but by default POST requests are not safe to retry.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum Idempotency {
+    SafeToRetry,
+    UnsafeToRetry,
+}
+
 /// A Google Cloud REST client using OAuth2.
 #[derive(Clone)]
 pub(crate) struct Client {
@@ -148,33 +156,15 @@ impl Client {
                     .headers(headers)
                     .send()
                     .await;
-                match resp_result {
-                    // The HTTP request failed outright, because of something
-                    // like a DNS error or whatever.
-                    Err(err) => {
-                        // Request and timeout errors look like the kind of
-                        // things we should probably retry. But this is based on
-                        // guesswork not experience.
-                        let temporary = err.is_request() || err.is_timeout();
-                        let err: Error = err.into();
-                        let err: ClientError =
-                            err.context(format!("could not GET {}", url)).into();
-                        if temporary {
-                            WaitStatus::FailedTemporarily(err)
-                        } else {
-                            WaitStatus::FailedPermanently(err)
-                        }
-                    }
-                    // We talked to the server and it returned a server-side
-                    // error (50-599). There's a chance that things might work
-                    // next time, we hope.
-                    Ok(resp) if resp.status().is_server_error() => {
-                        WaitStatus::FailedTemporarily(
-                            self.handle_error("GET", url, resp).await,
-                        )
-                    }
-                    Ok(resp) => WaitStatus::Finished(resp),
-                }
+                self.response_to_wait_status(
+                    "GET",
+                    url,
+                    // HTTP defines GET as idempotent, and we believe Google
+                    // follows this convention in their APIs.
+                    Idempotency::SafeToRetry,
+                    resp_result,
+                )
+                .await
             }
             .boxed()
         })
@@ -223,10 +213,18 @@ impl Client {
     }
 
     /// Make an HTTP POST request with the specified URL and body.
+    ///
+    ///
+    /// This may POST the request multiple times, which may cause an action to be
+    /// performed multiple times. The caller is responsible for ensuring that the action
+    /// is idempotent (perhaps by using `IF NOT EXISTS` for an SQL operation), and
+    /// being ready to handle the case where the underlying action succeeds, but the
+    /// server still returns an error.
     #[instrument(level = "trace", skip(self, body))]
     pub(crate) async fn post<Output, U, Query, Body>(
         &self,
         url: U,
+        idempotency: Idempotency,
         query: Query,
         body: Body,
     ) -> Result<Output, ClientError>
@@ -234,20 +232,38 @@ impl Client {
         Output: fmt::Debug + DeserializeOwned,
         U: IntoUrl + fmt::Debug,
         Query: fmt::Debug + Serialize,
-        Body: fmt::Debug + Serialize,
+        Body: fmt::Debug + Serialize + Sync + Send,
     {
         let url = build_url(url, query)?;
         trace!("POST {} {:?}", url, body);
         trace!("serialied {}", serde_json::to_string(&body)?);
+
         let token = self.token().await?;
-        let http_resp = self
-            .client
-            .post(url.as_str())
-            .bearer_auth(token.as_str())
-            .json(&body)
-            .send()
-            .await
-            .with_context(|| format!("could not POST {}", url))?;
+        let wait_options = WaitOptions::default()
+            .backoff_type(BackoffType::Exponential)
+            .retry_interval(Duration::from_secs(1))
+            // Don't retry too much because we're probably classifying some
+            // permanent errors as temporary.
+            .allowed_errors(5);
+
+        let token_ref = &token;
+        let url_ref = &url;
+        let body_ref = &body;
+        let http_resp = wait(&wait_options, move || {
+            async move {
+                let resp_result = self
+                    .client
+                    .post(url_ref.as_str())
+                    .bearer_auth(token_ref.as_str())
+                    .json(body_ref)
+                    .send()
+                    .await;
+                self.response_to_wait_status("POST", url_ref, idempotency, resp_result)
+                    .await
+            }
+            .boxed()
+        })
+        .await?;
         self.handle_response("POST", &url, http_resp).await
     }
 
@@ -317,6 +333,81 @@ impl Client {
             .token(&self.scopes)
             .await
             .context("could not get Google Cloud OAuth2 token")
+    }
+
+    /// Is this HTTP status code something we should retry?
+    ///
+    /// Our policy for retries in a distributed system is basically "Don't retry
+    /// things you haven't seen fail in practice." This means that our caller
+    /// will get rapid feedback for configuration or user errors. It also means
+    /// that latency-to-error in complex distributed systems will be as short as
+    /// possible. And it minimized "retry amplification" where our target system
+    /// is overloaded, it fails, and we send a bunch of retries to which
+    /// overload it more. This is why we're conservative.
+    fn should_retry_status_code(&self, status_code: &StatusCode) -> bool {
+        [
+            // 503: This seems to happen pretty commonly, according to our logs.
+            StatusCode::SERVICE_UNAVAILABLE,
+            // The following are things we _might_ want to retry. But as noted
+            // above, we're waiting to see them in practice, especially because
+            // we haven't dug into either the exact HTTP semantics or the
+            // observed behavior of Google Cloud.
+            //
+            // StatusCode::TOO_MANY_REQUESTS,   //429
+            // StatusCode::BAD_GATEWAY,         //502
+            // StatusCode::GATEWAY_TIMEOUT,     //504
+        ]
+        .contains(status_code)
+    }
+
+    /// Convert an HTTP response into a [`WaitStatus`].
+    async fn response_to_wait_status(
+        &self,
+        method: &str,
+        url: &Url,
+        idempotency: Idempotency,
+        response_result: Result<reqwest::Response, reqwest::Error>,
+    ) -> WaitStatus<reqwest::Response, ClientError> {
+        match response_result {
+            // The HTTP request failed outright, because of something
+            // like a DNS error or whatever.
+            Err(err) => {
+                // Request and timeout errors look like the kind of
+                // things we should probably retry. But this is based on
+                // guesswork not experience.
+                let temporary = idempotency == Idempotency::SafeToRetry
+                    && (err.is_request() || err.is_timeout());
+                let err: Error = err.into();
+                let err: ClientError =
+                    err.context(format!("could not {} {}", method, url)).into();
+                if temporary {
+                    WaitStatus::FailedTemporarily(err)
+                } else {
+                    WaitStatus::FailedPermanently(err)
+                }
+            }
+
+            // We talked to the server and it returned a server-side
+            // error that we expect to be transient so should retry.
+            Ok(resp)
+                if idempotency == Idempotency::SafeToRetry
+                    && self.should_retry_status_code(&resp.status()) =>
+            {
+                WaitStatus::FailedTemporarily(
+                    self.handle_error(method, url, resp).await,
+                )
+            }
+
+            // We talked to the server and it returned a server-side
+            // error (50-599). There's a chance that things might work
+            // next time, but we're not sure so we'll just fail.
+            Ok(resp) if resp.status().is_server_error() => {
+                WaitStatus::FailedPermanently(
+                    self.handle_error(method, url, resp).await,
+                )
+            }
+            Ok(resp) => WaitStatus::Finished(resp),
+        }
     }
 
     /// Handle an HTTP response.
