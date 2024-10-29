@@ -704,7 +704,7 @@ dependencies = [
 
 [[package]]
 name = "dbcrossbar"
-version = "0.5.8-pre.1"
+version = "0.5.8-pre.2"
 dependencies = [
  "anyhow",
  "async-trait",
