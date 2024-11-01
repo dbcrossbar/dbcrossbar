@@ -241,10 +241,13 @@ impl Client {
         let token = self.token().await?;
         let wait_options = WaitOptions::default()
             .backoff_type(BackoffType::Exponential)
-            .retry_interval(Duration::from_secs(1))
+            // We could probably make this shorter than 4 for Google Cloud, but
+            // the `bigml` crate that we're currently using for `wait` rounds
+            // all short intervals up to 4 anyway.
+            .retry_interval(Duration::from_secs(4))
             // Don't retry too much because we're probably classifying some
             // permanent errors as temporary.
-            .allowed_errors(5);
+            .allowed_errors(4);
 
         let token_ref = &token;
         let url_ref = &url;
@@ -348,6 +351,17 @@ impl Client {
         [
             // 503: This seems to happen pretty commonly, according to our logs.
             StatusCode::SERVICE_UNAVAILABLE,
+            // 403: Google has a number of different rate limits, and if you
+            // exceed them, it will send errors like:
+            //
+            // > 403 Exceeded rate limits: too many api requests per user per
+            // > method for this user_method
+            //
+            // We want to retry just the 403s coming from rate limits, not the
+            // 403s coming from other kinds of "forbidden" errors. So in a
+            // perfect world, we'd look at this error in more detail and retry
+            // it more narrowly.
+            StatusCode::FORBIDDEN,
             // The following are things we _might_ want to retry. But as noted
             // above, we're waiting to see them in practice, especially because
             // we haven't dug into either the exact HTTP semantics or the
