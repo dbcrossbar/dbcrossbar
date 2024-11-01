@@ -40,12 +40,12 @@ pub(super) async fn write_schema_helper(
     if let Some(separate_drop_if_exists) = create_table.separate_drop_if_exists() {
         debug!(sql = %separate_drop_if_exists, "dropping table if it exists");
         client
-            .execute(separate_drop_if_exists)
+            .run_statement(&separate_drop_if_exists)
             .await
             .with_context(|| format!("error dropping table {}", dest))?;
     }
     let sql = create_table.to_string();
     debug!(%sql, "creating table");
-    client.execute(sql).await?;
+    client.run_statement(&sql).await?;
     Ok(())
 }

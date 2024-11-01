@@ -60,17 +60,17 @@ pub(super) async fn write_remote_data_helper(
     let create_s3_wrapper_table = create_table.hive_csv_wrapper_table(&source_url)?;
     let create_s3_wrapper_table_sql = create_s3_wrapper_table.to_string();
     debug!(sql = %create_s3_wrapper_table_sql, "creating S3 wrapper table");
-    client.execute(create_s3_wrapper_table_sql).await?;
+    client.run_statement(&create_s3_wrapper_table_sql).await?;
 
     // Create our destination table (using our our `create_table`, so that we
     // can including things like `NOT NULL` constraints, if they're supported).
     if let Some(separate_drop_if_exists) = create_table.separate_drop_if_exists() {
         debug!(sql = %separate_drop_if_exists, "dropping destination table if it exists");
-        client.execute(separate_drop_if_exists).await?;
+        client.run_statement(&separate_drop_if_exists).await?;
     }
     let create_table_sql = create_table.to_string();
     debug!(sql = %create_table_sql, "creating destination table");
-    client.execute(create_table_sql).await?;
+    client.run_statement(&create_table_sql).await?;
 
     // Insert data from the S3 wrapper table into our destination table.
     let insert_sql = format!(
@@ -80,7 +80,7 @@ pub(super) async fn write_remote_data_helper(
             .pretty(PRETTY_WIDTH)
     );
     debug!(sql = %insert_sql, "inserting data");
-    client.execute(insert_sql).await?;
+    client.run_statement(&insert_sql).await?;
 
     // Clean up our S3 wrapper table.
     let drop_s3_wrapper_table_sql = format!(
@@ -88,7 +88,7 @@ pub(super) async fn write_remote_data_helper(
         name = create_s3_wrapper_table.name,
     );
     debug!(sql = %drop_s3_wrapper_table_sql, "dropping S3 wrapper table");
-    client.execute(drop_s3_wrapper_table_sql).await?;
+    client.run_statement(&drop_s3_wrapper_table_sql).await?;
 
     Ok(vec![dest.boxed()])
 }

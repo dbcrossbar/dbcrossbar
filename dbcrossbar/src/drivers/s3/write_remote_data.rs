@@ -177,7 +177,7 @@ async fn write_trino_remote_data_helper(
             .pretty(PRETTY_WIDTH)
     );
     debug!(%sql, "export SQL");
-    client.execute(sql).await?;
+    client.run_statement(&sql).await?;
 
     // TODO: Drop our wrapper table from Trino without deleting the data.
 

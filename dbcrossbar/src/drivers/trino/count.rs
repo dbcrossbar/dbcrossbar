@@ -1,7 +1,5 @@
 //! Implementation of `count`, but as a real `async` function.
 
-use prusto::Presto;
-
 use super::TrinoLocator;
 use crate::common::*;
 
@@ -15,11 +13,6 @@ pub(crate) async fn count_helper(
     let _shared_args = shared_args.verify(TrinoLocator::features())?;
     let source_args = source_args.verify(TrinoLocator::features())?;
 
-    #[derive(Debug, Presto)]
-    struct Row {
-        count: u64,
-    }
-
     let client = locator.client()?;
     let sql = format!(
         "SELECT COUNT(*) AS \"count\"\nFROM {}{}",
@@ -30,11 +23,6 @@ pub(crate) async fn count_helper(
             "".to_string()
         }
     );
-    let rows = client.get_all::<Row>(sql).await?;
-    let row = rows
-        .as_slice()
-        .first()
-        .ok_or_else(|| format_err!("no count returned for {}", locator))?;
-
-    usize::try_from(row.count).context("could not convert count to usize")
+    let count = client.get_one_value::<i64>(&sql).await?;
+    usize::try_from(count).context("could not convert count to usize")
 }

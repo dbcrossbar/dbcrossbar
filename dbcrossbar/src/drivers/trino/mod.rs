@@ -2,7 +2,7 @@
 
 use std::{fmt, str::FromStr};
 
-use prusto::Presto;
+use dbcrossbar_trino::client::{Client, ClientBuilder};
 
 use crate::{common::*, drivers::trino_shared::TrinoStringLiteral};
 
@@ -54,7 +54,7 @@ impl TrinoLocator {
     }
 
     /// Get a Trino client from a URL.
-    pub(crate) fn client(&self) -> Result<prusto::Client> {
+    pub(crate) fn client(&self) -> Result<Client> {
         // Parse basic parts of our URL.
         let bare_url = self.url.as_url();
         let host = bare_url
@@ -62,42 +62,26 @@ impl TrinoLocator {
             .ok_or_else(|| format_err!("missing host in {}", self.url))?;
 
         // Parse our path using Trino JDBC conventions.
-        let table_name = self.table_name()?;
-        let catalog = table_name
-            .catalog()
-            .ok_or_else(|| format_err!("expected a catalog in {}", self))?;
-        let schema = table_name
-            .schema()
-            .ok_or_else(|| format_err!("expected a schema in {}", self))?;
-
-        // Set up basic auth.
-        let auth = bare_url.password().map(|password| {
-            prusto::auth::Auth::Basic(
-                bare_url.username().to_owned(),
-                Some(password.to_owned()),
-            )
-        });
-
-        let mut builder = prusto::ClientBuilder::new(bare_url.username(), host)
-            .port(bare_url.port().unwrap_or(8080))
-            .catalog(catalog)
-            .schema(schema);
-        if let Some(auth) = auth {
+        let mut builder = ClientBuilder::new(
+            bare_url.username().to_owned(),
+            host.to_owned(),
+            bare_url.port().unwrap_or(8080),
+        );
+        if let Some(password) = bare_url.password() {
             // Basic auth requires a secure connection. If we _don't_ have
             // credentials, then there's probably no point in encrypting the
             // connection, either.
-            builder = builder.secure(true).auth(auth);
+            builder = builder.password(password.to_owned()).use_https();
         }
-        builder
-            .build()
-            .with_context(|| format!("could not connect to {}", self.url))
+        let client = builder.build();
+        Ok(client)
     }
 
     /// Get the connector type for this locator.
     #[instrument(level = "debug", name = "TrinoLocator::connector_type", skip_all)]
     pub(crate) async fn connector_type(
         &self,
-        client: &prusto::Client,
+        client: &Client,
     ) -> Result<TrinoConnectorType> {
         let table_name = self.table_name()?;
         let catalog = table_name
@@ -109,15 +93,8 @@ impl TrinoLocator {
         );
         debug!(%sql, "getting connector type");
 
-        #[derive(Debug, Presto)]
-        struct ConnectorName {
-            connector_name: String,
-        }
-        let rows = client.get_all::<ConnectorName>(sql).await?;
-        let row = rows.as_slice().first().ok_or_else(|| {
-            format_err!("no connector found for catalog {} in {}", catalog, self)
-        })?;
-        TrinoConnectorType::from_str(&row.connector_name)
+        let connector_name = client.get_one_value::<String>(&sql).await?;
+        TrinoConnectorType::from_str(&connector_name)
     }
 }
 

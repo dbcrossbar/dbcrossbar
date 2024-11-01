@@ -1,6 +1,6 @@
 //! Extract a table declaration from Trino.
 
-use prusto::Presto;
+use dbcrossbar_trino::TrinoRow;
 
 use crate::{
     common::*,
@@ -41,7 +41,7 @@ SELECT column_name, is_nullable, data_type
         table_str = TrinoStringLiteral(table_name.table().as_unquoted_str()),
     );
     debug!(%sql, "getting table schema");
-    let column_infos = client.get_all::<ColumnInfo>(sql).await?.into_vec();
+    let column_infos = client.get_all::<ColumnInfo>(&sql).await?;
     trace!(columns = ?column_infos, "got columns");
     let trino_columns = column_infos
         .into_iter()
@@ -54,10 +54,7 @@ SELECT column_name, is_nullable, data_type
 }
 
 /// A row with selected information from `information_schema.columns`.
-///
-/// If has incorrect names or types, [`prusto`] may silently eat all the rows
-/// returned by the database and give us `Error: Empty data`.
-#[derive(Debug, Presto)]
+#[derive(Debug, TrinoRow)]
 struct ColumnInfo {
     column_name: String,
     is_nullable: String,
