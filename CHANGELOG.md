@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.5.8-pre.3] - 2024-11-01
+
+### Fixed
+
+- `bigquery-test-fixture`: Retry 403 errors from Google API rate limiter.
+
 ## [0.5.8-pre.2] - 2024-10-29
 
 ### Fixed
