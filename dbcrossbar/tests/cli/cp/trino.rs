@@ -1,6 +1,6 @@
 //! Trino-related tests.
 
-use std::{fs, path::Path};
+use std::fs;
 
 use cli_test_dir::*;
 use difference::assert_diff;

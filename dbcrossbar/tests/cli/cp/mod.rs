@@ -161,15 +161,15 @@ impl CommandAddTempTypes for Command {
     ) -> &mut Self {
         if temp_types.contains(TempType::Gs) {
             let gs_temp_dir = gs_test_dir_url(test_name);
-            self.arg(&format!("--temporary={}", gs_temp_dir));
+            self.arg(format!("--temporary={}", gs_temp_dir));
         }
         if temp_types.contains(TempType::Bq) {
             let bq_temp_ds = bq_temp_dataset();
-            self.arg(&format!("--temporary={}", bq_temp_ds));
+            self.arg(format!("--temporary={}", bq_temp_ds));
         }
         if temp_types.contains(TempType::S3) {
             let s3_temp_dir = s3_test_dir_url(test_name);
-            self.arg(&format!("--temporary={}", s3_temp_dir));
+            self.arg(format!("--temporary={}", s3_temp_dir));
         }
         self
     }
