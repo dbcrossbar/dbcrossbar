@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{error, fmt};
 
 /// An error related to a connector.
 #[derive(Debug)]
@@ -18,6 +18,8 @@ impl fmt::Display for ConnectorError {
     }
 }
 
+impl error::Error for ConnectorError {}
+
 /// An error related to a Trino identifier.
 #[derive(Debug)]
 #[non_exhaustive]
@@ -34,3 +36,5 @@ impl fmt::Display for IdentifierError {
         }
     }
 }
+
+impl error::Error for IdentifierError {}

@@ -94,7 +94,7 @@ impl TrinoLocator {
         debug!(%sql, "getting connector type");
 
         let connector_name = client.get_one_value::<String>(&sql).await?;
-        TrinoConnectorType::from_str(&connector_name)
+        Ok(TrinoConnectorType::from_str(&connector_name)?)
     }
 }
 

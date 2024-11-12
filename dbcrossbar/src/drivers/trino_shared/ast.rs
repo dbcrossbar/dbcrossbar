@@ -8,6 +8,7 @@ use pretty::RcDoc;
 use proptest_derive::Arbitrary;
 
 use super::{
+    data_type::TrinoDataTypeExt as _,
     pretty::{comma_sep_list, parens, square_brackets, INDENT},
     TrinoDataType, TrinoIdent, TrinoStringLiteral,
 };

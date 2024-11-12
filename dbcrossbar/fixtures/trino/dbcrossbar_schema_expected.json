@@ -55,16 +55,6 @@
                     "data_type": "text"
                 },
                 {
-                    "name": "test_char",
-                    "is_nullable": true,
-                    "data_type": "text"
-                },
-                {
-                    "name": "test_char_10",
-                    "is_nullable": true,
-                    "data_type": "text"
-                },
-                {
                     "name": "test_json",
                     "is_nullable": true,
                     "data_type": "json"
@@ -100,11 +90,6 @@
                     "data_type": {
                         "array": "int32"
                     }
-                },
-                {
-                    "name": "test_map",
-                    "is_nullable": true,
-                    "data_type": "json"
                 },
                 {
                     "name": "test_row",

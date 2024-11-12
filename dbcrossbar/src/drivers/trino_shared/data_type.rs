@@ -1,7 +1,8 @@
 //! A Trino data type.
 
-use std::fmt;
-
+pub use dbcrossbar_trino::{
+    DataType as TrinoDataType, Field as TrinoField, Ident as TrinoIdent,
+};
 use pretty::RcDoc;
 
 use crate::{
@@ -12,130 +13,33 @@ use crate::{
 use super::{
     ast::{ident, Expr},
     pretty::{comma_sep_list, parens},
-    TrinoIdent,
 };
 
-/// A Trino data type.
-///
-/// If you add new types here, be sure to also add them to our
-/// [`proptest::Arbitrary`] implementation.
-#[derive(Clone, Debug, PartialEq)]
-pub enum TrinoDataType {
-    /// A boolean value.
-    Boolean,
-    /// An 8-bit signed integer value.
-    TinyInt,
-    /// A 16-bit signed integer value.
-    SmallInt,
-    /// A 32-bit signed integer value.
-    Int,
-    /// A 64-bit signed integer value.
-    BigInt,
-    /// A 32-bit floating-point value.
-    Real,
-    /// A 64-bit floating-point value.
-    Double,
-    /// A fixed-point decimal value.
-    Decimal {
-        /// The total number of digits in the decimal value.
-        precision: u32,
-        /// The number of digits after the decimal point. Defaults to 0.
-        scale: u32,
-    },
-    /// Variable-length character data.
-    Varchar {
-        /// The maximum number of characters in the string.
-        length: Option<u32>,
-    },
-    /// Fixed-length character data.
-    Char {
-        /// The number of characters in the string. Defaults to 1.
-        length: u32,
-    },
-    /// Variable-length binary data.
-    Varbinary,
-    /// JSON data.
-    Json,
-    /// A calendar date (year, month, day), with no time zone.
-    Date,
-    /// A time of day (hour, minute, second), with no time zone.
-    Time {
-        /// The number of digits in the fractional seconds. Defaults to 3.
-        precision: u32,
-    },
-    /// A time (hour, minute, second, milliseconds), with a time zone.
-    TimeWithTimeZone {
-        /// The number of digits in the fractional seconds. Defaults to 3.
-        precision: u32,
-    },
-    /// Calendar date and time, with no time zone.
-    Timestamp {
-        /// The number of digits in the fractional seconds. Defaults to 3.
-        precision: u32,
-    },
-    /// Calendar date and time, with a time zone.
-    TimestampWithTimeZone {
-        /// The number of digits in the fractional seconds. Defaults to 3.
-        precision: u32,
-    },
-    /// A time interval involving days, hours, minutes, and seconds.
-    IntervalDayToSecond,
-    /// A time interval involving years and months.
-    IntervalYearToMonth,
-    /// An array of values.
-    Array(Box<TrinoDataType>),
-    /// A map of keys to values.
-    Map {
-        /// The data type of the keys.
-        key_type: Box<TrinoDataType>,
-        /// The data type of the values.
-        value_type: Box<TrinoDataType>,
-    },
-    /// A row of fields.
-    Row(Vec<TrinoField>),
-    /// A UUID.
-    Uuid,
-    /// A spherical geographic value. This isn't documented in the official list
-    /// of Trino types, but it's mentioned in [their geospatial
-    /// documentation](https://trino.io/docs/current/functions/geospatial.html).
-    SphericalGeography,
-    // /// This is a type that exists in Trino's type system, but that doesn't
-    // /// exist for a particular [`super::TrinoConnectionType`].
-    // ///
-    // /// TODO: What about recusive types? Where do we put `Downgraded`? I _think_
-    // /// we only want to use this for "leaf" types.
-    // Downgraded {
-    //     original_type: Box<TrinoDataType>,
-    //     storage_type: Box<TrinoDataType>,
-    // },
-    // Left out for now: IP address, HyperLogLog, digests, etc.
+/// Methods we want to add to [`TrinoDataType`], but can't because it's defined
+/// in another crate. So instead we define a trait and implement it for just
+/// [`TrinoDataType`].
+pub(crate) trait TrinoDataTypeExt {
+    fn from_data_type(schema: &Schema, ty: &DataType) -> Result<TrinoDataType>;
+    fn to_data_type(&self) -> Result<DataType>;
+    fn string_import_expr(&self, value: &Expr) -> Result<Expr>;
+    fn string_export_expr(&self, value: &Expr) -> Result<Expr>;
+    fn to_doc(&self) -> RcDoc<'static, ()>;
 }
 
-impl TrinoDataType {
-    pub(crate) fn bigquery_sized_decimal() -> Self {
-        TrinoDataType::Decimal {
-            precision: 38,
-            scale: 9,
-        }
-    }
+/// Like [`TrinoDataTypeExt`], but for methods that are only used in this module.
+trait TrinoDataTypeExtInternal: Sized {
+    fn cast_parsed_json_as(&self) -> Result<TrinoDataType>;
+    fn imported_json_needs_conversion(&self) -> Result<bool>;
+    fn json_import_expr(&self, value: &Expr) -> Result<Expr>;
 
-    pub(crate) fn varchar() -> Self {
-        TrinoDataType::Varchar { length: None }
-    }
+    fn cast_exported_json_as(&self) -> Result<TrinoDataType>;
+    fn exported_json_needs_conversion(&self) -> Result<bool>;
+    fn json_export_expr(&self, value: &Expr) -> Result<Expr>;
+}
 
-    pub(crate) fn timestamp() -> Self {
-        TrinoDataType::Timestamp { precision: 3 }
-    }
-
-    pub(crate) fn timestamp_with_time_zone() -> Self {
-        TrinoDataType::TimestampWithTimeZone { precision: 3 }
-    }
-
+impl TrinoDataTypeExt for TrinoDataType {
     /// Given a `DataType`, try to find a corresponding `TrinoDataType`.
-    pub(crate) fn from_data_type(
-        schema: &Schema,
-        ty: &DataType,
-    ) -> Result<TrinoDataType> {
+    fn from_data_type(schema: &Schema, ty: &DataType) -> Result<TrinoDataType> {
         match ty {
             DataType::Array(ty) => Ok(TrinoDataType::Array(Box::new(
                 Self::from_data_type(schema, ty)?,
@@ -188,7 +92,7 @@ impl TrinoDataType {
     }
 
     /// Convert this `PgDataType` to a portable `DataType`.
-    pub(crate) fn to_data_type(&self) -> Result<DataType> {
+    fn to_data_type(&self) -> Result<DataType> {
         match self {
             TrinoDataType::Boolean => Ok(DataType::Bool),
             // We don't support 8-bit ints in our portable schema, so promote
@@ -199,9 +103,7 @@ impl TrinoDataType {
             TrinoDataType::Real => Ok(DataType::Float32),
             TrinoDataType::Double => Ok(DataType::Float64),
             TrinoDataType::Decimal { .. } => Ok(DataType::Decimal),
-            TrinoDataType::Varchar { .. } | TrinoDataType::Char { .. } => {
-                Ok(DataType::Text)
-            }
+            TrinoDataType::Varchar { .. } => Ok(DataType::Text),
             TrinoDataType::Varbinary => Err(format_err!(
                 "VARBINARY is not yet supported in portable schemas"
             )),
@@ -210,28 +112,12 @@ impl TrinoDataType {
             TrinoDataType::Time { .. } => {
                 Err(format_err!("TIME is not yet supported in portable schemas"))
             }
-            TrinoDataType::TimeWithTimeZone { .. } => Err(format_err!(
-                "TIME WITH TIME ZONE is not yet supported in portable schemas"
-            )),
             TrinoDataType::Timestamp { .. } => Ok(DataType::TimestampWithoutTimeZone),
             TrinoDataType::TimestampWithTimeZone { .. } => {
                 Ok(DataType::TimestampWithTimeZone)
             }
-            TrinoDataType::IntervalDayToSecond
-            | TrinoDataType::IntervalYearToMonth => Err(format_err!(
-                "INTERVAL types are not supported in portable schemas"
-            )),
             TrinoDataType::Array(elem_ty) => {
                 Ok(DataType::Array(Box::new(elem_ty.to_data_type()?)))
-            }
-            TrinoDataType::Map { key_type, .. } => {
-                // Try to convert maps to JSON.
-                let key_type = key_type.to_data_type()?;
-                if key_type == DataType::Text {
-                    Ok(DataType::Json)
-                } else {
-                    Err(format_err!("MAP key type must be TEXT"))
-                }
             }
             TrinoDataType::Row(fields) => {
                 let fields = fields
@@ -249,12 +135,10 @@ impl TrinoDataType {
 
     /// Generate SQL to import `value` as a value of type `self`, assuming that
     /// `name` is represented as a string.
-    pub(super) fn string_import_expr(&self, value: &Expr) -> Result<Expr> {
+    fn string_import_expr(&self, value: &Expr) -> Result<Expr> {
         match self {
             // Nothing to do for these types.
-            TrinoDataType::Varchar { .. } | TrinoDataType::Char { .. } => {
-                Ok(value.to_owned())
-            }
+            TrinoDataType::Varchar { .. } => Ok(value.to_owned()),
 
             // Types which can imported by CAST from a string.
             TrinoDataType::Boolean
@@ -315,19 +199,112 @@ impl TrinoDataType {
             }
 
             // Types we can't import.
-            TrinoDataType::Varbinary
-            | TrinoDataType::Time { .. }
-            | TrinoDataType::TimeWithTimeZone { .. }
-            | TrinoDataType::IntervalDayToSecond
-            | TrinoDataType::IntervalYearToMonth
-            | TrinoDataType::Map { .. } => {
+            TrinoDataType::Varbinary | TrinoDataType::Time { .. } => {
                 Err(format_err!("cannot import values of type {}", self))
             }
         }
     }
 
+    /// Generate SQL to export `value`, assuming it has type `self`.
+    fn string_export_expr(&self, value: &Expr) -> Result<Expr> {
+        match self {
+            // These will will do the right thing when our caller uses `CAST(..
+            // AS VARCHAR)`.
+            TrinoDataType::TinyInt
+            | TrinoDataType::SmallInt
+            | TrinoDataType::Int
+            | TrinoDataType::BigInt
+            | TrinoDataType::Real
+            | TrinoDataType::Double
+            | TrinoDataType::Decimal { .. }
+            | TrinoDataType::Varchar { .. }
+            | TrinoDataType::Date
+            | TrinoDataType::Uuid => Ok(value.to_owned()),
+
+            // Use our canonical representation for boolean values.
+            TrinoDataType::Boolean => Ok(Expr::case_match(
+                value.to_owned(),
+                vec![
+                    (Expr::bool(true), Expr::str("t")),
+                    (Expr::bool(false), Expr::str("f")),
+                ],
+                Expr::str(""),
+            )),
+
+            // Convert to ISO8601 format, stripping any trailing ".0+" for
+            // consistency with other dbcrossbar drivers.
+            TrinoDataType::Timestamp { .. } => Ok(Expr::func(
+                "REGEXP_REPLACE",
+                vec![
+                    Expr::func("TO_ISO8601", vec![value.to_owned()]),
+                    Expr::str(".0+$"),
+                    Expr::str(""),
+                ],
+            )),
+            TrinoDataType::TimestampWithTimeZone { .. } => Ok(Expr::func(
+                "REGEXP_REPLACE",
+                vec![
+                    Expr::func("TO_ISO8601", vec![value.to_owned()]),
+                    Expr::str(".0+Z$"),
+                    Expr::str("Z"),
+                ],
+            )),
+
+            // Serialize JSON to a string. We have accept that this may use
+            // various whitespace and ordering conventions. `dbcrossbar` doesn't
+            // make any promises about the exact format of JSON output.
+            TrinoDataType::Json => Ok(Expr::json_to_string(value.to_owned())),
+
+            // "Trivial" ARRAY and ROW types can be serialized as JSON without any
+            // further processing.
+            TrinoDataType::Array(_) | TrinoDataType::Row { .. }
+                if !self.exported_json_needs_conversion()? =>
+            {
+                Ok(Expr::json_to_string_with_cast(value.to_owned()))
+            }
+
+            TrinoDataType::Array(_) | TrinoDataType::Row { .. } => Ok(
+                Expr::json_to_string_with_cast(self.json_export_expr(value)?),
+            ),
+
+            // Serialize as GeoJSON.
+            TrinoDataType::SphericalGeography => Ok(Expr::func(
+                // This returns VARCHAR, not a Trino `JSON` value.
+                "TO_GEOJSON_GEOMETRY",
+                vec![value.to_owned()],
+            )),
+
+            // These types are not directly supported.
+            TrinoDataType::Varbinary | TrinoDataType::Time { .. } => {
+                Err(format_err!("cannot export values of type {}", self))
+            }
+        }
+    }
+
+    /// Convert to a pretty-printable [`RcDoc`]. This is useful for complex type
+    /// arguments to `CAST` expressions in [`super::ast`].
+    fn to_doc(&self) -> RcDoc<'static, ()> {
+        match self {
+            TrinoDataType::Array(elem_ty) => RcDoc::concat(vec![
+                RcDoc::as_string("ARRAY"),
+                parens(elem_ty.to_doc()),
+            ]),
+
+            TrinoDataType::Row(fields) => RcDoc::concat(vec![
+                RcDoc::as_string("ROW"),
+                parens(comma_sep_list(fields.iter().map(|field| field.to_doc()))),
+            ]),
+
+            // Types which cannot contain other types will be printed without
+            // further wrapping.
+            _ => RcDoc::as_string(self),
+        }
+    }
+}
+
+impl TrinoDataTypeExtInternal for TrinoDataType {
     /// When importing, cast a parsed JSON value to this type.
-    fn cast_parsed_json_as(&self) -> Result<Self> {
+    fn cast_parsed_json_as(&self) -> Result<TrinoDataType> {
         match self {
             // Cast these types to themselves.
             TrinoDataType::Boolean
@@ -338,7 +315,6 @@ impl TrinoDataType {
             | TrinoDataType::Real
             | TrinoDataType::Double
             | TrinoDataType::Varchar { .. }
-            | TrinoDataType::Char { .. }
             | TrinoDataType::Json => Ok(self.clone()),
 
             // Cast these to VARCHAR. We will then parse them to the correct
@@ -375,12 +351,7 @@ impl TrinoDataType {
             }
 
             // Types we can't import.
-            TrinoDataType::Varbinary
-            | TrinoDataType::Time { .. }
-            | TrinoDataType::TimeWithTimeZone { .. }
-            | TrinoDataType::IntervalDayToSecond
-            | TrinoDataType::IntervalYearToMonth
-            | TrinoDataType::Map { .. } => {
+            TrinoDataType::Varbinary | TrinoDataType::Time { .. } => {
                 // We can't cast these types directly from JSON.
                 Err(format_err!("cannot import columns of type {}", self))
             }
@@ -406,7 +377,6 @@ impl TrinoDataType {
             | TrinoDataType::Real
             | TrinoDataType::Double
             | TrinoDataType::Varchar { .. }
-            | TrinoDataType::Char { .. }
             | TrinoDataType::Json => Ok(value.to_owned()),
 
             // Types represented as strings in JSON.
@@ -466,95 +436,8 @@ impl TrinoDataType {
 
             // Types that don't exist in our portable schema and that we can't
             // import.
-            TrinoDataType::Varbinary
-            | TrinoDataType::Time { .. }
-            | TrinoDataType::TimeWithTimeZone { .. }
-            | TrinoDataType::IntervalDayToSecond
-            | TrinoDataType::IntervalYearToMonth
-            | TrinoDataType::Map { .. } => {
+            TrinoDataType::Varbinary | TrinoDataType::Time { .. } => {
                 Err(format_err!("cannot import data of type {} from JSON", self))
-            }
-        }
-    }
-
-    /// Generate SQL to export `value`, assuming it has type `self`.
-    pub(super) fn string_export_expr(&self, value: &Expr) -> Result<Expr> {
-        match self {
-            // These will will do the right thing when our caller uses `CAST(..
-            // AS VARCHAR)`.
-            TrinoDataType::TinyInt
-            | TrinoDataType::SmallInt
-            | TrinoDataType::Int
-            | TrinoDataType::BigInt
-            | TrinoDataType::Real
-            | TrinoDataType::Double
-            | TrinoDataType::Decimal { .. }
-            | TrinoDataType::Varchar { .. }
-            | TrinoDataType::Char { .. }
-            | TrinoDataType::Date
-            | TrinoDataType::Uuid => Ok(value.to_owned()),
-
-            // Use our canonical representation for boolean values.
-            TrinoDataType::Boolean => Ok(Expr::case_match(
-                value.to_owned(),
-                vec![
-                    (Expr::bool(true), Expr::str("t")),
-                    (Expr::bool(false), Expr::str("f")),
-                ],
-                Expr::str(""),
-            )),
-
-            // Convert to ISO8601 format, stripping any trailing ".0+" for
-            // consistency with other dbcrossbar drivers.
-            TrinoDataType::Timestamp { .. } => Ok(Expr::func(
-                "REGEXP_REPLACE",
-                vec![
-                    Expr::func("TO_ISO8601", vec![value.to_owned()]),
-                    Expr::str(".0+$"),
-                    Expr::str(""),
-                ],
-            )),
-            TrinoDataType::TimestampWithTimeZone { .. } => Ok(Expr::func(
-                "REGEXP_REPLACE",
-                vec![
-                    Expr::func("TO_ISO8601", vec![value.to_owned()]),
-                    Expr::str(".0+Z$"),
-                    Expr::str("Z"),
-                ],
-            )),
-
-            // Serialize JSON to a string. We have accept that this may use
-            // various whitespace and ordering conventions. `dbcrossbar` doesn't
-            // make any promises about the exact format of JSON output.
-            TrinoDataType::Json => Ok(Expr::json_to_string(value.to_owned())),
-
-            // "Trivial" ARRAY and ROW types can be serialized as JSON without any
-            // further processing.
-            TrinoDataType::Array(_) | TrinoDataType::Row { .. }
-                if !self.exported_json_needs_conversion()? =>
-            {
-                Ok(Expr::json_to_string_with_cast(value.to_owned()))
-            }
-
-            TrinoDataType::Array(_) | TrinoDataType::Row { .. } => Ok(
-                Expr::json_to_string_with_cast(self.json_export_expr(value)?),
-            ),
-
-            // Serialize as GeoJSON.
-            TrinoDataType::SphericalGeography => Ok(Expr::func(
-                // This returns VARCHAR, not a Trino `JSON` value.
-                "TO_GEOJSON_GEOMETRY",
-                vec![value.to_owned()],
-            )),
-
-            // These types are not directly supported.
-            TrinoDataType::Varbinary
-            | TrinoDataType::Time { .. }
-            | TrinoDataType::TimeWithTimeZone { .. }
-            | TrinoDataType::IntervalDayToSecond
-            | TrinoDataType::IntervalYearToMonth
-            | TrinoDataType::Map { .. } => {
-                Err(format_err!("cannot export values of type {}", self))
             }
         }
     }
@@ -562,7 +445,7 @@ impl TrinoDataType {
     /// Before casting to JSON, what is the type of mostly-exported value?
     /// This is needed for `CAST(... AS ROW(...))` expressions which we use
     /// to name fields while preparing to `CAST(... AS JSON)`.
-    pub(super) fn cast_exported_json_as(&self) -> Result<Self> {
+    fn cast_exported_json_as(&self) -> Result<Self> {
         match self {
             // Types that are represented as themselves in exported JSON.
             TrinoDataType::Boolean
@@ -573,7 +456,6 @@ impl TrinoDataType {
             | TrinoDataType::Real
             | TrinoDataType::Double
             | TrinoDataType::Varchar { .. }
-            | TrinoDataType::Char { .. }
             | TrinoDataType::Json => Ok(self.clone()),
 
             // This isn't represented as a string, but it will do the right
@@ -623,12 +505,7 @@ impl TrinoDataType {
 
             // Types that don't exist in our portable schema and that we can't
             // import.
-            TrinoDataType::Varbinary
-            | TrinoDataType::Time { .. }
-            | TrinoDataType::TimeWithTimeZone { .. }
-            | TrinoDataType::IntervalDayToSecond
-            | TrinoDataType::IntervalYearToMonth
-            | TrinoDataType::Map { .. } => {
+            TrinoDataType::Varbinary | TrinoDataType::Time { .. } => {
                 Err(format_err!("cannot export data of type {} to JSON", self))
             }
         }
@@ -654,7 +531,6 @@ impl TrinoDataType {
             | TrinoDataType::Real
             | TrinoDataType::Double
             | TrinoDataType::Varchar { .. }
-            | TrinoDataType::Char { .. }
             | TrinoDataType::Json => Ok(value.to_owned()),
 
             // Types that are represented as strings in JSON, and so require
@@ -731,137 +607,23 @@ impl TrinoDataType {
             )),
 
             TrinoDataType::Varbinary
-            | TrinoDataType::Time { .. }
-            | TrinoDataType::TimeWithTimeZone { .. }
-            | TrinoDataType::IntervalDayToSecond
-            | TrinoDataType::IntervalYearToMonth
-            | TrinoDataType::Map { .. } => {
+            | TrinoDataType::Time { .. } => {
                 Err(format_err!("cannot export values of type {}", self))
             }
         }
     }
-
-    /// Convert to a pretty-printable [`RcDoc`]. This is useful for complex type
-    /// arguments to `CAST` expressions in [`super::ast`].
-    pub(super) fn to_doc(&self) -> RcDoc<'static, ()> {
-        match self {
-            TrinoDataType::Array(elem_ty) => RcDoc::concat(vec![
-                RcDoc::as_string("ARRAY"),
-                parens(elem_ty.to_doc()),
-            ]),
-
-            TrinoDataType::Map {
-                key_type,
-                value_type,
-            } => RcDoc::concat(vec![
-                RcDoc::as_string("MAP"),
-                parens(comma_sep_list(vec![key_type.to_doc(), value_type.to_doc()])),
-            ]),
-
-            TrinoDataType::Row(fields) => RcDoc::concat(vec![
-                RcDoc::as_string("ROW"),
-                parens(comma_sep_list(fields.iter().map(|field| field.to_doc()))),
-            ]),
-
-            // Types which cannot contain other types will be printed without
-            // further wrapping.
-            _ => RcDoc::as_string(self),
-        }
-    }
 }
 
-// We keep around a separate implementation of `fmt::Display` for
-// `TrinoDataType` mostly for use in error messages, where we don't need fancy
-// formatting.
-impl fmt::Display for TrinoDataType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TrinoDataType::Boolean => write!(f, "BOOLEAN"),
-            TrinoDataType::TinyInt => write!(f, "TINYINT"),
-            TrinoDataType::SmallInt => write!(f, "SMALLINT"),
-            TrinoDataType::Int => write!(f, "INT"),
-            TrinoDataType::BigInt => write!(f, "BIGINT"),
-            TrinoDataType::Real => write!(f, "REAL"),
-            TrinoDataType::Double => write!(f, "DOUBLE"),
-            TrinoDataType::Decimal { precision, scale } => {
-                write!(f, "DECIMAL({}, {})", precision, scale)
-            }
-            TrinoDataType::Varchar { length: None } => write!(f, "VARCHAR"),
-            TrinoDataType::Varchar {
-                length: Some(length),
-            } => write!(f, "VARCHAR({})", length),
-            TrinoDataType::Char { length: 1 } => write!(f, "CHAR"),
-            TrinoDataType::Char { length } => write!(f, "CHAR({})", length),
-            TrinoDataType::Varbinary => write!(f, "VARBINARY"),
-            TrinoDataType::Json => write!(f, "JSON"),
-            TrinoDataType::Date => write!(f, "DATE"),
-            TrinoDataType::Time { precision } => write!(f, "TIME({})", precision),
-            TrinoDataType::TimeWithTimeZone { precision } => {
-                write!(f, "TIME({}) WITH TIME ZONE", precision)
-            }
-            TrinoDataType::Timestamp { precision } => {
-                write!(f, "TIMESTAMP({})", precision)
-            }
-            TrinoDataType::TimestampWithTimeZone { precision } => {
-                write!(f, "TIMESTAMP({}) WITH TIME ZONE", precision)
-            }
-            TrinoDataType::IntervalDayToSecond => write!(f, "INTERVAL DAY TO SECOND"),
-            TrinoDataType::IntervalYearToMonth => write!(f, "INTERVAL YEAR TO MONTH"),
-            TrinoDataType::Array(elem_ty) => write!(f, "ARRAY({})", elem_ty),
-            TrinoDataType::Map {
-                key_type,
-                value_type,
-            } => {
-                write!(f, "MAP({}, {})", key_type, value_type)
-            }
-            TrinoDataType::Row(fields) => {
-                write!(f, "ROW(")?;
-                for (idx, field) in fields.iter().enumerate() {
-                    if idx > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", field)?;
-                }
-                write!(f, ")")
-            }
-            TrinoDataType::Uuid => write!(f, "UUID"),
-            // This is capitalized differently in Trino's output.
-            TrinoDataType::SphericalGeography => write!(f, "SphericalGeography"),
-        }
-    }
+/// Add-on methods for the external [`TrinoField`] type.
+pub(crate) trait TrinoFieldExt {
+    fn from_struct_field(schema: &Schema, field: &StructField) -> Result<TrinoField>;
+    fn to_struct_field(&self, idx: usize) -> Result<StructField>;
+    fn to_doc(&self) -> RcDoc<'static, ()>;
 }
 
-/// A field in a [`TrinoDataType::Row`] data type.
-#[derive(Clone, Debug, PartialEq)]
-pub struct TrinoField {
-    /// The name of the field.
-    pub(super) name: Option<TrinoIdent>,
-    /// The data type of the field.
-    pub(super) data_type: TrinoDataType,
-}
-
-impl TrinoField {
-    /// Create an anonymous `TrinoField` with a data type.
-    pub(crate) fn anonymous(data_type: TrinoDataType) -> Self {
-        TrinoField {
-            name: None,
-            data_type,
-        }
-    }
-
-    /// Create a named `TrinoField` with a data type.
-    pub(crate) fn named(name: TrinoIdent, data_type: TrinoDataType) -> Self {
-        TrinoField {
-            name: Some(name),
-            data_type,
-        }
-    }
-
+impl TrinoFieldExt for TrinoField {
     /// Given a `StructField`, try to find a corresponding `TrinoField`.
-    pub(crate) fn from_struct_field(
-        schema: &Schema,
-        field: &StructField,
-    ) -> Result<Self> {
+    fn from_struct_field(schema: &Schema, field: &StructField) -> Result<Self> {
         Ok(TrinoField {
             name: Some(TrinoIdent::new(&field.name)?),
             data_type: TrinoDataType::from_data_type(schema, &field.data_type)?,
@@ -869,7 +631,7 @@ impl TrinoField {
     }
 
     /// Convert this `TrinoField` to a portable `StructField`.
-    pub(crate) fn to_struct_field(&self, idx: usize) -> Result<StructField> {
+    fn to_struct_field(&self, idx: usize) -> Result<StructField> {
         let name = if let Some(name) = &self.name {
             name.as_unquoted_str().to_owned()
         } else {
@@ -884,7 +646,7 @@ impl TrinoField {
     }
 
     /// Pretty-print this `TrinoField` as a [`RcDoc`].
-    pub(super) fn to_doc(&self) -> RcDoc<'static, ()> {
+    fn to_doc(&self) -> RcDoc<'static, ()> {
         if let Some(name) = &self.name {
             RcDoc::concat(vec![
                 RcDoc::as_string(name),
@@ -897,120 +659,9 @@ impl TrinoField {
     }
 }
 
-// We keep this around for `impl fmt::Display for TrinoDataType` to use.
-impl fmt::Display for TrinoField {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(name) = &self.name {
-            write!(f, "{} ", name)?;
-        }
-        write!(f, "{}", self.data_type)
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use proptest::prelude::*;
-
-    use super::*;
-
-    impl Arbitrary for TrinoDataType {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-
-        /// Generate an arbitrary [`TrinoDataType`]. We need to implement this
-        /// manually because [`TrinoDataType`] is recursive, both on its own,
-        /// and mututally recursive with [`TrinoField`].
-        ///
-        /// To learn more about this, read [the `proptest` book][proptest], and
-        /// specifically the section on [recursive data][recursive].
-        ///
-        /// [proptest]: https://proptest-rs.github.io/proptest/intro.html
-        /// [recursion]: https://proptest-rs.github.io/proptest/proptest/tutorial/recursive.html
-        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            {
-                // Our "leaf" types.
-                let leaf = prop_oneof![
-                    Just(TrinoDataType::Boolean),
-                    Just(TrinoDataType::TinyInt),
-                    Just(TrinoDataType::SmallInt),
-                    Just(TrinoDataType::Int),
-                    Just(TrinoDataType::BigInt),
-                    Just(TrinoDataType::Real),
-                    Just(TrinoDataType::Double),
-                    (1..=38u32, 0..=9u32).prop_map(|(precision, scale)| {
-                        TrinoDataType::Decimal { precision, scale }
-                    }),
-                    Just(TrinoDataType::Varchar { length: None }),
-                    (1..=255u32).prop_map(|length| TrinoDataType::Varchar {
-                        length: Some(length)
-                    }),
-                    Just(TrinoDataType::Char { length: 1 }),
-                    (1..=255u32).prop_map(|length| TrinoDataType::Char { length }),
-                    Just(TrinoDataType::Varbinary),
-                    Just(TrinoDataType::Json),
-                    Just(TrinoDataType::Date),
-                    Just(TrinoDataType::Time { precision: 3 }),
-                    (0..=9u32).prop_map(|precision| TrinoDataType::Time { precision }),
-                    Just(TrinoDataType::TimeWithTimeZone { precision: 3 }),
-                    (0..=9u32).prop_map(|precision| TrinoDataType::TimeWithTimeZone {
-                        precision
-                    }),
-                    Just(TrinoDataType::Timestamp { precision: 3 }),
-                    (0..=9u32)
-                        .prop_map(|precision| TrinoDataType::Timestamp { precision }),
-                    Just(TrinoDataType::TimestampWithTimeZone { precision: 3 }),
-                    (0..=9u32).prop_map(|precision| {
-                        TrinoDataType::TimestampWithTimeZone { precision }
-                    }),
-                    Just(TrinoDataType::IntervalDayToSecond),
-                    Just(TrinoDataType::IntervalYearToMonth),
-                    Just(TrinoDataType::Uuid),
-                    Just(TrinoDataType::SphericalGeography),
-                ];
-
-                // Our "recursive" types.
-                //
-                // Pass smallish numbers to `prop_recursive` because generating
-                // hugely complex types is unlikely to find additional bugs.
-                leaf.prop_recursive(3, 6, 3, |inner| {
-                    prop_oneof![
-                        // TrinoDataType::Array.
-                        inner
-                            .clone()
-                            .prop_map(|ty| TrinoDataType::Array(Box::new(ty))),
-                        // TrinoDataType::Map.
-                        (inner.clone(), inner.clone()).prop_map(
-                            |(key_type, value_type)| {
-                                TrinoDataType::Map {
-                                    key_type: Box::new(key_type),
-                                    value_type: Box::new(value_type),
-                                }
-                            }
-                        ),
-                        // TrinoDataType::Row.
-                        (prop::collection::vec(
-                            (any::<Option<TrinoIdent>>(), inner),
-                            1..=3
-                        ))
-                        .prop_map(|fields| {
-                            // We do this here, and not in `TrinoField`, because
-                            // it's mutually recursive with `TrinoDataType`, and
-                            // we want to allow `prop_recursive` to see the
-                            // entire mutually recursive structure.
-                            TrinoDataType::Row(
-                                fields
-                                    .into_iter()
-                                    .map(|(name, data_type)| TrinoField {
-                                        name,
-                                        data_type,
-                                    })
-                                    .collect(),
-                            )
-                        }),
-                    ]
-                })
-                .boxed()
-            }
-        }
-    }
-}
+// #[cfg(test)]
+// mod test {
+//     use proptest::prelude::*;
+//
+//     use super::*;
+// }

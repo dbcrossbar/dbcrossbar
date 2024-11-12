@@ -15,6 +15,7 @@ use crate::{
 
 use super::{
     ast::{Expr, Literal},
+    data_type::TrinoDataTypeExt as _,
     pretty::{comma_sep_list, indent, parens, select_from, sql_clause, WIDTH},
     TrinoConnectorType, TrinoDataType, TrinoField, TrinoIdent, TrinoTableName,
 };
@@ -128,7 +129,8 @@ impl TrinoCreateTable {
         // Update our columns.
         for column in &mut self.columns {
             // Downgrade the data type if needed.
-            column.data_type = connector_type.downgrade_data_type(&column.data_type);
+            let transform = connector_type.storage_transform_for(&column.data_type);
+            column.data_type = transform.storage_type().to_owned();
 
             // Erase `NOT NULL` constraints if the connector doesn't support them.
             if !connector_type.supports_not_null_constraint() {
@@ -575,8 +577,9 @@ peg::parser! {
             }
 
         rule char_ty() -> TrinoDataType
-            = k("char") length:size_default(1) {
-                TrinoDataType::Char { length }
+            = k("char") length:size_default(1) {?
+                //TrinoDataType::Char { length }
+                Err("Trino CHAR type is not currently supported")
             }
 
         rule varbinary_ty() -> TrinoDataType
@@ -594,8 +597,9 @@ peg::parser! {
             }
 
         rule time_with_time_zone_ty() -> TrinoDataType
-            = k("time") precision:size_default(3) _ k("with") _ k("time") _ k("zone") {
-                TrinoDataType::TimeWithTimeZone { precision }
+            = k("time") precision:size_default(3) _ k("with") _ k("time") _ k("zone") {?
+                //TrinoDataType::TimeWithTimeZone { precision }
+                Err("Trino TIME WITH TIME ZONE type is not currently supported")
             }
 
         rule timestamp_ty() -> TrinoDataType
@@ -609,10 +613,16 @@ peg::parser! {
             }
 
         rule interval_day_to_second_ty() -> TrinoDataType
-            = k("interval") _ k("day") _ k("to") _ k("second") { TrinoDataType::IntervalDayToSecond }
+            = k("interval") _ k("day") _ k("to") _ k("second") {?
+                //TrinoDataType::IntervalDayToSecond
+                Err("Trino INTERVAL DAY TO SECOND type is not currently supported")
+            }
 
         rule interval_year_to_month_ty() -> TrinoDataType
-            = k("interval") _ k("year") _ k("to") _ k("month") { TrinoDataType::IntervalYearToMonth }
+            = k("interval") _ k("year") _ k("to") _ k("month") {?
+                //TrinoDataType::IntervalYearToMonth
+                Err("Trino INTERVAL YEAR TO MONTH type is not currently supported")
+            }
 
         rule array_ty() -> TrinoDataType
             = k("array") _? "(" _? elem_ty:ty() _? ")" {
@@ -620,11 +630,12 @@ peg::parser! {
             }
 
         rule map_ty() -> TrinoDataType
-            = k("map") _? "(" _? key_ty:ty() _? "," _? value_ty:ty() _? ")" {
-                TrinoDataType::Map {
-                    key_type: Box::new(key_ty),
-                    value_type: Box::new(value_ty),
-                }
+            = k("map") _? "(" _? key_ty:ty() _? "," _? value_ty:ty() _? ")" {?
+                // TrinoDataType::Map {
+                //     key_type: Box::new(key_ty),
+                //     value_type: Box::new(value_ty),
+                // }
+                Err("Trino MAP type is not currently supported")
             }
 
         rule row_ty() -> TrinoDataType
