@@ -116,18 +116,22 @@ impl TrinoCreateTable {
         }
     }
 
-    /// Downgrade this for a specific connector type, as needed. This is
-    /// necessary because not all of Trino's connectors support the same table
-    /// declaration features and they tend to error out if we use an unsupported
-    /// feature. But `dbcrossbar`'s job is to create a table as close as
-    /// possible to the one requested, even if this means occasionally
-    /// "downgrading" something like `NOT NULL`.
-    pub fn downgrade_for_connector_type(
-        &mut self,
+    /// Convert an ideal `CREATE TABLE` statement into one that will actually
+    /// work with a given connector type.
+    ///
+    /// This is necessary because not all of Trino's connectors support the same
+    /// table declaration features and they tend to error out if we use an
+    /// unsupported feature. But `dbcrossbar`'s job is to create a table as
+    /// close as possible to the one requested, even if this means occasionally
+    /// "downgrading" something like `NOT NULL`, or storing GeoJSON as a string.
+    pub fn storage_table_for_connector_type(
+        &self,
         connector_type: &TrinoConnectorType,
-    ) {
+    ) -> Self {
+        let mut storage_table = self.clone();
+
         // Update our columns.
-        for column in &mut self.columns {
+        for column in &mut storage_table.columns {
             // Downgrade the data type if needed.
             let transform = connector_type.storage_transform_for(&column.data_type);
             column.data_type = transform.storage_type().to_owned();
@@ -139,10 +143,12 @@ impl TrinoCreateTable {
         }
 
         // Erase `OR REPLACE` if the connector doesn't support it.
-        if !connector_type.supports_replace_table() && self.or_replace {
-            self.or_replace = false;
-            self.separate_drop_if_exists = true;
+        if !connector_type.supports_replace_table() && storage_table.or_replace {
+            storage_table.or_replace = false;
+            storage_table.separate_drop_if_exists = true;
         }
+
+        storage_table
     }
 
     /// A separate `DROP TABLE IF EXISTS` statement.
@@ -202,12 +208,13 @@ impl TrinoCreateTable {
     /// a wrapper table, and convert it the appropriate data types.
     fn select_from_wrapper_table_doc(
         &self,
+        connector_type: &TrinoConnectorType,
         wrapper_table: &TrinoTableName,
     ) -> Result<RcDoc<'static, ()>> {
         Ok(select_from(
             self.columns
                 .iter()
-                .map(|column| Ok(column.import_expr()?.to_doc()))
+                .map(|column| Ok(column.import_expr(connector_type)?.to_doc()))
                 .collect::<Result<Vec<_>>>()?,
             wrapper_table,
         ))
@@ -217,6 +224,7 @@ impl TrinoCreateTable {
     // from a wrapper table to this table.
     pub(crate) fn insert_from_wrapper_table_doc(
         &self,
+        connector_type: &TrinoConnectorType,
         create_s3_wrapper_table: &TrinoCreateTable,
     ) -> Result<RcDoc<'static, ()>> {
         Ok(RcDoc::concat(vec![
@@ -226,7 +234,10 @@ impl TrinoCreateTable {
                 RcDoc::space(),
                 parens(comma_sep_list(self.column_names().map(RcDoc::as_string))),
             ])),
-            self.select_from_wrapper_table_doc(&create_s3_wrapper_table.name)?,
+            self.select_from_wrapper_table_doc(
+                connector_type,
+                &create_s3_wrapper_table.name,
+            )?,
         ]))
     }
 
@@ -294,6 +305,7 @@ impl TrinoCreateTable {
     /// normally used together with [`Self::create_as_prologue_to_doc`] above.
     fn select_as_named_varchar_values_doc(
         &self,
+        connector_type: &TrinoConnectorType,
         source_args: &SourceArguments<Verified>,
     ) -> Result<RcDoc<'static, ()>> {
         Ok(select_from(
@@ -301,7 +313,7 @@ impl TrinoCreateTable {
                 .iter()
                 .map(|column| {
                     Ok(RcDoc::concat(vec![
-                        column.export_expr()?.to_doc(),
+                        column.export_expr(connector_type)?.to_doc(),
                         RcDoc::text(" AS "),
                         RcDoc::as_string(&column.name),
                     ]))
@@ -325,12 +337,13 @@ impl TrinoCreateTable {
     /// as VARCHAR in `dbcrossbar` CSV interchange format.
     pub(crate) fn create_wrapper_table_doc(
         &self,
-        source_table: &TrinoCreateTable,
+        connector_type: &TrinoConnectorType,
+        ideal_source_table: &TrinoCreateTable,
         source_args: &SourceArguments<Verified>,
     ) -> Result<RcDoc<'static, ()>> {
         let create_as_prologue_sql = self.create_as_prologue_doc();
-        let select_as_varchar_sql =
-            source_table.select_as_named_varchar_values_doc(source_args)?;
+        let select_as_varchar_sql = ideal_source_table
+            .select_as_named_varchar_values_doc(connector_type, source_args)?;
         Ok(RcDoc::concat(vec![
             create_as_prologue_sql,
             select_as_varchar_sql,
@@ -393,7 +406,7 @@ impl TrinoColumn {
     }
 
     /// Write the SQL for importing this column from a wrapper table.
-    fn import_expr(&self) -> Result<Expr> {
+    fn import_expr(&self, connector_type: &TrinoConnectorType) -> Result<Expr> {
         let var = Expr::Var(self.name.clone());
         let expr = self.data_type.string_import_expr(&var)?;
         if self.is_nullable {
@@ -408,7 +421,10 @@ impl TrinoColumn {
     }
 
     /// Write the SQL for exporting this column to a wrapper table.
-    pub(super) fn export_expr(&self) -> Result<Expr> {
+    pub(super) fn export_expr(
+        &self,
+        connector_type: &TrinoConnectorType,
+    ) -> Result<Expr> {
         let var = Expr::Var(self.name.clone());
         // This always needs to be a VARCHAR with no length, or else the Hive
         // connector will refuse to store it in a table represented as CSV.

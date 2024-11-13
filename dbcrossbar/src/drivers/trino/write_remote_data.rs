@@ -51,32 +51,37 @@ pub(super) async fn write_remote_data_helper(
     let client = dest.client()?;
     let connector_type = dest.connector_type(&client).await?;
     let table_name = dest.table_name()?;
-    let mut create_table =
+    let mut create_ideal_table =
         TrinoCreateTable::from_schema_and_name(schema, &table_name)?;
-    create_table.set_if_exists_options(if_exists);
-    create_table.downgrade_for_connector_type(&connector_type);
+    create_ideal_table.set_if_exists_options(if_exists);
+    let create_storage_table =
+        create_ideal_table.storage_table_for_connector_type(&connector_type);
 
     // Generate a `TrinoCreateTable` wrapping our S3 data.
-    let create_s3_wrapper_table = create_table.hive_csv_wrapper_table(&source_url)?;
+    let create_s3_wrapper_table =
+        create_ideal_table.hive_csv_wrapper_table(&source_url)?;
     let create_s3_wrapper_table_sql = create_s3_wrapper_table.to_string();
     debug!(sql = %create_s3_wrapper_table_sql, "creating S3 wrapper table");
     client.run_statement(&create_s3_wrapper_table_sql).await?;
 
-    // Create our destination table (using our our `create_table`, so that we
-    // can including things like `NOT NULL` constraints, if they're supported).
-    if let Some(separate_drop_if_exists) = create_table.separate_drop_if_exists() {
+    // Create our destination table (using our `create_storage_table`, so that
+    // we can include things like `NOT NULL` constraints, if they're
+    // supported).
+    if let Some(separate_drop_if_exists) =
+        create_storage_table.separate_drop_if_exists()
+    {
         debug!(sql = %separate_drop_if_exists, "dropping destination table if it exists");
         client.run_statement(&separate_drop_if_exists).await?;
     }
-    let create_table_sql = create_table.to_string();
-    debug!(sql = %create_table_sql, "creating destination table");
-    client.run_statement(&create_table_sql).await?;
+    let create_storage_table_sql = create_storage_table.to_string();
+    debug!(sql = %create_storage_table_sql, "creating destination table");
+    client.run_statement(&create_storage_table_sql).await?;
 
     // Insert data from the S3 wrapper table into our destination table.
     let insert_sql = format!(
         "{}",
-        create_table
-            .insert_from_wrapper_table_doc(&create_s3_wrapper_table)?
+        create_ideal_table
+            .insert_from_wrapper_table_doc(&connector_type, &create_s3_wrapper_table)?
             .pretty(PRETTY_WIDTH)
     );
     debug!(sql = %insert_sql, "inserting data");

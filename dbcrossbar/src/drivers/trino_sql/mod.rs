@@ -100,10 +100,14 @@ async fn write_schema_helper(
     if_exists: IfExists,
 ) -> Result<()> {
     let table_name = sanitize_table_name(&schema.table.name)?;
-    let create_table = TrinoCreateTable::from_schema_and_name(&schema, &table_name)?;
+    let create_ideal_table =
+        TrinoCreateTable::from_schema_and_name(&schema, &table_name)?;
+
     let mut out = dest.path.create_async(if_exists).await?;
     buffer_sync_write_and_copy_to_async(&mut out, |buff| {
-        write!(buff, "{}", create_table)
+        // Since we're writing a table out to disk, we want to use the "ideal"
+        // schema, not a connector-specific "storage" schema.
+        write!(buff, "{}", create_ideal_table)
     })
     .await
     .with_context(|| format!("error writing {}", dest.path))?;

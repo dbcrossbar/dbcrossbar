@@ -669,7 +669,7 @@ mod tests {
             ),
         ];
 
-        for connector in ConnectorType::all() {
+        for connector in ConnectorType::all_testable() {
             // Try base types.
             for (value, trino_ty) in examples {
                 test_storage_transform_roundtrip_helper(

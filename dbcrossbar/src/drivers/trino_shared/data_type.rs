@@ -27,7 +27,7 @@ pub(crate) trait TrinoDataTypeExt {
 }
 
 /// Like [`TrinoDataTypeExt`], but for methods that are only used in this module.
-trait TrinoDataTypeExtInternal: Sized {
+trait TrinoDataTypeExtInternal {
     fn cast_parsed_json_as(&self) -> Result<TrinoDataType>;
     fn imported_json_needs_conversion(&self) -> Result<bool>;
     fn json_import_expr(&self, value: &Expr) -> Result<Expr>;
@@ -135,6 +135,11 @@ impl TrinoDataTypeExt for TrinoDataType {
 
     /// Generate SQL to import `value` as a value of type `self`, assuming that
     /// `name` is represented as a string.
+    ///
+    /// Here, we are converting a VARCHAR column (from a CSV file mapped as a
+    /// table) into the "ideal" Trino representaion of this data type in memory.
+    /// We'll need to later do a _second_ conversion, from the ideal memory type
+    /// to the storage type actually supported by the backend.
     fn string_import_expr(&self, value: &Expr) -> Result<Expr> {
         match self {
             // Nothing to do for these types.
@@ -206,6 +211,11 @@ impl TrinoDataTypeExt for TrinoDataType {
     }
 
     /// Generate SQL to export `value`, assuming it has type `self`.
+    ///
+    /// Here, we are converting the "ideal" Trino representation of this data
+    /// type in memory into a VARCHAR column, which can then be stored in a
+    /// table backed by a CSV file. But _before_ we do this, other code will
+    /// need to translate from a "storage" type to the "ideal" type.
     fn string_export_expr(&self, value: &Expr) -> Result<Expr> {
         match self {
             // These will will do the right thing when our caller uses `CAST(..

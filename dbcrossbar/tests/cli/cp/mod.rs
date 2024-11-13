@@ -2,6 +2,7 @@
 
 use big_enum_set::{BigEnumSet, BigEnumSetType};
 use cli_test_dir::*;
+use dbcrossbar_trino::ConnectorType;
 use difference::assert_diff;
 use std::{env, fs, process::Command};
 
@@ -111,8 +112,16 @@ pub(crate) fn trino_test_catalog_schema_table(
 }
 
 /// Generate a locator for a test table in Trino.
-pub(crate) fn trino_test_table(table_name: &str) -> String {
-    trino_test_catalog_schema_table("memory", "default", table_name)
+pub(crate) fn trino_test_table(
+    connector_type: &ConnectorType,
+    test_name: &str,
+) -> String {
+    let catalog = connector_type.test_catalog();
+    let schema = connector_type.test_schema();
+    let full_table_name = connector_type.test_table_name(test_name);
+    // We have `catalog.schema.table`, but we need just `table`.
+    let table_name_only = full_table_name.rsplit('.').next().unwrap();
+    trino_test_catalog_schema_table(catalog, schema, table_name_only)
 }
 
 #[test]

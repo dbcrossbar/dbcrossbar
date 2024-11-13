@@ -100,9 +100,8 @@ pub enum ConnectorType {
 }
 
 impl ConnectorType {
-    /// All connector types.
-    #[cfg(test)]
-    pub fn all() -> impl Iterator<Item = ConnectorType> {
+    /// All connector types, for testing purposes.
+    pub fn all_testable() -> impl Iterator<Item = ConnectorType> {
         [
             ConnectorType::Memory,
             ConnectorType::Hive,
@@ -112,7 +111,6 @@ impl ConnectorType {
     }
 
     /// What catalog name should we use for this connector type in test mode?
-    #[cfg(test)]
     pub fn test_catalog(&self) -> &'static str {
         match self {
             ConnectorType::Hive => "hive",
@@ -122,7 +120,6 @@ impl ConnectorType {
     }
 
     /// What schema name should we use for this connector type in test mode?
-    #[cfg(test)]
     pub fn test_schema(&self) -> &'static str {
         match self {
             ConnectorType::Hive => "default",
@@ -132,7 +129,6 @@ impl ConnectorType {
     }
 
     /// What table name should we use for a test?
-    #[cfg(test)]
     pub fn test_table_name(&self, test_name: &str) -> String {
         // We need unique table names for each connector, because some of them
         // are actually implemented on top of others and share a table
@@ -356,7 +352,7 @@ mod tests {
     #[ignore]
     async fn test_supports_not_null_constraint() {
         let client = Client::default();
-        for connector in ConnectorType::all() {
+        for connector in ConnectorType::all_testable() {
             // If the connector doesn't support `NOT NULL`, we don't need
             // to test it.
             if !connector.supports_not_null_constraint() {
@@ -381,7 +377,7 @@ mod tests {
     #[ignore]
     async fn test_supports_replace_table() {
         let client = Client::default();
-        for connector in ConnectorType::all() {
+        for connector in ConnectorType::all_testable() {
             // If the connector doesn't support `OR REPLACE`, we don't need
             // to test it.
             if !connector.supports_replace_table() {
@@ -415,7 +411,7 @@ mod tests {
     #[ignore]
     async fn test_supports_merge() {
         let client = Client::default();
-        for connector in ConnectorType::all() {
+        for connector in ConnectorType::all_testable() {
             // If the connector doesn't support upserts, we don't need to test
             // it.
             if !connector.supports_merge() {

@@ -161,19 +161,23 @@ async fn write_trino_remote_data_helper(
     // TODO: We will eventually add code to "reconcile" this with the actual
     // source table, in order to handle weird corner cases. This happens in
     // almost every major dbcrossbar `Locator` implementation. But not yet.
-    let mut create_table =
+    let create_ideal_table =
         TrinoCreateTable::from_schema_and_name(schema, &source.table_name()?)?;
     let client = source.client()?;
-    create_table.downgrade_for_connector_type(&source.connector_type(&client).await?);
+    let connector_type = source.connector_type(&client).await?;
 
     // We need to create a temporary Trino table "wrapping" the S3 location.
     // Figure out what it should look like.
     let create_s3_wrapper_table =
-        create_table.hive_csv_wrapper_table(dest.as_url())?;
+        create_ideal_table.hive_csv_wrapper_table(dest.as_url())?;
     let sql = format!(
         "{}",
         create_s3_wrapper_table
-            .create_wrapper_table_doc(&create_table, &source_args)?
+            .create_wrapper_table_doc(
+                &connector_type,
+                &create_ideal_table,
+                &source_args
+            )?
             .pretty(PRETTY_WIDTH)
     );
     debug!(%sql, "export SQL");

@@ -1,4 +1,4 @@
-CREATE TABLE "schema_conv_on_trino_table" (
+CREATE TABLE "schema_conv_on_trino_table_memory" (
     "test_null" text,
     "test_not_null" text,
     "test_bool" boolean,
