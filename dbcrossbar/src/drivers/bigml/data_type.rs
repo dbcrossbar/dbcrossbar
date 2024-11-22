@@ -47,6 +47,7 @@ impl OptypeExt for Optype {
             DataType::TimestampWithoutTimeZone => Ok(Optype::DateTime),
             DataType::TimestampWithTimeZone => Ok(Optype::DateTime),
             DataType::Uuid => Ok(Optype::Text),
+            DataType::TimeWithoutTimeZone => Ok(Optype::DateTime),
         }
     }
 

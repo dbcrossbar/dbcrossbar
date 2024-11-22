@@ -354,7 +354,8 @@ impl VerifyRedshiftCanImportFromCsv for DataType {
             | DataType::Json
             | DataType::Named(_) // We could expand these, maybe.
             | DataType::Struct(_)
-            | DataType::Uuid => Err(format_err!(
+            | DataType::Uuid
+            | DataType::TimeWithoutTimeZone => Err(format_err!(
                 "Redshift driver does not support data type {:?}",
                 self
             )),

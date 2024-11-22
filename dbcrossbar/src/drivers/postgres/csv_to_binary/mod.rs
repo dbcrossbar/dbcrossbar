@@ -8,7 +8,7 @@
 //! - https://github.com/sfackler/rust-postgres/blob/master/postgres-protocol/src/types.rs Rust implementations.
 
 use byteorder::{NetworkEndian as NE, WriteBytesExt};
-use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use geo_types::Geometry;
 use serde_json::Value;
 use std::{
@@ -250,6 +250,9 @@ fn json_to_binary<W: Write>(
             write_json_as_binary::<DateTime<Utc>, W>(wtr, json)
         }
         PgScalarDataType::Uuid => write_json_as_binary::<Uuid, W>(wtr, json),
+        PgScalarDataType::TimeWithoutTimeZone => {
+            write_json_as_binary::<NaiveTime, W>(wtr, json)
+        }
     }
 }
 
@@ -330,6 +333,9 @@ fn scalar_to_binary(
             write_cell_as_binary::<DateTime<Utc>>(wtr, cell)
         }
         PgScalarDataType::Uuid => write_cell_as_binary::<Uuid>(wtr, cell),
+        PgScalarDataType::TimeWithoutTimeZone => {
+            write_cell_as_binary::<NaiveTime>(wtr, cell)
+        }
     }
 }
 

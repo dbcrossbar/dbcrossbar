@@ -17,5 +17,6 @@ CREATE TABLE example (
     j smallint,
     k timestamp without time zone,
     l color,
-    m mood
+    m mood,
+    n time without time zone
 )
