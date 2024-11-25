@@ -86,6 +86,17 @@ fn cp_csv_to_trino_to_csv_many() {
 
 #[test]
 #[ignore]
+fn cp_csv_to_trino_to_csv_lambda_regression() {
+    cp_csv_to_trino_to_csv_helper(
+        "cp_csv_to_trino_to_csv_lambda_regression",
+        "fixtures/trino/lambda_regression.csv",
+        "trino-sql",
+        "fixtures/trino/lambda_regression.sql",
+    );
+}
+
+#[test]
+#[ignore]
 fn cp_csv_to_trino_to_csv_complex() {
     cp_csv_to_trino_to_csv_helper(
         "cp_csv_to_trino_to_csv_complex",

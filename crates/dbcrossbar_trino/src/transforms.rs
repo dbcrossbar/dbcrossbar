@@ -326,11 +326,15 @@ impl TypeStorageTransform {
                 };
                 let x = ident("x");
                 let x_expr = Expr::Var(x.clone());
-                Expr::bind_var(
+
+                // We use `bind_var_with_return_type` and `row_with_anonymous_fields`
+                // to work around what appear to be type inference bugs in
+                // Trino version 445. See the `dbcrossbar` test
+                // `cp_csv_to_trino_to_csv_lambda_regression` and `cp_csv_to_trino_to_csv_complex`.
+                Expr::bind_var_with_return_type(
                     x.clone(),
                     expr,
-                    Expr::row(
-                        storage_type.to_owned(),
+                    Expr::row_with_anonymous_fields(
                         field_transforms
                             .iter()
                             .zip(storage_fields)
@@ -353,6 +357,7 @@ impl TypeStorageTransform {
                             })
                             .collect(),
                     ),
+                    storage_type,
                 )
             }
         }
@@ -447,11 +452,14 @@ impl TypeStorageTransform {
                 let x = ident("x");
                 let x_expr = Expr::Var(x.clone());
 
-                Expr::bind_var(
+                // We use `bind_var_with_return_type` and `row_with_anonymous_fields`
+                // to work around what appear to be type inference bugs in
+                // Trino version 445. See the `dbcrossbar` test
+                // `cp_csv_to_trino_to_csv_lambda_regression` and `cp_csv_to_trino_to_csv_complex`.s
+                Expr::bind_var_with_return_type(
                     x,
                     expr,
-                    Expr::row(
-                        original_type.clone(),
+                    Expr::row_with_anonymous_fields(
                         field_transforms
                             .iter()
                             .zip(original_fields)
@@ -474,6 +482,7 @@ impl TypeStorageTransform {
                             })
                             .collect(),
                     ),
+                    original_type,
                 )
             }
         }

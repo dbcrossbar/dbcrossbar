@@ -207,9 +207,32 @@ impl Expr {
         )
     }
 
+    /// Like [`bind_var`], but with a type cast.
+    ///
+    /// This exists to work around what appear to be type inference bugs in
+    /// Trino version 445-460. See the `dbcrossbar` test
+    /// `cp_csv_to_trino_to_csv_lambda_regression`.
+    pub fn bind_var_with_return_type(
+        var: Ident,
+        expr: Expr,
+        body: Expr,
+        return_ty: &DataType,
+    ) -> Expr {
+        Expr::index(
+            Expr::cast(
+                Expr::func(
+                    "TRANSFORM",
+                    vec![Expr::array(vec![expr]), Expr::lambda(var, body)],
+                ),
+                DataType::Array(Box::new(return_ty.to_owned())),
+            ),
+            Expr::int(1),
+        )
+    }
+
     /// A `ROW` expression with a `CAST`.
     pub fn row(ty: DataType, exprs: Vec<Expr>) -> Expr {
-        Expr::cast(Expr::func("ROW", exprs), ty)
+        Expr::cast(Expr::row_with_anonymous_fields(exprs), ty)
     }
 
     /// A `ROW` expression without a `CAST`. This may only have anonymous
