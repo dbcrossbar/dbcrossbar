@@ -23,6 +23,7 @@ pub(crate) async fn count_helper(
             "".to_string()
         }
     );
+    debug!(sql = %sql, "counting rows");
     let count = client.get_one_value::<i64>(&sql).await?;
     usize::try_from(count).context("could not convert count to usize")
 }

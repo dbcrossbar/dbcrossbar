@@ -1,34 +1,32 @@
 //! A simple abstract syntax tree for small parts of Trino SQL. We use this to
-//! generate import and export queries for Trino.
+//! generate Trino SQL expressions and format them in a readable manner.
 
 use std::fmt::{self, Debug};
 
 use pretty::RcDoc;
-#[cfg(test)]
+#[cfg(any(test, feature = "proptest"))]
 use proptest_derive::Arbitrary;
 
-use super::{
-    data_type::TrinoDataTypeExt as _,
-    pretty::{comma_sep_list, parens, square_brackets, INDENT},
-    TrinoDataType, TrinoIdent, TrinoStringLiteral,
-};
+use super::{comma_sep_list, parens, square_brackets, INDENT};
+use crate::{DataType, Ident, QuotedString};
 
 /// Construct a static identifier known at compile time. Must not be the empty
 /// string.
-pub(super) fn ident(s: &'static str) -> TrinoIdent {
+pub fn ident(s: &'static str) -> Ident {
     // The `unwrap` here should be safe because `TrinoIdent::new` only fails on
     // empty identifiers, and we're only called internally with string literals
     // supplied by the programmer.
-    TrinoIdent::new(s).unwrap()
+    Ident::new(s).unwrap()
 }
 
 /// An expression in Trino SQL.
 #[derive(Clone, Debug, PartialEq)]
-pub(super) enum Expr {
+#[non_exhaustive]
+pub enum Expr {
     /// A literal value.
-    Lit(Literal),
+    Lit(SimpleValue),
     /// A variable reference.
-    Var(TrinoIdent),
+    Var(Ident),
     /// A binary operation.
     BinOp {
         /// The left-hand side of the operation.
@@ -52,7 +50,7 @@ pub(super) enum Expr {
         /// The expression to cast.
         expr: Box<Expr>,
         /// The type to cast to.
-        ty: TrinoDataType,
+        ty: DataType,
     },
     /// A `CASE` expression (match version).
     CaseMatch {
@@ -66,7 +64,7 @@ pub(super) enum Expr {
     /// A lambda (`->`) expression.
     Lambda {
         /// The argument name.
-        arg: TrinoIdent,
+        arg: Ident,
         /// The body of the lambda.
         body: Box<Expr>,
     },
@@ -79,31 +77,47 @@ pub(super) enum Expr {
         /// The index.
         index: Box<Expr>,
     },
+    /// A field reference.
+    Field {
+        /// The row.
+        row: Box<Expr>,
+        /// The field name.
+        field: Ident,
+    },
+    /// An `AT TIME ZONE` expression.
+    AtTimeZone {
+        /// The expression to format.
+        expr: Box<Expr>,
+        /// The time zone to use.
+        time_zone: Box<Expr>,
+    },
+    /// Raw SQL.
+    RawSql(String),
 }
 
 impl Expr {
     /// A string literal.
-    pub(super) fn str<S: Into<String>>(s: S) -> Expr {
-        Expr::Lit(Literal::String(s.into()))
+    pub fn str<S: Into<String>>(s: S) -> Expr {
+        Expr::Lit(SimpleValue::String(s.into()))
     }
 
     /// An integer literal.
-    pub(super) fn int(i: i64) -> Expr {
-        Expr::Lit(Literal::Int(i))
+    pub fn int(i: i64) -> Expr {
+        Expr::Lit(SimpleValue::Int(i))
     }
 
     /// A Boolean literal.
-    pub(super) fn bool(b: bool) -> Expr {
-        Expr::Lit(Literal::Bool(b))
+    pub fn bool(b: bool) -> Expr {
+        Expr::Lit(SimpleValue::Bool(b))
     }
 
     /// A NULL literal.
-    pub(super) fn null() -> Expr {
-        Expr::Lit(Literal::Null)
+    pub fn null() -> Expr {
+        Expr::Lit(SimpleValue::Null)
     }
 
     /// A binary operation.
-    pub(super) fn binop(lhs: Expr, op: BinOp, rhs: Expr) -> Expr {
+    pub fn binop(lhs: Expr, op: BinOp, rhs: Expr) -> Expr {
         Expr::BinOp {
             lhs: Box::new(lhs),
             op,
@@ -112,12 +126,12 @@ impl Expr {
     }
 
     /// A function call.
-    pub(super) fn func(name: &'static str, args: Vec<Expr>) -> Expr {
+    pub fn func(name: &'static str, args: Vec<Expr>) -> Expr {
         Expr::Func { name, args }
     }
 
     /// A cast.
-    pub(super) fn cast(expr: Expr, ty: TrinoDataType) -> Expr {
+    pub fn cast(expr: Expr, ty: DataType) -> Expr {
         Expr::Cast {
             expr: Box::new(expr),
             ty,
@@ -125,12 +139,12 @@ impl Expr {
     }
 
     /// An `IF` expression.
-    pub(super) fn r#if(cond: Expr, then: Expr, r#else: Expr) -> Expr {
+    pub fn r#if(cond: Expr, then: Expr, r#else: Expr) -> Expr {
         Expr::func("IF", vec![cond, then, r#else])
     }
 
     /// A `CASE` expression (match version).
-    pub(super) fn case_match(
+    pub fn case_match(
         value: Expr,
         when_clauses: Vec<(Expr, Expr)>,
         r#else: Expr,
@@ -143,7 +157,7 @@ impl Expr {
     }
 
     /// A lambda (`->`) expression.
-    pub(super) fn lambda(arg: TrinoIdent, body: Expr) -> Expr {
+    pub fn lambda(arg: Ident, body: Expr) -> Expr {
         Expr::Lambda {
             arg,
             body: Box::new(body),
@@ -151,31 +165,39 @@ impl Expr {
     }
 
     /// Serialize as JSON.
-    pub(super) fn json_to_string(expr: Expr) -> Expr {
+    pub fn json_to_string(expr: Expr) -> Expr {
         Expr::func("JSON_FORMAT", vec![expr])
     }
 
     // Cast to JSON, then serialize.
-    pub(super) fn json_to_string_with_cast(expr: Expr) -> Expr {
-        Self::json_to_string(Self::cast(expr, TrinoDataType::Json))
+    pub fn json_to_string_with_cast(expr: Expr) -> Expr {
+        Self::json_to_string(Self::cast(expr, DataType::Json))
     }
 
     /// An `ARRAY` expression.
-    pub(super) fn array(exprs: Vec<Expr>) -> Expr {
+    pub fn array(exprs: Vec<Expr>) -> Expr {
         Expr::Array(exprs)
     }
 
-    /// An array or row element access.
-    pub(super) fn index(expr: Expr, index: Expr) -> Expr {
+    /// An array or row element access (positional).
+    pub fn index(expr: Expr, index: Expr) -> Expr {
         Expr::Index {
             expr: Box::new(expr),
             index: Box::new(index),
         }
     }
 
+    /// A row field access by name.
+    pub fn field(row: Expr, field: Ident) -> Expr {
+        Expr::Field {
+            row: Box::new(row),
+            field,
+        }
+    }
+
     /// Bind a variable in a lambda. We fake this using `ARRAY` and `TRANSFORM`,
     /// because Trino doesn't seem to have any better way to do this.
-    pub(super) fn bind_var(var: TrinoIdent, expr: Expr, body: Expr) -> Expr {
+    pub fn bind_var(var: Ident, expr: Expr, body: Expr) -> Expr {
         Expr::index(
             Expr::func(
                 "TRANSFORM",
@@ -185,15 +207,34 @@ impl Expr {
         )
     }
 
-    /// A `ROW` expression with a `CAST`
-    pub(super) fn row(ty: TrinoDataType, exprs: Vec<Expr>) -> Expr {
+    /// A `ROW` expression with a `CAST`.
+    pub fn row(ty: DataType, exprs: Vec<Expr>) -> Expr {
         Expr::cast(Expr::func("ROW", exprs), ty)
+    }
+
+    /// A `ROW` expression without a `CAST`. This may only have anonymous
+    /// fields, unless you `CAST` it later.
+    pub fn row_with_anonymous_fields(exprs: Vec<Expr>) -> Expr {
+        Expr::func("ROW", exprs)
+    }
+
+    /// An [`RcDoc`] expression.
+    pub fn at_time_zone(expr: Expr, time_zone: &str) -> Expr {
+        Expr::AtTimeZone {
+            expr: Box::new(expr),
+            time_zone: Box::new(Expr::str(time_zone)),
+        }
+    }
+
+    /// A raw SQL expression.
+    pub fn raw_sql(s: impl fmt::Display) -> Expr {
+        Expr::RawSql(s.to_string())
     }
 }
 
 impl Expr {
     /// Return a pretty-printed version of `self``.
-    pub(super) fn to_doc(&self) -> RcDoc<'static, ()> {
+    pub fn to_doc(&self) -> RcDoc<'static, ()> {
         match self {
             Expr::Lit(lit) => lit.to_doc(),
             Expr::Var(ident) => RcDoc::as_string(ident),
@@ -288,14 +329,40 @@ impl Expr {
                 expr.to_doc(),
                 square_brackets(index.to_doc().group()),
             ]),
+            Expr::Field { row, field } => RcDoc::concat(vec![
+                row.to_doc(),
+                RcDoc::text("."),
+                RcDoc::as_string(field),
+            ]),
+            Expr::AtTimeZone { expr, time_zone } => parens(RcDoc::concat(vec![
+                expr.to_doc(),
+                RcDoc::space(),
+                RcDoc::as_string("AT TIME ZONE"),
+                RcDoc::space(),
+                time_zone.to_doc(),
+            ])),
+            Expr::RawSql(s) => RcDoc::as_string(s),
         }
     }
 }
 
-/// A Trino literal value.
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.to_doc().pretty(usize::MAX))
+    }
+}
+
+/// A Trino literal value, but only one of the simple types.
+///
+/// If the `values` feature is enabled for this crate, we will also have a
+/// [`crate::Value`] type that can represent a much wider range of values.
+///
+/// This type is only used for simple values that commonly appear in source
+/// code.
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(test, derive(Arbitrary))]
-pub(super) enum Literal {
+#[cfg_attr(any(test, feature = "proptest"), derive(Arbitrary))]
+#[non_exhaustive]
+pub enum SimpleValue {
     /// A string literal.
     String(String),
     /// An integer literal.
@@ -306,21 +373,21 @@ pub(super) enum Literal {
     Null,
 }
 
-impl Literal {
+impl SimpleValue {
     /// Return a pretty-printed version of `self``.
-    pub(super) fn to_doc(&self) -> RcDoc<'static, ()> {
+    pub fn to_doc(&self) -> RcDoc<'static, ()> {
         RcDoc::as_string(self)
     }
 }
 
-impl fmt::Display for Literal {
+impl fmt::Display for SimpleValue {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Literal::String(s) => write!(f, "{}", TrinoStringLiteral(s)),
-            Literal::Int(i) => write!(f, "{}", i),
-            Literal::Bool(true) => write!(f, "TRUE"),
-            Literal::Bool(false) => write!(f, "FALSE"),
-            Literal::Null => write!(f, "NULL"),
+            SimpleValue::String(s) => write!(f, "{}", QuotedString(s)),
+            SimpleValue::Int(i) => write!(f, "{}", i),
+            SimpleValue::Bool(true) => write!(f, "TRUE"),
+            SimpleValue::Bool(false) => write!(f, "FALSE"),
+            SimpleValue::Null => write!(f, "NULL"),
         }
     }
 }
@@ -330,7 +397,7 @@ impl fmt::Display for Literal {
 ///
 /// TODO: Handle precedence when quoting, once it matters.
 #[derive(Clone, Debug, PartialEq)]
-pub(super) enum BinOp {
+pub enum BinOp {
     /// The `=` operator.
     Eq,
 }

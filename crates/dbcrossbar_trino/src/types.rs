@@ -2,7 +2,12 @@
 
 use std::fmt;
 
-use crate::ident::Ident;
+use pretty::RcDoc;
+
+use crate::{
+    ident::Ident,
+    pretty::{comma_sep_list, parens},
+};
 
 /// A Trino data type.
 #[derive(Clone, Debug, PartialEq)]
@@ -106,6 +111,26 @@ impl DataType {
             _ => false,
         }
     }
+
+    /// Convert to a pretty-printable [`RcDoc`]. This is useful for complex type
+    /// arguments to `CAST` expressions in [`crate::pretty::ast`].
+    pub fn to_doc(&self) -> RcDoc<'static, ()> {
+        match self {
+            DataType::Array(elem_ty) => RcDoc::concat(vec![
+                RcDoc::as_string("ARRAY"),
+                parens(elem_ty.to_doc()),
+            ]),
+
+            DataType::Row(fields) => RcDoc::concat(vec![
+                RcDoc::as_string("ROW"),
+                parens(comma_sep_list(fields.iter().map(|field| field.to_doc()))),
+            ]),
+
+            // Types which cannot contain other types will be printed without
+            // further wrapping.
+            _ => RcDoc::as_string(self),
+        }
+    }
 }
 
 // We keep around an implementation of `fmt::Display` for [`DataType`] mostly
@@ -178,6 +203,19 @@ impl Field {
         Field {
             name: Some(name),
             data_type,
+        }
+    }
+
+    /// Pretty-print this `TrinoField` as a [`RcDoc`].
+    fn to_doc(&self) -> RcDoc<'static, ()> {
+        if let Some(name) = &self.name {
+            RcDoc::concat(vec![
+                RcDoc::as_string(name),
+                RcDoc::space(),
+                self.data_type.to_doc(),
+            ])
+        } else {
+            self.data_type.to_doc()
         }
     }
 }

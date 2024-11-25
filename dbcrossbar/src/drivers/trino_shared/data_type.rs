@@ -1,18 +1,13 @@
 //! A Trino data type.
 
+use dbcrossbar_trino::pretty::ast::{ident, Expr};
 pub use dbcrossbar_trino::{
     DataType as TrinoDataType, Field as TrinoField, Ident as TrinoIdent,
 };
-use pretty::RcDoc;
 
 use crate::{
     common::*,
     schema::{DataType, Srid, StructField},
-};
-
-use super::{
-    ast::{ident, Expr},
-    pretty::{comma_sep_list, parens},
 };
 
 /// Methods we want to add to [`TrinoDataType`], but can't because it's defined
@@ -23,7 +18,6 @@ pub(crate) trait TrinoDataTypeExt {
     fn to_data_type(&self) -> Result<DataType>;
     fn string_import_expr(&self, value: &Expr) -> Result<Expr>;
     fn string_export_expr(&self, value: &Expr) -> Result<Expr>;
-    fn to_doc(&self) -> RcDoc<'static, ()>;
 }
 
 /// Like [`TrinoDataTypeExt`], but for methods that are only used in this module.
@@ -288,26 +282,6 @@ impl TrinoDataTypeExt for TrinoDataType {
             TrinoDataType::Varbinary | TrinoDataType::Time { .. } => {
                 Err(format_err!("cannot export values of type {}", self))
             }
-        }
-    }
-
-    /// Convert to a pretty-printable [`RcDoc`]. This is useful for complex type
-    /// arguments to `CAST` expressions in [`super::ast`].
-    fn to_doc(&self) -> RcDoc<'static, ()> {
-        match self {
-            TrinoDataType::Array(elem_ty) => RcDoc::concat(vec![
-                RcDoc::as_string("ARRAY"),
-                parens(elem_ty.to_doc()),
-            ]),
-
-            TrinoDataType::Row(fields) => RcDoc::concat(vec![
-                RcDoc::as_string("ROW"),
-                parens(comma_sep_list(fields.iter().map(|field| field.to_doc()))),
-            ]),
-
-            // Types which cannot contain other types will be printed without
-            // further wrapping.
-            _ => RcDoc::as_string(self),
         }
     }
 }
@@ -628,7 +602,6 @@ impl TrinoDataTypeExtInternal for TrinoDataType {
 pub(crate) trait TrinoFieldExt {
     fn from_struct_field(schema: &Schema, field: &StructField) -> Result<TrinoField>;
     fn to_struct_field(&self, idx: usize) -> Result<StructField>;
-    fn to_doc(&self) -> RcDoc<'static, ()>;
 }
 
 impl TrinoFieldExt for TrinoField {
@@ -653,19 +626,6 @@ impl TrinoFieldExt for TrinoField {
             // Unless shown otherwise, assume fields are nullable.
             is_nullable: true,
         })
-    }
-
-    /// Pretty-print this `TrinoField` as a [`RcDoc`].
-    fn to_doc(&self) -> RcDoc<'static, ()> {
-        if let Some(name) = &self.name {
-            RcDoc::concat(vec![
-                RcDoc::as_string(name),
-                RcDoc::space(),
-                self.data_type.to_doc(),
-            ])
-        } else {
-            self.data_type.to_doc()
-        }
     }
 }
 

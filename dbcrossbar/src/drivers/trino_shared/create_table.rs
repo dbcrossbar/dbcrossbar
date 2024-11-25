@@ -2,21 +2,23 @@
 
 use std::{collections::HashMap, fmt, sync::Arc};
 
+use dbcrossbar_trino::pretty::{
+    ast::{BinOp, Expr, SimpleValue},
+    comma_sep_list, indent, parens,
+};
 use pretty::RcDoc;
 #[cfg(test)]
 use proptest_derive::Arbitrary;
 
 use crate::{
     common::*,
-    drivers::trino_shared::ast::BinOp,
     parse_error::{Annotation, FileInfo, ParseError},
     schema::Column,
 };
 
 use super::{
-    ast::{Expr, Literal},
     data_type::TrinoDataTypeExt as _,
-    pretty::{comma_sep_list, indent, parens, select_from, sql_clause, WIDTH},
+    pretty::{select_from, sql_clause, WIDTH},
     TrinoConnectorType, TrinoDataType, TrinoField, TrinoIdent, TrinoTableName,
 };
 
@@ -28,7 +30,7 @@ pub struct TrinoCreateTable {
     if_not_exists: bool,
     pub(crate) name: TrinoTableName,
     columns: Vec<TrinoColumn>,
-    with: HashMap<TrinoIdent, Literal>,
+    with: HashMap<TrinoIdent, SimpleValue>,
 }
 
 impl TrinoCreateTable {
@@ -167,14 +169,16 @@ impl TrinoCreateTable {
     pub fn add_csv_external_location(&mut self, location: &Url) -> Result<()> {
         self.with.insert(
             TrinoIdent::new("format")?,
-            Literal::String("csv".to_owned()),
+            SimpleValue::String("csv".to_owned()),
         );
         self.with.insert(
             TrinoIdent::new("external_location")?,
-            Literal::String(location.as_str().to_owned()),
+            SimpleValue::String(location.as_str().to_owned()),
         );
-        self.with
-            .insert(TrinoIdent::new("skip_header_line_count")?, Literal::Int(1));
+        self.with.insert(
+            TrinoIdent::new("skip_header_line_count")?,
+            SimpleValue::Int(1),
+        );
         Ok(())
     }
 
@@ -407,8 +411,9 @@ impl TrinoColumn {
 
     /// Write the SQL for importing this column from a wrapper table.
     fn import_expr(&self, connector_type: &TrinoConnectorType) -> Result<Expr> {
+        let transform = connector_type.storage_transform_for(&self.data_type);
         let var = Expr::Var(self.name.clone());
-        let expr = self.data_type.string_import_expr(&var)?;
+        let expr = transform.store_expr(self.data_type.string_import_expr(&var)?);
         if self.is_nullable {
             Ok(Expr::r#if(
                 Expr::binop(Expr::func("LENGTH", vec![var]), BinOp::Eq, Expr::int(0)),
@@ -425,11 +430,13 @@ impl TrinoColumn {
         &self,
         connector_type: &TrinoConnectorType,
     ) -> Result<Expr> {
+        let transform = connector_type.storage_transform_for(&self.data_type);
         let var = Expr::Var(self.name.clone());
         // This always needs to be a VARCHAR with no length, or else the Hive
         // connector will refuse to store it in a table represented as CSV.
         Ok(Expr::cast(
-            self.data_type.string_export_expr(&var)?,
+            self.data_type
+                .string_export_expr(&transform.load_expr(var))?,
             TrinoDataType::varchar(),
         ))
     }
@@ -724,23 +731,23 @@ peg::parser! {
             = _ "IF" _ "NOT" _ "EXISTS" { true }
             / { false }
 
-        rule with() -> HashMap<TrinoIdent, Literal>
+        rule with() -> HashMap<TrinoIdent, SimpleValue>
             = _? "WITH" _? "(" _? properties:(property() ** (_? "," _?)) _? ")" {
                 properties.into_iter().collect()
             }
             / { HashMap::new() }
 
-        rule property() -> (TrinoIdent, Literal)
+        rule property() -> (TrinoIdent, SimpleValue)
             = key:ident() _? "=" _? value:literal() {
                 (key, value)
             }
 
-        rule literal() -> Literal
-            = s:string() { Literal::String(s) }
-            / i:i64() { Literal::Int(i) }
-            / k("true") { Literal::Bool(true) }
-            / k("false") { Literal::Bool(false) }
-            / k("null") { Literal::Null }
+        rule literal() -> SimpleValue
+            = s:string() { SimpleValue::String(s) }
+            / i:i64() { SimpleValue::Int(i) }
+            / k("true") { SimpleValue::Bool(true) }
+            / k("false") { SimpleValue::Bool(false) }
+            / k("null") { SimpleValue::Null }
 
         rule column() -> TrinoColumn
             = name:ident() _ ty:ty() is_nullable:is_nullable() {
@@ -772,7 +779,7 @@ mod tests {
                 any::<TrinoTableName>(),
                 // Make sure we have at least one column.
                 collection::vec(any::<TrinoColumn>(), 1..3),
-                collection::hash_map(any::<TrinoIdent>(), any::<Literal>(), 0..3),
+                collection::hash_map(any::<TrinoIdent>(), any::<SimpleValue>(), 0..3),
             )
                 .prop_map(
                     |(

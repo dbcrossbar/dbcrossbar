@@ -1,8 +1,9 @@
 //! Downgrading Trino types for storage.
 
-use std::fmt;
-
-use crate::{DataType, Field, Ident};
+use crate::{
+    pretty::ast::{ident, Expr},
+    DataType, Field, Ident,
+};
 
 /// Downgrades from stanard Trino types (used when running SQL) to "simpler"
 /// types that are supported by particular storage backends.
@@ -51,28 +52,30 @@ impl StorageTransform {
     }
 
     /// Format an SQL fragment, wrapping it code that converts the value to the
-    /// storage type. Returns an opaque value that supports
-    /// [`std::fmt::Display`].
-    pub fn store_expr<'a>(
-        &'a self,
-        wrapped_expr: &'a dyn fmt::Display,
-    ) -> StoreExpr<'a> {
-        StoreExpr {
-            transform: self,
-            wrapped_expr,
+    /// storage type. Returns an [`Expr`] that can be pretty-printed.
+    pub fn store_expr(&self, wrapped_expr: Expr) -> Expr {
+        let transformed_expr = self
+            .transform
+            .store_transform_expr(wrapped_expr, &self.storage_type);
+        let needs_cast = self.transform.requires_cast_on_store();
+        if needs_cast {
+            Expr::cast(transformed_expr, self.storage_type().to_owned())
+        } else {
+            transformed_expr
         }
     }
 
     /// Format an SQL fragment, wrapping it code that converts the value from
-    /// the storage type. Returns an opaque value that supports
-    /// [`std::fmt::Display`].
-    pub fn load_expr<'a>(
-        &'a self,
-        wrapped_expr: &'a dyn fmt::Display,
-    ) -> LoadExpr<'a> {
-        LoadExpr {
-            transform: self,
-            wrapped_expr,
+    /// the storage type. Returns an [`Expr`] that can be pretty-printed.
+    pub fn load_expr(&self, wrapped_expr: Expr) -> Expr {
+        let transformed_expr = self
+            .transform
+            .load_transform_expr(wrapped_expr, &self.original_type);
+        let needs_cast = self.transform.requires_cast_on_load();
+        if needs_cast {
+            Expr::cast(transformed_expr, self.original_type().to_owned())
+        } else {
+            transformed_expr
         }
     }
 }
@@ -259,11 +262,7 @@ impl TypeStorageTransform {
 
     /// Write an expression that transforms the given expression to the storage
     /// type.
-    fn fmt_store_transform_expr(
-        &self,
-        f: &mut dyn fmt::Write,
-        expr: &dyn fmt::Display,
-    ) -> std::fmt::Result {
+    fn store_transform_expr(&self, expr: Expr, storage_type: &DataType) -> Expr {
         match self {
             // These can either be stored as-is, or any conversion they need will
             // be taken care of by the outermost `CAST`.
@@ -273,12 +272,10 @@ impl TypeStorageTransform {
             | TypeStorageTransform::SmallerIntAsInt
             | TypeStorageTransform::TimeWithPrecision { .. }
             | TypeStorageTransform::TimestampWithPrecision { .. }
-            | TypeStorageTransform::TimestampWithTimeZoneWithPrecision { .. } => {
-                write!(f, "{}", expr)
-            }
+            | TypeStorageTransform::TimestampWithTimeZoneWithPrecision { .. } => expr,
 
             TypeStorageTransform::JsonAsVarchar => {
-                write!(f, "JSON_FORMAT({})", expr)
+                Expr::func("JSON_FORMAT", vec![expr])
             }
 
             TypeStorageTransform::SphericalGeographyAsWkt => {
@@ -289,43 +286,74 @@ impl TypeStorageTransform {
                 //    including in error messages and on the wire.
                 // 2. Prior to compression, it seems to be about half the size
                 //    of GeoJSON.
-                write!(f, "ST_AsText(to_geometry({}))", expr)
+                Expr::func("ST_AsText", vec![Expr::func("to_geometry", vec![expr])])
             }
             TypeStorageTransform::TimestampWithTimeZoneAsTimestamp {
                 stored_precision,
             } => {
-                write!(
-                    f,
-                    "CAST(({} AT TIME ZONE '+00:00') AS TIMESTAMP({}))",
-                    expr, stored_precision
+                // This is a weird case we don't have in our AST.
+                Expr::cast(
+                    Expr::at_time_zone(expr, "+00:00"),
+                    DataType::Timestamp {
+                        precision: *stored_precision,
+                    },
                 )
             }
             TypeStorageTransform::Array { element_transform } => {
                 // We need to use `TRANSFORM` to handle each array element.
-                write!(f, "TRANSFORM({}, x -> ", expr)?;
-                element_transform.fmt_store_transform_expr(f, &"x")?;
-                write!(f, ")")
+                let DataType::Array(elem_storage_type) = storage_type else {
+                    panic!("expected DataType::Array")
+                };
+                let x = ident("x");
+                Expr::func(
+                    "TRANSFORM",
+                    vec![
+                        expr,
+                        Expr::lambda(
+                            x.clone(),
+                            element_transform
+                                .store_transform_expr(Expr::Var(x), elem_storage_type),
+                        ),
+                    ],
+                )
             }
             TypeStorageTransform::Row {
                 name_anonymous_fields: _,
                 field_transforms,
             } => {
-                // This is a bit of a trick. We only want to evaluate `expr`
-                // once, but we can't bind local variables. So we construct a
-                // one element array, map over it, and then take the first
-                // element.
-                write!(f, "TRANSFORM(ARRAY[{}], x -> ROW(", expr)?;
-                for (idx, ft) in field_transforms.iter().enumerate() {
-                    if idx > 0 {
-                        write!(f, ", ")?;
-                    }
-                    let field_expr = match &ft.name {
-                        FieldName::Named(ident) => format!("x.{}", ident),
-                        FieldName::Indexed(idx) => format!("x[{}]", idx),
-                    };
-                    ft.transform.fmt_store_transform_expr(f, &field_expr)?;
-                }
-                write!(f, "))[1]")
+                let DataType::Row(storage_fields) = storage_type else {
+                    panic!("expected DataType::Row")
+                };
+                let x = ident("x");
+                let x_expr = Expr::Var(x.clone());
+                Expr::bind_var(
+                    x.clone(),
+                    expr,
+                    Expr::row(
+                        storage_type.to_owned(),
+                        field_transforms
+                            .iter()
+                            .zip(storage_fields)
+                            .map(|(ft, sf)| {
+                                let field_expr = match &ft.name {
+                                    FieldName::Named(ident) => {
+                                        Expr::field(x_expr.clone(), ident.clone())
+                                    }
+                                    FieldName::Indexed(idx) => {
+                                        // Convert to 1-based index of type i64.
+                                        // This should never fail on any
+                                        // real-world example.
+                                        let idx = i64::try_from(*idx)
+                                            .expect("index too large");
+                                        Expr::index(x_expr.clone(), Expr::int(idx))
+                                    }
+                                };
+                                ft.transform
+                                    .store_transform_expr(field_expr, &sf.data_type)
+                            })
+                            .collect(),
+                    ),
+                )
             }
         }
     }
@@ -361,73 +389,92 @@ impl TypeStorageTransform {
 
     /// Write an expression that transforms the given expression from the storage
     /// type to the standard type.
-    fn fmt_load_transform_expr(
-        &self,
-        f: &mut dyn fmt::Write,
-        expr: &dyn fmt::Display,
-    ) -> std::fmt::Result {
+    fn load_transform_expr(&self, expr: Expr, original_type: &DataType) -> Expr {
         match self {
-            TypeStorageTransform::Identity => write!(f, "{}", expr),
+            TypeStorageTransform::Identity => expr,
             TypeStorageTransform::JsonAsVarchar => {
-                write!(f, "JSON_PARSE({})", expr)
+                Expr::func("JSON_PARSE", vec![expr])
             }
             TypeStorageTransform::UuidAsVarchar => {
-                write!(f, "CAST({} AS UUID)", expr)
+                // TODO: Not entirely sure why we still do this cast here. Try without.
+                Expr::cast(expr, DataType::Uuid)
             }
-            TypeStorageTransform::SphericalGeographyAsWkt => {
-                write!(f, "to_spherical_geography(ST_GeometryFromText({}))", expr)
-            }
-            TypeStorageTransform::SmallerIntAsInt => {
-                write!(f, "{}", expr)
-            }
-            TypeStorageTransform::TimeAsVarchar => {
-                write!(f, "{}", expr)
-            }
+            TypeStorageTransform::SphericalGeographyAsWkt => Expr::func(
+                "to_spherical_geography",
+                vec![Expr::func("ST_GeometryFromText", vec![expr])],
+            ),
+            TypeStorageTransform::SmallerIntAsInt => expr,
+            TypeStorageTransform::TimeAsVarchar => expr,
             TypeStorageTransform::TimestampWithTimeZoneAsTimestamp { .. } => {
-                write!(f, "({} AT TIME ZONE '+00:00')", expr)
+                Expr::at_time_zone(expr, "+00:00")
             }
-            TypeStorageTransform::TimeWithPrecision { .. } => {
-                write!(f, "{}", expr)
-            }
-            TypeStorageTransform::TimestampWithPrecision { .. } => {
-                write!(f, "{}", expr)
-            }
-            TypeStorageTransform::TimestampWithTimeZoneWithPrecision { .. } => {
-                write!(f, "{}", expr)
-            }
+            TypeStorageTransform::TimeWithPrecision { .. } => expr,
+            TypeStorageTransform::TimestampWithPrecision { .. } => expr,
+            TypeStorageTransform::TimestampWithTimeZoneWithPrecision { .. } => expr,
             TypeStorageTransform::Array { element_transform } => {
                 // We need to use `TRANSFORM` to handle each array element.
-                write!(f, "TRANSFORM({}, x ->", expr,)?;
-                element_transform.fmt_load_transform_expr(f, &"x")?;
-                write!(f, ")")
+                let DataType::Array(elem_original_type) = original_type else {
+                    panic!("expected DataType::Array")
+                };
+                let x = ident("x");
+                Expr::func(
+                    "TRANSFORM",
+                    vec![
+                        expr,
+                        Expr::lambda(
+                            x.clone(),
+                            element_transform
+                                .load_transform_expr(Expr::Var(x), elem_original_type),
+                        ),
+                    ],
+                )
             }
             TypeStorageTransform::Row {
                 name_anonymous_fields,
                 field_transforms,
             } => {
+                let DataType::Row(original_fields) = original_type else {
+                    panic!("expected DataType::Row")
+                };
+
                 // If all fields are the identity transform, we don't need to do
                 // anything here, because our final CAST will handle it.
                 if field_transforms.iter().all(|ft| ft.transform.is_identity()) {
                     debug_assert!(name_anonymous_fields);
-                    return write!(f, "{}", expr);
+                    return expr;
                 }
 
-                // This is a bit of a trick. We only want to evaluate `expr`
-                // once, but we can't bind local variables. So we construct a
-                // one element array, map over it, and then take the first
-                // element.
-                write!(f, "TRANSFORM(ARRAY[{}], x -> ROW(", expr)?;
-                for (idx, ft) in field_transforms.iter().enumerate() {
-                    if idx > 0 {
-                        write!(f, ", ")?;
-                    }
-                    let field_expr = match &ft.name {
-                        FieldName::Named(ident) => format!("x.{}", ident),
-                        FieldName::Indexed(idx) => format!("x[{}]", idx),
-                    };
-                    ft.transform.fmt_load_transform_expr(f, &field_expr)?;
-                }
-                write!(f, "))[1]")
+                let x = ident("x");
+                let x_expr = Expr::Var(x.clone());
+
+                Expr::bind_var(
+                    x,
+                    expr,
+                    Expr::row(
+                        original_type.clone(),
+                        field_transforms
+                            .iter()
+                            .zip(original_fields)
+                            .map(|(ft, of)| {
+                                let field_expr = match &ft.name {
+                                    FieldName::Named(ident) => {
+                                        Expr::field(x_expr.clone(), ident.clone())
+                                    }
+                                    FieldName::Indexed(idx) => {
+                                        // Convert to 1-based index of type i64.
+                                        // This should never fail on any
+                                        // real-world example.
+                                        let idx = i64::try_from(*idx)
+                                            .expect("index too large");
+                                        Expr::index(x_expr.clone(), Expr::int(idx))
+                                    }
+                                };
+                                ft.transform
+                                    .load_transform_expr(field_expr, &of.data_type)
+                            })
+                            .collect(),
+                    ),
+                )
             }
         }
     }
@@ -447,50 +494,6 @@ pub(crate) struct FieldStorageTransform {
     pub(crate) transform: TypeStorageTransform,
 }
 
-/// Format a store operation with any necessary transform.
-pub struct StoreExpr<'a> {
-    transform: &'a StorageTransform,
-    wrapped_expr: &'a dyn fmt::Display,
-}
-
-impl<'a> std::fmt::Display for StoreExpr<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let needs_cast = self.transform.transform.requires_cast_on_store();
-        if needs_cast {
-            write!(f, "CAST(")?;
-        }
-        self.transform
-            .transform
-            .fmt_store_transform_expr(f, self.wrapped_expr)?;
-        if needs_cast {
-            write!(f, " AS {})", self.transform.storage_type())?;
-        }
-        Ok(())
-    }
-}
-
-/// Format a load operation with any necessary transform.
-pub struct LoadExpr<'a> {
-    transform: &'a StorageTransform,
-    wrapped_expr: &'a dyn fmt::Display,
-}
-
-impl<'a> std::fmt::Display for LoadExpr<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let needs_cast = self.transform.transform.requires_cast_on_load();
-        if needs_cast {
-            write!(f, "CAST(")?;
-        }
-        self.transform
-            .transform
-            .fmt_load_transform_expr(f, self.wrapped_expr)?;
-        if needs_cast {
-            write!(f, " AS {})", self.transform.original_type())?;
-        }
-        Ok(())
-    }
-}
-
 #[cfg(all(test, feature = "client"))]
 mod tests {
     use std::str::FromStr as _;
@@ -508,8 +511,12 @@ mod tests {
     use crate::{
         client::Client,
         connectors::ConnectorType,
+        pretty::INDENT,
         values::{IsCloseEnoughTo as _, Value},
     };
+
+    /// What's our width for pretty-printing?
+    const TEST_WIDTH: usize = 79;
 
     async fn test_storage_transform_roundtrip_helper(
         test_name: &str,
@@ -555,9 +562,15 @@ mod tests {
         // Insert a value into the table. We use SELECT to avoid hitting
         // https://github.com/trinodb/trino/discussions/16457.
         let insert_sql = format!(
-            "INSERT INTO {} SELECT {} AS x",
+            "INSERT INTO {} SELECT
+            {}
+            AS x",
             table_name,
-            storage_transform.store_expr(&value),
+            storage_transform
+                .store_expr(Expr::raw_sql(&value))
+                .to_doc()
+                .nest(INDENT)
+                .pretty(TEST_WIDTH),
         );
         eprintln!("insert_sql: {}", insert_sql);
         client
@@ -567,8 +580,14 @@ mod tests {
 
         // Read the value back out.
         let select_sql = format!(
-            "SELECT {} FROM {}",
-            storage_transform.load_expr(&"x"),
+            "SELECT
+            {}
+            FROM {}",
+            storage_transform
+                .load_expr(Expr::Var(ident("x")))
+                .to_doc()
+                .nest(INDENT)
+                .pretty(TEST_WIDTH),
             table_name
         );
         eprintln!("select_sql: {}", select_sql);

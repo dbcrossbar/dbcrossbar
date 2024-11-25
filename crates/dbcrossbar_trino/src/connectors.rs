@@ -10,10 +10,11 @@ use proptest_derive::Arbitrary;
 
 use crate::{
     errors::ConnectorError,
+    pretty::ast::SimpleValue,
     transforms::{
         FieldName, FieldStorageTransform, StorageTransform, TypeStorageTransform,
     },
-    Ident, TableOptionValue, TableOptions,
+    Ident, TableOptions,
 };
 
 use super::DataType;
@@ -23,7 +24,9 @@ use super::DataType;
 /// ### Usage
 ///
 /// ```
-/// use dbcrossbar_trino::{ConnectorType, DataType, TableOptions};
+/// use dbcrossbar_trino::{
+///     ConnectorType, DataType, TableOptions, pretty::ast::Expr,
+/// };
 ///
 /// // Choose our connector type.
 /// let connector = ConnectorType::Hive;
@@ -31,16 +34,16 @@ use super::DataType;
 ///
 /// /// Get some SQL fragments we'll need to create a table.
 /// let not_null_sql = if connector.supports_not_null_constraint() {
-///    " NOT NULL"
+///     " NOT NULL"
 /// } else {
-///   // This connector cannot enforce `NOT NULL` constraints.
-///   ""
+///     // This connector cannot enforce `NOT NULL` constraints.
+///     ""
 /// };
 /// let or_replace_sql = if connector.supports_replace_table() {
-///   " OR REPLACE"
+///     " OR REPLACE"
 /// } else {
-///   // You will need a separate `DROP TABLE` statement in this case.
-///   ""
+///     // You will need a separate `DROP TABLE` statement in this case.
+///     ""
 /// };
 ///
 /// /// Get options to support `MERGE`, if it's available.
@@ -66,15 +69,17 @@ use super::DataType;
 /// );
 ///
 /// /// SQL to insert a row.
+/// let json_expr = Expr::raw_sql("JSON '[1, 2, 3]'");
 /// let insert_sql = format!(
 ///   "INSERT INTO {table_name} (x) VALUES ({});",
-///   storage_transform.store_expr(&"JSON '[1, 2, 3]'"),
+///   storage_transform.store_expr(json_expr).to_string(),
 /// );
 ///
 /// /// SQL to select a row.
+/// let x_expr = Expr::raw_sql("x");
 /// let select_sql = format!(
 ///   "SELECT {} AS x FROM {table_name};",
-///   storage_transform.load_expr(&"x"),
+///   storage_transform.load_expr(x_expr).to_string(),
 /// );
 /// ```
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -189,11 +194,11 @@ impl ConnectorType {
             ConnectorType::Hive => {
                 options.insert(
                     Ident::new("format").expect("bad ident"),
-                    TableOptionValue::String("ORC".to_string()),
+                    SimpleValue::String("ORC".to_string()),
                 );
                 options.insert(
                     Ident::new("transactional").expect("bad ident"),
-                    TableOptionValue::Boolean(true),
+                    SimpleValue::Bool(true),
                 );
             }
             ConnectorType::Iceberg => {

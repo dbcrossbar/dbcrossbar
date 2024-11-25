@@ -9,7 +9,6 @@ use proptest_derive::Arbitrary;
 
 use crate::common::*;
 
-mod ast;
 mod create_table;
 mod data_type;
 mod driver_args;

@@ -79,8 +79,8 @@ pub use crate::{
     errors::IdentifierError,
     ident::Ident,
     quoted_string::QuotedString,
-    table_options::{TableOptionValue, TableOptions},
-    transforms::{LoadExpr, StorageTransform, StoreExpr},
+    table_options::TableOptions,
+    transforms::StorageTransform,
     types::{DataType, Field},
 };
 #[cfg(feature = "macros")]
@@ -91,6 +91,7 @@ pub mod client;
 mod connectors;
 mod errors;
 mod ident;
+pub mod pretty;
 #[cfg(feature = "proptest")]
 pub mod proptest;
 mod quoted_string;
