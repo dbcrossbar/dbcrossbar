@@ -14,6 +14,7 @@ fn cp_from_postgres_to_exact_csv() {
         "cp_from_postgres_to_exact_csv",
         &pg_table,
         Default::default(),
+        AssertCpToExactCsvOptions::none(),
     );
 }
 

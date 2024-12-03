@@ -184,6 +184,18 @@ impl CommandAddTempTypes for Command {
     }
 }
 
+/// Option for [`assert_cp_to_exact_csv`].
+#[derive(Debug, BigEnumSetType)]
+pub enum AssertCpToExactCsvOptions {
+    EnableUnstable,
+}
+
+impl AssertCpToExactCsvOptions {
+    pub fn none() -> BigEnumSet<Self> {
+        BigEnumSet::default()
+    }
+}
+
 /// Copy to and from the specified locator, making sure that certain scalar
 /// types always produce byte-identical output.
 ///
@@ -200,14 +212,23 @@ pub(crate) fn assert_cp_to_exact_csv(
     test_name: &str,
     locator: &str,
     temp_types: BigEnumSet<TempType>,
+    options: BigEnumSet<AssertCpToExactCsvOptions>,
 ) {
     let testdir = TestDir::new("dbcrossbar", test_name);
     let src = testdir.src_path("fixtures/exact_output.csv");
     let schema = testdir.src_path("fixtures/exact_output.sql");
 
+    let enable_unstable_args: &[&str] =
+        if options.contains(AssertCpToExactCsvOptions::EnableUnstable) {
+            &["--enable-unstable"]
+        } else {
+            &[]
+        };
+
     // CSV to locator.
     let output = testdir
         .cmd()
+        .args(enable_unstable_args)
         .args(["cp", "--display-output-locators", "--if-exists=overwrite"])
         .add_temp_types(temp_types, test_name)
         .args([
@@ -229,6 +250,7 @@ pub(crate) fn assert_cp_to_exact_csv(
     // Locator to CSV.
     let output = testdir
         .cmd()
+        .args(enable_unstable_args)
         .arg("cp")
         .add_temp_types(temp_types, test_name)
         .args([

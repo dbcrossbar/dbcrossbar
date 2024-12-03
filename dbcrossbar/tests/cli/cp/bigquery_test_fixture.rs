@@ -11,6 +11,7 @@ fn cp_from_bigquery_test_fixture_to_exact_csv() {
         "cp_from_bigquery_test_fixture_to_exact_csv",
         &bq_table,
         TempType::Gs | TempType::Bq,
+        AssertCpToExactCsvOptions::none(),
     );
 }
 

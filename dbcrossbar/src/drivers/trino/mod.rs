@@ -228,4 +228,9 @@ impl LocatorStatic for TrinoLocator {
             _placeholder: (),
         }
     }
+
+    /// Is this driver unstable?
+    fn is_unstable() -> bool {
+        true
+    }
 }

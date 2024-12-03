@@ -8,7 +8,9 @@ use difference::assert_diff;
 
 use crate::cp::trino_test_table;
 
-use super::{assert_cp_to_exact_csv, s3_test_dir_url, TempType};
+use super::{
+    assert_cp_to_exact_csv, s3_test_dir_url, AssertCpToExactCsvOptions, TempType,
+};
 
 #[test]
 #[ignore]
@@ -19,6 +21,7 @@ fn cp_from_trino_to_exact_csv() {
             "cp_from_trino_to_exact_csv",
             &table,
             TempType::S3.into(),
+            AssertCpToExactCsvOptions::EnableUnstable.into(),
         );
     }
 }
@@ -44,6 +47,7 @@ fn cp_csv_to_trino_to_csv_helper(
         testdir
             .cmd()
             .args([
+                "--enable-unstable",
                 "cp",
                 "--if-exists=overwrite",
                 &format!("--temporary={}", s3_temp_dir),
@@ -58,6 +62,7 @@ fn cp_csv_to_trino_to_csv_helper(
         testdir
             .cmd()
             .args([
+                "--enable-unstable",
                 "cp",
                 "--if-exists=overwrite",
                 &format!("--temporary={}", s3_temp_dir),
@@ -121,6 +126,7 @@ fn cp_from_trino_with_where() {
         testdir
             .cmd()
             .args([
+                "--enable-unstable",
                 "cp",
                 "--if-exists=overwrite",
                 &format!("--temporary={}", s3_temp_dir),
@@ -135,6 +141,7 @@ fn cp_from_trino_with_where() {
         testdir
             .cmd()
             .args([
+                "--enable-unstable",
                 "cp",
                 &format!("--temporary={}", s3_temp_dir),
                 &format!("--schema=postgres-sql:{}", schema.display()),
@@ -180,6 +187,7 @@ fn trino_upsert() {
             testdir
                 .cmd()
                 .args([
+                    "--enable-unstable",
                     "cp",
                     // We always use `upsert-on`, including for the first file,
                     // because Trino connectors may not support upsert by default.
@@ -197,6 +205,7 @@ fn trino_upsert() {
         testdir
             .cmd()
             .args([
+                "--enable-unstable",
                 "cp",
                 "--if-exists=overwrite",
                 &format!("--temporary={}", s3_temp_dir),
@@ -236,6 +245,7 @@ fn schema_conv_on_trino_table() {
         testdir
             .cmd()
             .args([
+                "--enable-unstable",
                 "schema",
                 "conv",
                 "--if-exists=overwrite",
@@ -247,7 +257,13 @@ fn schema_conv_on_trino_table() {
 
         testdir
             .cmd()
-            .args(["schema", "conv", &trino_table, "postgres-sql:output.sql"])
+            .args([
+                "--enable-unstable",
+                "schema",
+                "conv",
+                &trino_table,
+                "postgres-sql:output.sql",
+            ])
             .tee_output()
             .expect_success();
 

@@ -20,6 +20,7 @@ fn cp_from_bigml_to_exact_csv() {
         "cp_from_bigml_to_exact_csv",
         "bigml:dataset",
         TempType::S3.into(),
+        BigEnumSet::default(),
     );
 }
 

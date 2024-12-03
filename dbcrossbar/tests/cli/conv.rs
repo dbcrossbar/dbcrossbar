@@ -211,6 +211,7 @@ fn conv_bigquery_schema_to_trino_sql() {
     testdir
         .cmd()
         .args([
+            "--enable-unstable",
             "schema",
             "conv",
             &format!("bigquery-schema:{}", input_json.display()),
@@ -229,7 +230,13 @@ fn conv_postgres_schema_to_trino_sql() {
     let expected_sql = testdir.src_path("fixtures/trino/from_postgres.sql");
     testdir
         .cmd()
-        .args(["schema", "conv", "postgres-sql:-", "trino-sql:output.sql"])
+        .args([
+            "--enable-unstable",
+            "schema",
+            "conv",
+            "postgres-sql:-",
+            "trino-sql:output.sql",
+        ])
         .output_with_stdin(input_sql)
         .expect_success();
     let expected = fs::read_to_string(expected_sql).unwrap();
@@ -245,6 +252,7 @@ fn conv_dbcrossbar_schema_to_trino_sql() {
     testdir
         .cmd()
         .args([
+            "--enable-unstable",
             "schema",
             "conv",
             &format!("dbcrossbar-schema:{}", input_json.display()),
@@ -266,6 +274,7 @@ fn conv_trino_sql_to_dbcrossbar_schema() {
     testdir
         .cmd()
         .args([
+            "--enable-unstable",
             "schema",
             "conv",
             &format!("trino-sql:{}", input_sql.display()),

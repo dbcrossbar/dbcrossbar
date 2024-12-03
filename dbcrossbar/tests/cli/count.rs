@@ -85,6 +85,7 @@ fn count_trino() {
         testdir
             .cmd()
             .args([
+                "--enable-unstable",
                 "cp",
                 "--if-exists=overwrite",
                 &format!("--temporary={}", s3_temp_dir),
@@ -98,7 +99,7 @@ fn count_trino() {
         // Count BigQuery.
         let output = testdir
             .cmd()
-            .args(["count", &trino_table])
+            .args(["--enable-unstable", "count", &trino_table])
             .tee_output()
             .expect_success();
 

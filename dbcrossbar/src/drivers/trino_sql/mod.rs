@@ -73,6 +73,11 @@ impl LocatorStatic for TrinoSqlLocator {
             _placeholder: (),
         }
     }
+
+    /// Is this driver unstable?
+    fn is_unstable() -> bool {
+        true
+    }
 }
 
 /// Implementation of `schema`, but as a real `async` function.
