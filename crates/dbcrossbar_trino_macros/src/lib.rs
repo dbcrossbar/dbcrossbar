@@ -1,3 +1,9 @@
+//! This crate is a support crate for `dbcrossbar_trino`. It provides a
+//! `#[derive(...)]` macro for deserializing query results into a Rust `struct`.
+//! For more information, see the [documentation][docs] for that crate.
+//!
+//! [docs]: https://docs.rs/dbcrossbar_trino/
+
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
