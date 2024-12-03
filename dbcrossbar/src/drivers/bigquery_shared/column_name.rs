@@ -173,7 +173,7 @@ impl<'de> Deserialize<'de> for ColumnName {
 /// to display it without making a decision.
 pub(crate) struct ColumnNameQuoted<'a>(&'a ColumnName);
 
-impl<'a> fmt::Display for ColumnNameQuoted<'a> {
+impl fmt::Display for ColumnNameQuoted<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Always quote, just in case the column name is a keyword.
         write!(f, "`{}`", self.0.as_str())
@@ -187,7 +187,7 @@ impl<'a> fmt::Display for ColumnNameQuoted<'a> {
 /// ignores case, but JavaScript treats it as significant.
 pub(crate) struct ColumnNameJavaScriptQuoted<'a>(&'a ColumnName);
 
-impl<'a> fmt::Display for ColumnNameJavaScriptQuoted<'a> {
+impl fmt::Display for ColumnNameJavaScriptQuoted<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "\"{}\"", self.0.as_str())
     }

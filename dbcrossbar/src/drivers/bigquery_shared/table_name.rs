@@ -132,7 +132,7 @@ impl FromStr for TableName {
 /// This form of the name is used in BigQuery "standard SQL".
 pub(crate) struct DottedTableName<'a>(&'a TableName);
 
-impl<'a> fmt::Display for DottedTableName<'a> {
+impl fmt::Display for DottedTableName<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -147,7 +147,7 @@ impl<'a> fmt::Display for DottedTableName<'a> {
 /// A BigQuery identifier, for formatting purposes.
 pub(crate) struct Ident<'a>(pub(crate) &'a str);
 
-impl<'a> fmt::Display for Ident<'a> {
+impl fmt::Display for Ident<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.0.contains('`') {
             // We can't output identifiers containing backticks.

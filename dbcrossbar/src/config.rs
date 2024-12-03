@@ -91,7 +91,7 @@ impl Key<'_> {
     }
 }
 
-impl<'a> fmt::Display for Key<'a> {
+impl fmt::Display for Key<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.key.fmt(f)
     }

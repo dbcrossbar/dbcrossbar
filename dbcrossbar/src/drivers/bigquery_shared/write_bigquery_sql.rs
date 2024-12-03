@@ -41,7 +41,7 @@ impl<W: Write> WriteBigQuerySql<W> for &'_ str {
 /// of `&[u8]` because our data is already known to be `&str`.
 pub(crate) struct BytesLiteral<'a>(pub(crate) &'a str);
 
-impl<'a, W: Write> WriteBigQuerySql<W> for BytesLiteral<'a> {
+impl<W: Write> WriteBigQuerySql<W> for BytesLiteral<'_> {
     fn write_bigquery_sql(&self, sql: &mut W) -> Result<(), io::Error> {
         write!(sql, "B")?;
         self.0.write_bigquery_sql(sql)
@@ -71,7 +71,7 @@ impl<W: Write> WriteBigQuerySql<W> for i64 {
 /// Convenience wrapper to write a `&str` as a NUMERIC literal.
 pub(crate) struct NumericLiteral<'a>(pub(crate) &'a str);
 
-impl<'a, W: Write> WriteBigQuerySql<W> for NumericLiteral<'a> {
+impl<W: Write> WriteBigQuerySql<W> for NumericLiteral<'_> {
     fn write_bigquery_sql(&self, sql: &mut W) -> Result<(), io::Error> {
         write!(sql, "NUMERIC ")?;
         self.0.write_bigquery_sql(sql)
@@ -81,7 +81,7 @@ impl<'a, W: Write> WriteBigQuerySql<W> for NumericLiteral<'a> {
 // Geography literals need to be wrapped in ST_GEOGFROMGEOJSON.
 pub(crate) struct GeographyLiteral<'a>(pub(crate) &'a str);
 
-impl<'a, W: Write> WriteBigQuerySql<W> for GeographyLiteral<'a> {
+impl<W: Write> WriteBigQuerySql<W> for GeographyLiteral<'_> {
     fn write_bigquery_sql(&self, sql: &mut W) -> Result<(), io::Error> {
         write!(sql, "ST_GEOGFROMGEOJSON(")?;
         self.0.write_bigquery_sql(sql)?;
@@ -89,7 +89,7 @@ impl<'a, W: Write> WriteBigQuerySql<W> for GeographyLiteral<'a> {
     }
 }
 
-impl<'a, W: Write, Elem: WriteBigQuerySql<W>> WriteBigQuerySql<W> for &'a [Elem] {
+impl<W: Write, Elem: WriteBigQuerySql<W>> WriteBigQuerySql<W> for &'_ [Elem] {
     fn write_bigquery_sql(&self, sql: &mut W) -> Result<(), io::Error> {
         // TODO: Remember, `ARRAY[ARRAY[...]]` does not work! We need to
         // generate `ARRAY[STRUCT(ARRAY[...])]`.

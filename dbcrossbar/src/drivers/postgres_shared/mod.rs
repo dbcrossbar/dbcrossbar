@@ -80,7 +80,7 @@ fn pg_quote_doubles_single_quotes() {
 /// prevent clashes with keywords.
 pub(crate) struct Ident<'a>(pub(crate) &'a str);
 
-impl<'a> fmt::Display for Ident<'a> {
+impl fmt::Display for Ident<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "\"")?;
         write!(f, "{}", self.0.replace('"', "\"\""))?;

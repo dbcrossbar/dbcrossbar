@@ -1,6 +1,10 @@
 //! Common Trino-related types, used by both [`super::trino_sql`] and
 //! [`super::trino`] drivers.
 
+// The `Arbitrary`` macro expands to code which trips this warning. We should try
+// to remove this after updating to a future version of `proptest`.
+#![allow(non_local_definitions)]
+
 use std::fmt;
 
 pub use dbcrossbar_trino::{ConnectorType as TrinoConnectorType, Ident as TrinoIdent};
@@ -22,7 +26,7 @@ pub(crate) use pretty::WIDTH as PRETTY_WIDTH;
 /// A Trino string literal. Used for formatting only.
 pub(crate) struct TrinoStringLiteral<'a>(pub(crate) &'a str);
 
-impl<'a> fmt::Display for TrinoStringLiteral<'a> {
+impl fmt::Display for TrinoStringLiteral<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // If the string contains single quotes, double them.
         if self.0.contains('\'') {

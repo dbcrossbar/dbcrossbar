@@ -171,7 +171,7 @@ impl Inner {
     fn all_labels<'a>(
         &'a self,
         key: &'a Key,
-    ) -> (impl Iterator<Item = (&str, &str)> + 'a, usize) {
+    ) -> (impl Iterator<Item = (&'a str, &'a str)> + 'a, usize) {
         let len = self
             .global_labels
             .len()
@@ -213,7 +213,7 @@ where
 /// characters.
 struct PrometheusName<'a>(&'a str);
 
-impl<'a> std::fmt::Display for PrometheusName<'a> {
+impl std::fmt::Display for PrometheusName<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut chars = self.0.chars();
         match chars.next() {

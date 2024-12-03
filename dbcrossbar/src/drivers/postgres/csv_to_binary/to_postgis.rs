@@ -7,7 +7,7 @@ use std::convert::TryInto;
 use super::write_binary::GeometryWithSrid;
 use crate::common::*;
 
-impl<'a> GeometryWithSrid<'a> {
+impl GeometryWithSrid<'_> {
     /// Convert a `GeometryWithSrid` into the corresponding
     /// [`postgis::ewkb::Geometry`], failing if the SRID cannot be converted to
     /// an i32 value.

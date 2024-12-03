@@ -9,7 +9,7 @@ pub(crate) struct Separator<'a> {
     first_time: bool,
 }
 
-impl<'a> Separator<'a> {
+impl Separator<'_> {
     /// Create a new separator which displays the specified string.
     pub(crate) fn new(text: &str) -> Separator {
         Separator {
@@ -34,7 +34,7 @@ impl<'a> Separator<'a> {
 /// Displays either nothing or a separator string.
 pub(crate) struct SeparatorDisplay<'a>(Option<&'a str>);
 
-impl<'a> fmt::Display for SeparatorDisplay<'a> {
+impl fmt::Display for SeparatorDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let SeparatorDisplay(Some(text)) = *self {
             write!(f, "{}", text)?;

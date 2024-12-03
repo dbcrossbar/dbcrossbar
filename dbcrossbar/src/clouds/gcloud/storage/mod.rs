@@ -99,7 +99,7 @@ where
     // that back from any API.
     struct IntVisitor<T>(PhantomData<T>);
 
-    impl<'de, T> Visitor<'de> for IntVisitor<T>
+    impl<T> Visitor<'_> for IntVisitor<T>
     where
         T: FromStr,
         <T as FromStr>::Err: fmt::Display,
