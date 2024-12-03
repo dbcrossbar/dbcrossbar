@@ -1,6 +1,9 @@
 //! Options for creating a table in Trino.
 
-use std::{collections::HashMap, fmt};
+use std::{
+    collections::{hash_map, HashMap},
+    fmt,
+};
 
 use crate::{pretty::ast::SimpleValue, Ident};
 
@@ -31,5 +34,14 @@ impl fmt::Display for TableOptions {
             write!(f, "{} = {}", ident, value)?;
         }
         write!(f, ")")
+    }
+}
+
+impl IntoIterator for TableOptions {
+    type Item = (Ident, SimpleValue);
+    type IntoIter = hash_map::IntoIter<Ident, SimpleValue>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }

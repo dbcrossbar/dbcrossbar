@@ -35,7 +35,7 @@ pub(super) async fn write_schema_helper(
     let table_name = dest.table_name()?;
     let mut create_ideal_table =
         TrinoCreateTable::from_schema_and_name(&schema, &table_name)?;
-    create_ideal_table.set_if_exists_options(if_exists);
+    create_ideal_table.set_if_exists_options(&if_exists, &connector_type);
     let create_storage_table =
         create_ideal_table.storage_table_for_connector_type(&connector_type);
     if let Some(separate_drop_if_exists) =

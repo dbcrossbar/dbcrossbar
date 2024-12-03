@@ -1,6 +1,6 @@
 //! Trino-related tests.
 
-use std::fs;
+use std::{fs, path::Path};
 
 use cli_test_dir::*;
 use dbcrossbar_trino::ConnectorType;
@@ -148,6 +148,77 @@ fn cp_from_trino_with_where() {
 
         let expected = fs::read_to_string(filtered).unwrap();
         let actual = fs::read_to_string(testdir.path("out/out.csv")).unwrap();
+        assert_diff!(&expected, &actual, ",", 0);
+    }
+}
+
+#[test]
+#[ignore]
+fn trino_upsert() {
+    for connector_type in ConnectorType::all_testable() {
+        // Not all connectors support MERGE, so skip any that don't.
+        if !connector_type.supports_merge() {
+            println!(
+                "Skipping connector {} because it does not support MERGE",
+                connector_type
+            );
+            continue;
+        }
+
+        let testdir = TestDir::new("dbcrossbar", "bigquery_upsert");
+        let srcs = &[
+            testdir.src_path("fixtures/upsert/upsert_1.csv"),
+            testdir.src_path("fixtures/upsert/upsert_2.csv"),
+        ];
+        let expected = testdir.src_path("fixtures/upsert/upsert_result.csv");
+        let schema = testdir.src_path("fixtures/upsert/upsert.sql");
+        let s3_temp_dir = s3_test_dir_url("bigquery_upsert");
+        let trino_table = trino_test_table(&connector_type, "bigquery_upsert");
+
+        // CSVes to Trino.
+        for src in srcs {
+            testdir
+                .cmd()
+                .args([
+                    "cp",
+                    // We always use `upsert-on`, including for the first file,
+                    // because Trino connectors may not support upsert by default.
+                    "--if-exists=upsert-on:key1,key2",
+                    &format!("--temporary={}", s3_temp_dir),
+                    &format!("--schema=postgres-sql:{}", schema.display()),
+                    &format!("csv:{}", src.display()),
+                    &trino_table,
+                ])
+                .tee_output()
+                .expect_success();
+        }
+
+        // BigQuery to CSV.
+        testdir
+            .cmd()
+            .args([
+                "cp",
+                "--if-exists=overwrite",
+                &format!("--temporary={}", s3_temp_dir),
+                &trino_table,
+                "csv:out.csv",
+            ])
+            .tee_output()
+            .expect_success();
+
+        // We sort the lines of the CSVs because BigQuery outputs in any order.
+        // This has the side effect of putting the headers at the end.
+        let normalize_csv = |path: &Path| -> String {
+            let text = fs::read_to_string(path).unwrap();
+            let mut lines = text.lines().collect::<Vec<_>>();
+            lines.sort_unstable();
+            lines
+                .join("\n")
+                // Trino does preserve column name case.
+                .replace("camelCase", "camelcase")
+        };
+        let expected = normalize_csv(&expected);
+        let actual = normalize_csv(&testdir.path("out.csv"));
         assert_diff!(&expected, &actual, ",", 0);
     }
 }

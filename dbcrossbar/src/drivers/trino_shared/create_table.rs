@@ -100,12 +100,21 @@ impl TrinoCreateTable {
     /// Set our table creation options. You probably want to follow this with a
     /// call to [`downgrade_for_connector_type`] to ensure that the options
     /// selected will actually work with a given Trino connector.
-    pub fn set_if_exists_options(&mut self, if_exists: IfExists) {
+    pub fn set_if_exists_options(
+        &mut self,
+        if_exists: &IfExists,
+        connector_type: &TrinoConnectorType,
+    ) {
         self.separate_drop_if_exists = false;
         match if_exists {
             IfExists::Error => {
                 self.or_replace = false;
                 self.if_not_exists = false;
+            }
+            IfExists::Upsert(_) if connector_type.supports_merge() => {
+                self.or_replace = false;
+                self.if_not_exists = true;
+                self.with.extend(connector_type.table_options_for_merge());
             }
             IfExists::Append | IfExists::Upsert(_) => {
                 self.or_replace = false;
@@ -167,6 +176,7 @@ impl TrinoCreateTable {
     /// files have a single-line header, and are otherwise in `dbcrossbar`'s CSV
     /// interchange format.
     pub fn add_csv_external_location(&mut self, location: &Url) -> Result<()> {
+        self.with.remove(&TrinoIdent::new("transactional")?);
         self.with.insert(
             TrinoIdent::new("format")?,
             SimpleValue::String("csv".to_owned()),
@@ -194,7 +204,7 @@ impl TrinoCreateTable {
             "default",
             &format!("dbcrossbar_temp_{}", TemporaryStorage::random_tag()),
         )?;
-        table.set_if_exists_options(IfExists::Error);
+        table.set_if_exists_options(&IfExists::Error, &TrinoConnectorType::Hive);
         for column in &mut table.columns {
             column.data_type = TrinoDataType::Varchar { length: None };
             column.is_nullable = true;
@@ -242,6 +252,133 @@ impl TrinoCreateTable {
                 connector_type,
                 &create_s3_wrapper_table.name,
             )?,
+        ]))
+    }
+
+    /// Generate a `MERGE` statement that will copy data from a wrapper table to
+    /// this table, using `upsert_on` as the columns to match on.
+    pub(crate) fn merge_from_wrapper_table_doc(
+        &self,
+        connector_type: &TrinoConnectorType,
+        create_s3_wrapper_table: &TrinoCreateTable,
+        upsert_on: &[String],
+    ) -> Result<RcDoc<'static, ()>> {
+        // We need to match on at least one column.
+        if upsert_on.is_empty() {
+            return Err(format_err!("upsert_on must have at least one column"));
+        }
+
+        // Convert our `upsert_on` columns from strings to `TrinoColumn`s.
+        let mut col_map = HashMap::new();
+        for column in &self.columns {
+            col_map.insert(&column.name, column);
+        }
+        let upsert_on = upsert_on
+            .iter()
+            .map(|name| {
+                col_map
+                    .get(&TrinoIdent::new(name)?)
+                    .ok_or_else(|| format_err!("column {} not found in table", name))
+                    .copied()
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        // Build our `ON dest.col = src.col AND ...` clause.
+        let mut upsert_on_exprs = vec![];
+        for c in &upsert_on {
+            upsert_on_exprs.push(RcDoc::concat(vec![
+                c.storage_to_memory_expr(
+                    Expr::raw_sql(format!("dest.{}", c.name)),
+                    connector_type,
+                )?
+                .to_doc(),
+                RcDoc::text(" = "),
+                c.csv_wrapper_to_memory_expr(Expr::raw_sql(format!(
+                    "src.{}",
+                    c.name
+                )))?
+                .to_doc(),
+            ]));
+        }
+        let upsert_on_expr = parens(RcDoc::intersperse(
+            upsert_on_exprs,
+            RcDoc::concat(vec![RcDoc::line(), RcDoc::text("AND ")]),
+        ));
+
+        // Find the columns we'll update on a match.
+        let update_columns = self
+            .columns
+            .iter()
+            .filter(|column| {
+                !upsert_on
+                    .iter()
+                    .any(|upsert_column| upsert_column.name == column.name)
+            })
+            .collect::<Vec<_>>();
+        let mut update_statements = vec![];
+        for c in update_columns {
+            update_statements.push(RcDoc::concat(vec![
+                RcDoc::as_string(&c.name),
+                RcDoc::text(" = "),
+                c.csv_wrapper_to_storage_expr(
+                    Expr::raw_sql(format!("src.{}", c.name)),
+                    connector_type,
+                )?
+                .to_doc(),
+            ]));
+        }
+        let when_matched = if update_statements.is_empty() {
+            RcDoc::nil()
+        } else {
+            sql_clause(RcDoc::concat(vec![
+                RcDoc::text("WHEN MATCHED THEN UPDATE SET"),
+                RcDoc::line(),
+                indent(RcDoc::intersperse(
+                    update_statements,
+                    RcDoc::concat(vec![RcDoc::text(","), RcDoc::line()]),
+                )),
+            ]))
+        };
+
+        // Find the columns we'll insert if there's no match.
+        let mut insert_column_names = vec![];
+        let mut insert_column_values = vec![];
+        for c in &self.columns {
+            insert_column_names.push(RcDoc::as_string(&c.name));
+            insert_column_values.push(
+                c.csv_wrapper_to_storage_expr(
+                    Expr::raw_sql(format!("src.{}", c.name)),
+                    connector_type,
+                )?
+                .to_doc(),
+            );
+        }
+
+        let when_not_matched = sql_clause(RcDoc::concat(vec![
+            RcDoc::text("WHEN NOT MATCHED THEN INSERT"),
+            RcDoc::space(),
+            parens(comma_sep_list(insert_column_names)),
+            RcDoc::line(),
+            RcDoc::text("VALUES"),
+            RcDoc::space(),
+            parens(comma_sep_list(insert_column_values)),
+        ]));
+
+        // Build our statement.
+        Ok(RcDoc::concat(vec![
+            sql_clause(RcDoc::concat(vec![
+                RcDoc::text("MERGE INTO "),
+                RcDoc::as_string(&self.name),
+                RcDoc::text(" AS dest"),
+            ])),
+            sql_clause(RcDoc::concat(vec![
+                RcDoc::text("USING "),
+                RcDoc::as_string(&create_s3_wrapper_table.name),
+                RcDoc::text(" AS src"),
+            ])),
+            sql_clause(RcDoc::concat(vec![RcDoc::text("ON "), upsert_on_expr])),
+            when_matched,
+            when_not_matched,
         ]))
     }
 
@@ -411,18 +548,51 @@ impl TrinoColumn {
 
     /// Write the SQL for importing this column from a wrapper table.
     fn import_expr(&self, connector_type: &TrinoConnectorType) -> Result<Expr> {
-        let transform = connector_type.storage_transform_for(&self.data_type);
         let var = Expr::Var(self.name.clone());
-        let expr = transform.store_expr(self.data_type.string_import_expr(&var)?);
+        self.csv_wrapper_to_storage_expr(var, connector_type)
+    }
+
+    /// Write the SQL for importing this column from a wrapper table, using
+    /// `csv_wrapper_col_expr` to access the column value in the wrapper table.
+    fn csv_wrapper_to_storage_expr(
+        &self,
+        csv_wrapper_col_expr: Expr,
+        connector_type: &TrinoConnectorType,
+    ) -> Result<Expr> {
+        self.memory_to_storage_expr(
+            self.csv_wrapper_to_memory_expr(csv_wrapper_col_expr)?,
+            connector_type,
+        )
+    }
+
+    /// Write the SQL for loading this column from a CSV wrapper table, using
+    /// `csv_wrapper_col_expr` to access the column value in the wrapper table.
+    fn csv_wrapper_to_memory_expr(&self, csv_wrapper_col_expr: Expr) -> Result<Expr> {
+        let memory_expr = self.data_type.string_import_expr(&csv_wrapper_col_expr)?;
         if self.is_nullable {
             Ok(Expr::r#if(
-                Expr::binop(Expr::func("LENGTH", vec![var]), BinOp::Eq, Expr::int(0)),
+                Expr::binop(
+                    Expr::func("LENGTH", vec![csv_wrapper_col_expr]),
+                    BinOp::Eq,
+                    Expr::int(0),
+                ),
                 Expr::null(),
-                expr,
+                memory_expr,
             ))
         } else {
-            Ok(expr)
+            Ok(memory_expr)
         }
+    }
+
+    /// Write the SQL for storing this expression to a connector table, using
+    /// `memory_col_expr` to access the column value in memory.
+    fn memory_to_storage_expr(
+        &self,
+        memory_col_expr: Expr,
+        connector_type: &TrinoConnectorType,
+    ) -> Result<Expr> {
+        let transform = connector_type.storage_transform_for(&self.data_type);
+        Ok(transform.store_expr(memory_col_expr))
     }
 
     /// Write the SQL for exporting this column to a wrapper table.
@@ -430,18 +600,43 @@ impl TrinoColumn {
         &self,
         connector_type: &TrinoConnectorType,
     ) -> Result<Expr> {
-        let transform = connector_type.storage_transform_for(&self.data_type);
         let var = Expr::Var(self.name.clone());
-        // This always needs to be a VARCHAR with no length, or else the Hive
-        // connector will refuse to store it in a table represented as CSV.
+        self.storage_to_csv_wrapper_expr(var, connector_type)
+    }
+
+    /// Write the SQL for exporting this column to a wrapper table, using
+    /// `memory_col_expr` to access the column value in memory.
+    fn storage_to_csv_wrapper_expr(
+        &self,
+        storage_col_expr: Expr,
+        connector_type: &TrinoConnectorType,
+    ) -> Result<Expr> {
+        self.memory_to_csv_wrapper_expr(
+            self.storage_to_memory_expr(storage_col_expr, connector_type)?,
+        )
+    }
+
+    /// Write the SQL for loading this column from storage, using
+    /// `storage_col_expr` to access the column value in storage.
+    fn storage_to_memory_expr(
+        &self,
+        storage_col_expr: Expr,
+        connector_type: &TrinoConnectorType,
+    ) -> Result<Expr> {
+        let transform = connector_type.storage_transform_for(&self.data_type);
+        Ok(transform.load_expr(storage_col_expr))
+    }
+
+    /// Write the SQL for exporting this column to a wrapper table, using
+    /// `memory_col_expr` to access the column value in memory.
+    fn memory_to_csv_wrapper_expr(&self, memory_col_expr: Expr) -> Result<Expr> {
         Ok(Expr::cast(
-            self.data_type
-                .string_export_expr(&transform.load_expr(var))?,
+            self.data_type.string_export_expr(&memory_col_expr)?,
             TrinoDataType::varchar(),
         ))
     }
 
-    /// Create an [`RcDoc`] for this column.
+    /// Create an [`RcDoc`] for this column declaration.
     pub(super) fn to_doc(&self) -> RcDoc<'static, ()> {
         RcDoc::concat(vec![
             RcDoc::as_string(&self.name),

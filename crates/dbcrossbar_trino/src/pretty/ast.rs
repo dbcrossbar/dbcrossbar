@@ -210,7 +210,7 @@ impl Expr {
     /// Like [`bind_var`], but with a type cast.
     ///
     /// This exists to work around what appear to be type inference bugs in
-    /// Trino version 445-460. See the `dbcrossbar` test
+    /// Trino version 445-460 (and probably later). See the `dbcrossbar` test
     /// `cp_csv_to_trino_to_csv_lambda_regression`.
     pub fn bind_var_with_return_type(
         var: Ident,

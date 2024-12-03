@@ -53,7 +53,7 @@ pub(super) async fn write_remote_data_helper(
     let table_name = dest.table_name()?;
     let mut create_ideal_table =
         TrinoCreateTable::from_schema_and_name(schema, &table_name)?;
-    create_ideal_table.set_if_exists_options(if_exists);
+    create_ideal_table.set_if_exists_options(&if_exists, &connector_type);
     let create_storage_table =
         create_ideal_table.storage_table_for_connector_type(&connector_type);
 
@@ -77,13 +77,33 @@ pub(super) async fn write_remote_data_helper(
     debug!(sql = %create_storage_table_sql, "creating destination table");
     client.run_statement(&create_storage_table_sql).await?;
 
-    // Insert data from the S3 wrapper table into our destination table.
-    let insert_sql = format!(
-        "{}",
-        create_ideal_table
-            .insert_from_wrapper_table_doc(&connector_type, &create_s3_wrapper_table)?
-            .pretty(PRETTY_WIDTH)
-    );
+    let insert_sql = match &if_exists {
+        IfExists::Error | IfExists::Append | IfExists::Overwrite => {
+            // Insert data from the S3 wrapper table into our destination table.
+            format!(
+                "{}",
+                create_ideal_table
+                    .insert_from_wrapper_table_doc(
+                        &connector_type,
+                        &create_s3_wrapper_table,
+                    )?
+                    .pretty(PRETTY_WIDTH)
+            )
+        }
+        IfExists::Upsert(upsert_on) => {
+            // Merge data from the S3 wrapper table into our destination table.
+            format!(
+                "{}",
+                create_ideal_table
+                    .merge_from_wrapper_table_doc(
+                        &connector_type,
+                        &create_s3_wrapper_table,
+                        upsert_on,
+                    )?
+                    .pretty(PRETTY_WIDTH)
+            )
+        }
+    };
     debug!(sql = %insert_sql, "inserting data");
     client.run_statement(&insert_sql).await?;
 
