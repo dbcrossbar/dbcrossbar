@@ -1,0 +1,13 @@
+# This file contains common bits of automation for developing this crate. To use
+# it, install `just` with `cargo install just`, and then run `just --list` to
+# see available commands.
+
+# Do all our pre-release checks.
+check:
+    cargo clippy -- -D warnings
+    cargo fmt -- --check
+    cargo test
+
+# # Release a new version.
+# release:
+#    cargo publish

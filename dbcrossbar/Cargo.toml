@@ -16,7 +16,7 @@ documentation = "https://www.dbcrossbar.org/"
 [dev-dependencies]
 cli_test_dir = "0.1.5"
 csv = "1.0.5"
-dbcrossbar_trino = { version = "0.1.0", path = "../crates/dbcrossbar_trino", features = [
+dbcrossbar_trino = { version = "0.2.0", path = "../crates/dbcrossbar_trino", features = [
     "client",
     "values",
     "proptest",
@@ -47,7 +47,7 @@ clap = { version = "4.3.11", features = ["wrap_help", "derive"] }
 codespan-reporting = "0.11.0"
 crc32c = "0.6.0"
 csv = "1.0.5"
-dbcrossbar_trino = { version = "0.1.0", path = "../crates/dbcrossbar_trino", features = [
+dbcrossbar_trino = { version = "0.2.0", path = "../crates/dbcrossbar_trino", features = [
     "client",
     "values",
     "rustls-tls",
