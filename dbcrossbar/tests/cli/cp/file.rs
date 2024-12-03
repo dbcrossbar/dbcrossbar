@@ -6,7 +6,7 @@
 use cli_test_dir::*;
 use std::fs;
 
-use super::assert_cp_to_exact_csv;
+use super::{assert_cp_to_exact_csv, AssertCpToExactCsvOptions};
 
 /// An example CSV file with columns corresponding to `EXAMPLE_SQL`.
 const EXAMPLE_CSV: &str = include_str!("../../../fixtures/example.csv");
@@ -16,7 +16,12 @@ const EXAMPLE_CSV: &str = include_str!("../../../fixtures/example.csv");
 #[test]
 #[ignore]
 fn cp_from_jsonl_to_exact_csv() {
-    assert_cp_to_exact_csv("cp_from_jsonl_to_exact_csv", "file:test.jsonl");
+    assert_cp_to_exact_csv(
+        "cp_from_jsonl_to_exact_csv",
+        "file:test.jsonl",
+        Default::default(),
+        AssertCpToExactCsvOptions::none(),
+    );
 }
 
 #[test]

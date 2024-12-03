@@ -10,7 +10,7 @@ use termcolor::NoColor;
 
 /// An error occurred processing the schema.
 #[derive(Debug)]
-pub(crate) struct ParseError {
+pub struct ParseError {
     /// The source file in which the error occurred.
     file_info: Arc<FileInfo>,
 

@@ -1,0 +1,127 @@
+{
+    "named_data_types": [],
+    "tables": [
+        {
+            "name": "trino_example",
+            "columns": [
+                {
+                    "name": "test_boolean",
+                    "is_nullable": true,
+                    "data_type": "bool"
+                },
+                {
+                    "name": "test_tinyint",
+                    "is_nullable": true,
+                    "data_type": "int16"
+                },
+                {
+                    "name": "test_smallint",
+                    "is_nullable": true,
+                    "data_type": "int16"
+                },
+                {
+                    "name": "test_int",
+                    "is_nullable": true,
+                    "data_type": "int32"
+                },
+                {
+                    "name": "test_bigint",
+                    "is_nullable": true,
+                    "data_type": "int64"
+                },
+                {
+                    "name": "test_real",
+                    "is_nullable": true,
+                    "data_type": "float32"
+                },
+                {
+                    "name": "test_double",
+                    "is_nullable": true,
+                    "data_type": "float64"
+                },
+                {
+                    "name": "test_decimal",
+                    "is_nullable": true,
+                    "data_type": "decimal"
+                },
+                {
+                    "name": "test_varchar",
+                    "is_nullable": true,
+                    "data_type": "text"
+                },
+                {
+                    "name": "test_varchar_255",
+                    "is_nullable": true,
+                    "data_type": "text"
+                },
+                {
+                    "name": "test_json",
+                    "is_nullable": true,
+                    "data_type": "json"
+                },
+                {
+                    "name": "test_date",
+                    "is_nullable": true,
+                    "data_type": "date"
+                },
+                {
+                    "name": "test_timestamp",
+                    "is_nullable": true,
+                    "data_type": "timestamp_without_time_zone"
+                },
+                {
+                    "name": "test_timestamp_3",
+                    "is_nullable": true,
+                    "data_type": "timestamp_without_time_zone"
+                },
+                {
+                    "name": "test_timestamp_with_time_zone",
+                    "is_nullable": true,
+                    "data_type": "timestamp_with_time_zone"
+                },
+                {
+                    "name": "test_timestamp_with_time_zone_3",
+                    "is_nullable": true,
+                    "data_type": "timestamp_with_time_zone"
+                },
+                {
+                    "name": "test_array",
+                    "is_nullable": true,
+                    "data_type": {
+                        "array": "int32"
+                    }
+                },
+                {
+                    "name": "test_row",
+                    "is_nullable": true,
+                    "data_type": {
+                        "struct": [
+                            {
+                                "name": "a",
+                                "is_nullable": true,
+                                "data_type": "int32"
+                            },
+                            {
+                                "name": "b",
+                                "is_nullable": true,
+                                "data_type": "text"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "test_uuid",
+                    "is_nullable": true,
+                    "data_type": "uuid"
+                },
+                {
+                    "name": "test_spherical_geography",
+                    "is_nullable": true,
+                    "data_type": {
+                        "geo_json": 4326
+                    }
+                }
+            ]
+        }
+    ]
+}

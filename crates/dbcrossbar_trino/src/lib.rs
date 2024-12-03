@@ -7,15 +7,17 @@
 //! in your `Cargo.toml`. If you don't specify any features, this library is
 //! extremely lightweight.
 //!
-//! - `values`: Provides a [`Value`] enum that can represent a subset of
-//!   Trino's values. This pulls in dependencies for lots of things, including
-//!   geodata, decimals, JSON and UUIDs.
+//! - `values`: Provides a [`Value`] enum that can represent a subset of Trino's
+//!   values. This pulls in dependencies for lots of things, including geodata,
+//!   decimals, JSON and UUIDs.
 //! - `proptest`: Support for testing using the [`proptest`][proptest] crate.
 //!   This pulls in `proptest` and related libraries.
 //! - `client`: A basic Trino REST client. This is mostly intended for testing,
 //!   and does not currently attempt to be a production-quality client. It
 //!   currently has no HTTPS or password support. This pulls in a full-fledged
 //!   async HTTP stack.
+//! - `rustls`: Enable Rust-native HTTPS support with WebPKI roots in the
+//!   client.
 //!
 //! ## What this library provides
 //!
@@ -31,9 +33,9 @@
 //! or don't support transactions. The following types help generate code that
 //! works around these limitations:
 //!
-//! - [`ConnectorType`] is the main entry point to this part of the
-//!   library, providing an API to describe a connector's limitations. See this
-//!   section for example code!
+//! - [`ConnectorType`] is the main entry point to this part of the library,
+//!   providing an API to describe a connector's limitations. See this section
+//!   for example code!
 //! - [`StorageTransform`] describes how to transform data when storing it using
 //!   a specific connector, and when reading it back.
 //!
@@ -42,8 +44,8 @@
 //! These are included mostly because they're needed by other parts of the
 //! library.
 //!
-//! - [`DataType`] and [`Field`], which describe a subset of available
-//!   data types in Trino.
+//! - [`DataType`] and [`Field`], which describe a subset of available data
+//!   types in Trino.
 //! - [`Ident`], which represents and prints a simple Trino identifier.
 //! - [`QuotedString`], which formats a quoted and escaped string.
 //! - [`TableOptions`], which represents the `WITH` clause of a `CREATE TABLE`
@@ -71,22 +73,25 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 #[cfg(feature = "values")]
-pub use crate::values::{IsCloseEnoughTo, Value};
+pub use crate::values::Value;
 pub use crate::{
     connectors::ConnectorType,
     errors::IdentifierError,
     ident::Ident,
     quoted_string::QuotedString,
-    table_options::{TableOptionValue, TableOptions},
-    transforms::{LoadExpr, StorageTransform, StoreExpr},
+    table_options::TableOptions,
+    transforms::StorageTransform,
     types::{DataType, Field},
 };
+#[cfg(feature = "macros")]
+pub use dbcrossbar_trino_macros::TrinoRow;
 
 #[cfg(feature = "client")]
 pub mod client;
 mod connectors;
 mod errors;
 mod ident;
+pub mod pretty;
 #[cfg(feature = "proptest")]
 pub mod proptest;
 mod quoted_string;
@@ -94,4 +99,4 @@ mod table_options;
 mod transforms;
 mod types;
 #[cfg(feature = "values")]
-mod values;
+pub mod values;

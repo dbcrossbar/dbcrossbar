@@ -10,7 +10,12 @@ use super::*;
 #[ignore]
 fn cp_from_s3_to_exact_csv() {
     let s3_dir = s3_test_dir_url("cp_from_s3_to_exact_csv");
-    assert_cp_to_exact_csv("cp_from_s3_to_exact_csv", &s3_dir);
+    assert_cp_to_exact_csv(
+        "cp_from_s3_to_exact_csv",
+        &s3_dir,
+        Default::default(),
+        AssertCpToExactCsvOptions::none(),
+    );
 }
 
 #[test]

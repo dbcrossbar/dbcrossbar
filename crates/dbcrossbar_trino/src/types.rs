@@ -2,7 +2,12 @@
 
 use std::fmt;
 
-use crate::ident::Ident;
+use pretty::RcDoc;
+
+use crate::{
+    ident::Ident,
+    pretty::{comma_sep_list, parens},
+};
 
 /// A Trino data type.
 #[derive(Clone, Debug, PartialEq)]
@@ -67,6 +72,9 @@ pub enum DataType {
 }
 
 impl DataType {
+    /// Create a decimal data type with precision and scale matching BigQuery.
+    /// Trino's `DECIMAL` type has no default precision, so this is as good
+    /// as any other choice.
     pub fn bigquery_sized_decimal() -> Self {
         DataType::Decimal {
             precision: 38,
@@ -74,14 +82,23 @@ impl DataType {
         }
     }
 
+    /// Create a `VARCHAR` data type with no length, which is Trino's default.
     pub fn varchar() -> Self {
         DataType::Varchar { length: None }
     }
 
+    /// Create a `TIME` data type with Trino's default precision.
+    pub fn time() -> Self {
+        DataType::Time { precision: 3 }
+    }
+
+    /// Create a `TIMESTAMP` data type with Trino's default precision.
     pub fn timestamp() -> Self {
         DataType::Timestamp { precision: 3 }
     }
 
+    /// Create a `TIMESTAMP WITH TIME ZONE` data type with Trino's default
+    /// precision.
     pub fn timestamp_with_time_zone() -> Self {
         DataType::TimestampWithTimeZone { precision: 3 }
     }
@@ -92,6 +109,26 @@ impl DataType {
         match self {
             DataType::Row(fields) => fields.iter().any(|field| field.name.is_some()),
             _ => false,
+        }
+    }
+
+    /// Convert to a pretty-printable [`RcDoc`]. This is useful for complex type
+    /// arguments to `CAST` expressions in [`crate::pretty::ast`].
+    pub fn to_doc(&self) -> RcDoc<'static, ()> {
+        match self {
+            DataType::Array(elem_ty) => RcDoc::concat(vec![
+                RcDoc::as_string("ARRAY"),
+                parens(elem_ty.to_doc()),
+            ]),
+
+            DataType::Row(fields) => RcDoc::concat(vec![
+                RcDoc::as_string("ROW"),
+                parens(comma_sep_list(fields.iter().map(|field| field.to_doc()))),
+            ]),
+
+            // Types which cannot contain other types will be printed without
+            // further wrapping.
+            _ => RcDoc::as_string(self),
         }
     }
 }
@@ -168,6 +205,19 @@ impl Field {
             data_type,
         }
     }
+
+    /// Pretty-print this `TrinoField` as a [`RcDoc`].
+    fn to_doc(&self) -> RcDoc<'static, ()> {
+        if let Some(name) = &self.name {
+            RcDoc::concat(vec![
+                RcDoc::as_string(name),
+                RcDoc::space(),
+                self.data_type.to_doc(),
+            ])
+        } else {
+            self.data_type.to_doc()
+        }
+    }
 }
 
 impl fmt::Display for Field {
@@ -189,7 +239,7 @@ mod test {
         #[test]
         fn test_printable(data_type: DataType) {
             // Make sure we can print the data type without panicking.
-            format!("{}", data_type);
+            let _ = format!("{}", data_type);
         }
     }
 }

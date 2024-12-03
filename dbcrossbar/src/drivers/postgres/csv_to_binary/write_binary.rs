@@ -68,7 +68,7 @@ impl WriteBinary for f64 {
     }
 }
 
-impl<'a> WriteBinary for GeometryWithSrid<'a> {
+impl WriteBinary for GeometryWithSrid<'_> {
     fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         // Convert our geometry and SRID into a serializable type.
         let ewkb = self.try_to_postgis()?;
@@ -106,7 +106,7 @@ impl WriteBinary for i64 {
     }
 }
 
-impl<'a> WriteBinary for RawJson<'a> {
+impl WriteBinary for RawJson<'_> {
     fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         // Apparently we can just write these as string data and all is good?
         wtr.write_len(self.0.len())?;
@@ -115,7 +115,7 @@ impl<'a> WriteBinary for RawJson<'a> {
     }
 }
 
-impl<'a> WriteBinary for RawJsonb<'a> {
+impl WriteBinary for RawJsonb<'_> {
     fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         wtr.write_len(1 + self.0.len())?;
         wtr.write_u8(1)?; // jsonb format tag.
@@ -124,7 +124,7 @@ impl<'a> WriteBinary for RawJsonb<'a> {
     }
 }
 
-impl<'a> WriteBinary for &'a str {
+impl WriteBinary for &str {
     fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         wtr.write_len(self.len())?;
         wtr.write_all(self.as_bytes())?;
@@ -133,7 +133,7 @@ impl<'a> WriteBinary for &'a str {
 }
 
 /// Fallback for just writing binary data straight through to PostgreSQL.
-impl<'a> WriteBinary for &'a [u8] {
+impl WriteBinary for &[u8] {
     fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
         wtr.write_len(self.len())?;
         wtr.write_all(self)?;

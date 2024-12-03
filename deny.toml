@@ -17,6 +17,10 @@ ignore = [
     # `difference` is unmaintained, but it works fine, and we only use it in
     # test code. I'm not convinced this is a good use of RUSTSEC advisories.
     "RUSTSEC-2020-0095",
+
+    # `opentelemetry_api` has been moved into the `opentelemetry`
+    # crate. We will worry about this later.
+    "RUSTSEC-2024-0387",
 ]
 
 
@@ -35,8 +39,9 @@ allow = [
     "BSD-3-Clause",
     "CC0-1.0",
     "ISC",
+    "MPL-2.0",
     "OpenSSL",
-    "Unicode-DFS-2016",
+    "Unicode-3.0",
     "Zlib",
 ]
 

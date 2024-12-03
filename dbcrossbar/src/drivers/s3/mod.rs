@@ -17,6 +17,8 @@ pub(crate) use prepare_as_destination::prepare_as_destination_helper;
 use write_local_data::write_local_data_helper;
 use write_remote_data::write_remote_data_helper;
 
+use super::trino::TrinoLocator;
+
 #[derive(Clone, Debug)]
 pub(crate) struct S3Locator {
     url: Url,
@@ -85,10 +87,10 @@ impl Locator for S3Locator {
     }
 
     fn supports_write_remote_data(&self, source: &dyn Locator) -> bool {
-        // We can only do `write_remote_data` if `source` is a
-        // `RedshiftLocator`. Otherwise, we need to do `write_local_data` like
+        // We can only do `write_remote_data` if `source` is a `RedshiftLocator`
+        // or a `TrinoLocator`. Otherwise, we need to do `write_local_data` like
         // normal.
-        source.as_any().is::<RedshiftLocator>()
+        source.as_any().is::<RedshiftLocator>() || source.as_any().is::<TrinoLocator>()
     }
 
     fn write_remote_data(

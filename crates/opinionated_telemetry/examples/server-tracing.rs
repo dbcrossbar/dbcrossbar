@@ -75,7 +75,7 @@ async fn handle_request(socket: TcpStream) -> Result<()> {
         line.clear();
         let header_line = rdr.read_line(&mut line).await?;
         //eprintln!("Header line: {:?}", line);
-        let line = line.trim_end_matches(|c| c == '\r' || c == '\n');
+        let line = line.trim_end_matches(['\r', '\n']);
         if line.is_empty() {
             break;
         }

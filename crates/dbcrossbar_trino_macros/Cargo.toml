@@ -1,0 +1,21 @@
+[package]
+name = "dbcrossbar_trino_macros"
+version = "0.1.0"
+authors = ["Eric Kidd <git@randomhacks.net>"]
+edition = "2021"
+
+description = "Macros supporting the dbcrossbar_trino crate."
+categories = ["database"]
+keywords = ["trino", "client"]
+license = "Apache-2.0 OR MIT"
+readme = "README.md"
+homepage = "https://github.com/dbcrossbar/dbcrossbar/tree/main/crates/dbcrossbar_trino"
+repository = "https://github.com/dbcrossbar/dbcrossbar"
+documentation = "https://docs.rs/dbcrossbar_trino"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1.0.37"
+syn = "2.0.85"

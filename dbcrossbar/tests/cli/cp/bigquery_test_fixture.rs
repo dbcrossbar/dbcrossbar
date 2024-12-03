@@ -7,7 +7,12 @@ use super::*;
 fn cp_from_bigquery_test_fixture_to_exact_csv() {
     let bq_table = bq_test_table("cp_from_bigquery_test_fixture_to_exact_csv")
         .replace("bigquery:", "bigquery-test-fixture:");
-    assert_cp_to_exact_csv("cp_from_bigquery_test_fixture_to_exact_csv", &bq_table);
+    assert_cp_to_exact_csv(
+        "cp_from_bigquery_test_fixture_to_exact_csv",
+        &bq_table,
+        TempType::Gs | TempType::Bq,
+        AssertCpToExactCsvOptions::none(),
+    );
 }
 
 #[test]

@@ -1,8 +1,10 @@
 //! Tests for the `cp` subcommand.
 
+use big_enum_set::{BigEnumSet, BigEnumSetType};
 use cli_test_dir::*;
+use dbcrossbar_trino::ConnectorType;
 use difference::assert_diff;
-use std::{env, fs};
+use std::{env, fs, process::Command};
 
 mod bigml;
 mod bigquery;
@@ -15,6 +17,7 @@ mod postgres;
 mod redshift;
 mod s3;
 mod shopify;
+mod trino;
 
 /// The URL of our test database.
 pub(crate) fn postgres_test_url() -> String {
@@ -93,6 +96,34 @@ pub(crate) fn redshift_test_table_url(table_name: &str) -> Option<String> {
     redshift_test_url().map(|url| format!("{}#{}", url, table_name))
 }
 
+/// The URL of our Trino test database.
+pub(crate) fn trino_test_url() -> String {
+    env::var("TRINO_TEST_URL")
+        .unwrap_or_else(|_| "trino://admin@localhost:8080/".to_owned())
+}
+
+/// Generate a locator for a test table in Trino.
+pub(crate) fn trino_test_catalog_schema_table(
+    catalog: &str,
+    schema: &str,
+    table_name: &str,
+) -> String {
+    format!("{}{}/{}#{}", trino_test_url(), catalog, schema, table_name)
+}
+
+/// Generate a locator for a test table in Trino.
+pub(crate) fn trino_test_table(
+    connector_type: &ConnectorType,
+    test_name: &str,
+) -> String {
+    let catalog = connector_type.test_catalog();
+    let schema = connector_type.test_schema();
+    let full_table_name = connector_type.test_table_name(test_name);
+    // We have `catalog.schema.table`, but we need just `table`.
+    let table_name_only = full_table_name.rsplit('.').next().unwrap();
+    trino_test_catalog_schema_table(catalog, schema, table_name_only)
+}
+
 #[test]
 fn cp_help_flag() {
     let testdir = TestDir::new("dbcrossbar", "cp_help_flag");
@@ -110,6 +141,61 @@ pub(crate) fn normalize_csv_data(csv_data: &str) -> String {
     format!("{}\n{}\n", header, lines.join("\n"))
 }
 
+/// Different temporary data storage locations we might need.
+///
+/// These can be used with [`BigEnumSet`] as if they were a set of big flags
+/// stored in a numeric type. [`BigEnumSet<TempType>`] is stored efficiently and
+/// supports "bitwise" operations like union, intersection, etc.
+#[derive(Debug, BigEnumSetType)]
+pub enum TempType {
+    Gs,
+    Bq,
+    S3,
+}
+
+trait CommandAddTempTypes {
+    fn add_temp_types(
+        &mut self,
+        temp_types: BigEnumSet<TempType>,
+        test_name: &str,
+    ) -> &mut Self;
+}
+
+impl CommandAddTempTypes for Command {
+    /// Add all the temporary types to a command.
+    fn add_temp_types(
+        &mut self,
+        temp_types: BigEnumSet<TempType>,
+        test_name: &str,
+    ) -> &mut Self {
+        if temp_types.contains(TempType::Gs) {
+            let gs_temp_dir = gs_test_dir_url(test_name);
+            self.arg(format!("--temporary={}", gs_temp_dir));
+        }
+        if temp_types.contains(TempType::Bq) {
+            let bq_temp_ds = bq_temp_dataset();
+            self.arg(format!("--temporary={}", bq_temp_ds));
+        }
+        if temp_types.contains(TempType::S3) {
+            let s3_temp_dir = s3_test_dir_url(test_name);
+            self.arg(format!("--temporary={}", s3_temp_dir));
+        }
+        self
+    }
+}
+
+/// Option for [`assert_cp_to_exact_csv`].
+#[derive(Debug, BigEnumSetType)]
+pub enum AssertCpToExactCsvOptions {
+    EnableUnstable,
+}
+
+impl AssertCpToExactCsvOptions {
+    pub fn none() -> BigEnumSet<Self> {
+        BigEnumSet::default()
+    }
+}
+
 /// Copy to and from the specified locator, making sure that certain scalar
 /// types always produce byte-identical output.
 ///
@@ -122,24 +208,30 @@ pub(crate) fn normalize_csv_data(csv_data: &str) -> String {
 /// point numbers, arrays, GeoJSON, etc., may all be output in multiple ways,
 /// depending on the driver. We only try to standardize common types that may
 /// cause problems. But we can always standardize more types later.
-pub(crate) fn assert_cp_to_exact_csv(test_name: &str, locator: &str) {
+pub(crate) fn assert_cp_to_exact_csv(
+    test_name: &str,
+    locator: &str,
+    temp_types: BigEnumSet<TempType>,
+    options: BigEnumSet<AssertCpToExactCsvOptions>,
+) {
     let testdir = TestDir::new("dbcrossbar", test_name);
     let src = testdir.src_path("fixtures/exact_output.csv");
     let schema = testdir.src_path("fixtures/exact_output.sql");
-    let gs_temp_dir = gs_test_dir_url(test_name);
-    let bq_temp_ds = bq_temp_dataset();
-    let s3_temp_dir = s3_test_dir_url(test_name);
+
+    let enable_unstable_args: &[&str] =
+        if options.contains(AssertCpToExactCsvOptions::EnableUnstable) {
+            &["--enable-unstable"]
+        } else {
+            &[]
+        };
 
     // CSV to locator.
     let output = testdir
         .cmd()
+        .args(enable_unstable_args)
+        .args(["cp", "--display-output-locators", "--if-exists=overwrite"])
+        .add_temp_types(temp_types, test_name)
         .args([
-            "cp",
-            "--display-output-locators",
-            "--if-exists=overwrite",
-            &format!("--temporary={}", gs_temp_dir),
-            &format!("--temporary={}", bq_temp_ds),
-            &format!("--temporary={}", s3_temp_dir),
             &format!("--schema=postgres-sql:{}", schema.display()),
             &format!("csv:{}", src.display()),
             locator,
@@ -158,10 +250,10 @@ pub(crate) fn assert_cp_to_exact_csv(test_name: &str, locator: &str) {
     // Locator to CSV.
     let output = testdir
         .cmd()
+        .args(enable_unstable_args)
+        .arg("cp")
+        .add_temp_types(temp_types, test_name)
         .args([
-            "cp",
-            &format!("--temporary={}", gs_temp_dir),
-            &format!("--temporary={}", bq_temp_ds),
             &format!("--schema=postgres-sql:{}", schema.display()),
             actual_locator,
             "csv:-",

@@ -372,7 +372,7 @@ pub(crate) trait WriteExt {
         F: FnOnce(&mut Vec<u8>) -> Result<()>;
 }
 
-impl<'a, W: Write + 'a> WriteExt for W {
+impl<W: Write> WriteExt for W {
     fn write_len(&mut self, len: usize) -> Result<()> {
         self.write_i32::<NE>(i32::try_from(len)?)?;
         Ok(())

@@ -10,7 +10,12 @@ use super::*;
 #[ignore]
 fn cp_from_postgres_to_exact_csv() {
     let pg_table = post_test_table_url("cp_from_postgres_to_exact_csv");
-    assert_cp_to_exact_csv("cp_from_postgres_to_exact_csv", &pg_table);
+    assert_cp_to_exact_csv(
+        "cp_from_postgres_to_exact_csv",
+        &pg_table,
+        Default::default(),
+        AssertCpToExactCsvOptions::none(),
+    );
 }
 
 #[test]
