@@ -29,7 +29,7 @@ test-all:
 
 # Update various generated files (which need to be checked in).
 update-generated:
-    cargo about generate about.hbs -o dbcrossbar/ALL_LICENSES.html
+    cargo about generate --fail about.hbs -o dbcrossbar/ALL_LICENSES.html
     (cd guide/src/generated && ./generate.sh)
 
 # Build our guide. Requires mdbook and mbook-graphviz.

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::super::{percent_encode, Client, NoQuery};
 use super::jobs::TableReference;
-use crate::clouds::gcloud::ClientError;
+use crate::clouds::gcloud::{ClientError, Idempotency};
 use crate::common::*;
 use crate::drivers::bigquery_shared::TableName;
 
@@ -76,6 +76,21 @@ pub(crate) async fn create_view(
     };
 
     // Create our view.
-    client.post::<Table, _, _, _>(&url, NoQuery, table).await?;
+    //
+    // Technically, this _isn't_ 100% idempotent, because there are two
+    // scenarios here:
+    //
+    // 1. BigQuery fails BEFORE creating the view. In this case, it's safe to
+    //    retry.
+    // 2. BigQuery creates the view, then returns an HTTP error to us anyway. In
+    //    this case, future retries will fail, but nothing destructive will
+    //    happen.
+    //
+    // Since (1) happens a bit in practice, and (2) is at least non-destructive,
+    // we're going to favor the retry here. But this may error out if case (2)
+    // appears.
+    client
+        .post::<Table, _, _, _>(&url, Idempotency::SafeToRetry, NoQuery, table)
+        .await?;
     Ok(())
 }
