@@ -19,6 +19,12 @@ mod is_close_enough_to;
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum Value {
+    /// A NULL value. We need to know the type because this is a fairly
+    /// low-level library and we don't do things like type inference or
+    /// unification.
+    Null {
+        literal_type: DataType,
+    },
     Boolean(bool),
     TinyInt(i8),
     SmallInt(i16),
@@ -99,6 +105,9 @@ impl Value {
     /// Recursive [`fmt::Display::fmt`] helper.
     fn fmt_helper(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Value::Null { literal_type } => {
+                write!(f, "CAST(NULL AS {})", literal_type)
+            }
             Value::Boolean(b) => {
                 if *b {
                     write!(f, "TRUE")

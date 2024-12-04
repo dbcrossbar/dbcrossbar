@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2024-12-04
+
+### Added
+
+- `Value::Null` is now available.
+
+### Fixed
+
+- We can deserialize `NULL` values returned by Trino.
+
 ## [0.2.1] - 2024-12-04
 
 ### Added

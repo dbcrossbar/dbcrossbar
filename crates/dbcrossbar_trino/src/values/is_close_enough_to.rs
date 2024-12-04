@@ -30,6 +30,7 @@ impl IsCloseEnoughTo for Value {
     fn is_close_enough_to(&self, other: &Value) -> bool {
         // Recursive.
         match (self, other) {
+            (Value::Null { .. }, Value::Null { .. }) => true,
             (Value::Boolean(a), Value::Boolean(b)) => *a == *b,
             (Value::TinyInt(a), Value::TinyInt(b)) => *a == *b,
             (Value::SmallInt(a), Value::SmallInt(b)) => *a == *b,

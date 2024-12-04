@@ -24,6 +24,15 @@ pub(crate) fn deserialize_json_value(
         data_type: data_type.clone(),
     };
     match (data_type, value) {
+        // We could get a NULL value for any type, even nested in cases like:
+        //
+        //     select cast(array[null] AS ARRAY(INT));
+        //
+        // All SQL types allow NULL values everywhere except in NOT NULL
+        // columns.
+        (ty, JsonValue::Null) => Ok(Value::Null {
+            literal_type: ty.clone(),
+        }),
         (DataType::Boolean, JsonValue::Bool(b)) => Ok(Value::Boolean(*b)),
         (DataType::TinyInt, JsonValue::Number(n)) => Ok(Value::TinyInt(
             n.as_i64()

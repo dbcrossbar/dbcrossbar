@@ -442,7 +442,7 @@ impl ExpectedDataType for ColumnInfoWrapper {
 
 #[cfg(test)]
 mod tests {
-    use crate::ConnectorType;
+    use crate::{values::IsCloseEnoughTo, ConnectorType};
 
     use super::*;
 
@@ -545,5 +545,18 @@ mod tests {
             assert_eq!(column_info[1].data_type, DataType::varchar());
             assert!(column_info[1].is_nullable);
         }
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn deserialize_null() {
+        let client = Client::default();
+        let value = client
+            .get_one_value::<Value>("SELECT CAST(NULL AS VARCHAR)")
+            .await
+            .unwrap();
+        assert!(value.is_close_enough_to(&Value::Null {
+            literal_type: DataType::varchar()
+        }));
     }
 }
