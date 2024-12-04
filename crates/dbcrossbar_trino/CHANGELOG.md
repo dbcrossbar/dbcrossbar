@@ -4,7 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - 2024-10-21
+## [0.2.1] - 2024-12-04
+
+### Added
+
+- `DataType` now supports `FromStr`.
+- `ClientBuilder::for_tests` will create a `ClientBuilder` that points to Trino on `localhost`, similar to `Client::default`.
+- `ClientBuilder::catalog_and_schema` can be used to specify the default catalog and schema for the client.
+- `Client::get_table_column_info` can be used to get information about the columns in a table.
+- `IsCloseEnoughTo` is now implemented for `&[T]`, `Vec<T>`, and `Option<T>`.
+
+### Fixed
+
+- Crate features listed in docs are now correct and complete.
+
+## [0.2.0] - 2024-12-03
 
 ### Added
 
