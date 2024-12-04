@@ -20,6 +20,9 @@ use super::Value;
 /// storing a value and loading it back.
 pub trait IsCloseEnoughTo: fmt::Debug {
     /// Is this value approximately equal to the supplied value?
+    ///
+    /// **WARNING:** This is currently intended for test code, and it may panic
+    /// on certain comparisons that we haven't seen in practice.
     fn is_close_enough_to(&self, other: &Self) -> bool;
 }
 
@@ -64,12 +67,11 @@ impl IsCloseEnoughTo for Value {
                 )
             }
             (Value::Array { values: a, .. }, Value::Array { values: b, .. }) => {
-                a.len() == b.len()
-                    && a.iter().zip(b.iter()).all(|(a, b)| a.is_close_enough_to(b))
+                a.is_close_enough_to(b)
             }
             (Value::Row { values: a, .. }, Value::Row { values: b, .. }) => {
-                a.len() == b.len()
-                    && a.iter().zip(b.iter()).all(|(a, b)| a.is_close_enough_to(b))
+                // TODO: Should we also check the literal_type fields are the same?
+                a.is_close_enough_to(b)
             }
             (Value::Uuid(a), Value::Uuid(b)) => a == b,
             (Value::SphericalGeography(a), Value::SphericalGeography(b)) => {
@@ -108,6 +110,32 @@ impl IsCloseEnoughTo for Point<f64> {
     }
 }
 
+impl<T: IsCloseEnoughTo> IsCloseEnoughTo for Vec<T> {
+    fn is_close_enough_to(&self, other: &Vec<T>) -> bool {
+        (&self[..]).is_close_enough_to(&&other[..])
+    }
+}
+
+impl<T: IsCloseEnoughTo> IsCloseEnoughTo for &'_ [T] {
+    fn is_close_enough_to(&self, other: &Self) -> bool {
+        self.len() == other.len()
+            && self
+                .iter()
+                .zip(other.iter())
+                .all(|(a, b)| a.is_close_enough_to(b))
+    }
+}
+
+impl<T: IsCloseEnoughTo> IsCloseEnoughTo for Option<T> {
+    fn is_close_enough_to(&self, other: &Option<T>) -> bool {
+        match (self, other) {
+            (Some(a), Some(b)) => a.is_close_enough_to(b),
+            (None, None) => true,
+            _ => false,
+        }
+    }
+}
+
 impl IsCloseEnoughTo for JsonValue {
     fn is_close_enough_to(&self, other: &JsonValue) -> bool {
         match (self, other) {
@@ -115,10 +143,7 @@ impl IsCloseEnoughTo for JsonValue {
             (JsonValue::Bool(a), JsonValue::Bool(b)) => a == b,
             (JsonValue::Number(a), JsonValue::Number(b)) => a.is_close_enough_to(b),
             (JsonValue::String(a), JsonValue::String(b)) => a == b,
-            (JsonValue::Array(a), JsonValue::Array(b)) => {
-                a.len() == b.len()
-                    && a.iter().zip(b).all(|(a, b)| a.is_close_enough_to(b))
-            }
+            (JsonValue::Array(a), JsonValue::Array(b)) => a.is_close_enough_to(b),
             (JsonValue::Object(a), JsonValue::Object(b)) => {
                 let a_keys: HashSet<&String> = HashSet::from_iter(a.keys());
                 let b_keys: HashSet<&String> = HashSet::from_iter(b.keys());

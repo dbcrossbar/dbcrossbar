@@ -793,6 +793,7 @@ dependencies = [
  "float-cmp",
  "geo-types",
  "geojson",
+ "peg",
  "pretty",
  "proptest",
  "proptest-arbitrary-interop",

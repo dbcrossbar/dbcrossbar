@@ -1,6 +1,6 @@
 //! A Trino data type.
 
-use std::fmt;
+use std::{error, fmt, str::FromStr};
 
 use pretty::RcDoc;
 
@@ -229,6 +229,257 @@ impl fmt::Display for Field {
     }
 }
 
+impl FromStr for DataType {
+    type Err = ParseError;
+
+    fn from_str(data_type: &str) -> Result<Self, Self::Err> {
+        parse_rule(trino_parser::ty, data_type, "error parsing Trino data type")
+    }
+}
+
+/// An error parsing a Trino data type.
+#[derive(Debug)]
+#[non_exhaustive]
+pub struct ParseError {
+    pub error_message: String,
+    pub source: String,
+    pub line: usize,
+    pub column: usize,
+    pub offset: usize,
+    pub expected: String,
+}
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{} at {}:{}: expected {} in SQL type {:?}",
+            self.error_message, self.line, self.column, self.expected, self.source
+        )
+    }
+}
+
+impl error::Error for ParseError {}
+
+/// Wrap a [`peg`] parser function and convert the error to a pretty
+/// [`ParseError`].
+fn parse_rule<Output, ParseFn>(
+    parse_fn: ParseFn,
+    s: &str,
+    error_message: &str,
+) -> Result<Output, ParseError>
+where
+    ParseFn: Fn(&str) -> Result<Output, peg::error::ParseError<peg::str::LineCol>>,
+{
+    parse_fn(s).map_err(|err| ParseError {
+        error_message: error_message.to_owned(),
+        source: s.to_owned(),
+        line: err.location.line,
+        column: err.location.column,
+        offset: err.location.offset,
+        expected: err.expected.to_string(),
+    })
+}
+
+// `rustpeg` grammar for parsing Trino data types.
+peg::parser! {
+    grammar trino_parser() for str {
+        rule _ = quiet! { (
+            [' ' | '\t' | '\r' | '\n']
+            / "--" [^'\n']* "\n"
+            / "/*" (!"*/" [_])* "*/"
+        )* }
+
+        // Case-insensitive keywords.
+        rule k(kw: &'static str) -> &'static str
+            = quiet! { s:$(['a'..='z' | 'A'..='Z' | '_'] ['a'..='z' | 'A'..='Z' | '_' | '0'..='9']*) {?
+                if s.eq_ignore_ascii_case(kw) {
+                    Ok(kw)
+                } else {
+                    Err(kw)
+                }
+            } }
+            / expected!(kw)
+
+        rule ident() -> Ident
+            // Note: No leading underscores allowed.
+            = quiet! {
+                s:$(['a'..='z' | 'A'..='Z'] ['a'..='z' | 'A'..='Z' | '_' | '0'..='9']*) {
+                    // `unwrap` is safe because the parser controls our input.
+                    Ident::new(s).unwrap()
+                }
+                / "\"" s:$(([^ '"'] / "\"\"")+) "\"" {
+                    // `unwrap` is safe because the parser controls our input.
+                    Ident::new(&s.replace("\"\"", "\"")).unwrap()
+                }
+            } / expected!("identifier")
+
+        // A signed integer literal.
+        rule i64() -> i64
+            = quiet! { n:$("-"? ['0'..='9']+) {?
+                n.parse().map_err(|_| "64-bit signed integer")
+            } }
+            / expected!("64-bit signed integer")
+
+        // An unsigned integer literal.
+        rule u32() -> u32
+            = quiet! { n:$(['0'..='9']+) {?
+                n.parse().map_err(|_| "32-bit unsigned integer")
+            } }
+            / expected!("32-bit unsigned integer")
+
+        // A string literal.
+        rule string() -> String
+            = quiet! { "\'" s:$(([^ '\''] / "''")*) "\'" {
+                s.replace("''", "'")
+            } }
+            / expected!("string literal")
+
+        rule size_opt() -> Option<u32>
+            = _? "(" _? size:u32() _? ")" { Some(size) }
+            / { None }
+
+        rule size_default(default: u32) -> u32
+            = _? "(" _? size:u32() _? ")" { size }
+            / { default }
+
+        rule boolean_ty() -> DataType
+            = k("boolean") { DataType::Boolean }
+
+        rule tinyint_ty() -> DataType
+            = k("tinyint") { DataType::TinyInt }
+
+        rule smallint_ty() -> DataType
+            = k("smallint") { DataType::SmallInt }
+
+        rule int_ty() -> DataType
+            = (k("integer") / k("int")) { DataType::Int }
+
+        rule bigint_ty() -> DataType
+            = k("bigint") { DataType::BigInt }
+
+        rule real_ty() -> DataType
+            = k("real") { DataType::Real }
+
+        rule double_ty() -> DataType
+            = k("double") { DataType::Double }
+
+        rule decimal_ty() -> DataType
+            = k("decimal") _? "(" _? precision:u32() _? "," _? scale:u32() _? ")" {
+                DataType::Decimal { precision, scale }
+            }
+
+        rule varchar_ty() -> DataType
+            = k("varchar") length:size_opt() {
+                DataType::Varchar { length }
+            }
+
+        rule char_ty() -> DataType
+            = k("char") length:size_default(1) {?
+                //DataType::Char { length }
+                Err("Trino CHAR type is not currently supported")
+            }
+
+        rule varbinary_ty() -> DataType
+            = k("varbinary") { DataType::Varbinary }
+
+        rule json_ty() -> DataType
+            = k("json") { DataType::Json }
+
+        rule date_ty() -> DataType
+            = k("date") { DataType::Date }
+
+        rule time_ty() -> DataType
+            = k("time") precision:size_default(3) {
+                DataType::Time { precision }
+            }
+
+        rule time_with_time_zone_ty() -> DataType
+            = k("time") precision:size_default(3) _ k("with") _ k("time") _ k("zone") {?
+                //DataType::TimeWithTimeZone { precision }
+                Err("Trino TIME WITH TIME ZONE type is not currently supported")
+            }
+
+        rule timestamp_ty() -> DataType
+            = k("timestamp") precision:size_default(3) {
+                DataType::Timestamp { precision }
+            }
+
+        rule timestamp_with_time_zone_ty() -> DataType
+            = k("timestamp") precision:size_default(3) _ k("with") _ k("time") _ k("zone") {
+                DataType::TimestampWithTimeZone { precision }
+            }
+
+        rule interval_day_to_second_ty() -> DataType
+            = k("interval") _ k("day") _ k("to") _ k("second") {?
+                //DataType::IntervalDayToSecond
+                Err("Trino INTERVAL DAY TO SECOND type is not currently supported")
+            }
+
+        rule interval_year_to_month_ty() -> DataType
+            = k("interval") _ k("year") _ k("to") _ k("month") {?
+                //DataType::IntervalYearToMonth
+                Err("Trino INTERVAL YEAR TO MONTH type is not currently supported")
+            }
+
+        rule array_ty() -> DataType
+            = k("array") _? "(" _? elem_ty:ty() _? ")" {
+                DataType::Array(Box::new(elem_ty))
+            }
+
+        rule map_ty() -> DataType
+            = k("map") _? "(" _? key_ty:ty() _? "," _? value_ty:ty() _? ")" {?
+                // DataType::Map {
+                //     key_type: Box::new(key_ty),
+                //     value_type: Box::new(value_ty),
+                // }
+                Err("Trino MAP type is not currently supported")
+            }
+
+        rule row_ty() -> DataType
+            = k("row") _? "(" _? fields:(field() ++ (_? "," _?)) _? ")" {
+                DataType::Row(fields)
+            }
+
+        rule field() -> Field
+            = ty:ty() { Field::anonymous(ty) }
+            / name:ident() _ ty:ty() { Field::named(name, ty) }
+
+        rule uuid_ty() -> DataType
+            = k("uuid") { DataType::Uuid }
+
+        rule spherical_geography_ty() -> DataType
+            = k("sphericalgeography") { DataType::SphericalGeography }
+
+        pub rule ty() -> DataType
+            = boolean_ty()
+            / tinyint_ty()
+            / smallint_ty()
+            / int_ty()
+            / bigint_ty()
+            / real_ty()
+            / double_ty()
+            / decimal_ty()
+            / varchar_ty()
+            / char_ty()
+            / varbinary_ty()
+            / json_ty()
+            / date_ty()
+            // The `with_time_zone` versions must come first.
+            / time_with_time_zone_ty()
+            / time_ty()
+            / timestamp_with_time_zone_ty()
+            / timestamp_ty()
+            / interval_day_to_second_ty()
+            / interval_year_to_month_ty()
+            / array_ty()
+            / map_ty()
+            / row_ty()
+            / uuid_ty()
+            / spherical_geography_ty()
+    }
+}
+
 #[cfg(all(test, feature = "proptest"))]
 mod test {
     use proptest::prelude::*;
@@ -237,9 +488,13 @@ mod test {
 
     proptest! {
         #[test]
-        fn test_printable(data_type: DataType) {
+        fn test_print_parse_roundtrip(data_type: DataType) {
             // Make sure we can print the data type without panicking.
-            let _ = format!("{}", data_type);
+            let s = format!("{}", data_type);
+            // Make sure we can parse the string.
+            let parsed = s.parse::<DataType>().unwrap();
+            // Make sure the parsed data type matches the original.
+            prop_assert_eq!(data_type, parsed);
         }
     }
 }
