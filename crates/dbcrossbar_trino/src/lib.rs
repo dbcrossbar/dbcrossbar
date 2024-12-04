@@ -16,8 +16,10 @@
 //!   and does not currently attempt to be a production-quality client. It
 //!   currently has no HTTPS or password support. This pulls in a full-fledged
 //!   async HTTP stack.
-//! - `rustls`: Enable Rust-native HTTPS support with WebPKI roots in the
+//! - `rustls-tls`: Enable Rust-native HTTPS support with WebPKI roots in the
 //!   client.
+//! - `macros`: Provides a `#[derive(TrinoRow)]` macro for deserializing query
+//!   results into a Rust `struct`.
 //!
 //! ## What this library provides
 //!

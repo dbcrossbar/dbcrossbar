@@ -29,7 +29,7 @@ use serde_json::Value as JsonValue;
 pub use self::errors::{ClientError, QueryError};
 use self::{deserialize_value::deserialize_json_value, wire_types::TypeSignature};
 use crate::{
-    values::{ConversionError, ExpectedDataType},
+    values::{ConversionError, DataTypeOrAny, ExpectedDataType},
     DataType, Field, Ident,
 };
 
@@ -51,7 +51,7 @@ pub(crate) struct Response {
     /// this.
     pub(crate) query_error: Option<QueryError>,
     pub(crate) next_uri: Option<String>,
-    pub(crate) columns: Option<Vec<Column>>,
+    pub(crate) columns: Option<Vec<ResponseColumn>>,
     pub(crate) data: Option<Vec<Vec<JsonValue>>>,
     pub(crate) update_type: Option<String>,
 
@@ -71,21 +71,21 @@ impl Response {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
-pub(crate) struct Column {
+pub(crate) struct ResponseColumn {
     pub(crate) name: Ident,
     #[serde(rename = "type")]
     type_string: String,
     pub(crate) type_signature: TypeSignature,
 }
 
-impl fmt::Display for Column {
+impl fmt::Display for ResponseColumn {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {}", self.name, self.type_string)
     }
 }
 
-// Convert a `Column` into a ROW `Field`.
-impl TryInto<Field> for &'_ Column {
+/// Convert a [`ResponseColumn`] into a ROW [`Field`].
+impl TryInto<Field> for &'_ ResponseColumn {
     type Error = ClientError;
 
     fn try_into(self) -> Result<Field, ClientError> {
@@ -96,6 +96,12 @@ impl TryInto<Field> for &'_ Column {
     }
 }
 
+/// The default catalog and schema for a client.
+struct CatalogAndSchema {
+    catalog: String,
+    schema: String,
+}
+
 /// Build a client.
 pub struct ClientBuilder {
     user: String,
@@ -103,9 +109,15 @@ pub struct ClientBuilder {
     port: u16,
     password: Option<String>,
     use_https: bool,
+    catalog_and_schema: Option<CatalogAndSchema>,
 }
 
 impl ClientBuilder {
+    /// Create a new builder with default values for running tests.
+    pub fn for_tests() -> Self {
+        Self::new("admin".to_owned(), "localhost".to_owned(), 8080)
+    }
+
     /// Create a new builder.
     pub fn new(user: String, host: String, port: u16) -> Self {
         Self {
@@ -114,6 +126,7 @@ impl ClientBuilder {
             port,
             use_https: false,
             password: None,
+            catalog_and_schema: None,
         }
     }
 
@@ -129,6 +142,14 @@ impl ClientBuilder {
         self
     }
 
+    /// Set the default catalog and schema and assume. Note that this does not
+    /// currently update in a [`Client`] if you run SQL statments to change the
+    /// catalog. You need to specify it up front for now.
+    pub fn catalog_and_schema(mut self, catalog: String, schema: String) -> Self {
+        self.catalog_and_schema = Some(CatalogAndSchema { catalog, schema });
+        self
+    }
+
     /// Build the client.
     pub fn build(self) -> Client {
         Client {
@@ -137,6 +158,7 @@ impl ClientBuilder {
             port: self.port,
             use_https: self.use_https,
             password: self.password,
+            catalog_and_schema: self.catalog_and_schema,
             client: reqwest::Client::new(),
         }
     }
@@ -149,6 +171,7 @@ pub struct Client {
     port: u16,
     use_https: bool,
     password: Option<String>,
+    catalog_and_schema: Option<CatalogAndSchema>,
     client: reqwest::Client,
 }
 
@@ -197,10 +220,16 @@ impl Client {
     async fn start_query(&self, query: &str) -> Result<Response, ClientError> {
         let url = self.statement_url();
         self.request(&|| {
-            self.client
+            let mut req = self
+                .client
                 .post(&url)
-                .basic_auth(&self.user, self.password.as_ref())
-                .body(query.to_owned())
+                .basic_auth(&self.user, self.password.as_ref());
+            if let Some(catalog_and_schema) = &self.catalog_and_schema {
+                req = req
+                    .header("X-Trino-Catalog", &catalog_and_schema.catalog)
+                    .header("X-Trino-Schema", &catalog_and_schema.schema);
+            }
+            req.body(query.to_owned())
         })
         .await
     }
@@ -316,16 +345,105 @@ impl Client {
         }
         Ok(response.remove(0))
     }
+
+    /// Get the schema of a table.
+    pub async fn get_table_column_info(
+        &self,
+        catalog: &Ident,
+        schema: &Ident,
+        table_name: &Ident,
+    ) -> Result<Vec<ColumnInfo>, ClientError> {
+        use crate::QuotedString;
+
+        let sql = format!(
+            "\
+    SELECT column_name, data_type, is_nullable
+        FROM {catalog}.information_schema.columns
+        WHERE table_catalog = {catalog_str}
+            AND table_schema = {schema_str}
+            AND table_name = {table_str}
+        ORDER BY ordinal_position",
+            catalog = catalog,
+            // Quote as strings, not as identifiers.
+            catalog_str = QuotedString(catalog.as_unquoted_str()),
+            schema_str = QuotedString(schema.as_unquoted_str()),
+            table_str = QuotedString(table_name.as_unquoted_str()),
+        );
+        //debug!(%sql, "getting table schema");
+        Ok(self
+            .get_all::<ColumnInfoWrapper>(&sql)
+            .await?
+            .into_iter()
+            // Strip `ColumnInfoWrapper` from our result.
+            .map(|c| c.0)
+            .collect())
+    }
 }
 
 impl Default for Client {
     fn default() -> Self {
-        ClientBuilder::new("admin".to_owned(), "localhost".to_owned(), 8080).build()
+        ClientBuilder::for_tests().build()
+    }
+}
+
+/// Information about a column in a table, returned by
+/// [`Client::get_column_info`].
+#[derive(Debug)]
+#[non_exhaustive]
+pub struct ColumnInfo {
+    pub column_name: Ident,
+    pub data_type: DataType,
+    pub is_nullable: bool,
+}
+
+/// An internal wrapper for [`ColumnInfo`] that implements deserialization.
+///
+/// We do this to avoid leaking our `TryFrom<Value>` and `ExpectedDataType`
+/// `impl`s into the public API.
+struct ColumnInfoWrapper(ColumnInfo);
+
+// This is basically a customized manual version of `#[derive(TrinoRow)]`, but
+// without forcing a dependency on `dbcrossbar_trino_macros`.
+impl TryFrom<Value> for ColumnInfoWrapper {
+    type Error = ConversionError;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        let mkerr = || ConversionError {
+            found: value.clone(),
+            expected_type: Self::expected_data_type(),
+        };
+        match &value {
+            Value::Row { values, .. } if values.len() == 3 => {
+                let column_name_str = String::try_from(values[0].clone())?;
+                let data_type_str = String::try_from(values[1].clone())?;
+                let is_nullable_str = String::try_from(values[2].clone())?;
+                Ok(ColumnInfoWrapper(ColumnInfo {
+                    column_name: Ident::new(&column_name_str).map_err(|_| mkerr())?,
+                    data_type: data_type_str.parse().map_err(|_| mkerr())?,
+                    is_nullable: is_nullable_str == "YES",
+                }))
+            }
+            _ => Err(mkerr()),
+        }
+    }
+}
+
+impl ExpectedDataType for ColumnInfoWrapper {
+    fn expected_data_type() -> DataTypeOrAny {
+        // These `unwrap`s are safe because the column name is known
+        // at compile time.
+        DataTypeOrAny::DataType(DataType::Row(vec![
+            Field::named(Ident::new("column_name").unwrap(), DataType::varchar()),
+            Field::named(Ident::new("data_type").unwrap(), DataType::varchar()),
+            Field::named(Ident::new("is_nullable").unwrap(), DataType::varchar()),
+        ]))
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::ConnectorType;
+
     use super::*;
 
     #[tokio::test]
@@ -337,5 +455,95 @@ mod tests {
             .await
             .unwrap();
         eprintln!("rows: {:?}", rows);
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn test_default_catalog_and_schema() {
+        for connector in ConnectorType::all_testable() {
+            let catalog = connector.test_catalog();
+            let schema = connector.test_schema();
+            let client = ClientBuilder::for_tests()
+                .catalog_and_schema(catalog.to_owned(), schema.to_owned())
+                .build();
+            let table = format!("test_default_catalog_and_schema_{}", connector);
+            let full_table_name = format!("{}.{}.{}", catalog, schema, table);
+
+            // Drop our test table if it exists.
+            client
+                .run_statement(&format!("DROP TABLE IF EXISTS {}", full_table_name))
+                .await
+                .expect("could not drop table");
+
+            // Create a table with the default catalog and schema.
+            let create_table_sql = format!("CREATE TABLE {} (id INT)", table);
+            client
+                .run_statement(&create_table_sql)
+                .await
+                .expect("could not create table");
+
+            // Query the table with an explicit catalog and schema.
+            let query_sql = format!("SELECT * FROM {}", full_table_name);
+            let _rows = client
+                .get_all::<Vec<Value>>(&query_sql)
+                .await
+                .expect("could not query table");
+        }
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn test_get_table_column_info() {
+        for connector in ConnectorType::all_testable() {
+            let client = Client::default();
+
+            // Build our table name manually so we can pass it to
+            // `get_table_column_info`.
+            let catalog = Ident::new(connector.test_catalog()).unwrap();
+            let schema = Ident::new(connector.test_schema()).unwrap();
+            let table =
+                Ident::new(&format!("get_table_column_info_{}", connector)).unwrap();
+            let table_name = format!("{}.{}.{}", catalog, schema, table);
+
+            // Drop our test table if it exists.
+            client
+                .run_statement(&format!("DROP TABLE IF EXISTS {}", table_name))
+                .await
+                .expect("could not drop table");
+
+            let not_null = if connector.supports_not_null_constraint() {
+                " NOT NULL"
+            } else {
+                ""
+            };
+
+            // Create a new table with the transformed type.
+            let create_table_sql = format!(
+                "CREATE TABLE {} (id INT{not_null}, name VARCHAR)",
+                table_name,
+            );
+            client
+                .run_statement(&create_table_sql)
+                .await
+                .expect("could not create table");
+
+            let column_info = client
+                .get_table_column_info(&catalog, &schema, &table)
+                .await
+                .expect("could not get column info");
+
+            assert_eq!(column_info.len(), 2);
+
+            assert_eq!(column_info[0].column_name.as_unquoted_str(), "id");
+            assert_eq!(column_info[0].data_type, DataType::Int);
+            assert_eq!(
+                column_info[0].is_nullable,
+                !connector.supports_not_null_constraint()
+            );
+
+            assert_eq!(column_info[1].column_name.as_unquoted_str(), "name");
+            assert_eq!(column_info[1].data_type, DataType::varchar());
+            assert!(column_info[1].is_nullable);
+        }
     }
 }
