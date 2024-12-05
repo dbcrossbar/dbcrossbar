@@ -5,12 +5,14 @@ use std::{error, fmt};
 use serde::Deserialize;
 use serde_json::{Map, Value as JsonValue};
 
-use crate::{values::ConversionError, DataType};
+use crate::{errors::ConnectorError, values::ConversionError, DataType};
 
 /// An error returned by our Trino client.
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ClientError {
+    /// Connector error.
+    Connector(ConnectorError),
     /// We could not convert a value to the expected type.
     Conversion(ConversionError),
     /// Could not deserialize a JSON value as a [`crate::Value`].
@@ -46,6 +48,7 @@ pub enum ClientError {
 impl fmt::Display for ClientError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Self::Connector(e) => write!(f, "{}", e),
             Self::Conversion(e) => write!(f, "could not conver returned value: {}", e),
             Self::CouldNotDeserializeValue { value, data_type } => {
                 write!(f, "could not deserialize value {} as {}", value, data_type)
@@ -69,6 +72,7 @@ impl fmt::Display for ClientError {
 impl error::Error for ClientError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
+            Self::Connector(e) => Some(e),
             Self::Conversion(e) => Some(e),
             Self::CouldNotDeserializeValue { .. } => None,
             Self::MissingColumnInfo => None,
@@ -78,6 +82,12 @@ impl error::Error for ClientError {
             Self::TooManyColumns { .. } => None,
             Self::TooManyRows { .. } => None,
         }
+    }
+}
+
+impl From<ConnectorError> for ClientError {
+    fn from(e: ConnectorError) -> Self {
+        Self::Connector(e)
     }
 }
 

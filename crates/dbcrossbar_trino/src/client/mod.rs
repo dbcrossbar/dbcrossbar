@@ -30,7 +30,7 @@ pub use self::errors::{ClientError, QueryError};
 use self::{deserialize_value::deserialize_json_value, wire_types::TypeSignature};
 use crate::{
     values::{ConversionError, DataTypeOrAny, ExpectedDataType},
-    DataType, Field, Ident,
+    ConnectorType, DataType, Field, Ident, QuotedString,
 };
 
 use super::Value;
@@ -346,6 +346,19 @@ impl Client {
         Ok(response.remove(0))
     }
 
+    /// Get the [`ConnectorType`] for a catalog.
+    pub async fn catalog_connector_type(
+        &self,
+        catalog: &Ident,
+    ) -> Result<ConnectorType, ClientError> {
+        let sql = format!(
+            "SELECT connector_name FROM system.metadata.catalogs WHERE catalog_name = {}",
+            QuotedString(catalog.as_unquoted_str()),
+        );
+        let connector_name = self.get_one_value::<String>(&sql).await?;
+        Ok(connector_name.parse::<ConnectorType>()?)
+    }
+
     /// Get the schema of a table.
     pub async fn get_table_column_info(
         &self,
@@ -353,8 +366,6 @@ impl Client {
         schema: &Ident,
         table_name: &Ident,
     ) -> Result<Vec<ColumnInfo>, ClientError> {
-        use crate::QuotedString;
-
         let sql = format!(
             "\
     SELECT column_name, data_type, is_nullable
@@ -488,6 +499,20 @@ mod tests {
                 .get_all::<Vec<Value>>(&query_sql)
                 .await
                 .expect("could not query table");
+        }
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn test_catalog_connector_type() {
+        for connector in ConnectorType::all_testable() {
+            let client = Client::default();
+            let catalog = Ident::new(connector.test_catalog()).unwrap();
+            let found = client
+                .catalog_connector_type(&catalog)
+                .await
+                .expect("could not get connector type");
+            assert_eq!(found, connector);
         }
     }
 

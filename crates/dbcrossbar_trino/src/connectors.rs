@@ -82,7 +82,7 @@ use super::DataType;
 ///   storage_transform.load_expr(x_expr).to_string(),
 /// );
 /// ```
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "proptest", derive(Arbitrary))]
 #[allow(missing_docs)]
 #[non_exhaustive]
