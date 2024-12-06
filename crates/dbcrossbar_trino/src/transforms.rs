@@ -5,6 +5,10 @@ use crate::{
     DataType, Field, Ident,
 };
 
+/// Placeholder string used in a slightly hackish fashion to turn a
+/// pretty-printable `RcDoc` into a prefix an suffix string.
+static PLACEHOLDER_STR: &str = "%%%%%%";
+
 /// Downgrades from stanard Trino types (used when running SQL) to "simpler"
 /// types that are supported by particular storage backends.
 ///
@@ -65,6 +69,14 @@ impl StorageTransform {
         }
     }
 
+    /// Return an SQL prefix and suffix that can be wrapped around an SQL
+    /// expression to convert it to the storage type. This is useful for tools
+    /// that work at the string level, and that can't support pretty-printing.
+    pub fn store_prefix_and_suffix(&self) -> (String, String) {
+        let placeholder = Expr::raw_sql(PLACEHOLDER_STR);
+        expr_with_placeholder_to_prefix_and_suffix(&self.store_expr(placeholder))
+    }
+
     /// Format an SQL fragment, wrapping it code that converts the value from
     /// the storage type. Returns an [`Expr`] that can be pretty-printed.
     pub fn load_expr(&self, wrapped_expr: Expr) -> Expr {
@@ -78,6 +90,26 @@ impl StorageTransform {
             transformed_expr
         }
     }
+
+    /// Return an SQL prefix and suffix that can be wrapped around an SQL
+    /// expression to convert it from the storage type. This is useful for tools
+    /// that work at the string level, and that can't support pretty-printing.
+    pub fn load_prefix_and_suffix(&self) -> (String, String) {
+        let placeholder = Expr::raw_sql(PLACEHOLDER_STR);
+        expr_with_placeholder_to_prefix_and_suffix(&self.load_expr(placeholder))
+    }
+}
+
+/// Convert an [`Expr`] containing a placeholder string into an SQL prefix and
+/// suffix.
+fn expr_with_placeholder_to_prefix_and_suffix(expr: &Expr) -> (String, String) {
+    // This is pretty hackish, but all the SQL is under our control.
+    let sql_with_placeholder = expr.to_string();
+    let mut iter = sql_with_placeholder.splitn(2, PLACEHOLDER_STR);
+    let prefix = iter.next().expect("could not find prefix").to_string();
+    let suffix = iter.next().expect("could not find suffix").to_string();
+    assert!(iter.next().is_none(), "found more than one placeholder");
+    (prefix, suffix)
 }
 
 /// Internal helper for `StorageTransform`.
@@ -854,6 +886,32 @@ mod tests {
                 connector, value, trino_ty, true
             );
             tokio::runtime::Runtime::new().unwrap().block_on(fut);
+        }
+
+        /// Test that our two output modes produce the same result.
+        #[test]
+        fn test_pretty_printing_and_prefix_and_suffix_are_equivalent(
+            connector in any::<ConnectorType>(),
+            trino_ty in any::<DataType>(),
+        ) {
+            // How should we transform this type for storage using this connector?
+            let storage_transform = connector.storage_transform_for(&trino_ty);
+
+            // Some fake SQL to wrap.
+            let raw_sql_to_wrap = "t.x";
+            let sql_expr_to_wrap = Expr::raw_sql(raw_sql_to_wrap);
+
+            // Test loading.
+            let (prefix, suffix) = storage_transform.load_prefix_and_suffix();
+            let with_prefix_and_suffix = format!("{prefix}{raw_sql_to_wrap}{suffix}");
+            let pretty_printed = storage_transform.load_expr(sql_expr_to_wrap.clone()).to_string();
+            assert_eq!(with_prefix_and_suffix, pretty_printed);
+
+            // Test storing.
+            let (prefix, suffix) = storage_transform.store_prefix_and_suffix();
+            let with_prefix_and_suffix = format!("{prefix}{raw_sql_to_wrap}{suffix}");
+            let pretty_printed = storage_transform.store_expr(sql_expr_to_wrap).to_string();
+            assert_eq!(with_prefix_and_suffix, pretty_printed);
         }
     }
 }
