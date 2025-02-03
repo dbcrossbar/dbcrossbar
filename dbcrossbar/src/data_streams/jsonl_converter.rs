@@ -4,7 +4,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use csv::StringRecord;
 use serde_json::{Number, Value};
 use uuid::Uuid;
@@ -343,6 +343,10 @@ fn convert_csv_field_to_json(
             DataType::Uuid => {
                 let value: Uuid = FromCsvCell::from_csv_cell(value)?;
                 Ok(Value::String(value.to_string()))
+            }
+            DataType::TimeWithoutTimeZone => {
+                let value: NaiveTime = FromCsvCell::from_csv_cell(value)?;
+                Ok(Value::String(value.format("%H:%M:%S%.f").to_string()))
             }
         }
     }

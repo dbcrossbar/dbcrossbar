@@ -1,7 +1,7 @@
 //! Write data values in PostgreSQL `BINARY` format.
 
 use byteorder::{NetworkEndian as NE, WriteBytesExt};
-use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use geo_types::Geometry;
 use postgis::ewkb::{AsEwkbGeometry, EwkbWrite};
 use std::mem::{size_of, size_of_val};
@@ -148,6 +148,19 @@ impl WriteBinary for NaiveDateTime {
             .and_hms_opt(0, 0, 0)
             .expect("invalid time");
         let duration = *self - epoch;
+        let microseconds = duration
+            .num_microseconds()
+            .ok_or_else(|| format_err!("date math overflow"))?;
+        wtr.write_len(size_of::<i64>())?;
+        wtr.write_i64::<NE>(microseconds)?;
+        Ok(())
+    }
+}
+
+impl WriteBinary for NaiveTime {
+    fn write_binary<W: Write>(&self, wtr: &mut W) -> Result<()> {
+        let start_of_day = NaiveTime::from_hms_opt(0, 0, 0).expect("invalid time");
+        let duration = *self - start_of_day;
         let microseconds = duration
             .num_microseconds()
             .ok_or_else(|| format_err!("date math overflow"))?;

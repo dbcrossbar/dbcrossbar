@@ -1,6 +1,6 @@
 //! Construct various types from parsed JSON values.
 
-use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, Utc};
+use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use geo_types::Geometry;
 use serde_json::Value;
 use uuid::Uuid;
@@ -139,6 +139,8 @@ impl FromJsonValue for Value {
 }
 
 impl FromJsonValue for NaiveDateTime {}
+
+impl FromJsonValue for NaiveTime {}
 
 impl FromJsonValue for DateTime<FixedOffset> {}
 

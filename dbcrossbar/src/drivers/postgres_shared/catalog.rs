@@ -95,7 +95,7 @@ WHERE
 
     // Look up column information.
     let columns_sql = r#"
-SELECT column_name, is_nullable, data_type, udt_schema, udt_name 
+SELECT column_name, is_nullable, data_type, udt_schema, udt_name
 FROM information_schema.columns
 WHERE
     table_schema = $1 AND
@@ -232,6 +232,7 @@ fn pg_data_type(
             "_timestamp" => PgScalarDataType::TimestampWithoutTimeZone,
             "_timestamptz" => PgScalarDataType::TimestampWithTimeZone,
             "_uuid" => PgScalarDataType::Uuid,
+            "_time" => PgScalarDataType::TimeWithoutTimeZone,
             _ => return Err(format_err!("unknown array element {:?}", udt_name)),
         };
         Ok(PgDataType::Array {
@@ -273,6 +274,7 @@ fn pg_data_type(
                 Ok(PgScalarDataType::TimestampWithoutTimeZone)
             }
             "uuid" => Ok(PgScalarDataType::Uuid),
+            "time without time zone" => Ok(PgScalarDataType::TimeWithoutTimeZone),
             other => Err(format_err!("unknown data type {:?}", other)),
         }?;
         Ok(PgDataType::Scalar(ty))
@@ -335,6 +337,10 @@ fn parsing_pg_data_type() {
             ("timestamp without time zone", "pg_catalog", "timestamp"),
             PgDataType::Scalar(PgScalarDataType::TimestampWithoutTimeZone),
         ),
+        (
+            ("time without time zone", "pg_catalog", "time"),
+            PgDataType::Scalar(PgScalarDataType::TimeWithoutTimeZone),
+        ),
         // Array types.
         (
             ("ARRAY", "pg_catalog", "_bool"),
@@ -379,6 +385,10 @@ fn parsing_pg_data_type() {
         (
             ("ARRAY", "pg_catalog", "_uuid"),
             array(PgScalarDataType::Uuid),
+        ),
+        (
+            ("ARRAY", "pg_catalog", "_time"),
+            array(PgScalarDataType::TimeWithoutTimeZone),
         ),
     ];
     for ((data_type, udt_schema, udt_name), expected) in examples {
