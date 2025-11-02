@@ -20,8 +20,8 @@ use std::{convert::Infallible, env, fmt, str::FromStr};
 
 use futures::channel::oneshot;
 use http_body_util::{BodyExt, Full};
-use hyper::{body::Bytes, body::Incoming, Method, Request, Response, StatusCode};
 use hyper::service::service_fn;
+use hyper::{body::Bytes, body::Incoming, Method, Request, Response, StatusCode};
 use hyper_util::client::legacy::Client;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use hyper_util::server::conn::auto::Builder as ServerBuilder;
@@ -178,13 +178,11 @@ async fn start_prometheus_server(renderer: PrometheusRenderer) -> Result<()> {
     })?;
 
     // Create a TCP listener.
-    let listener = tokio::net::TcpListener::bind(&addr)
-        .await
-        .map_err(|e| {
-            Error::CouldNotConfigureMetrics(
-                format!("cannot bind to {}: {}", addr, e).into(),
-            )
-        })?;
+    let listener = tokio::net::TcpListener::bind(&addr).await.map_err(|e| {
+        Error::CouldNotConfigureMetrics(
+            format!("cannot bind to {}: {}", addr, e).into(),
+        )
+    })?;
 
     // Allow server shutdown.
     let (tx, rx) = oneshot::channel();

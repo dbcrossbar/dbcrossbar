@@ -52,10 +52,10 @@ async fn service_account_authenticator() -> Result<Authenticator> {
         .get("gcloud_service_account_key")
         .await?;
     let service_account_key_json = creds.get_required("value")?;
-    
+
     let provider = CustomServiceAccount::from_json(service_account_key_json)
         .context("failed to create service account provider from JSON")?;
-    
+
     Ok(Authenticator::new(Arc::new(provider)))
 }
 
@@ -64,7 +64,7 @@ async fn default_authenticator() -> Result<Authenticator> {
     let provider = gcp_auth::provider()
         .await
         .context("failed to get default GCP authentication provider")?;
-    
+
     Ok(Authenticator::new(provider))
 }
 

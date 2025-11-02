@@ -14,12 +14,16 @@ use opentelemetry_sdk::trace::{SpanData, SpanExporter};
 pub(crate) struct DebugExporter;
 
 impl SpanExporter for DebugExporter {
-    fn export(&self, batch: Vec<SpanData>) -> impl std::future::Future<Output = OTelSdkResult> + Send {
+    fn export(
+        &self,
+        batch: Vec<SpanData>,
+    ) -> impl std::future::Future<Output = OTelSdkResult> + Send {
         async move {
-            export_helper(batch)
-                .await
-                .map_err(|e| OTelSdkError::InternalFailure(format!("{:?}", DebugExportError::Io(e))))
-        }.boxed()
+            export_helper(batch).await.map_err(|e| {
+                OTelSdkError::InternalFailure(format!("{:?}", DebugExportError::Io(e)))
+            })
+        }
+        .boxed()
     }
 }
 

@@ -83,7 +83,6 @@ impl From<serde_json::Error> for ClientError {
     }
 }
 
-
 /// Is it safe to retry a request? This should always be true for GET requests,
 /// but by default POST requests are not safe to retry.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

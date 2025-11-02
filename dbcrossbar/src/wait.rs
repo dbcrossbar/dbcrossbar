@@ -58,10 +58,7 @@ pub(crate) enum WaitStatus<T, E> {
 }
 
 /// Retry an async operation with exponential backoff.
-pub(crate) async fn wait<T, E, F, Fut>(
-    options: &WaitOptions,
-    mut f: F,
-) -> Result<T, E>
+pub(crate) async fn wait<T, E, F, Fut>(options: &WaitOptions, mut f: F) -> Result<T, E>
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = WaitStatus<T, E>>,
@@ -93,4 +90,3 @@ where
         }
     }
 }
-

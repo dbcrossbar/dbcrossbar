@@ -38,10 +38,12 @@ mod tests {
             Hmac::<Sha1>::new_from_slice(credentials.secret_access_key.as_bytes())
                 .map_err(|err| format_err!("cannot compute signature: {}", err))?;
         let full_path = format!("/{}{}", host, url.path());
-        let payload = format!("{}\n\n\n{}\n{}", method, expires.timestamp(), full_path,);
+        let payload =
+            format!("{}\n\n\n{}\n{}", method, expires.timestamp(), full_path,);
         mac.update(payload.as_bytes());
         let signature = BASE64_STANDARD.encode(mac.finalize().into_bytes());
-        let mut signed: Url = format!("https://s3.amazonaws.com{}", full_path).parse()?;
+        let mut signed: Url =
+            format!("https://s3.amazonaws.com{}", full_path).parse()?;
         signed
             .query_pairs_mut()
             .append_pair("AWSAccessKeyId", &credentials.access_key_id)

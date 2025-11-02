@@ -12,7 +12,9 @@ use std::{
     sync::{atomic::Ordering, Arc, RwLock},
 };
 
-use metrics::{Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit};
+use metrics::{
+    Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit,
+};
 use metrics_util::registry::{AtomicStorage, Registry};
 
 use crate::{Error, Result};

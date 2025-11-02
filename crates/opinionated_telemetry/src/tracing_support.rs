@@ -1,8 +1,6 @@
 //! Tools for tracing, with OpenTelemetry integration.
 
-use std::{
-    collections::HashMap, env, error, fmt, str::FromStr,
-};
+use std::{collections::HashMap, env, error, fmt, str::FromStr};
 
 use futures::{future::BoxFuture, FutureExt};
 use once_cell::sync::Lazy;
@@ -15,11 +13,11 @@ use opentelemetry::{
 use opentelemetry_sdk::{
     error::OTelSdkResult,
     propagation::{BaggagePropagator, TraceContextPropagator},
-    resource::{EnvResourceDetector, SdkProvidedResourceDetector, ResourceDetector},
-    trace::{SpanData, SpanExporter, SdkTracerProvider},
+    resource::{EnvResourceDetector, ResourceDetector, SdkProvidedResourceDetector},
+    trace::{SdkTracerProvider, SpanData, SpanExporter},
     Resource,
 };
-use opentelemetry_stackdriver::{StackDriverExporter, GcpAuthorizer};
+use opentelemetry_stackdriver::{GcpAuthorizer, StackDriverExporter};
 use tokio::{sync::RwLock, task::JoinHandle};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_subscriber::{fmt::format::FmtSpan, prelude::*, Registry};
@@ -131,10 +129,9 @@ impl ExporterType {
     ) -> Result<(Self, BoxFuture<'static, ()>)> {
         match tracer_type {
             TracerType::CloudTrace => {
-                env::var("GCLOUD_SERVICE_ACCOUNT_KEY_PATH")
-                    .map_err(|_| {
-                        Error::env_var_not_set("GCLOUD_SERVICE_ACCOUNT_KEY_PATH")
-                    })?;
+                env::var("GCLOUD_SERVICE_ACCOUNT_KEY_PATH").map_err(|_| {
+                    Error::env_var_not_set("GCLOUD_SERVICE_ACCOUNT_KEY_PATH")
+                })?;
                 let authenticator = GcpAuthorizer::new()
                     .await
                     .map_err(Error::could_not_configure_tracing)?;
@@ -152,7 +149,10 @@ impl ExporterType {
 }
 
 impl SpanExporter for ExporterType {
-    fn export(&self, batch: Vec<SpanData>) -> impl std::future::Future<Output = OTelSdkResult> + Send {
+    fn export(
+        &self,
+        batch: Vec<SpanData>,
+    ) -> impl std::future::Future<Output = OTelSdkResult> + Send {
         match self {
             ExporterType::CloudTrace(exporter) => exporter.export(batch).boxed(),
             ExporterType::Debug(exporter) => exporter.export(batch).boxed(),
@@ -190,14 +190,14 @@ pub async fn start_tracing(config: &TelemetryConfig) -> Result<()> {
             KeyValue::new("service.name", config.service_name.clone()),
             KeyValue::new("service.version", config.service_version.clone()),
         ];
-        
+
         // Add detected resources
         let sdk_resource = SdkProvidedResourceDetector.detect();
         let env_resource = EnvResourceDetector::default().detect();
         for (key, value) in sdk_resource.iter().chain(env_resource.iter()) {
             resource_kvs.push(KeyValue::new(key.clone(), value.clone()));
         }
-        
+
         let resource = Resource::builder().with_attributes(resource_kvs).build();
 
         // Configure our tracer provider.

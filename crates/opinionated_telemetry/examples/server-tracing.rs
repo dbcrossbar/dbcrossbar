@@ -99,7 +99,8 @@ async fn handle_request(socket: TcpStream) -> Result<()> {
     let response = respond_to_request(&mut wtr).instrument(span).await;
 
     // Record elapsed time.
-    histogram!("servertracing.request.duration_seconds").record(start_time.elapsed().as_secs_f64());
+    histogram!("servertracing.request.duration_seconds")
+        .record(start_time.elapsed().as_secs_f64());
 
     response
 }
