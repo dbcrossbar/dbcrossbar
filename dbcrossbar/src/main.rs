@@ -1,6 +1,6 @@
 //! A CLI tool for converting between table schema formats.
 
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 #![warn(
     missing_docs,
     unused_extern_crates,
@@ -160,14 +160,6 @@ async fn main() -> Result<()> {
 
     let span = info_span!("dbcrossbar", version = env!("CARGO_PKG_VERSION")).entered();
     set_parent_span_from_env();
-
-    // Find our system SSL configuration, even if we're statically linked.
-    #[allow(unsafe_code)]
-    unsafe {
-        openssl_probe::init_openssl_env_vars();
-    }
-    debug!("SSL_CERT_DIR: {:?}", env::var("SSL_CERT_DIR").ok());
-    debug!("SSL_CERT_FILE: {:?}", env::var("SSL_CERT_FILE").ok());
 
     // Parse our command-line arguments.
     let opt = cmd::Opt::parse();

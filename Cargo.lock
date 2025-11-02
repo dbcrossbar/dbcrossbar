@@ -720,7 +720,6 @@ dependencies = [
  "metrics",
  "mime",
  "opener",
- "openssl-probe",
  "opinionated_telemetry",
  "parse_link_header",
  "peg",

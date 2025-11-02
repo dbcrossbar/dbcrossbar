@@ -72,7 +72,6 @@ log = "0.4.5"
 metrics = "0.24"
 mime = "0.3.16"
 opener = "0.8"
-openssl-probe = "0.1.2"
 opinionated_telemetry = { version = "0.2.0", path = "../crates/opinionated_telemetry" }
 parse_link_header = "0.4"
 peg = "0.8"
