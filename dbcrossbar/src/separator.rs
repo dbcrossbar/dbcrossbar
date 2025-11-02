@@ -11,7 +11,7 @@ pub(crate) struct Separator<'a> {
 
 impl Separator<'_> {
     /// Create a new separator which displays the specified string.
-    pub(crate) fn new(text: &str) -> Separator {
+    pub(crate) fn new(text: &str) -> Separator<'_> {
         Separator {
             text,
             first_time: true,
@@ -21,7 +21,7 @@ impl Separator<'_> {
     /// Return a displayable version of this separator. The first time this
     /// is called, the resulting `SeparatorDisplay` will not print anything.
     /// The next time, it will print the separator text.
-    pub(crate) fn display(&mut self) -> SeparatorDisplay {
+    pub(crate) fn display(&mut self) -> SeparatorDisplay<'_> {
         if self.first_time {
             self.first_time = false;
             SeparatorDisplay(None)

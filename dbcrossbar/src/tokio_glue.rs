@@ -297,7 +297,7 @@ impl Read for SyncStreamReader {
                 Some(Err(err)) => {
                     error!("error reading from stream: {}", err);
                     self.seen_error = true;
-                    return Err(io::Error::new(io::ErrorKind::Other, err));
+                    return Err(io::Error::other(err));
                 }
             }
         }
@@ -466,21 +466,6 @@ pub(crate) type IdiomaticBytesStream = Pin<
             + 'static,
     >,
 >;
-
-/// Convert an HTTP response into a `BoxStream<BytesMut>`.
-///
-/// This is limited to a single concrete input stream type.
-pub(crate) fn http_response_stream(
-    response: reqwest::Response,
-) -> BoxStream<BytesMut> {
-    response
-        .bytes_stream()
-        // Convert `Bytes` to `BytesMut` by copying, which is slightly
-        // expensive.
-        .map_ok(|chunk| BytesMut::from(chunk.as_ref()))
-        .map_err(|err| err.into())
-        .boxed()
-}
 
 /// Convert a `BoxStream<BytesMut>` to something more idiomatic.
 pub(crate) fn idiomatic_bytes_stream(

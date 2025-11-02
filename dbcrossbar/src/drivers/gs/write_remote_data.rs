@@ -1,9 +1,7 @@
 //! Implementation of `GsLocator::write_remote_data`.
 
-use bigml::{
-    try_with_permanent_failure,
-    wait::{wait, WaitStatus},
-};
+use crate::try_with_permanent_failure;
+use crate::wait::{wait, WaitStatus};
 
 use super::{prepare_as_destination_helper, GsLocator};
 use crate::clouds::gcloud::bigquery::original_bigquery_error;

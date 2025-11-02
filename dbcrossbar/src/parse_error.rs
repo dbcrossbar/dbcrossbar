@@ -5,8 +5,7 @@ use codespan_reporting::{
     files::SimpleFiles,
     term,
 };
-use std::{error::Error as StdError, fmt, io::Cursor, ops::Range, sync::Arc};
-use termcolor::NoColor;
+use std::{error::Error as StdError, fmt, ops::Range, sync::Arc};
 
 /// An error occurred processing the schema.
 #[derive(Debug)]
@@ -61,11 +60,11 @@ impl fmt::Display for ParseError {
         // pretty colors, but we can't do that inside `Display`, because we
         // don't know if we're displaying to the terminal or not. So write
         // everything to a local buffer.
-        let mut buf = Vec::with_capacity(1024);
-        let mut wtr = NoColor::new(Cursor::new(&mut buf));
+        let mut buf = String::new();
         let config = codespan_reporting::term::Config::default();
-        term::emit(&mut wtr, &config, &files, &diagnostic).map_err(|_| fmt::Error)?;
-        write!(f, "{}", String::from_utf8_lossy(&buf))
+        term::emit_to_string(&mut buf, &config, &files, &diagnostic)
+            .map_err(|_| fmt::Error)?;
+        write!(f, "{}", buf)
     }
 }
 

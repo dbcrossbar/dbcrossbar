@@ -1,7 +1,7 @@
 use std::env::current_exe;
 
 use anyhow::{anyhow, Result};
-use metrics::{describe_counter, increment_counter};
+use metrics::{counter, describe_counter};
 use opinionated_telemetry::{
     current_span_as_env, current_span_as_headers, run_with_telemetry,
     set_parent_span_from_env, AppType,
@@ -42,7 +42,7 @@ async fn main_helper() -> Result<()> {
     // probably want to run https://github.com/zapier/prom-aggregation-gateway
     // instead of the standard Prometheus push gateway.
     describe_counter!("clienttracing.run.count", "Number of times we've run");
-    increment_counter!("clienttracing.run.count");
+    counter!("clienttracing.run.count").increment(1);
 
     // Make some sample requests.
     make_request_to_server().await?;

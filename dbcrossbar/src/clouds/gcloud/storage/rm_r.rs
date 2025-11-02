@@ -1,6 +1,6 @@
 //! Deleting files from Google Cloud Storage.
 
-use bigml::wait::{wait, WaitStatus};
+use crate::wait::{wait, WaitStatus};
 use hyper::StatusCode;
 
 use super::{

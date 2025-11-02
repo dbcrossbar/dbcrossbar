@@ -3,7 +3,8 @@
 use cli_test_dir::*;
 use difference::assert_diff;
 use pretty_assertions::assert_eq;
-use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use rand::distr::Alphanumeric;
+use rand::Rng;
 use serde_json::{json, Value};
 use std::{fs, io::Write, iter, path::Path, process::Command};
 
@@ -11,7 +12,7 @@ use super::*;
 
 /// Generate a random alphanumeric tag for use in temporary directory names.
 fn random_tag() -> String {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let bytes = iter::repeat(())
         .map(|()| rng.sample(Alphanumeric))
         .take(10)

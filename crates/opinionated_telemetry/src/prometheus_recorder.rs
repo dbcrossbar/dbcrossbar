@@ -12,7 +12,7 @@ use std::{
     sync::{atomic::Ordering, Arc, RwLock},
 };
 
-use metrics::{Counter, Gauge, Histogram, Key, KeyName, Recorder, SharedString, Unit};
+use metrics::{Counter, Gauge, Histogram, Key, KeyName, Metadata, Recorder, SharedString, Unit};
 use metrics_util::registry::{AtomicStorage, Registry};
 
 use crate::{Error, Result};
@@ -42,7 +42,7 @@ struct Inner {
 
     /// Histograms that we've built from raw metric data. We're responsible for
     /// maintaining these ourselves.
-    histograms: RwLock<HashMap<Key, metrics_util::Histogram>>,
+    histograms: RwLock<HashMap<Key, metrics_util::storage::Histogram>>,
 }
 
 impl Inner {
@@ -82,7 +82,7 @@ impl Inner {
                 // Get or create our `Histogram`.
                 let mut histograms = self.histograms.write().expect("lock poisoned");
                 let histogram = histograms.entry(key.clone()).or_insert_with(|| {
-                    metrics_util::Histogram::new(DEFAULT_BUCKETS)
+                    metrics_util::storage::Histogram::new(DEFAULT_BUCKETS)
                         .expect("histogram has no buckets")
                 });
 
@@ -263,7 +263,7 @@ impl PrometheusRecorder {
     /// Install this recorder as the global default recorder.
     pub(crate) fn install(self) -> Result<PrometheusRenderer> {
         let handle = self.renderer();
-        metrics::set_boxed_recorder(Box::new(self))
+        metrics::set_global_recorder(self)
             .map_err(Error::could_not_configure_metrics)?;
         Ok(handle)
     }
@@ -306,19 +306,19 @@ impl Recorder for PrometheusRecorder {
         self.record_description(key, description);
     }
 
-    fn register_counter(&self, key: &Key) -> Counter {
+    fn register_counter(&self, key: &Key, _metadata: &Metadata<'_>) -> Counter {
         self.inner
             .registry
             .get_or_create_counter(key, |c| c.clone().into())
     }
 
-    fn register_gauge(&self, key: &Key) -> Gauge {
+    fn register_gauge(&self, key: &Key, _metadata: &Metadata<'_>) -> Gauge {
         self.inner
             .registry
             .get_or_create_gauge(key, |c| c.clone().into())
     }
 
-    fn register_histogram(&self, key: &Key) -> Histogram {
+    fn register_histogram(&self, key: &Key, _metadata: &Metadata<'_>) -> Histogram {
         self.inner
             .registry
             .get_or_create_histogram(key, |c| c.clone().into())

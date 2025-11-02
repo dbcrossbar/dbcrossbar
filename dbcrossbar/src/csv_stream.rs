@@ -1,11 +1,7 @@
 //! Our basic data representation.
 
-use reqwest::{self, Response};
-
 use crate::common::*;
-use crate::tokio_glue::{
-    http_response_stream, idiomatic_bytes_stream, IdiomaticBytesStream,
-};
+use crate::tokio_glue::{idiomatic_bytes_stream, IdiomaticBytesStream};
 
 /// A stream of CSV data, with a unique name.
 pub struct CsvStream {
@@ -52,17 +48,6 @@ impl CsvStream {
         }
         trace!("end of stream");
         Ok(bytes)
-    }
-
-    /// Convert an HTTP `Body` into a `CsvStream`.
-    pub(crate) fn from_http_response(
-        name: String,
-        response: Response,
-    ) -> Result<CsvStream> {
-        Ok(CsvStream {
-            name,
-            data: http_response_stream(response),
-        })
     }
 
     /// Convert this `CsvStream` into a `Stream` that can be used with

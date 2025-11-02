@@ -32,13 +32,12 @@ pub(crate) async fn run(
         write_licenses_html(&out_html).await
     } else {
         // Create a temporary file (that we don't clean up).
-        let out_html: PathBuf = spawn_blocking(|| {
+        let tempdir = spawn_blocking(|| {
             tempfile::TempDir::new().context("could not create temporary directory")
         })
-        .await?
-        // `into_path` makes the directory stay around after we exit.
-        .into_path()
-        .join("ALL_LICENSES.html");
+        .await?;
+        let path = tempdir.keep();
+        let out_html = path.join("ALL_LICENSES.html");
         write_licenses_html(&out_html).await?;
 
         // Open it in the browser.

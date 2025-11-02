@@ -108,10 +108,8 @@ pub(crate) async fn run(
     // focused optimizations.
     let from_scheme: &'static str = from_locator.dyn_scheme().trim_end_matches(':');
     let to_scheme: &'static str = to_locator.dyn_scheme().trim_end_matches(':');
-    increment_counter!(
-        "dbcrossbar.cp.count",
-        "from" => from_scheme, "to" => to_scheme,
-    );
+    metrics::counter!("dbcrossbar.cp.count", "from" => from_scheme, "to" => to_scheme)
+        .increment(1);
 
     // Fill in our span fields.
     let span = Span::current();
@@ -261,18 +259,15 @@ fn report_cp_local_metrics(
     data.map_ok(move |mut csv_stream| {
         // No real point in capturing `from` and `to` here, and increasing
         // the cardinality of our metrics.
-        increment_counter!("dbcrossbar.cp_streams.count", "format" => "csv");
+        metrics::counter!("dbcrossbar.cp_streams.count", "format" => "csv").increment(1);
 
         let from_scheme: &'static str = from_scheme;
         let to_scheme: &'static str = to_scheme;
         csv_stream.data = csv_stream
             .data
             .map_ok(move |bytes| {
-                counter!(
-                    "dbcrossbar.cp_local.bytes_count",
-                    bytes.len() as u64,
-                    "from" => from_scheme, "to" => to_scheme,
-                );
+                metrics::counter!("dbcrossbar.cp_local.bytes_count", "from" => from_scheme, "to" => to_scheme)
+                    .increment(bytes.len() as u64);
                 bytes
             })
             .boxed();

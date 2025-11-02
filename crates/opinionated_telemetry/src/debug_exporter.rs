@@ -5,24 +5,21 @@ use std::{
     io::{self, Write},
 };
 
-use futures::{future::BoxFuture, FutureExt, TryFutureExt};
-use opentelemetry::{
-    sdk::export::{
-        trace::{ExportResult, SpanData, SpanExporter},
-        ExportError,
-    },
-    trace::TraceError,
-};
+use futures::FutureExt;
+use opentelemetry_sdk::error::{OTelSdkError, OTelSdkResult};
+use opentelemetry_sdk::trace::{SpanData, SpanExporter};
 
 /// An exporter which prints spans to `stderr` as JSON.
 #[derive(Debug)]
 pub(crate) struct DebugExporter;
 
 impl SpanExporter for DebugExporter {
-    fn export(&mut self, batch: Vec<SpanData>) -> BoxFuture<'static, ExportResult> {
-        export_helper(batch)
-            .map_err(|e| TraceError::Other(Box::new(DebugExportError::Io(e))))
-            .boxed()
+    fn export(&self, batch: Vec<SpanData>) -> impl std::future::Future<Output = OTelSdkResult> + Send {
+        async move {
+            export_helper(batch)
+                .await
+                .map_err(|e| OTelSdkError::InternalFailure(format!("{:?}", DebugExportError::Io(e))))
+        }.boxed()
     }
 }
 
@@ -39,19 +36,14 @@ async fn export_helper(batch: Vec<SpanData>) -> io::Result<()> {
         )?;
         writeln!(&mut out, "  Parent: {:?}", span.parent_span_id)?;
         writeln!(&mut out, "  Status: {:?}", span.status)?;
-        for (key, value) in &span.attributes {
-            writeln!(&mut out, "  {} = {}", key, value)?;
+        for kv in span.attributes.iter() {
+            writeln!(&mut out, "  {} = {:?}", kv.key, kv.value)?;
         }
         for event in span.events.iter() {
             writeln!(&mut out, "  Event: {:?}", event)?;
         }
         for link in span.links.iter() {
             writeln!(&mut out, "  Link: {:?}", link)?;
-        }
-
-        let res = &span.resource;
-        for (key, value) in res.iter() {
-            writeln!(&mut out, "  (Resource) {} = {}", key, value)?;
         }
 
         // We're still missing some interesting stuff.
@@ -81,11 +73,5 @@ impl error::Error for DebugExportError {
         match self {
             DebugExportError::Io(err) => Some(err),
         }
-    }
-}
-
-impl ExportError for DebugExportError {
-    fn exporter_name(&self) -> &'static str {
-        "JsonDebugExporter"
     }
 }

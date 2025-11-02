@@ -42,7 +42,7 @@ impl DataFormat {
     }
 
     /// Fetch the default file extension for a given `DataFormat`.
-    pub(crate) fn extension(&self) -> Cow<str> {
+    pub(crate) fn extension(&self) -> Cow<'_, str> {
         match self {
             Self::Csv => Cow::Borrowed("csv"),
             Self::JsonLines => Cow::Borrowed("jsonl"),

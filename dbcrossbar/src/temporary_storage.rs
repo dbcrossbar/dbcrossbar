@@ -1,7 +1,7 @@
 //! Temporary storage management.
 
-use rand::distributions::Alphanumeric;
-use rand::{thread_rng, Rng};
+use rand::distr::Alphanumeric;
+use rand::Rng;
 use std::iter;
 
 use crate::common::*;
@@ -43,7 +43,7 @@ impl TemporaryStorage {
 
     /// Generate a random alphanumeric tag for use in temporary directory names.
     pub fn random_tag() -> String {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let bytes = iter::repeat(())
             .map(|()| rng.sample(Alphanumeric))
             .take(10)
