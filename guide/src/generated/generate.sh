@@ -16,6 +16,6 @@ done
 
 dbxb features > features.txt
 
-for d in bigml bigquery csv file gs postgres redshift s3 shopify; do
+for d in bigquery csv file gs postgres redshift s3 shopify; do
     dbxb features $d > features_$d.txt
 done

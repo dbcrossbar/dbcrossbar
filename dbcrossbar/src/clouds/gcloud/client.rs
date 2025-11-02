@@ -233,9 +233,6 @@ impl Client {
 
         let token = self.token().await?;
         let wait_options = WaitOptions::default()
-            // We could probably make this shorter than 4 for Google Cloud, but
-            // the `bigml` crate that we're currently using for `wait` rounds
-            // all short intervals up to 4 anyway.
             .retry_interval(Duration::from_secs(4))
             // Don't retry too much because we're probably classifying some
             // permanent errors as temporary.

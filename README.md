@@ -54,16 +54,18 @@ You can run the regular test suite with `cargo test`, but to run the full integr
 
 ```sh
 # Run a local PostgreSQL on port 5432.
-docker run --name postgres -e POSTGRES_PASSWORD= -p 5432:5432 -d mdillon/postgis
+docker run --name postgres -e POSTGRES_PASSWORD= -p 5432:5432 -d postgis/postgis
 createdb -h localhost -U postgres -w dbcrossbar_test
 export POSTGRES_TEST_URL=postgres://postgres:@localhost:5432/dbcrossbar_test
 echo "create extension if not exists postgis;" | psql $POSTGRES_TEST_URL
 echo "create extension if not exists citext;" | psql $POSTGRES_TEST_URL
 echo "create schema if not exists testme1;" | psql $POSTGRES_TEST_URL
 
+export GS_TEST_URL=gs://faraday-test/dbcrossbar/
+export BQ_TEST_DATASET=root-180513:test
+
+
 # Point to test databases and test buckets.
-export GS_TEST_URL=gs://$MY_GS_TEST_BUCKET/dbcrossbar/
-export BQ_TEST_DATASET=$MY_BQ_ROOT:test
 export S3_TEST_URL=s3://$MT_S3_TEST_BUCKET/dbcrossbar/
 
 # This helps to ensure that we're not depending on our users to have set
@@ -75,9 +77,6 @@ export REDSHIFT_TEST_URL=redshift://user:pass@server:port/db
 export REDSHIFT_TEST_IAM_ROLE=$MY_IAM_ROLE
 export REDSHIFT_TEST_REGIION=$MY_AWS_REGION
 
-# Needed for BigML. Does not work with AWS_SESSION_TOKEN.
-export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=...
-export BIGML_USERNAME=... BIGML_API_KEY=...
 
 # Run the integration tests.
 env RUST_BACKTRACE=1 RUST_LOG=warn,dbcrossbar=debug \
