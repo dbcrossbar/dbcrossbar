@@ -119,8 +119,8 @@ jobs:
         # Note that this will not work for Rust programs using openssl or libpq.
         run: |
           version=v0.2.5
-          basename=cross-$version-${{ matrix.host }}
-          curl -fLO https://github.com/cross-rs/cross/releases/download/$cross_version/$cross_basename.tar.gz
+          basename=cross-${{ matrix.host }}
+          curl -fLO https://github.com/cross-rs/cross/releases/download/$version/$basename.tar.gz
           tar xf $basename.tar.gz
           mv cross /usr/local/bin/
           rm -rf $basename.tar.gz
