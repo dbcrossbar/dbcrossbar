@@ -503,3 +503,41 @@ fn bigquery_roundtrips_structs() {
         serde_json::from_reader(fs::File::open(&exported_schema).unwrap()).unwrap();
     assert_eq!(exported_schema, expected_schema_data);
 }
+
+#[test]
+#[ignore]
+fn cp_csv_to_bigquery_invalid_date_fails() {
+    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_bigquery_invalid_date_fails");
+    let src = testdir.src_path("fixtures/invalid_date.csv");
+    let schema = testdir.src_path("fixtures/invalid_date.sql");
+    let bq_temp_ds = bq_temp_dataset();
+    let gs_temp_dir = gs_test_dir_url("cp_csv_to_bigquery_invalid_date_fails");
+    let bq_table = bq_test_table("cp_csv_to_bigquery_invalid_date_fails");
+
+    let output = testdir
+        .cmd()
+        .args([
+            "cp",
+            "--if-exists=overwrite",
+            &format!("--temporary={}", gs_temp_dir),
+            &format!("--temporary={}", bq_temp_ds),
+            &format!("--schema=postgres-sql:{}", schema.display()),
+            "--to-arg=job_labels[dbcrossbar_test]=true",
+            &format!("csv:{}", src.display()),
+            &bq_table,
+        ])
+        .tee_output()
+        .expect_failure();
+
+    let stderr = output.stderr_str();
+    assert!(
+        stderr.contains("error") || stderr.contains("Error"),
+        "Expected error message in stderr, got: {}",
+        stderr
+    );
+    assert!(
+        stderr.contains("Detailed errors:"),
+        "Expected detailed errors from BigQuery Jobs API, got: {}",
+        stderr
+    );
+}
