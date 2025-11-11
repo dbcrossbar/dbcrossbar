@@ -218,14 +218,18 @@ impl JobStatus {
     fn check_for_error(&self) -> Result<()> {
         if let Some(err) = &self.error_result {
             let mut error_message = format!("{}", err);
-            
+
             if !self.errors.is_empty() {
                 error_message.push_str("\n\nDetailed errors:");
                 for (idx, detail_err) in self.errors.iter().enumerate() {
-                    error_message.push_str(&format!("\n  {}. {}", idx + 1, detail_err));
+                    error_message.push_str(&format!(
+                        "\n  {}. {}",
+                        idx + 1,
+                        detail_err
+                    ));
                 }
             }
-            
+
             Err(format_err!("{}", error_message))
         } else {
             Ok(())

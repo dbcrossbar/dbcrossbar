@@ -1,7 +1,7 @@
 [package]
 name = "dbcrossbar"
-version = "0.5.8-pre.3"
-authors = ["Eric Kidd <git@randomhacks.net>"]
+version = "1.0.0-pre.1"
+authors = ["Eric Kidd <git@randomhacks.net>", "Seamus Abshere seamus@abshere.net"]
 edition = "2021"
 
 description = "Program for copying data between databases (pre-release)"
