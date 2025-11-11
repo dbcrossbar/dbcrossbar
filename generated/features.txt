@@ -1,5 +1,4 @@
 Supported drivers:
-- bigml
 - bigquery
 - bigquery-schema
 - bigquery-test-fixture
@@ -13,5 +12,7 @@ Supported drivers:
 - redshift
 - s3
 - shopify (UNSTABLE)
+- trino (UNSTABLE)
+- trino-sql (UNSTABLE)
 
 Use `dbcrossbar features $DRIVER` to list the features supported by a driver.

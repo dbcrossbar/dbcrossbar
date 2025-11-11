@@ -6,27 +6,29 @@ Arguments:
   <TO_LOCATOR>    The output table
 
 Options:
-      --if-exists <IF_EXISTS>      One of `error`, `overwrite`, `append` or `upsert-on:COL` [default:
-                                   error]
+      --if-exists <IF_EXISTS>      One of `error`, `overwrite`, `append` or `upsert-on:COL`
+                                   [default: error]
       --schema <SCHEMA>            The schema to use (defaults to input table schema)
-      --temporary <TEMPORARIES>    Temporary directories, cloud storage buckets, datasets to use during
-                                   transfer (can be repeated)
+      --temporary <TEMPORARIES>    Temporary directories, cloud storage buckets, datasets to use
+                                   during transfer (can be repeated)
       --stream-size <STREAM_SIZE>  Specify the approximate size of the CSV streams manipulated by
-                                   `dbcrossbar`. This can be used to split a large input into multiple
-                                   smaller outputs. Actual data streams may be bigger or smaller
-                                   depending on a number of factors. Examples: "100000", "1Gb"
-      --from-arg <FROM_ARGS>       Pass an extra argument of the form `key=value` to the source driver
-      --from-format <FROM_FORMAT>  For directory- and file-like data sources, the format to assume. If
-                                   not specified, `dbcrossbar` will use the file extension to guess the
-                                   format
+                                   `dbcrossbar`. This can be used to split a large input into
+                                   multiple smaller outputs. Actual data streams may be bigger or
+                                   smaller depending on a number of factors. Examples: "100000",
+                                   "1Gb"
+      --from-arg <FROM_ARGS>       Pass an extra argument of the form `key=value` to the source
+                                   driver
+      --from-format <FROM_FORMAT>  For directory- and file-like data sources, the format to assume.
+                                   If not specified, `dbcrossbar` will use the file extension to
+                                   guess the format
       --to-arg <TO_ARGS>           Pass an extra argument of the form `key=value` to the destination
                                    driver
   -F, --to-format <TO_FORMAT>      For directory-like data destinations, the format to use. If not
-                                   specified, `dbcrossbar` will use the destination file extension (if
-                                   provided) or `csv`
+                                   specified, `dbcrossbar` will use the destination file extension
+                                   (if provided) or `csv`
       --where <WHERE_CLAUSE>       SQL where clause specifying rows to use
-  -J, --max-streams <MAX_STREAMS>  How many data streams should we attempt to copy in parallel? [default:
-                                   4]
+  -J, --max-streams <MAX_STREAMS>  How many data streams should we attempt to copy in parallel?
+                                   [default: 4]
       --display-output-locators    Display where we wrote our output data
   -h, --help                       Print help
 
