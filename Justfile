@@ -51,9 +51,8 @@ install-dev-tools:
 version:
     @echo "{{VERSION}}"
 
-# Release via crates.io and GitHub.
+# Release via GitHub only (no crates.io).
 release: check check-clean
-  (cd dbcrossbar && cargo publish)
   git tag v{{VERSION}}
   git push
   git push --tags
@@ -62,9 +61,8 @@ release: check check-clean
 opinionated-telemetry-version:
     @echo "{{OPINIONATED_TELEMETRY}}"
 
-# Release opinionated_telemetry via crates.io.
+# Release opinionated_telemetry via GitHub only (no crates.io).
 release-opinionated-telemetry: check check-clean
-  (cd crates/opinionated_telemetry && cargo publish)
   git tag opinionated_telemetry_v{{OPINIONATED_TELEMETRY}}
   git push
   git push --tags
@@ -73,9 +71,8 @@ release-opinionated-telemetry: check check-clean
 dbcrossbar-trino-version:
     @echo "{{DBCROSSBAR_TRINO}}"
 
-# Release dbcrossbar_trino via crates.io.
+# Release dbcrossbar_trino via GitHub only (no crates.io).
 release-dbcrossbar-trino: check check-clean
-  (cd crates/dbcrossbar_trino && cargo publish)
   git tag dbcrossbar_trino_v{{DBCROSSBAR_TRINO}}
   git push
   git push --tags
@@ -84,9 +81,8 @@ release-dbcrossbar-trino: check check-clean
 dbcrossbar-trino-macros-version:
     @echo "{{DBCROSSBAR_TRINO_MACROS}}"
 
-# Release dbcrossbar_trino_macros via crates.io.
+# Release dbcrossbar_trino_macros via GitHub only (no crates.io).
 release-dbcrossbar-trino-macros: check check-clean
-  (cd crates/dbcrossbar_trino_macros && cargo publish)
   git tag dbcrossbar_trino_macros_v{{DBCROSSBAR_TRINO_MACROS}}
   git push
   git push --tags
