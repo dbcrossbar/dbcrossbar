@@ -10,6 +10,7 @@ accepted = [
     "Zlib",
     "MPL-2.0",
     "Unicode-DFS-2016",
+    "Unicode-3.0",
 ]
 
 # Automatic workarounds for crates that have weird licensing information.
