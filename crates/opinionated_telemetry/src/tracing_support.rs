@@ -1,30 +1,23 @@
 //! Tools for tracing, with OpenTelemetry integration.
 
-use std::{
-    collections::HashMap, env, error, fmt, path::Path, str::FromStr, time::Duration,
-};
+use std::{collections::HashMap, env, error, fmt, str::FromStr};
 
 use futures::{future::BoxFuture, FutureExt};
 use once_cell::sync::Lazy;
 use opentelemetry::{
     global,
-    propagation::{Extractor, Injector},
-    sdk::{
-        export::trace::{ExportResult, SpanData, SpanExporter},
-        propagation::{
-            BaggagePropagator, TextMapCompositePropagator, TraceContextPropagator,
-        },
-        resource::{
-            EnvResourceDetector, OsResourceDetector, ProcessResourceDetector,
-            SdkProvidedResourceDetector,
-        },
-        trace::{Config, TracerProvider},
-        Resource,
-    },
+    propagation::{Extractor, Injector, TextMapCompositePropagator},
     trace::TracerProvider as _,
-    KeyValue, Value,
+    KeyValue,
 };
-use opentelemetry_stackdriver::{StackDriverExporter, YupAuthorizer};
+use opentelemetry_sdk::{
+    error::OTelSdkResult,
+    propagation::{BaggagePropagator, TraceContextPropagator},
+    resource::{EnvResourceDetector, ResourceDetector, SdkProvidedResourceDetector},
+    trace::{SdkTracerProvider, SpanData, SpanExporter},
+    Resource,
+};
+use opentelemetry_stackdriver::{GcpAuthorizer, StackDriverExporter};
 use tokio::{sync::RwLock, task::JoinHandle};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_subscriber::{fmt::format::FmtSpan, prelude::*, Registry};
@@ -122,53 +115,48 @@ fn install_opentracing_globals() {
     global::set_text_map_propagator(propagator);
 }
 
-/// Wrapper around any type that implements `SpanExporter`.
+/// Enum to hold different exporter types.
 #[derive(Debug)]
-struct BoxExporter(Box<dyn SpanExporter + 'static>);
+enum ExporterType {
+    CloudTrace(StackDriverExporter),
+    Debug(DebugExporter),
+}
 
-impl BoxExporter {
-    /// Construct a new `BoxExporter` from a `SpanExporter`.
-    fn new<E>(exporter: E) -> Self
-    where
-        E: SpanExporter + 'static,
-    {
-        Self(Box::new(exporter))
-    }
-
+impl ExporterType {
     /// Construct an exporter for the specified `tracer_type`.
     async fn for_tracer_type(
         tracer_type: TracerType,
     ) -> Result<(Self, BoxFuture<'static, ()>)> {
         match tracer_type {
             TracerType::CloudTrace => {
-                let credentials_str = env::var("GCLOUD_SERVICE_ACCOUNT_KEY_PATH")
-                    .map_err(|_| {
-                        Error::env_var_not_set("GCLOUD_SERVICE_ACCOUNT_KEY_PATH")
-                    })?;
-                let credentials_path = Path::new(&credentials_str);
-                let authenticator = YupAuthorizer::new(credentials_path, None)
+                env::var("GCLOUD_SERVICE_ACCOUNT_KEY_PATH").map_err(|_| {
+                    Error::env_var_not_set("GCLOUD_SERVICE_ACCOUNT_KEY_PATH")
+                })?;
+                let authenticator = GcpAuthorizer::new()
                     .await
                     .map_err(Error::could_not_configure_tracing)?;
                 let (exporter, future) = StackDriverExporter::builder()
                     .build(authenticator)
                     .await
                     .map_err(Error::could_not_configure_tracing)?;
-                Ok((BoxExporter::new(exporter), future.boxed()))
+                Ok((ExporterType::CloudTrace(exporter), future.boxed()))
             }
             TracerType::Debug => {
-                Ok((BoxExporter::new(DebugExporter), async {}.boxed()))
+                Ok((ExporterType::Debug(DebugExporter), async {}.boxed()))
             }
         }
     }
 }
 
-// Forward the `export` method.
-impl SpanExporter for BoxExporter {
-    fn export(&mut self, batch: Vec<SpanData>) -> BoxFuture<'static, ExportResult> {
-        // DEBUG: This tends to hit ugly recursive loops when the exporter
-        // traces, so keep an eye on it for now.
-        // eprintln!("Exporting {:?}", batch);
-        self.0.export(batch)
+impl SpanExporter for ExporterType {
+    fn export(
+        &self,
+        batch: Vec<SpanData>,
+    ) -> impl std::future::Future<Output = OTelSdkResult> + Send {
+        match self {
+            ExporterType::CloudTrace(exporter) => exporter.export(batch).boxed(),
+            ExporterType::Debug(exporter) => exporter.export(batch).boxed(),
+        }
     }
 }
 
@@ -194,41 +182,27 @@ pub async fn start_tracing(config: &TelemetryConfig) -> Result<()> {
         //eprintln!("tracer_type: {}", tracer_type);
 
         // Configure our tracer.
-        let (exporter, future) = BoxExporter::for_tracer_type(tracer_type).await?;
+        let (exporter, future) = ExporterType::for_tracer_type(tracer_type).await?;
         *TRACER_JOIN_HANDLE.write().await = Some(tokio::spawn(future));
 
-        // Detect information about our environment.
-        let mut resource = Resource::from_detectors(
-            Duration::from_secs(0),
-            vec![
-                Box::new(SdkProvidedResourceDetector),
-                Box::<EnvResourceDetector>::default(),
-                Box::new(OsResourceDetector),
-                Box::new(ProcessResourceDetector),
-            ],
-        );
+        // Detect information about our environment and build resource.
+        let mut resource_kvs = vec![
+            KeyValue::new("service.name", config.service_name.clone()),
+            KeyValue::new("service.version", config.service_version.clone()),
+        ];
 
-        // The user may have specified a service name using environment
-        // variables, but if they haven't, then we'll use the name and version
-        // supplied by our caller, typically the name and version of the
-        // application's crate.
-        let need_service_name = match resource.get("service.name".into()) {
-            None => true,
-            // Auto-detected, but useless.
-            Some(value) if value == Value::String("unknown_service".into()) => true,
-            _ => false,
-        };
-        if need_service_name {
-            resource = resource.merge(&Resource::new(vec![
-                KeyValue::new("service.name", config.service_name.clone()),
-                KeyValue::new("service.version", config.service_version.clone()),
-            ]));
+        // Add detected resources
+        let sdk_resource = SdkProvidedResourceDetector.detect();
+        let env_resource = EnvResourceDetector::default().detect();
+        for (key, value) in sdk_resource.iter().chain(env_resource.iter()) {
+            resource_kvs.push(KeyValue::new(key.clone(), value.clone()));
         }
 
+        let resource = Resource::builder().with_attributes(resource_kvs).build();
+
         // Configure our tracer provider.
-        let config = Config::default().with_resource(resource);
-        let provider = TracerProvider::builder()
-            .with_config(config)
+        let provider = SdkTracerProvider::builder()
+            .with_resource(resource)
             .with_simple_exporter(exporter)
             .build();
         let tracer = provider.tracer(CRATE_NAME);
@@ -259,7 +233,6 @@ pub async fn start_tracing(config: &TelemetryConfig) -> Result<()> {
 
 /// Shut down tracing and flush any pending trace information.
 pub async fn stop_tracing() {
-    opentelemetry::global::shutdown_tracer_provider();
     if let Some(handle) = TRACER_JOIN_HANDLE.write().await.take() {
         handle.await.expect("could not join trace exporter");
     }
@@ -293,7 +266,7 @@ impl SetParentFromExtractor for tracing::Span {
             //     context.baggage(),
             // );
 
-            self.set_parent(context);
+            let _ = self.set_parent(context);
         });
     }
 }

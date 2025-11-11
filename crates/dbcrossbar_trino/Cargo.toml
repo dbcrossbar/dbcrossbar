@@ -39,13 +39,13 @@ proptest = [
     "dep:proptest-derive",
 ]
 client = ["values", "dep:reqwest", "dep:tokio"]
-rustls-tls = ["reqwest/rustls-tls"]
+rustls-tls = ["reqwest/rustls-tls-no-provider"]
 macros = ["dep:dbcrossbar_trino_macros"]
 
 [dev-dependencies]
 proptest = { version = "1.5.0" }
 proptest-arbitrary-interop = { version = "0.1.0" }
-proptest-derive = { version = "0.5.0" }
+proptest-derive = { version = "0.7.0" }
 tokio = { version = "1.16", features = ["macros", "rt-multi-thread", "time"] }
 
 [dependencies]
@@ -59,7 +59,7 @@ peg = "0.8.4"
 pretty = "0.12.3"
 proptest = { version = "1.5.0", optional = true }
 proptest-arbitrary-interop = { version = "0.1.0", optional = true }
-proptest-derive = { version = "0.5.0", optional = true }
+proptest-derive = { version = "0.7.0", optional = true }
 reqwest = { version = "0.12.8", default-features = false, features = [
     "http2",
     "json",
@@ -69,4 +69,4 @@ serde = { version = "1.0.210", features = [] }
 serde_json = { version = "1.0.128", optional = true }
 tokio = { version = "1.16", features = ["macros", "time"], optional = true }
 uuid = { version = "1.10.0", features = ["arbitrary"], optional = true }
-wkt = { version = "0.11.1", optional = true }
+wkt = { version = "0.14", optional = true }

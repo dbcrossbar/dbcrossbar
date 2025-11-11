@@ -60,6 +60,7 @@ pub(crate) mod tls;
 pub mod tokio_glue;
 pub(crate) mod transform;
 mod url_with_hidden_password;
+pub(crate) mod wait;
 
 /// The buffer size to use by default when buffering I/O.
 pub(crate) const BUFFER_SIZE: usize = 64 * 1024;
@@ -95,7 +96,7 @@ pub(crate) mod common {
         join, stream, try_join, Future, FutureExt, Stream, StreamExt, TryFutureExt,
         TryStreamExt,
     };
-    pub(crate) use metrics::{counter, describe_counter, increment_counter, Unit};
+    pub(crate) use metrics::{counter, describe_counter, Unit};
     pub(crate) use std::{
         any::Any,
         convert::{TryFrom, TryInto},
@@ -144,6 +145,9 @@ pub(crate) mod common {
 // Our main entry point.
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Install the default crypto provider for rustls.
+    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+
     // Configure telemetry.
     let telemetry_handle = TelemetryConfig::new(
         opinionated_telemetry::AppType::Cli,
@@ -156,11 +160,6 @@ async fn main() -> Result<()> {
 
     let span = info_span!("dbcrossbar", version = env!("CARGO_PKG_VERSION")).entered();
     set_parent_span_from_env();
-
-    // Find our system SSL configuration, even if we're statically linked.
-    openssl_probe::init_ssl_cert_env_vars();
-    debug!("SSL_CERT_DIR: {:?}", env::var("SSL_CERT_DIR").ok());
-    debug!("SSL_CERT_FILE: {:?}", env::var("SSL_CERT_FILE").ok());
 
     // Parse our command-line arguments.
     let opt = cmd::Opt::parse();

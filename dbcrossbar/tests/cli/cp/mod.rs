@@ -6,7 +6,6 @@ use dbcrossbar_trino::ConnectorType;
 use difference::assert_diff;
 use std::{env, fs, process::Command};
 
-mod bigml;
 mod bigquery;
 mod bigquery_test_fixture;
 mod combined;

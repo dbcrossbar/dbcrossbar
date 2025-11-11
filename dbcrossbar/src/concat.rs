@@ -182,7 +182,7 @@ fn csv_header_length(data: &[u8]) -> Result<Option<usize>> {
     // go to great lengths to recover from malformed CSV files, so it's not
     // very useful for detecting whether we have a complete header line.
     if let Some(pos) = data.iter().position(|b| *b == b'\n') {
-        if data[..pos].iter().any(|b| *b == b'"') {
+        if data[..pos].contains(&b'"') {
             Err(format_err!(
                 "cannot yet concatenate CSV streams with quoted headers"
             ))

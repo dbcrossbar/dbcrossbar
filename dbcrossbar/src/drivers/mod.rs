@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use crate::common::*;
 use crate::locator::{LocatorDriver, LocatorDriverWrapper};
 
-pub mod bigml;
 pub mod bigquery;
 pub mod bigquery_schema;
 pub mod bigquery_shared;
@@ -37,7 +36,6 @@ fn driver<L: LocatorStatic>() -> Box<dyn LocatorDriver> {
 lazy_static! {
     /// A list of known drivers, computed the first time we use it and cached.
     static ref KNOWN_DRIVERS: Vec<Box<dyn LocatorDriver>> = vec![
-        driver::<bigml::BigMlLocator>(),
         driver::<bigquery::BigQueryLocator>(),
         driver::<bigquery_schema::BigQuerySchemaLocator>(),
         driver::<bigquery_test_fixture::BigQueryTestFixtureLocator>(),

@@ -1,6 +1,6 @@
 //! Support for setting up RusTLS in a consistent fashion.
 
-use rustls::{Certificate, ClientConfig, RootCertStore};
+use rustls::{ClientConfig, RootCertStore};
 use rustls_native_certs::load_native_certs;
 
 use crate::common::*;
@@ -12,10 +12,14 @@ use crate::common::*;
 pub(crate) fn rustls_client_config() -> Result<ClientConfig> {
     // Set up RusTLS.
     let mut root_store = RootCertStore::empty();
-    for cert in load_native_certs().context("could not find system cert store")? {
+    let cert_result = load_native_certs();
+    for cert in cert_result.certs {
         root_store
-            .add(&Certificate(cert.0))
+            .add(cert)
             .context("could not add certificate to cert store")?;
+    }
+    if let Some(err) = cert_result.errors.into_iter().next() {
+        return Err(err).context("error loading native certs");
     }
 
     // Because we'll surely need to debug cert stores again someday, here's an ugly
@@ -28,7 +32,6 @@ pub(crate) fn rustls_client_config() -> Result<ClientConfig> {
     // }
 
     Ok(ClientConfig::builder()
-        .with_safe_defaults()
         .with_root_certificates(root_store)
         .with_no_client_auth())
 }

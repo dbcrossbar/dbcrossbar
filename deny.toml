@@ -4,23 +4,13 @@
 
 [advisories]
 ignore = [
-    # CPU denial of service when validating certificate chains. To fix this,
-    # we need to update `yup-oauth2`, which breaks Google Cloud auth.
-    "RUSTSEC-2023-0052",
-
-    # This is a real denial-of-service vulnerability in RusTLS, but it only
-    # affects servers, and we're not a server. Unfortunately, we can't update
-    # RusTLS without sorting out `yup-oauth2`, which breaks Google Cloud last I
-    # checked.
-    "RUSTSEC-2024-0336",
-
     # `difference` is unmaintained, but it works fine, and we only use it in
     # test code. I'm not convinced this is a good use of RUSTSEC advisories.
     "RUSTSEC-2020-0095",
 
-    # `opentelemetry_api` has been moved into the `opentelemetry`
-    # crate. We will worry about this later.
-    "RUSTSEC-2024-0387",
+    # `proc-macro-error` is unmaintained but only used as a build-time
+    # dependency by `include-flate`. No security risk, just maintenance status.
+    "RUSTSEC-2024-0370",
 ]
 
 
@@ -74,12 +64,6 @@ deny = [
     # OpenSSL has caused endless deployment and build problems, and we want
     # nothing to do with it, in any version.
     { name = "openssl-sys" },
-]
-
-skip = [
-    # yup-oauth2 still uses the old version.
-    { name = "tokio-rustls", version = "0.22.0" },
-    { name = "hyper-rustls", version = "0.22.1" },
 ]
 
 skip-tree = [

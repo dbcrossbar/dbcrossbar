@@ -8,9 +8,9 @@ use crate::tokio_glue::copy_stream_to_writer;
 
 /// Upload `data` as a file at `url`.
 #[instrument(level = "trace", skip(data))]
-pub(crate) async fn upload_file<'a>(
+pub(crate) async fn upload_file(
     data: BoxStream<BytesMut>,
-    file_url: &'a Url,
+    file_url: &Url,
 ) -> Result<()> {
     // Run `aws cp - $URL` as a background process.
     debug!("uploading stream to `aws s3`");

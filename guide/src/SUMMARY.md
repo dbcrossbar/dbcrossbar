@@ -13,7 +13,6 @@
   - [`count`: Counting records](./count.md)
   - [`schema conv`: Transforming schemas](./conv.md)
 - [Drivers](./drivers.md)
-  - [BigML](./bigml.md)
   - [BigQuery](./bigquery.md)
   - [CSV](./csv.md) (deprecated)
   - [File](./file.md)

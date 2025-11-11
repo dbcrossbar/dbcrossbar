@@ -1,6 +1,6 @@
 //! Fetch data from Shopify and convert to CSV.
 
-use bigml::wait::{wait, BackoffType, WaitOptions, WaitStatus};
+use crate::wait::{wait, WaitOptions, WaitStatus};
 use itertools::Itertools;
 use reqwest::Client;
 use serde::Deserialize;
@@ -52,7 +52,6 @@ pub(crate) async fn local_data_helper(
             // because we're not distinguishing between permanent and temporary
             // errors carefully.
             let wait_options = WaitOptions::default()
-                .backoff_type(BackoffType::Exponential)
                 .retry_interval(Duration::from_secs(5))
                 .allowed_errors(3);
             let result = wait(&wait_options, || {

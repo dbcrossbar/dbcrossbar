@@ -1,6 +1,6 @@
 //! Interfaces to Google Cloud Storage.
 
-use bigml::{wait::BackoffType, WaitOptions};
+use crate::wait::WaitOptions;
 use serde::{
     de::{self, Deserializer, Visitor},
     Deserialize,
@@ -133,7 +133,6 @@ where
 /// more discussion.
 pub(crate) fn gcs_write_access_denied_wait_options() -> WaitOptions {
     WaitOptions::default()
-        .backoff_type(BackoffType::Exponential)
         .retry_interval(Duration::from_secs(10))
         // Don't retry too much because we're probably classifying some permanent
         // errors as temporary, and because `extract` may be very expensive.

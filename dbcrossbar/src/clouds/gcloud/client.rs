@@ -1,6 +1,6 @@
 //! A Google Cloud REST client.
 
-use bigml::wait::{wait, BackoffType, WaitOptions, WaitStatus};
+use crate::wait::{wait, WaitOptions, WaitStatus};
 use hyper::StatusCode;
 use mime::{self, Mime};
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
@@ -83,12 +83,6 @@ impl From<serde_json::Error> for ClientError {
     }
 }
 
-impl From<bigml::Error> for ClientError {
-    fn from(err: bigml::Error) -> Self {
-        ClientError::Other(err.into())
-    }
-}
-
 /// Is it safe to retry a request? This should always be true for GET requests,
 /// but by default POST requests are not safe to retry.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -140,7 +134,6 @@ impl Client {
         trace!("GET {}", url);
         let token = self.token().await?;
         let wait_options = WaitOptions::default()
-            .backoff_type(BackoffType::Exponential)
             .retry_interval(Duration::from_secs(10))
             // Don't retry too much because we're probably classifying some
             // permanent errors as temporary.
@@ -240,10 +233,6 @@ impl Client {
 
         let token = self.token().await?;
         let wait_options = WaitOptions::default()
-            .backoff_type(BackoffType::Exponential)
-            // We could probably make this shorter than 4 for Google Cloud, but
-            // the `bigml` crate that we're currently using for `wait` rounds
-            // all short intervals up to 4 anyway.
             .retry_interval(Duration::from_secs(4))
             // Don't retry too much because we're probably classifying some
             // permanent errors as temporary.

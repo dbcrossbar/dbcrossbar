@@ -38,7 +38,7 @@ impl TableName {
     /// `"\`project\`.\`dataset\`.\`table\`"`, with "backtick" quoting.
     ///
     /// This form of the name is used in BigQuery "standard SQL".
-    pub(crate) fn dotted_and_quoted(&self) -> DottedTableName {
+    pub(crate) fn dotted_and_quoted(&self) -> DottedTableName<'_> {
         DottedTableName(self)
     }
 

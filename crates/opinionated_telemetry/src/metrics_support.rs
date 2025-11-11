@@ -19,10 +19,12 @@
 use std::{convert::Infallible, env, fmt, str::FromStr};
 
 use futures::channel::oneshot;
-use hyper::{
-    service::{make_service_fn, service_fn},
-    Body, Client, Method, Request, Response, Server, StatusCode,
-};
+use http_body_util::{BodyExt, Full};
+use hyper::service::service_fn;
+use hyper::{body::Bytes, body::Incoming, Method, Request, Response, StatusCode};
+use hyper_util::client::legacy::Client;
+use hyper_util::rt::{TokioExecutor, TokioIo};
+use hyper_util::server::conn::auto::Builder as ServerBuilder;
 use once_cell::sync::Lazy;
 use tokio::sync::RwLock;
 
@@ -165,7 +167,7 @@ async fn start_prometheus_server(renderer: PrometheusRenderer) -> Result<()> {
     // Parse our listening address.
     let addr_string = env::var("OPINIONATED_TELEMETRY_PROMETHEUS_LISTEN_ADDR")
         .unwrap_or_else(|_| "0.0.0.0:9090".to_string());
-    let addr = addr_string.parse().map_err(|_| {
+    let addr: std::net::SocketAddr = addr_string.parse().map_err(|_| {
         Error::CouldNotConfigureMetrics(
             format!(
                 "cannot parse Prometheus listener address: {:?}",
@@ -175,29 +177,48 @@ async fn start_prometheus_server(renderer: PrometheusRenderer) -> Result<()> {
         )
     })?;
 
-    // Configure our server.
-    let make_svc = make_service_fn(move |_conn| {
-        let renderer = renderer.clone();
-        async {
-            Ok::<_, Infallible>(service_fn(move |body| {
-                prometheus_request_handler(renderer.clone(), body)
-            }))
-        }
-    });
-
-    let server = Server::bind(&addr).serve(make_svc);
+    // Create a TCP listener.
+    let listener = tokio::net::TcpListener::bind(&addr).await.map_err(|e| {
+        Error::CouldNotConfigureMetrics(
+            format!("cannot bind to {}: {}", addr, e).into(),
+        )
+    })?;
 
     // Allow server shutdown.
     let (tx, rx) = oneshot::channel();
     *STOP_PROMETHEUS_SERVER.write().await = Some(tx);
-    let graceful = server.with_graceful_shutdown(async {
-        rx.await.ok();
-    });
 
     // Run our server in the background.
     tokio::spawn(async move {
-        if let Err(err) = graceful.await {
-            error!("Error running Prometheus server: {:?}", err);
+        let mut shutdown_rx = rx;
+        loop {
+            tokio::select! {
+                _ = &mut shutdown_rx => {
+                    break;
+                }
+                result = listener.accept() => {
+                    match result {
+                        Ok((stream, _)) => {
+                            let renderer = renderer.clone();
+                            tokio::spawn(async move {
+                                let io = TokioIo::new(stream);
+                                let service = service_fn(move |req| {
+                                    prometheus_request_handler(renderer.clone(), req)
+                                });
+                                if let Err(err) = ServerBuilder::new(TokioExecutor::new())
+                                    .serve_connection(io, service)
+                                    .await
+                                {
+                                    error!("Error serving connection: {:?}", err);
+                                }
+                            });
+                        }
+                        Err(err) => {
+                            error!("Error accepting connection: {:?}", err);
+                        }
+                    }
+                }
+            }
         }
     });
 
@@ -207,14 +228,15 @@ async fn start_prometheus_server(renderer: PrometheusRenderer) -> Result<()> {
 /// Handle a request for Prometheus metrics.
 async fn prometheus_request_handler(
     renderer: PrometheusRenderer,
-    _: Request<Body>,
-) -> Result<Response<Body>, Infallible> {
+    _: Request<Incoming>,
+) -> Result<Response<Full<Bytes>>, Infallible> {
     match renderer.render() {
-        Ok(rendered) => Ok(Response::new(Body::from(rendered))),
+        Ok(rendered) => Ok(Response::new(Full::new(Bytes::from(rendered)))),
         Err(err) => {
             error!("Error rendering Prometheus metrics: {}", err);
-            let mut response =
-                Response::new(Body::from("Error rendering Prometheus metrics"));
+            let mut response = Response::new(Full::new(Bytes::from(
+                "Error rendering Prometheus metrics",
+            )));
             *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
             Ok(response)
         }
@@ -233,17 +255,21 @@ async fn push_prometheus_metrics(renderer: &PrometheusRenderer) -> Result<()> {
     let request = Request::builder()
         .method(Method::POST)
         .uri(&url)
-        .body(Body::from(rendered))
+        .body(Full::new(Bytes::from(rendered)))
         .map_err(Error::could_not_report_metrics)?;
-    let response = Client::new()
+    let client = Client::builder(TokioExecutor::new()).build_http();
+    let response = client
         .request(request)
         .await
         .map_err(Error::could_not_report_metrics)?;
     let status = response.status();
     if !status.is_success() {
-        let body = hyper::body::to_bytes(response.into_body())
+        let body = response
+            .into_body()
+            .collect()
             .await
-            .map_err(Error::could_not_report_metrics)?;
+            .map_err(Error::could_not_report_metrics)?
+            .to_bytes();
         let body = String::from_utf8_lossy(&body);
         return Err(Error::CouldNotReportMetrics(
             format!(

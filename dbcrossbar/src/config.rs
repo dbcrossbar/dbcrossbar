@@ -2,10 +2,10 @@
 use std::{
     env, fmt,
     fs::{create_dir_all, File},
-    io::{self, Read},
+    io::{self, Read, Write},
     path::{Path, PathBuf},
 };
-use toml_edit::{Array, Document, Item, Value};
+use toml_edit::{Array, DocumentMut, Item, Value};
 
 use crate::common::*;
 
@@ -103,7 +103,7 @@ pub struct Configuration {
     /// The path from which we read this file.
     path: PathBuf,
     /// Our raw configuration data.
-    doc: Document,
+    doc: DocumentMut,
 }
 
 // A lot of the implementation of `Configuration` is fairly verbose, because
@@ -126,7 +126,7 @@ impl Configuration {
                 .with_context(|| format!("could not read file {}", path.display()))?),
             Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(Self {
                 path: path.to_owned(),
-                doc: Document::default(),
+                doc: DocumentMut::new(),
             }),
             Err(err) => {
                 Err(err).context(format!("could not open file {}", path.display()))
@@ -141,7 +141,7 @@ impl Configuration {
     {
         let mut buf = String::new();
         rdr.read_to_string(&mut buf)?;
-        let doc = buf.parse::<Document>()?;
+        let doc = buf.parse::<DocumentMut>()?;
         Ok(Self { path, doc })
     }
 
@@ -198,7 +198,6 @@ impl Configuration {
     fn raw_string_array_mut<'a>(&'a mut self, key: &Key<'_>) -> Result<&'a mut Array> {
         let array_value = self
             .doc
-            .as_table_mut()
             .entry(key.key)
             .or_insert(Item::Value(Value::Array(Array::default())));
         match array_value.as_array_mut() {

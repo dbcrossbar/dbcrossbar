@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.0.0-pre.1] - 2025-11-03
+
+### Added
+
+- bigquery: BigQuery load errors now include detailed error information from the BigQuery Jobs API, showing specific row numbers, column names, invalid values, and byte offsets for each error. This makes debugging data loading issues much easier.
+
+### Changed
+
+- Updated all dependencies to their latest versions.
+
+### Removed
+
+- **BREAKING**: Removed BigML driver entirely.
+
 ## [0.5.8-pre.3] - 2024-11-01
 
 ### Fixed
@@ -41,7 +55,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Security
 
 - Fix [RUSTSEC-2024-0003](https://rustsec.org/advisories/RUSTSEC-2024-0003), a Denial of Service vulnerability which could apparently cause a hostile HTTP server to cause out-of-memory errors
-in a client. Since `dbcrossbar` is unlikely to connect to many hostile HTTP servers, this is probably a low-priority fix for almost all users.
+  in a client. Since `dbcrossbar` is unlikely to connect to many hostile HTTP servers, this is probably a low-priority fix for almost all users.
 
 ## [0.5.6] - 2024-01-08
 
