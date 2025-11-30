@@ -17,5 +17,5 @@ documentation = "https://docs.rs/dbcrossbar_trino"
 proc-macro = true
 
 [dependencies]
-quote = "1.0.37"
-syn = "2.0.85"
+quote = "1.0.42"
+syn = "2.0.111"
