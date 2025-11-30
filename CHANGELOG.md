@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.0.1-pre.1] - 2025-11-30
+
+### Fixed
+
+- Support TIME and TIMETZ data types from PostgreSQL/Redshift and BigQuery by converting them to TEXT. This allows schema conversion to work when encountering TIME WITHOUT TIME ZONE and TIME WITH TIME ZONE columns.
+
 ## [1.0.0-pre.1] - 2025-11-03
 
 ### Added

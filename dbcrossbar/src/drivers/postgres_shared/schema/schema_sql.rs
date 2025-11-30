@@ -153,6 +153,15 @@ peg::parser! {
             / i("timestamp") {
                 PgScalarDataType::TimestampWithoutTimeZone
             }
+            / i("time") ws() i("with") ws() i("time") ws() i("zone") {
+                PgScalarDataType::Text
+            }
+            / i("time") ws() i("without") ws() i("time") ws() i("zone") {
+                PgScalarDataType::Text
+            }
+            / i("time") {
+                PgScalarDataType::Text
+            }
             / i("uuid") { PgScalarDataType::Uuid }
             / name:name() { PgScalarDataType::Named(name) }
 
