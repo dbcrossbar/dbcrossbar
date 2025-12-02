@@ -269,7 +269,10 @@ fn cp_pg_time_types_converted_to_text() {
 
     let schema_json = fs::read_to_string(testdir.path("out_schema.json")).unwrap();
     // All TIME columns should be converted to text type.
-    assert!(schema_json.contains(r#""data_type": "text""#), "Schema does not contain text data type");
+    assert!(
+        schema_json.contains(r#""data_type": "text""#),
+        "Schema does not contain text data type"
+    );
     // Verify we have the expected number of text columns (all 3 TIME columns).
     let text_count = schema_json.matches(r#""data_type": "text""#).count();
     assert_eq!(text_count, 3, "Expected 3 TIME columns converted to text");
