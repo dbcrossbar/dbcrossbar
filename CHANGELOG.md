@@ -6,11 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
-## [1.0.1-pre.1] - 2025-11-30
-
 ### Fixed
 
-- Support TIME and TIMETZ data types from PostgreSQL/Redshift and BigQuery by converting them to TEXT. This allows schema conversion to work when encountering TIME WITHOUT TIME ZONE and TIME WITH TIME ZONE columns.
+- postgres: Fixed GeoJSON export to suppress CRS information in output for consistent round-trip behavior with CSV files.
+
+## [1.1.0-pre.1] - 2025-11-30
+
+### Changed
+
+- **BREAKING**: TIME and TIMETZ data types from PostgreSQL/Redshift and BigQuery are now converted to TEXT instead of causing an error. This allows schema conversion to work when encountering TIME WITHOUT TIME ZONE and TIME WITH TIME ZONE columns, but time-specific operations will not be available in the destination database.
 
 ## [1.0.0-pre.1] - 2025-11-03
 

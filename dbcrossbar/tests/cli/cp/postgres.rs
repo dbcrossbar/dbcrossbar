@@ -229,6 +229,67 @@ fn cp_pg_append_upsert_legacy_json() {
 
 #[test]
 #[ignore]
+fn cp_pg_time_types_converted_to_text() {
+    let testdir = TestDir::new("dbcrossbar", "cp_pg_time_types_converted_to_text");
+    let pg_table = post_test_table_url("pg_time_types");
+
+    // Create a database table manually with TIME types.
+    Command::new("psql")
+        .arg(postgres_test_url())
+        .args(["--command", "DROP TABLE IF EXISTS pg_time_types;"])
+        .expect_success();
+    Command::new("psql")
+        .arg(postgres_test_url())
+        .args([
+            "--command",
+            include_str!("../../../fixtures/pg_time_types.sql"),
+        ])
+        .expect_success();
+
+    // Insert some test data directly using psql.
+    Command::new("psql")
+        .arg(postgres_test_url())
+        .args([
+            "--command",
+            "INSERT INTO pg_time_types VALUES ('14:30:00', '09:15:30', '18:45:00');",
+        ])
+        .expect_success();
+
+    // Verify the schema conversion treats TIME as TEXT.
+    testdir
+        .cmd()
+        .args([
+            "schema",
+            "conv",
+            &pg_table,
+            "dbcrossbar-schema:out_schema.json",
+        ])
+        .tee_output()
+        .expect_success();
+
+    let schema_json = fs::read_to_string(testdir.path("out_schema.json")).unwrap();
+    // All TIME columns should be converted to text type.
+    assert!(schema_json.contains(r#""data_type": "text""#), "Schema does not contain text data type");
+    // Verify we have the expected number of text columns (all 3 TIME columns).
+    let text_count = schema_json.matches(r#""data_type": "text""#).count();
+    assert_eq!(text_count, 3, "Expected 3 TIME columns converted to text");
+
+    // PostgreSQL to CSV - TIME types should be read as text strings.
+    testdir
+        .cmd()
+        .args(["cp", &pg_table, "csv:out.csv"])
+        .tee_output()
+        .expect_success();
+
+    let actual = fs::read_to_string(testdir.path("out.csv")).unwrap();
+    // Verify we can read the data (time values should be text strings).
+    assert!(actual.contains("14:30:00"));
+    assert!(actual.contains("09:15:30"));
+    assert!(actual.contains("18:45:00"));
+}
+
+#[test]
+#[ignore]
 fn cp_pg_tricky_column_types() {
     let testdir = TestDir::new("dbcrossbar", "cp_pg_tricky_column_types");
     let src = testdir.src_path("fixtures/more_pg_types.csv");
