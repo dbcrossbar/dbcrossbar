@@ -348,7 +348,8 @@ impl BqNonArrayDataType {
                 Ok(DataType::Struct(fields))
             }
             BqNonArrayDataType::Timestamp => Ok(DataType::TimestampWithTimeZone),
-            BqNonArrayDataType::Bytes | BqNonArrayDataType::Time => Err(format_err!(
+            BqNonArrayDataType::Time => Ok(DataType::Text),
+            BqNonArrayDataType::Bytes => Err(format_err!(
                 "cannot convert {} to portable type (yet)",
                 self,
             )),

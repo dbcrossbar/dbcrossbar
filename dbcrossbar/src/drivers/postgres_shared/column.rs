@@ -97,7 +97,8 @@ impl PgColumn {
             PgDataType::Scalar(PgScalarDataType::Geometry(_srid)) => {
                 // TODO: This will preserve the current SRID of the column, so
                 // let's hope `_srid` matches the database's if we make it this far.
-                write!(f, "ST_AsGeoJSON({name}) AS {name}", name = name)?;
+                // Use options=0 to suppress CRS output for consistent round-trip behavior.
+                write!(f, "ST_AsGeoJSON({name}, 15, 0) AS {name}", name = name)?;
             }
             PgDataType::Scalar(PgScalarDataType::TimestampWithoutTimeZone) => {
                 write!(

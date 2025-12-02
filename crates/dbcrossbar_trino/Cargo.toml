@@ -43,30 +43,30 @@ rustls-tls = ["reqwest/rustls-tls-no-provider"]
 macros = ["dep:dbcrossbar_trino_macros"]
 
 [dev-dependencies]
-proptest = { version = "1.5.0" }
+proptest = { version = "1.9.0" }
 proptest-arbitrary-interop = { version = "0.1.0" }
 proptest-derive = { version = "0.7.0" }
-tokio = { version = "1.16", features = ["macros", "rt-multi-thread", "time"] }
+tokio = { version = "1.48", features = ["macros", "rt-multi-thread", "time"] }
 
 [dependencies]
 base64 = { version = "0.22.1", optional = true }
-chrono = { version = "0.4.38", features = ["arbitrary"], optional = true }
+chrono = { version = "0.4.42", features = ["arbitrary"], optional = true }
 dbcrossbar_trino_macros = { version = "0.2.0", path = "../dbcrossbar_trino_macros", optional = true }
 float-cmp = { version = "0.10.0", optional = true }
-geojson = { version = "0.24.1", features = ["geo-types"], optional = true }
-geo-types = { version = "0.7.13", optional = true }
-peg = "0.8.4"
-pretty = "0.12.3"
-proptest = { version = "1.5.0", optional = true }
+geojson = { version = "0.24.2", features = ["geo-types"], optional = true }
+geo-types = { version = "0.7.17", optional = true }
+peg = "0.8.5"
+pretty = "0.12.5"
+proptest = { version = "1.9.0", optional = true }
 proptest-arbitrary-interop = { version = "0.1.0", optional = true }
 proptest-derive = { version = "0.7.0", optional = true }
-reqwest = { version = "0.12.8", default-features = false, features = [
+reqwest = { version = "0.12.24", default-features = false, features = [
     "http2",
     "json",
 ], optional = true }
-rust_decimal = { version = "1.36.0", optional = true }
-serde = { version = "1.0.210", features = [] }
-serde_json = { version = "1.0.128", optional = true }
-tokio = { version = "1.16", features = ["macros", "time"], optional = true }
-uuid = { version = "1.10.0", features = ["arbitrary"], optional = true }
+rust_decimal = { version = "1.39.0", optional = true }
+serde = { version = "1.0.228", features = [] }
+serde_json = { version = "1.0.145", optional = true }
+tokio = { version = "1.48", features = ["macros", "time"], optional = true }
+uuid = { version = "1.18.1", features = ["arbitrary"], optional = true }
 wkt = { version = "0.14", optional = true }

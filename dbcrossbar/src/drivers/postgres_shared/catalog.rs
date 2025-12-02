@@ -268,6 +268,8 @@ fn pg_data_type(
             "real" => Ok(PgScalarDataType::Real),
             "smallint" => Ok(PgScalarDataType::Smallint),
             "text" => Ok(PgScalarDataType::Text),
+            "time without time zone" => Ok(PgScalarDataType::Text),
+            "time with time zone" => Ok(PgScalarDataType::Text),
             "timestamp with time zone" => Ok(PgScalarDataType::TimestampWithTimeZone),
             "timestamp without time zone" => {
                 Ok(PgScalarDataType::TimestampWithoutTimeZone)
