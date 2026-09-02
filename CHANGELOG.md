@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.1.0-pre.5] - 2026-09-01
+
+### Changed
+
+- CI: cargo-deny 0.20.2 so the current advisory-db (CVSS 4.0) loads.
+
 ## [1.1.0-pre.4] - 2026-09-01
 
 ### Fixed

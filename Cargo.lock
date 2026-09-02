@@ -683,7 +683,7 @@ checksum = "8b1e3a325bc115f096c8b77bbf027a7c2592230e70be2d985be950d3d5e60ebe"
 
 [[package]]
 name = "dbcrossbar"
-version = "1.1.0-pre.4"
+version = "1.1.0-pre.5"
 dependencies = [
  "anyhow",
  "async-trait",

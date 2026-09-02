@@ -76,11 +76,11 @@ jobs:
             cargo: cross
             os: ubuntu-latest
           - target: x86_64-apple-darwin
-            host: x86_64-apple-darwin
+            host: aarch64-apple-darwin
             cargo: cargo
             os: macos-latest
           - target: aarch64-apple-darwin
-            host: x86_64-apple-darwin
+            host: aarch64-apple-darwin
             cargo: cargo
             os: macos-latest
 
@@ -98,7 +98,7 @@ jobs:
           cargo clippy -- -D warnings
       - name: Check policy
         run: |
-          version=0.18.5
+          version=0.20.2
           basename=cargo-deny-$version-${{ matrix.host }}
           curl -fLO https://github.com/EmbarkStudios/cargo-deny/releases/download/$version/$basename.tar.gz
           tar xf $basename.tar.gz
