@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- telemetry: Removed Google Cloud Trace export.
+
 ### Fixed
 
 - postgres: Fixed GeoJSON export to suppress CRS information in output for consistent round-trip behavior with CSV files.

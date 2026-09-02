@@ -57,9 +57,9 @@
 //!
 //! - `RUST_LOG` can be used to control our logging levels in the normal
 //!   fashion.
-//! - `OPINIONATED_TELEMETRY_TRACER` can be set to `cloud_trace` or `debug` to
-//!   enable OpenTelelmetry tracing. If not set, we will log to stderr using
-//!   [`tracing`], honoring the filter specified by `RUST_LOG`.
+//! - `OPINIONATED_TELEMETRY_TRACER` can be set to `debug` to print OpenTelemetry
+//!   spans to stderr. If not set, we will log to stderr using [`tracing`],
+//!   honoring the filter specified by `RUST_LOG`.
 //! - `OPINIONATED_TELEMETRY_METRICS` can be set to `prometheus` to enable
 //!   Prometheus metrics, or `debug` to log metrics. Otherwise metrics will not
 //!   be reported.

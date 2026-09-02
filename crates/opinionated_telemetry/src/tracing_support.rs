@@ -2,8 +2,6 @@
 
 use std::{collections::HashMap, env, error, fmt, str::FromStr};
 
-use futures::{future::BoxFuture, FutureExt};
-use once_cell::sync::Lazy;
 use opentelemetry::{
     global,
     propagation::{Extractor, Injector, TextMapCompositePropagator},
@@ -11,14 +9,11 @@ use opentelemetry::{
     KeyValue,
 };
 use opentelemetry_sdk::{
-    error::OTelSdkResult,
     propagation::{BaggagePropagator, TraceContextPropagator},
     resource::{EnvResourceDetector, ResourceDetector, SdkProvidedResourceDetector},
-    trace::{SdkTracerProvider, SpanData, SpanExporter},
+    trace::SdkTracerProvider,
     Resource,
 };
-use opentelemetry_stackdriver::{GcpAuthorizer, StackDriverExporter};
-use tokio::{sync::RwLock, task::JoinHandle};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_subscriber::{fmt::format::FmtSpan, prelude::*, Registry};
 
@@ -73,8 +68,6 @@ impl error::Error for TracerTypeParseError {}
 /// An OpenTracing tracer type to use.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum TracerType {
-    /// Log spans to CloudTrace.
-    CloudTrace,
     /// Print spans on `stderr`. Handy for debugging.
     Debug,
 }
@@ -84,18 +77,8 @@ impl FromStr for TracerType {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "cloud_trace" => Ok(TracerType::CloudTrace),
             "debug" => Ok(TracerType::Debug),
             _ => Err(TracerTypeParseError(s.to_owned())),
-        }
-    }
-}
-
-impl fmt::Display for TracerType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TracerType::CloudTrace => "cloud_trace".fmt(f),
-            TracerType::Debug => "debug".fmt(f),
         }
     }
 }
@@ -115,57 +98,8 @@ fn install_opentracing_globals() {
     global::set_text_map_propagator(propagator);
 }
 
-/// Enum to hold different exporter types.
-#[derive(Debug)]
-enum ExporterType {
-    CloudTrace(StackDriverExporter),
-    Debug(DebugExporter),
-}
-
-impl ExporterType {
-    /// Construct an exporter for the specified `tracer_type`.
-    async fn for_tracer_type(
-        tracer_type: TracerType,
-    ) -> Result<(Self, BoxFuture<'static, ()>)> {
-        match tracer_type {
-            TracerType::CloudTrace => {
-                env::var("GCLOUD_SERVICE_ACCOUNT_KEY_PATH").map_err(|_| {
-                    Error::env_var_not_set("GCLOUD_SERVICE_ACCOUNT_KEY_PATH")
-                })?;
-                let authenticator = GcpAuthorizer::new()
-                    .await
-                    .map_err(Error::could_not_configure_tracing)?;
-                let (exporter, future) = StackDriverExporter::builder()
-                    .build(authenticator)
-                    .await
-                    .map_err(Error::could_not_configure_tracing)?;
-                Ok((ExporterType::CloudTrace(exporter), future.boxed()))
-            }
-            TracerType::Debug => {
-                Ok((ExporterType::Debug(DebugExporter), async {}.boxed()))
-            }
-        }
-    }
-}
-
-impl SpanExporter for ExporterType {
-    fn export(
-        &self,
-        batch: Vec<SpanData>,
-    ) -> impl std::future::Future<Output = OTelSdkResult> + Send {
-        match self {
-            ExporterType::CloudTrace(exporter) => exporter.export(batch).boxed(),
-            ExporterType::Debug(exporter) => exporter.export(batch).boxed(),
-        }
-    }
-}
-
 /// Our library name.
 static CRATE_NAME: &str = env!("CARGO_PKG_NAME");
-
-/// A future returned by our tracer provider.
-static TRACER_JOIN_HANDLE: Lazy<RwLock<Option<JoinHandle<()>>>> =
-    Lazy::new(|| RwLock::new(None));
 
 /// Configure tracing.
 pub async fn start_tracing(config: &TelemetryConfig) -> Result<()> {
@@ -179,11 +113,7 @@ pub async fn start_tracing(config: &TelemetryConfig) -> Result<()> {
         .transpose()
         .map_err(Error::could_not_configure_tracing)?;
     if let Some(tracer_type) = tracer_type {
-        //eprintln!("tracer_type: {}", tracer_type);
-
-        // Configure our tracer.
-        let (exporter, future) = ExporterType::for_tracer_type(tracer_type).await?;
-        *TRACER_JOIN_HANDLE.write().await = Some(tokio::spawn(future));
+        let TracerType::Debug = tracer_type;
 
         // Detect information about our environment and build resource.
         let mut resource_kvs = vec![
@@ -203,7 +133,7 @@ pub async fn start_tracing(config: &TelemetryConfig) -> Result<()> {
         // Configure our tracer provider.
         let provider = SdkTracerProvider::builder()
             .with_resource(resource)
-            .with_simple_exporter(exporter)
+            .with_simple_exporter(DebugExporter)
             .build();
         let tracer = provider.tracer(CRATE_NAME);
         global::set_tracer_provider(provider);
@@ -223,6 +153,7 @@ pub async fn start_tracing(config: &TelemetryConfig) -> Result<()> {
             .with_writer(std::io::stderr)
             .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
             .with_env_filter(filter)
+            .with_ansi(false)
             .finish()
             //.with(MetricsLayer::new())
             .try_init()
@@ -231,12 +162,8 @@ pub async fn start_tracing(config: &TelemetryConfig) -> Result<()> {
     Ok(())
 }
 
-/// Shut down tracing and flush any pending trace information.
-pub async fn stop_tracing() {
-    if let Some(handle) = TRACER_JOIN_HANDLE.write().await.take() {
-        handle.await.expect("could not join trace exporter");
-    }
-}
+/// Shut down tracing.
+pub async fn stop_tracing() {}
 
 /// Trait that allows adding an external [`opentelemetry::Context`] to an
 /// existing [`tracing::Span`].
@@ -308,4 +235,19 @@ pub fn current_span_as_headers() -> HashMap<String, String> {
     let mut injector = HashMap::new();
     inject_current_span_into(&mut injector);
     injector
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug_tracer_type_is_supported() {
+        assert_eq!("debug".parse::<TracerType>().unwrap(), TracerType::Debug);
+    }
+
+    #[test]
+    fn cloud_trace_tracer_type_is_not_supported() {
+        assert!("cloud_trace".parse::<TracerType>().is_err());
+    }
 }
