@@ -26,7 +26,7 @@ jobs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Extract release version
         id: extract_release_version
         run: |
@@ -87,17 +87,11 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+      - uses: actions/checkout@v4
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          # We track latest stable Rust instead of hardcoding it because it
-          # virtually never breaks old code.
-          toolchain: stable
-          components: rustfmt, clippy
-          target: ${{ matrix.target }}
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v2
+        run: |
+          rustup show
+          rustup target add ${{ matrix.target }}
       - name: Check source formatting and warnings
         run: |
           cargo fmt -- --check
@@ -157,7 +151,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Setup Graphviz
         uses: ts-graphviz/setup-graphviz@v1

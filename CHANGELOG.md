@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.1.0-pre.4] - 2026-09-01
+
+### Fixed
+
+- Clippy and rustc on current nightly: drop redundant borrows in format strings, and raise the crate recursion limit so instrumented BigQuery queries compile.
+- CLI tests find the just-built `dbcrossbar` via `CARGO_BIN_EXE` so they still work with Cargo's new nightly build-dir layout.
+
+### Changed
+
+- Pin local and CI builds to nightly-2026-09-01 via `rust-toolchain`.
+
 ## [1.1.0-pre.3] - 2026-09-01
 
 ### Removed

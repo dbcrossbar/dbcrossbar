@@ -1,6 +1,5 @@
 //! Tests that affect multiple backends.
 
-use cli_test_dir::*;
 use difference::assert_diff;
 use std::{fs, process::Stdio};
 
@@ -9,7 +8,7 @@ use super::*;
 #[test]
 #[ignore]
 fn cp_csv_to_postgres_to_gs_to_csv() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_postgres_to_gs_to_csv");
+    let testdir = crate::test_dir::new("cp_csv_to_postgres_to_gs_to_csv");
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
     let expected_schema = testdir.src_path("fixtures/many_types_expected.sql");
@@ -116,7 +115,7 @@ fn cp_csv_to_postgres_to_gs_to_csv() {
 #[test]
 #[ignore]
 fn cp_tricky_column_names_fails() {
-    let testdir = TestDir::new("dbcrossbar", "cp_tricky_column_names");
+    let testdir = crate::test_dir::new("cp_tricky_column_names");
     let src = testdir.src_path("fixtures/tricky_column_names.csv");
     let schema = testdir.src_path("fixtures/tricky_column_names.sql");
     let pg_table = post_test_table_url("testme1.cp_tricky_column_names");

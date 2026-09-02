@@ -19,7 +19,7 @@ async fn drop_table_if_exists(
     table: &PgCreateTable,
 ) -> Result<()> {
     debug!("deleting table {} if exists", table.name.quoted(),);
-    let drop_sql = format!("DROP TABLE IF EXISTS {}", &table.name.quoted());
+    let drop_sql = format!("DROP TABLE IF EXISTS {}", table.name.quoted());
     let drop_stmt = client.prepare(&drop_sql).await?;
     client
         .execute(&drop_stmt, &[])
@@ -71,7 +71,7 @@ async fn create_table(client: &mut Client, schema: &PgSchema) -> Result<()> {
     client
         .execute(&create_stmt, &[])
         .await
-        .with_context(|| format!("error creating {}", &table.name.quoted()))?;
+        .with_context(|| format!("error creating {}", table.name.quoted()))?;
     Ok(())
 }
 

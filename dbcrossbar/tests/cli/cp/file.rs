@@ -26,7 +26,7 @@ fn cp_from_jsonl_to_exact_csv() {
 
 #[test]
 fn cp_csv_to_csvs() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_csv");
+    let testdir = crate::test_dir::new("cp_csv_to_csv");
     let schema = testdir.src_path("fixtures/concat.sql");
     let src = testdir.src_path("fixtures/example.csv");
     testdir
@@ -42,7 +42,7 @@ fn cp_csv_to_csvs() {
 
 #[test]
 fn cp_csvs_to_csv() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csvs_to_csv");
+    let testdir = crate::test_dir::new("cp_csvs_to_csv");
     let schema = testdir.src_path("fixtures/concat.sql");
     let concat_in = testdir.src_path("fixtures/concat_in");
     let concat_out = testdir.src_path("fixtures/concat_out.csv");
@@ -59,7 +59,7 @@ fn cp_csvs_to_csv() {
 
 #[test]
 fn cp_csv_to_csv_piped() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_csv");
+    let testdir = crate::test_dir::new("cp_csv_to_csv");
     let schema = testdir.src_path("fixtures/example.sql");
     let output = testdir
         .cmd()
@@ -76,7 +76,7 @@ fn cp_csv_to_csv_piped() {
 
 #[test]
 fn cp_jsonl_to_csv() {
-    let testdir = TestDir::new("dbcrossbar", "cp_jsonl_to_csv");
+    let testdir = crate::test_dir::new("cp_jsonl_to_csv");
     let input = testdir.src_path("fixtures/json/input.jsonl");
     let schema = testdir.src_path("fixtures/exact_output.sql");
     let output = testdir
@@ -96,7 +96,7 @@ fn cp_jsonl_to_csv() {
 
 #[test]
 fn cp_jsonl_to_csv_piped() {
-    let testdir = TestDir::new("dbcrossbar", "cp_jsonl_to_csv");
+    let testdir = crate::test_dir::new("cp_jsonl_to_csv");
     let input_path = testdir.src_path("fixtures/json/input.jsonl");
     let input = fs::read_to_string(input_path).unwrap();
     let schema = testdir.src_path("fixtures/exact_output.sql");
@@ -118,7 +118,7 @@ fn cp_jsonl_to_csv_piped() {
 
 #[test]
 fn cp_csv_to_jsonl_file() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_jsonl_file");
+    let testdir = crate::test_dir::new("cp_csv_to_jsonl_file");
     let input = testdir.src_path("fixtures/example.csv");
     let schema = testdir.src_path("fixtures/example.sql");
     testdir
@@ -137,7 +137,7 @@ fn cp_csv_to_jsonl_file() {
 
 #[test]
 fn cp_csv_to_jsonl_dir() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_jsonl_dir");
+    let testdir = crate::test_dir::new("cp_csv_to_jsonl_dir");
     let input = testdir.src_path("fixtures/example.csv");
     let schema = testdir.src_path("fixtures/example.sql");
     testdir
@@ -156,7 +156,7 @@ fn cp_csv_to_jsonl_dir() {
 
 #[test]
 fn cp_csv_to_jsonl_piped() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_jsonl_fails_for_now");
+    let testdir = crate::test_dir::new("cp_csv_jsonl_fails_for_now");
     let input = testdir.src_path("fixtures/example.csv");
     let schema = testdir.src_path("fixtures/example.sql");
     let output = testdir

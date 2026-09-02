@@ -1,6 +1,5 @@
 //! Postgres-specific tests.
 
-use cli_test_dir::*;
 use difference::assert_diff;
 use std::{fs, path::Path, process::Command};
 
@@ -21,7 +20,7 @@ fn cp_from_postgres_to_exact_csv() {
 #[test]
 #[ignore]
 fn cp_csv_to_postgres_append() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_postgres_append");
+    let testdir = crate::test_dir::new("cp_csv_to_postgres_append");
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
     let pg_table = post_test_table_url("cp_csv_to_postgres_append");
@@ -56,7 +55,7 @@ fn cp_csv_to_postgres_append() {
 #[test]
 #[ignore]
 fn cp_from_postgres_with_where() {
-    let testdir = TestDir::new("dbcrossbar", "cp_from_postgres_with_where");
+    let testdir = crate::test_dir::new("cp_from_postgres_with_where");
     let src = testdir.src_path("fixtures/posts.csv");
     let filtered = testdir.src_path("fixtures/posts_where_author_id_1.csv");
     let schema = testdir.src_path("fixtures/posts.sql");
@@ -99,7 +98,7 @@ fn cp_from_postgres_with_where() {
 #[test]
 #[ignore]
 fn postgres_upsert() {
-    let testdir = TestDir::new("dbcrossbar", "postgres_upsert");
+    let testdir = crate::test_dir::new("postgres_upsert");
     let srcs = &[
         testdir.src_path("fixtures/upsert/upsert_1.csv"),
         testdir.src_path("fixtures/upsert/upsert_2.csv"),
@@ -163,7 +162,7 @@ fn postgres_upsert() {
 #[test]
 #[ignore]
 fn cp_pg_append_upsert_legacy_json() {
-    let testdir = TestDir::new("dbcrossbar", "cp_from_postgres_with_where");
+    let testdir = crate::test_dir::new("cp_from_postgres_with_where");
     let src = testdir.src_path("fixtures/legacy_json.csv");
     let schema = testdir.src_path("fixtures/legacy_json.sql");
     let pg_table = post_test_table_url("legacy_json");
@@ -230,7 +229,7 @@ fn cp_pg_append_upsert_legacy_json() {
 #[test]
 #[ignore]
 fn cp_pg_time_types_converted_to_text() {
-    let testdir = TestDir::new("dbcrossbar", "cp_pg_time_types_converted_to_text");
+    let testdir = crate::test_dir::new("cp_pg_time_types_converted_to_text");
     let pg_table = post_test_table_url("pg_time_types");
 
     // Create a database table manually with TIME types.
@@ -294,7 +293,7 @@ fn cp_pg_time_types_converted_to_text() {
 #[test]
 #[ignore]
 fn cp_pg_tricky_column_types() {
-    let testdir = TestDir::new("dbcrossbar", "cp_pg_tricky_column_types");
+    let testdir = crate::test_dir::new("cp_pg_tricky_column_types");
     let src = testdir.src_path("fixtures/more_pg_types.csv");
     let schema = testdir.src_path("fixtures/more_pg_types.sql");
     let pg_table = post_test_table_url("more_pg_types");

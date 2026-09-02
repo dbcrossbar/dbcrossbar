@@ -8,7 +8,7 @@ use super::cp::*;
 #[test]
 #[ignore]
 fn count_bigquery() {
-    let testdir = TestDir::new("dbcrossbar", "count_bigquery");
+    let testdir = crate::test_dir::new("count_bigquery");
     let src = testdir.src_path("fixtures/posts.csv");
     let schema = testdir.src_path("fixtures/posts.sql");
     let gs_temp_dir = gs_test_dir_url("count_bigquery");
@@ -43,7 +43,7 @@ fn count_bigquery() {
 #[test]
 #[ignore]
 fn count_postgres() {
-    let testdir = TestDir::new("dbcrossbar", "count_postgres");
+    let testdir = crate::test_dir::new("count_postgres");
     let src = testdir.src_path("fixtures/posts.csv");
     let schema = testdir.src_path("fixtures/posts.sql");
     let pg_table = post_test_table_url("count_postgres");
@@ -75,7 +75,7 @@ fn count_postgres() {
 #[ignore]
 fn count_trino() {
     for conn in ConnectorType::all_testable() {
-        let testdir = TestDir::new("dbcrossbar", "count_trino");
+        let testdir = crate::test_dir::new("count_trino");
         let src = testdir.src_path("fixtures/posts.csv");
         let schema = testdir.src_path("fixtures/posts.sql");
         let s3_temp_dir = s3_test_dir_url("count_trino");

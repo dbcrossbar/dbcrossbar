@@ -10,7 +10,7 @@ const EXAMPLE_CSV: &str = include_str!("../../../fixtures/example.csv");
 
 #[test]
 fn cp_csv_to_csvs() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_csv");
+    let testdir = crate::test_dir::new("cp_csv_to_csv");
     let src = testdir.src_path("fixtures/example.csv");
     testdir
         .cmd()
@@ -24,7 +24,7 @@ fn cp_csv_to_csvs() {
 
 #[test]
 fn cp_csvs_to_csv() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csvs_to_csv");
+    let testdir = crate::test_dir::new("cp_csvs_to_csv");
     let schema = testdir.src_path("fixtures/concat.sql");
     let concat_in = testdir.src_path("fixtures/concat_in");
     let concat_out = testdir.src_path("fixtures/concat_out.csv");
@@ -41,7 +41,7 @@ fn cp_csvs_to_csv() {
 
 #[test]
 fn cp_csv_to_csv_piped() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_csv");
+    let testdir = crate::test_dir::new("cp_csv_to_csv");
     let schema = testdir.src_path("fixtures/example.sql");
     let output = testdir
         .cmd()

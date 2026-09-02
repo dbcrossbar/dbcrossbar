@@ -1,6 +1,5 @@
 //! BigQuery-specific tests.
 
-use cli_test_dir::*;
 use difference::assert_diff;
 use pretty_assertions::assert_eq;
 use rand::distr::Alphanumeric;
@@ -36,7 +35,7 @@ fn cp_from_bigquery_to_exact_csv() {
 #[test]
 #[ignore]
 fn cp_from_bigquery_with_where() {
-    let testdir = TestDir::new("dbcrossbar", "cp_from_bigquery_with_where");
+    let testdir = crate::test_dir::new("cp_from_bigquery_with_where");
     let src = testdir.src_path("fixtures/posts.csv");
     let filtered = testdir.src_path("fixtures/posts_where_author_id_1.csv");
     let schema = testdir.src_path("fixtures/posts.sql");
@@ -83,7 +82,7 @@ fn cp_from_bigquery_with_where() {
 #[test]
 #[ignore]
 fn cp_csv_to_bigquery_to_csv() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_bigquery_to_csv");
+    let testdir = crate::test_dir::new("cp_csv_to_bigquery_to_csv");
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
     let bq_temp_ds = bq_temp_dataset();
@@ -125,7 +124,7 @@ fn cp_csv_to_bigquery_to_csv() {
 #[test]
 #[ignore]
 fn cp_bigquery_if_exists_error() {
-    let testdir = TestDir::new("dbcrossbar", "cp_bigquery_if_exists_error");
+    let testdir = crate::test_dir::new("cp_bigquery_if_exists_error");
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
     let bq_temp_ds = bq_temp_dataset();
@@ -169,7 +168,7 @@ fn cp_bigquery_if_exists_error() {
 #[test]
 #[ignore]
 fn cp_more_bigquery_types() {
-    let testdir = TestDir::new("dbcrossbar", "cp_more_bigquery_types");
+    let testdir = crate::test_dir::new("cp_more_bigquery_types");
     let src = testdir.src_path("fixtures/more_bq_types.csv");
     let schema = testdir.src_path("fixtures/more_bq_types.sql");
     let bq_temp_ds = bq_temp_dataset();
@@ -212,7 +211,7 @@ fn cp_more_bigquery_types() {
 #[test]
 #[ignore]
 fn bigquery_record_columns() {
-    let testdir = TestDir::new("dbcrossbar", "bigquery_record_columns");
+    let testdir = crate::test_dir::new("bigquery_record_columns");
     let bq_temp_ds = bq_temp_dataset();
     let gs_temp_dir = gs_test_dir_url("bigquery_record_columns_to_json");
 
@@ -276,7 +275,7 @@ create table {dataset_name}.{table_name} AS (
 #[test]
 #[ignore]
 fn bigquery_upsert() {
-    let testdir = TestDir::new("dbcrossbar", "bigquery_upsert");
+    let testdir = crate::test_dir::new("bigquery_upsert");
     let srcs = &[
         testdir.src_path("fixtures/upsert/upsert_1.csv"),
         testdir.src_path("fixtures/upsert/upsert_2.csv"),
@@ -341,8 +340,7 @@ fn bigquery_upsert() {
 #[test]
 #[ignore]
 fn bigquery_honors_not_null_for_complex_inserts() {
-    let testdir =
-        TestDir::new("dbcrossbar", "bigquery_honors_not_null_for_complex_inserts");
+    let testdir = crate::test_dir::new("bigquery_honors_not_null_for_complex_inserts");
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
     let bq_temp_ds = bq_temp_dataset();
@@ -377,7 +375,7 @@ fn bigquery_honors_not_null_for_complex_inserts() {
 #[test]
 #[ignore]
 fn bigquery_roundtrips_structs() {
-    let testdir = TestDir::new("dbcrossbar", "bigquery_roundtrips_structs");
+    let testdir = crate::test_dir::new("bigquery_roundtrips_structs");
     let raw_src_path = testdir.src_path("fixtures/structs/struct.json");
     let src = testdir.path("structs.csv");
     let raw_data_type_path =
@@ -398,7 +396,7 @@ fn bigquery_roundtrips_structs() {
         escaped = raw_src.replace('\n', " ").replace('"', "\"\""),
     );
     let mut src_wtr = fs::File::create(&src).unwrap();
-    write!(&mut src_wtr, "{}", &src_data).unwrap();
+    write!(&mut src_wtr, "{}", src_data).unwrap();
     src_wtr.flush().unwrap();
     drop(src_wtr);
 
@@ -507,7 +505,7 @@ fn bigquery_roundtrips_structs() {
 #[test]
 #[ignore]
 fn cp_csv_to_bigquery_invalid_date_fails() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_bigquery_invalid_date_fails");
+    let testdir = crate::test_dir::new("cp_csv_to_bigquery_invalid_date_fails");
     let src = testdir.src_path("fixtures/invalid_date.csv");
     let schema = testdir.src_path("fixtures/invalid_date.sql");
     let bq_temp_ds = bq_temp_dataset();

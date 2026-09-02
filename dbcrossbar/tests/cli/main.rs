@@ -6,3 +6,4 @@ pub(crate) mod about;
 pub(crate) mod conv;
 pub(crate) mod count;
 pub(crate) mod cp;
+pub(crate) mod test_dir;

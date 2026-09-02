@@ -17,7 +17,7 @@ fn cp_from_gs_to_exact_csv() {
 #[test]
 #[ignore]
 fn cp_to_single_gs_csv() {
-    let testdir = TestDir::new("dbcrossbar", "cp_to_single_gs_csv");
+    let testdir = crate::test_dir::new("cp_to_single_gs_csv");
     let src = testdir.src_path("fixtures/posts.csv");
     let schema = testdir.src_path("fixtures/posts.sql");
     let gs_out_dir = gs_test_dir_url("cp_to_single_gs_csv_output");
@@ -57,7 +57,7 @@ fn cp_to_single_gs_csv() {
 #[test]
 #[ignore]
 fn cp_bigquery_single_gs_csv() {
-    let testdir = TestDir::new("dbcrossbar", "cp_bigquery_single_gs_csv");
+    let testdir = crate::test_dir::new("cp_bigquery_single_gs_csv");
     let src = testdir.src_path("fixtures/posts.csv");
     let schema = testdir.src_path("fixtures/posts.sql");
     let gs_temp_dir = gs_test_dir_url("cp_bigquery_single_gs_csv");

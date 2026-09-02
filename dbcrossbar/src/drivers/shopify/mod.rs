@@ -19,9 +19,13 @@ pub(crate) struct ShopifyLocator {
 impl ShopifyLocator {
     /// Convert this locator to a `https` URL.
     fn to_https_url(&self) -> Result<Url> {
-        assert!(self.url.as_str().starts_with(Self::scheme()));
-        let https_str =
-            format!("https:{}", &self.url.as_str()[Self::scheme().len()..]);
+        let https_str = format!(
+            "https:{}",
+            self.url
+                .as_str()
+                .strip_prefix(Self::scheme())
+                .expect("ShopifyLocator URL starts with its scheme"),
+        );
         let https_url = https_str
             .parse::<Url>()
             .with_context(|| format_err!("could not set URL scheme for {}", self))?;

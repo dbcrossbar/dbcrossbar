@@ -328,7 +328,7 @@ mod test {
 
         // Now try writing and re-reading.
         let mut out = vec![];
-        write!(&mut out, "{}", &pg_schema).expect("error writing table");
+        write!(&mut out, "{}", pg_schema).expect("error writing table");
         let pg_parsed_again =
             PgSchema::parse("test.sql".to_owned(), String::from_utf8(out).unwrap())
                 .expect("error re-parsing table");

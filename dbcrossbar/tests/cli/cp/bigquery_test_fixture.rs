@@ -18,7 +18,7 @@ fn cp_from_bigquery_test_fixture_to_exact_csv() {
 #[test]
 #[ignore]
 fn cp_csv_to_bigquery_test_fixture_to_csv() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_bigquery_test_fixture_to_csv");
+    let testdir = crate::test_dir::new("cp_csv_to_bigquery_test_fixture_to_csv");
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
     let bq_temp_ds = bq_temp_dataset();
@@ -61,8 +61,7 @@ fn cp_csv_to_bigquery_test_fixture_to_csv() {
 #[test]
 #[ignore]
 fn bigquery_test_fixture_load_single_column() {
-    let testdir =
-        TestDir::new("dbcrossbar", "bigquery_test_fixture_load_single_column");
+    let testdir = crate::test_dir::new("bigquery_test_fixture_load_single_column");
     let src = testdir.src_path("fixtures/bigquery_test_fixture/single_column.csv");
     let schema = testdir.src_path("fixtures/bigquery_test_fixture/single_column.sql");
     let bq_temp_ds = bq_temp_dataset();
@@ -103,8 +102,7 @@ fn bigquery_test_fixture_load_single_column() {
 #[test]
 #[ignore]
 fn bigquery_test_fixture_load_with_empty_array() {
-    let testdir =
-        TestDir::new("dbcrossbar", "bigquery_test_fixture_load_with_empty_array");
+    let testdir = crate::test_dir::new("bigquery_test_fixture_load_with_empty_array");
     let src = testdir.src_path("fixtures/bigquery_test_fixture/empty_array.csv");
     let schema = testdir.src_path("fixtures/bigquery_test_fixture/empty_array.sql");
     let bq_temp_ds = bq_temp_dataset();

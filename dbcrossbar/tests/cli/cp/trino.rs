@@ -37,7 +37,7 @@ fn cp_csv_to_trino_to_csv_helper(
     schema_path: &str,
 ) {
     for conn in ConnectorType::all_testable() {
-        let testdir = TestDir::new("dbcrossbar", test_name);
+        let testdir = crate::test_dir::new(test_name);
         let src = testdir.src_path(csv_path);
         let schema = testdir.src_path(schema_path);
         let s3_temp_dir = s3_test_dir_url(test_name);
@@ -115,7 +115,7 @@ fn cp_csv_to_trino_to_csv_complex() {
 #[ignore]
 fn cp_from_trino_with_where() {
     for conn in ConnectorType::all_testable() {
-        let testdir = TestDir::new("dbcrossbar", "cp_from_trino_with_where");
+        let testdir = crate::test_dir::new("cp_from_trino_with_where");
         let src = testdir.src_path("fixtures/posts.csv");
         let filtered = testdir.src_path("fixtures/posts_where_author_id_1.csv");
         let schema = testdir.src_path("fixtures/posts.sql");
@@ -172,7 +172,7 @@ fn trino_upsert() {
             continue;
         }
 
-        let testdir = TestDir::new("dbcrossbar", "bigquery_upsert");
+        let testdir = crate::test_dir::new("bigquery_upsert");
         let srcs = &[
             testdir.src_path("fixtures/upsert/upsert_1.csv"),
             testdir.src_path("fixtures/upsert/upsert_2.csv"),
@@ -237,7 +237,7 @@ fn trino_upsert() {
 #[ignore]
 fn schema_conv_on_trino_table() {
     for conn in ConnectorType::all_testable() {
-        let testdir = TestDir::new("dbcrossbar", "schema_conv_on_trino_table");
+        let testdir = crate::test_dir::new("schema_conv_on_trino_table");
         let schema = testdir.src_path("fixtures/many_types.sql");
         let expected = testdir.src_path("fixtures/trino/many_types_expected.sql");
         let trino_table = trino_test_table(&conn, "schema_conv_on_trino_table");

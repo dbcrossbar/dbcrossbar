@@ -125,7 +125,7 @@ pub(crate) fn trino_test_table(
 
 #[test]
 fn cp_help_flag() {
-    let testdir = TestDir::new("dbcrossbar", "cp_help_flag");
+    let testdir = crate::test_dir::new("cp_help_flag");
     let output = testdir.cmd().args(["cp", "--help"]).expect_success();
     assert!(output.stdout_str().contains("EXAMPLE LOCATORS:"));
 }
@@ -213,7 +213,7 @@ pub(crate) fn assert_cp_to_exact_csv(
     temp_types: BigEnumSet<TempType>,
     options: BigEnumSet<AssertCpToExactCsvOptions>,
 ) {
-    let testdir = TestDir::new("dbcrossbar", test_name);
+    let testdir = crate::test_dir::new(test_name);
     let src = testdir.src_path("fixtures/exact_output.csv");
     let schema = testdir.src_path("fixtures/exact_output.sql");
 

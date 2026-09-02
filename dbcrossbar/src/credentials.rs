@@ -261,7 +261,7 @@ impl EnvCredentialsSource {
 impl fmt::Display for EnvCredentialsSource {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.mapping.len() == 1 {
-            writeln!(f, "- The environment variable {}", &self.mapping[0])
+            writeln!(f, "- The environment variable {}", self.mapping[0])
         } else {
             writeln!(
                 f,

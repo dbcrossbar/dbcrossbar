@@ -1,6 +1,5 @@
 //! S3-specific tests.
 
-use cli_test_dir::*;
 use difference::assert_diff;
 use std::fs;
 
@@ -21,7 +20,7 @@ fn cp_from_s3_to_exact_csv() {
 #[test]
 #[ignore]
 fn cp_csv_to_s3_to_csv() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_s3_to_csv");
+    let testdir = crate::test_dir::new("cp_csv_to_s3_to_csv");
     let src = testdir.src_path("fixtures/many_types.csv");
     let schema = testdir.src_path("fixtures/many_types.sql");
     let s3_dir = s3_test_dir_url("cp_csv_to_s3_to_csv");

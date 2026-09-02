@@ -173,7 +173,7 @@ impl PgCreateTable {
             write!(f, "{}", sep.display())?;
             col.write_export_select_expr(f)?;
         }
-        write!(f, " FROM {}", &self.name.quoted())?;
+        write!(f, " FROM {}", self.name.quoted())?;
         if let Some(where_clause) = source_args.where_clause() {
             write!(f, " WHERE ({})", where_clause)?;
         }
@@ -187,7 +187,7 @@ impl PgCreateTable {
         source_args: &SourceArguments<Verified>,
     ) -> Result<()> {
         writeln!(f, "SELECT COUNT(*)")?;
-        writeln!(f, " FROM {}", &self.name.quoted())?;
+        writeln!(f, " FROM {}", self.name.quoted())?;
         if let Some(where_clause) = source_args.where_clause() {
             writeln!(f, " WHERE ({})", where_clause)?;
         }
@@ -205,7 +205,7 @@ impl fmt::Display for PgCreateTable {
         if self.if_not_exists {
             write!(f, " IF NOT EXISTS")?;
         }
-        writeln!(f, " {} (", &self.name.quoted())?;
+        writeln!(f, " {} (", self.name.quoted())?;
         for (idx, col) in self.columns.iter().enumerate() {
             write!(f, "    {}", col)?;
             if idx + 1 == self.columns.len() {

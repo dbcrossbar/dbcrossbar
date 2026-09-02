@@ -1,6 +1,5 @@
 //! Shopify-specific tests.
 
-use cli_test_dir::*;
 use std::env;
 
 use super::*;
@@ -14,7 +13,7 @@ fn cp_shopify_to_bigquery() {
         return;
     }
 
-    let testdir = TestDir::new("dbcrossbar", "cp_shopify_to_bigquery");
+    let testdir = crate::test_dir::new("cp_shopify_to_bigquery");
     let shop = env::var("SHOPIFY_SHOP").unwrap();
     let src = format!(
         "shopify://{}/admin/api/2020-04/orders.json?status=any",

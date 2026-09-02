@@ -1,6 +1,7 @@
 //! A CLI tool for converting between table schema formats.
 
 #![forbid(unsafe_code)]
+#![recursion_limit = "256"]
 #![warn(
     missing_docs,
     unused_extern_crates,

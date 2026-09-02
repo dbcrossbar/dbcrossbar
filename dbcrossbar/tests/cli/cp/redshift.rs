@@ -1,6 +1,5 @@
 //! RedShift-specific tests.
 
-use cli_test_dir::*;
 use difference::assert_diff;
 use std::{fs, path::Path};
 
@@ -13,7 +12,7 @@ use super::*;
 #[test]
 #[ignore]
 fn cp_csv_to_redshift_to_csv() {
-    let testdir = TestDir::new("dbcrossbar", "cp_csv_to_redshift_to_csv");
+    let testdir = crate::test_dir::new("cp_csv_to_redshift_to_csv");
     let src = testdir.src_path("fixtures/redshift_types.csv");
     let schema = testdir.src_path("fixtures/redshift_types.sql");
     let s3_dir = s3_test_dir_url("cp_csv_to_redshift_to_csv");
@@ -88,7 +87,7 @@ fn cp_csv_to_redshift_to_csv() {
 #[test]
 #[ignore]
 fn redshift_upsert() {
-    let testdir = TestDir::new("dbcrossbar", "redshift_upsert");
+    let testdir = crate::test_dir::new("redshift_upsert");
     let srcs = &[
         testdir.src_path("fixtures/redshift_upsert/upsert_1.csv"),
         testdir.src_path("fixtures/redshift_upsert/upsert_2.csv"),

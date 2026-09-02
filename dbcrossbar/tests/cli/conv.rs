@@ -16,7 +16,7 @@ const INPUT_SQL: &str =
 
 #[test]
 fn conv_help_flag() {
-    let testdir = TestDir::new("dbcrossbar", "conv_help_flag");
+    let testdir = crate::test_dir::new("conv_help_flag");
     let output = testdir
         .cmd()
         .args(["schema", "conv", "--help"])
@@ -26,7 +26,7 @@ fn conv_help_flag() {
 
 #[test]
 fn conv_pg_sql_to_pg_sql() {
-    let testdir = TestDir::new("dbcrossbar", "conv_pg_sql_to_pg_sql");
+    let testdir = crate::test_dir::new("conv_pg_sql_to_pg_sql");
     let output = testdir
         .cmd()
         .args(["schema", "conv", "postgres-sql:-", "postgres-sql:-"])
@@ -37,7 +37,7 @@ fn conv_pg_sql_to_pg_sql() {
 
 #[test]
 fn conv_pg_sql_to_dbcrossbar_schema_to_pg_sql() {
-    let testdir = TestDir::new("dbcrossbar", "conv_pg_sql_to_pg_sql");
+    let testdir = crate::test_dir::new("conv_pg_sql_to_pg_sql");
     let output1 = testdir
         .cmd()
         .args(["schema", "conv", "postgres-sql:-", "dbcrossbar-schema:-"])
@@ -61,7 +61,7 @@ fn conv_pg_sql_to_dbcrossbar_schema_to_pg_sql() {
 
 #[test]
 fn conv_csv_to_pg_sql() {
-    let testdir = TestDir::new("dbcrossbar", "conv_csv_to_pg_sql");
+    let testdir = crate::test_dir::new("conv_csv_to_pg_sql");
     let src = testdir.src_path("fixtures/example.csv");
     let output = testdir
         .cmd()
@@ -81,7 +81,7 @@ fn conv_csv_to_pg_sql() {
 
 #[test]
 fn conv_file_csv_to_pg_sql() {
-    let testdir = TestDir::new("dbcrossbar", "conv_file_csv_to_pg_sql");
+    let testdir = crate::test_dir::new("conv_file_csv_to_pg_sql");
     let src = testdir.src_path("fixtures/example.csv");
     let output = testdir
         .cmd()
@@ -101,7 +101,7 @@ fn conv_file_csv_to_pg_sql() {
 
 #[test]
 fn conv_pg_sql_to_bq_schema() {
-    let testdir = TestDir::new("dbcrossbar", "conv_pg_sql_to_bq_schema");
+    let testdir = crate::test_dir::new("conv_pg_sql_to_bq_schema");
     let output = testdir
         .cmd()
         .args(["schema", "conv", "postgres-sql:-", "bigquery-schema:-"])
@@ -113,7 +113,7 @@ fn conv_pg_sql_to_bq_schema() {
 
 #[test]
 fn conv_bq_schema_to_pg_sql() {
-    let testdir = TestDir::new("dbcrossbar", "conv_bq_schema_to_pg_sql");
+    let testdir = crate::test_dir::new("conv_bq_schema_to_pg_sql");
     let input_json = testdir.src_path("fixtures/bigquery_schema.json");
     let expected_sql = testdir.src_path("fixtures/bigquery_schema_converted.sql");
     testdir
@@ -131,7 +131,7 @@ fn conv_bq_schema_to_pg_sql() {
 
 #[test]
 fn conv_ts_to_portable() {
-    let testdir = TestDir::new("dbcrossbar", "conv_ts_to_portable");
+    let testdir = crate::test_dir::new("conv_ts_to_portable");
     let input_ts = testdir.src_path("fixtures/dbcrossbar_ts/shapes.ts");
     let output_json = testdir.path("output.json");
     let expected_json = testdir.src_path("fixtures/dbcrossbar_ts/shapes.json");
@@ -155,7 +155,7 @@ fn conv_ts_to_portable() {
 
 #[test]
 fn conv_old_dbcrossbar_schema_to_new() {
-    let testdir = TestDir::new("dbcrossbar", "conv_old_dbcrossbar_schema_to_new");
+    let testdir = crate::test_dir::new("conv_old_dbcrossbar_schema_to_new");
 
     static INPUT: &str = r#"
 {
@@ -205,7 +205,7 @@ fn conv_old_dbcrossbar_schema_to_new() {
 
 #[test]
 fn conv_bigquery_schema_to_trino_sql() {
-    let testdir = TestDir::new("dbcrossbar", "conv_bigquery_schema_to_trino_sql");
+    let testdir = crate::test_dir::new("conv_bigquery_schema_to_trino_sql");
     let input_json = testdir.src_path("fixtures/bigquery_schema.json");
     let expected_sql = testdir.src_path("fixtures/trino/from_bigquery.sql");
     testdir
@@ -225,7 +225,7 @@ fn conv_bigquery_schema_to_trino_sql() {
 
 #[test]
 fn conv_postgres_schema_to_trino_sql() {
-    let testdir = TestDir::new("dbcrossbar", "conv_postgres_schema_to_trino_sql");
+    let testdir = crate::test_dir::new("conv_postgres_schema_to_trino_sql");
     let input_sql = INPUT_SQL;
     let expected_sql = testdir.src_path("fixtures/trino/from_postgres.sql");
     testdir
@@ -246,7 +246,7 @@ fn conv_postgres_schema_to_trino_sql() {
 
 #[test]
 fn conv_dbcrossbar_schema_to_trino_sql() {
-    let testdir = TestDir::new("dbcrossbar", "conv_dbcrossbar_schema_to_trino_sql");
+    let testdir = crate::test_dir::new("conv_dbcrossbar_schema_to_trino_sql");
     let input_json = testdir.src_path("fixtures/dbcrossbar_schema.json");
     let expected_sql = testdir.src_path("fixtures/trino/from_dbcrossbar.sql");
     testdir
@@ -266,7 +266,7 @@ fn conv_dbcrossbar_schema_to_trino_sql() {
 
 #[test]
 fn conv_trino_sql_to_dbcrossbar_schema() {
-    let testdir = TestDir::new("dbcrossbar", "conv_trino_sql_to_dbcrossbar_schema");
+    let testdir = crate::test_dir::new("conv_trino_sql_to_dbcrossbar_schema");
     let input_sql = testdir.src_path("fixtures/trino/schema.sql");
     let output_json = testdir.path("output.json");
     let expected_json =
