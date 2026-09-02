@@ -116,7 +116,7 @@ impl Client {
             .map(str::to_string)
             .chain(extra_scopes.iter().cloned())
             .collect::<Vec<_>>();
-        let authenticator = authenticator().await?;
+        let authenticator = authenticator(&scopes).await?;
         let client = reqwest::Client::new();
         Ok(Client {
             scopes,

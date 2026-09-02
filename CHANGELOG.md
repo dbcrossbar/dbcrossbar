@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - postgres: Fixed GeoJSON export to suppress CRS information in output for consistent round-trip behavior with CSV files.
 
+## [1.1.0-pre.2] - 2026-09-01
+
+### Changed
+
+- gcloud: Authenticate with Google's `google-cloud-auth` crate and Application Default Credentials. `GOOGLE_APPLICATION_CREDENTIALS` now accepts every ADC credential type, including `impersonated_service_account` and `external_account`. A missing or unparseable credentials file is an error. dbcrossbar no longer runs the `gcloud` CLI to obtain tokens. The `GCLOUD_SERVICE_ACCOUNT_KEY` / `gcloud_service_account_key.json` override is unchanged.
+
 ## [1.1.0-pre.1] - 2025-11-30
 
 ### Changed
