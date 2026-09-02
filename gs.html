@@ -180,11 +180,18 @@
 </ul>
 <p>At this point, we do not support single-file output to a cloud bucket. This is relatively easy to add, but has not yet been implemented.</p>
 <h2 id="configuration--authentication"><a class="header" href="#configuration--authentication">Configuration &amp; authentication</a></h2>
-<p>You can authenticate using either a client secret or a service key, which you can create using the <a href="https://console.cloud.google.com/apis/credentials">console credentials page</a>.</p>
+<p><code>dbcrossbar</code> uses Google's Application Default Credentials, the same search order as Google's official client libraries. It does not run the <code>gcloud</code> CLI.</p>
+<ol>
+<li>If a dbcrossbar service account key is configured, that key is used. Set <code>GCLOUD_SERVICE_ACCOUNT_KEY</code> to the JSON, or place the JSON in <code>$DBCROSSBAR_CONFIG_DIR/gcloud_service_account_key.json</code>. This is the documented path for servers and containers that already ship a service account key to dbcrossbar.</li>
+<li>Otherwise credentials come from Application Default Credentials:
 <ul>
-<li>Client secrets can be stored in <code>$DBCROSSBAR_CONFIG_DIR/gcloud_client_secret.json</code> or in <code>GCLOUD_CLIENT_SECRET</code>. These are strongly recommended for interactive use.</li>
-<li>Service account keys can be stored in <code>$DBCROSSBAR_CONFIG_DIR/gcloud_service_account_key.json</code> or in <code>GCLOUD_SERVICE_ACCOUNT_KEY</code>. These are recommended for server and container use.</li>
+<li><code>GOOGLE_APPLICATION_CREDENTIALS</code>, if set, must point at a readable credentials file. Supported <code>type</code> values include <code>service_account</code>, <code>authorized_user</code>, <code>impersonated_service_account</code> (for example <code>gcloud auth application-default login --impersonate-service-account</code>), and <code>external_account</code> (for example GitHub's <code>google-github-actions/auth</code>). A missing or unparseable file is an error; dbcrossbar will not fall through to another source.</li>
+<li>If that variable is unset, the well-known ADC file is used (<code>~/.config/gcloud/application_default_credentials.json</code> on Linux and macOS).</li>
+<li>If that file is also absent, credentials come from the GCE or GKE metadata server.</li>
 </ul>
+</li>
+</ol>
+<p>Run with <code>RUST_LOG=debug</code> to see which source was selected. The log names the credentials file and its JSON <code>type</code> when a file is used. It does not log key material or tokens.</p>
 <p>For more information on <code>DBCROSSBAR_CONFIG_DIR</code>, see <a href="./config.html">Configuration</a>.</p>
 <p>For a service account, you can use the following permissions:</p>
 <ul>
