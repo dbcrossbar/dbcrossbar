@@ -25,13 +25,11 @@
 // if we wanted.
 #![allow(clippy::unnecessary_wraps)]
 
-use std::env;
-
 use anyhow::{Error, Result};
 use clap::Parser;
 use futures::try_join;
-use opinionated_telemetry::{set_parent_span_from_env, TelemetryConfig};
 use tracing::{debug, info_span};
+use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
 use self::config::Configuration;
 
@@ -96,7 +94,6 @@ pub(crate) mod common {
         join, stream, try_join, Future, FutureExt, Stream, StreamExt, TryFutureExt,
         TryStreamExt,
     };
-    pub(crate) use metrics::{counter, describe_counter, Unit};
     pub(crate) use std::{
         any::Any,
         convert::{TryFrom, TryInto},
@@ -148,18 +145,15 @@ async fn main() -> Result<()> {
     // Install the default crypto provider for rustls.
     let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
 
-    // Configure telemetry.
-    let telemetry_handle = TelemetryConfig::new(
-        opinionated_telemetry::AppType::Cli,
-        env!("CARGO_PKG_NAME"),
-        env!("CARGO_PKG_VERSION"),
-    )
-    .install()
-    .await?;
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
+        .with_env_filter(EnvFilter::from_default_env())
+        .with_ansi(false)
+        .init();
     debug!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
     let span = info_span!("dbcrossbar", version = env!("CARGO_PKG_VERSION")).entered();
-    set_parent_span_from_env();
 
     // Parse our command-line arguments.
     let opt = cmd::Opt::parse();
@@ -181,9 +175,7 @@ async fn main() -> Result<()> {
     // Run our futures.
     let result = try_join!(cmd_fut, worker_fut);
 
-    // Shut down telemetry and return our result.
     drop(span);
-    telemetry_handle.flush_and_shutdown().await;
     result?;
     Ok(())
 }

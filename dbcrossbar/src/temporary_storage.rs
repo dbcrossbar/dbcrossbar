@@ -1,7 +1,7 @@
 //! Temporary storage management.
 
 use rand::distr::Alphanumeric;
-use rand::Rng;
+use rand::RngExt;
 use std::iter;
 
 use crate::common::*;

@@ -6,9 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.1.0-pre.3] - 2026-09-01
+
+### Removed
+
+- telemetry: Removed Prometheus, OpenTelemetry, Google Cloud Trace, and the `opinionated_telemetry` crate. Logging still uses `tracing` and `RUST_LOG`.
+
 ### Changed
 
-- telemetry: Removed Google Cloud Trace export.
+- Updated dependencies, including reqwest 0.13, geojson 1.0, rand 0.10, hmac 0.13, and syn 3.
 
 ### Fixed
 

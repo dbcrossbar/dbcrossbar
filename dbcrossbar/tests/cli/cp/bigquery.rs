@@ -4,7 +4,7 @@ use cli_test_dir::*;
 use difference::assert_diff;
 use pretty_assertions::assert_eq;
 use rand::distr::Alphanumeric;
-use rand::Rng;
+use rand::RngExt;
 use serde_json::{json, Value};
 use std::{fs, io::Write, iter, path::Path, process::Command};
 

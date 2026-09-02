@@ -4,7 +4,7 @@
 mod tests {
     use base64::{prelude::BASE64_STANDARD, Engine};
     use chrono::{DateTime, Utc};
-    use hmac::{Hmac, Mac};
+    use hmac::{Hmac, KeyInit, Mac};
     use sha1::Sha1;
 
     use crate::common::*;

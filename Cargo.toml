@@ -2,7 +2,6 @@
 members = [
     "crates/dbcrossbar_trino_macros",
     "crates/dbcrossbar_trino",
-    "crates/opinionated_telemetry",
     "dbcrossbar",
 ]
 resolver = "2"

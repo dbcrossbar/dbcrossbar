@@ -1,6 +1,6 @@
 [package]
 name = "dbcrossbar"
-version = "1.1.0-pre.2"
+version = "1.1.0-pre.3"
 authors = ["Eric Kidd <git@randomhacks.net>", "Seamus Abshere seamus@abshere.net"]
 edition = "2021"
 
@@ -24,27 +24,23 @@ dbcrossbar_trino = { version = "0.2.0", path = "../crates/dbcrossbar_trino", fea
     "macros",
 ] }
 difference = "2.0"
-opinionated_telemetry = { version = "0.2.0", path = "../crates/opinionated_telemetry", features = [
-    "sync",
-] }
 pretty_assertions = "1.4.1"
-proptest = "1.9.0"
-proptest-derive = "0.7.0"
+proptest = "1.11.0"
+proptest-derive = "0.8.0"
 scoped-env = "2"
-serial_test = "3"
+serial_test = "4"
 tempfile = "3"
-tracing-subscriber = "0.3.22"
 
 [dependencies]
-anyhow = { version = "1.0.100", features = ["backtrace"] }
-async-trait = "0.1.89"
-base64 = "0.22"
+anyhow = { version = "1.0.104", features = ["backtrace"] }
+async-trait = "0.1.92"
+base64 = "0.23"
 big_enum_set = "0.3"
 byteorder = "1.5.0"
-bytes = "1.11.0"
+bytes = "1.12.1"
 cast = "0.3.0"
-chrono = "0.4.42"
-clap = { version = "4.5.53", features = ["wrap_help", "derive"] }
+chrono = "0.4.45"
+clap = { version = "4.6.6", features = ["wrap_help", "derive"] }
 codespan-reporting = "0.13"
 crc32c = "0.6.8"
 csv = "1.4.0"
@@ -55,51 +51,48 @@ dbcrossbar_trino = { version = "0.2.0", path = "../crates/dbcrossbar_trino", fea
     "macros",
 ] }
 dirs = "6.0"
-futures = "0.3.31"
-geo-types = "0.7.17"
-geojson = { version = "0.24", features = ["geo-types"] }
+futures = "0.3.34"
+geo-types = "0.7.20"
+geojson = { version = "1.0.0", features = ["geo-types"] }
 headers = "0.4"
-http = "1.4"
+http = "1.5"
 http-body-util = "0.1"
 hex = "0.4.3"
-hmac = "0.12.1"
+hmac = "0.13.0"
 humanize-rs = "0.1.5"
-hyper = "1.8"
+hyper = "1.11"
 hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "http2", "native-tokio", "aws-lc-rs"] }
 hyper-util = { version = "0.1", features = ["client", "client-legacy", "http1", "http2"] }
 include-flate = "0.3"
-itertools = "0.14"
+itertools = "0.15"
 lazy_static = "1.5.0"
-log = "0.4.28"
-metrics = "0.24"
 mime = "0.3.17"
 opener = "0.8"
-opinionated_telemetry = { version = "0.2.0", path = "../crates/opinionated_telemetry" }
 parse_link_header = "0.4"
 peg = "0.8"
 percent-encoding = "2.3.2"
 postgis = "0.9.0"
 pretty = "0.12.5"
-rand = "0.9"
-regex = "1.12.2"
-reqwest = { version = "0.12", default-features = false, features = [
-    "rustls-tls-native-roots-no-provider",
+rand = "0.10"
+regex = "1.13.1"
+reqwest = { version = "0.13", default-features = false, features = [
+    "rustls-no-provider",
+    "http2",
     "json",
     "stream",
 ] }
 rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs", "logging", "std", "tls12"] }
 rustls-native-certs = "0.8"
-sha-1 = "0.10.1"
-sha2 = "0.10.9"
-serde = "1.0.228"
-serde_derive = "1.0.228"
-serde_json = "1.0.145"
+sha1 = "0.11"
+serde = "1.0.229"
+serde_derive = "1.0.229"
+serde_json = "1.0.151"
 serde_urlencoded = "0.7.1"
-strum = "0.27"
-strum_macros = "0.27"
+strum = "0.28"
+strum_macros = "0.28"
 tempfile = "3"
 termcolor = "1.4.1"
-tokio = { version = "1.48.0", features = [
+tokio = { version = "1.53.1", features = [
     "fs",
     "io-std",
     "io-util",
@@ -110,13 +103,14 @@ tokio = { version = "1.48.0", features = [
     "sync",
     "time",
 ] }
-tokio-postgres = "0.7.15"
-tokio-postgres-rustls = "0.13"
-tokio-stream = { version = "0.1.17", features = ["io-util"] }
+tokio-postgres = "0.7.18"
+tokio-postgres-rustls = "0.14"
+tokio-stream = { version = "0.1.19", features = ["io-util"] }
 tokio-util = { version = "0.7", features = ["codec"] }
-toml_edit = "0.23"
-tracing = "0.1.43"
-url = "2.5.7"
-uuid = "1.18"
+toml_edit = "0.25"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+url = "2.5.8"
+uuid = "1.26"
 walkdir = "2.5.0"
 google-cloud-auth = { version = "1.16", default-features = false }

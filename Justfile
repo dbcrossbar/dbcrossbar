@@ -7,9 +7,6 @@
 # Look up our version using cargo.
 VERSION := `cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "dbcrossbar") | .version'`
 
-# Look up our `opinionated_telemetry` version using cargo.
-OPINIONATED_TELEMETRY := `cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "opinionated_telemetry") | .version'`
-
 # Look up our `dbcrossbar_trino` version using cargo.
 DBCROSSBAR_TRINO := `cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "dbcrossbar_trino") | .version'`
 
@@ -54,16 +51,6 @@ version:
 # Release via GitHub only (no crates.io).
 release: check check-clean
   git tag v{{VERSION}}
-  git push
-  git push --tags
-
-# Print the current version of opinionated-tracing.
-opinionated-telemetry-version:
-    @echo "{{OPINIONATED_TELEMETRY}}"
-
-# Release opinionated_telemetry via GitHub only (no crates.io).
-release-opinionated-telemetry: check check-clean
-  git tag opinionated_telemetry_v{{OPINIONATED_TELEMETRY}}
   git push
   git push --tags
 

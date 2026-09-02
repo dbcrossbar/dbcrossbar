@@ -7,10 +7,6 @@ ignore = [
     # `difference` is unmaintained, but it works fine, and we only use it in
     # test code. I'm not convinced this is a good use of RUSTSEC advisories.
     "RUSTSEC-2020-0095",
-
-    # `proc-macro-error` is unmaintained but only used as a build-time
-    # dependency by `include-flate`. No security risk, just maintenance status.
-    "RUSTSEC-2024-0370",
 ]
 
 
